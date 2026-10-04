@@ -1,0 +1,394 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "53/59 criteria passed.  Missed 6 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 59,
+  "n_passed": 53,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Includes specific deposition questions, not just topic areas",
+      "verdict": "pass",
+      "reasoning": "The output contains an extensive examination outline with numerous specific, drafted deposition questions across multiple sections (e.g., preliminaries, policy knowledge, prior complaint, performance review, email chain, PIP, termination, comparators), not merely topic areas."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Probes premature termination before PIP period expired",
+      "verdict": "pass",
+      "reasoning": "The outline directly addresses premature termination before the PIP expired. It notes the PIP end date of March 21 and termination on March 14, includes questions asking why she was terminated seven days early, whether any misconduct justified early termination, what progress data existed, whether she met PIP objectives, whether weekly meetings occurred, and cites the policy requiring the full PIP period to run. This sufficiently probes whether Delgado-Reyes was given a fair opportunity to meet the PIP objectives."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: References PIP document or termination letter as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline expressly lists the Performance Improvement Plan as PX-10 and the termination letter as PX-11, and Section L on the premature termination identifies PX-11, PX-10, and policy provisions as exhibits for questioning about termination seven days before the PIP end date."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Addresses the February 18, 2024 Whitford-to-Cho email",
+      "verdict": "pass",
+      "reasoning": "The outline specifically includes a dedicated section titled \u201cThe February 18, 2024 Email Chain\u201d and asks detailed questions about Whitford\u2019s email to Sandra Cho, including the exact phrase \u201cBetween the complaint and her numbers, I think we need to move quickly.\u201d"
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Probes what 'the complaint' refers to in the email",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes the phrase in the February 18 email. In Section J, it asks what \u201cthe Delgado situation\u201d was and specifically asks whether \u201cthe complaint\u201d refers to Ms. Delgado-Reyes\u2019s January 8, 2024 discrimination complaint against Whitford, and whether there was any other complaint he meant."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Strategy to lock Whitford into explanation before presenting email",
+      "verdict": "fail",
+      "reasoning": "The outline does not include a clear sequencing instruction to lock Whitford into his explanation about the complaint/PIP decision before showing or introducing the February 18 email. Although it develops background facts before Section J and includes questions about prior consideration of a PIP, Section J begins by handing PX-9 to the witness and authenticating the email. The email is treated as a core exhibit/topic without instructions to first obtain an unrefreshed explanation or commitment before presenting it."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: References whitford-cho-email-chain as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists the Whitford--Cho email chain as PX-9 in the Proposed Deposition Exhibits and uses it in the examination outline, satisfying the requirement to reference it as a deposition exhibit."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Probes Q4 risk report allegedly late submission",
+      "verdict": "pass",
+      "reasoning": "The outline squarely addresses the Q4 risk report timeliness issue. It identifies PX-6 as the January 10 transmittal email, includes deposition questions asking Whitford to authenticate receipt, confirm the January 10 COB deadline, admit the email was received on or before the deadline, and concede the review/PIP assertion that the report was \u201c5 business days late\u201d is inaccurate. It also flags the 4:47 timestamp issue and plans to obtain native metadata/server logs."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: References Q4 risk report email as impeachment exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline identifies the Q4 2023 Risk Report transmittal email as PX-6, discusses its Jan. 10 timestamp issue, and uses it in Section I to impeach the review/PIP claim that the Q4 report was \u201c5 business days late.\u201d"
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Probes Q3 risk report lateness and systems outage",
+      "verdict": "pass",
+      "reasoning": "The outline directly addresses the Q3 2023 risk report lateness and LoanStar outage. It identifies IT Service Ticket SR-20231002-4471 as an exhibit, notes the October 2\u20133 outage and October 4 extension, and includes detailed deposition questions asking whether Whitford knew of/approved the 2-business-day extension, how he calculated the alleged 3-business-day lateness, and whether the extension was accounted for."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: References IT service ticket as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists the IT Service Ticket SR-20231002-4471 as PX-5 in the deposition exhibits and specifically references PX-5 in the quarterly risk report/Q3 lateness questioning section, including questions about the LoanStar outage and extension."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Probes whether Whitford verified PIP facts before issuance",
+      "verdict": "pass",
+      "reasoning": "The outline directly probes Whitford's due diligence in preparing and issuing the PIP. It asks who drafted the PIP and supplied data, whether the deficiencies were recycled from the review/email, what sources supported the alleged Q3/Q4 lateness, whether he personally checked submission records or his inbox before signing the review and PIP, whether he knew about the LoanStar outage and deadline extension, and whether he received the Q4 report on or before the deadline."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Addresses delinquency rate in context of division average",
+      "verdict": "pass",
+      "reasoning": "The outline directly addresses the delinquency-rate context: it notes Delgado-Reyes\u2019s Q4 delinquency was 2.4% versus a 2.6% division average, asks the witness to admit she was better than the division average, and compares her treatment to other SVPs with worse delinquency rates who were not placed on PIPs. It also notes the shared 2.0% target, supporting selective enforcement."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_004: Addresses Marcus Langley as comparator",
+      "verdict": "pass",
+      "reasoning": "The outline expressly addresses Marcus Langley as a comparator: it identifies him as a white male SVP in the same division under the same supervisor, compares his worse delinquency, origination, and default metrics to Plaintiff\u2019s, and includes deposition questions confirming he was not placed on a PIP despite worse performance."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Compares Langley's delinquency rate (3.1%) to Delgado-Reyes (2.4%)",
+      "verdict": "pass",
+      "reasoning": "The outline specifically lists Delgado-Reyes at 2.4% delinquency and Langley at 3.1%, and includes planned questioning that Langley was worse on delinquency yet received no PIP."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Compares origination volumes (Langley $36.1M vs Delgado-Reyes $42.3M)",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly compares origination volumes, noting Delgado-Reyes had $42.3M while Langley had $36.1M, and includes planned questions establishing Langley was worse on origination and received no PIP."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: Compares loan defaults (Langley $4.7M vs Delgado-Reyes $3.1M)",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly plans to elicit the comparison: it states that Langley had three defaults totaling $4.7M while Delgado-Reyes had two totaling $3.1M, including in Section H question 76 and the comparator table/Question 145."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: Probes why Langley received no PIP or discipline",
+      "verdict": "pass",
+      "reasoning": "The outline directly addresses Langley as a comparator, noting he had worse delinquency, origination, and defaults, and asks whether he received no PIP and remained employed. It further asks Whitford to \u201cExplain the difference\u201d between Langley receiving consecutive Meets ratings without a PIP and Plaintiff being PIP\u2019d shortly after her Meets rating."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_004: References SVP performance data spreadsheet as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists PX-8 as \u201cSVP Commercial Lending Performance Data FY2023\u201d and specifically uses it in the comparator section for row-by-row questioning of other SVPs\u2019 delinquency, origination, defaults, ratings, and PIP/termination treatment."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_004: Addresses Brian Kowalski as additional comparator",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly identifies Kowalski as a comparator, including in the comparator table as a white male SVP with a 2.8% delinquency rate, $39.4M origination volume, and no PIP/termination, and includes questions comparing his treatment to Plaintiff\u2019s."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005: Establishes key timeline dates for retaliation claim",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly establishes the retaliation timeline in both the chronology table and deposition questions: January 8, 2024 complaint; February 5, 2024 performance review; February 20, 2024 PIP; and March 14, 2024 termination. It also ties these dates to days elapsed from the complaint and includes targeted questions for each event."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_005: Highlights temporal proximity between complaint and adverse actions",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly emphasizes temporal proximity: it calculates days from the January 8 complaint in the chronology, notes the review on day 28, PIP on day 43, and termination on day 66, and includes questioning about the 90-day protected period and adverse actions occurring within that period."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_005: Probes whether adverse actions were contemplated before January 8",
+      "verdict": "pass",
+      "reasoning": "The outline expressly includes this line of inquiry. For example, Question 36 asks whether before January 8, 2024 Whitford issued any written warning, coaching memo, or written criticism of performance issues; Question 37 asks whether before January 8 he told Cho, Embree, or anyone else he was considering a PIP or termination; and Question 68 asks about pre-January 8 drafts or calibration materials. These questions directly probe whether adverse actions or performance concerns pre-existed the complaint."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_005: Probes when Whitford began drafting the 2023 performance review",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes the timing of the 2023 performance review drafting. In Section H, question 68 asks, \u201cWhen did you begin drafting the 2023 review?\u201d and specifically follows with \u201cAny drafts before January 8?\u201d This directly addresses whether preparation began before or after the January 8, 2024 complaint."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_005: Probes Whitford's awareness of complaint filing date",
+      "verdict": "pass",
+      "reasoning": "The outline directly probes Whitford's awareness of the complaint filing date, including questions asking when he first learned of Delgado-Reyes's complaint, from whom, whether it was before January 16, and whether anyone mentioned it on January 8\u201310. It also seeks admissions that he knew by January 16 at the latest."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_006: Probes November 15, 2023 team meeting comment",
+      "verdict": "pass",
+      "reasoning": "The outline expressly addresses the November 15, 2023 team meeting in Section F, including questions about the alleged 'border communities' and 'credit culture' remarks, asking Whitford to confirm or deny the exact wording, state what he said if he denies it, and explain the meaning and basis for the comments."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_006: Probes December 7, 2023 one-on-one 'background/blind spots' comment",
+      "verdict": "pass",
+      "reasoning": "The outline expressly addresses the December 7, 2023 one-on-one regarding the $8.5M Sonora/Nogales loan, quotes the alleged 'background' and 'blind spots' comment, and includes questions probing what Whitford meant by 'background,' 'blind spots,' and 'certain borrowers.'"
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_006: Probes December 20, 2023 holiday party 'in her blood' comment",
+      "verdict": "pass",
+      "reasoning": "The outline specifically addresses the December 20, 2023 holiday party incident, including the alleged 'our local expert... border market... in her blood' statement, identifies Marsh and Fuentes as present in the chronology, and includes multiple deposition questions probing the comment and witnesses' recollections."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_006: Plans to elicit or challenge Whitford's characterization of comments",
+      "verdict": "pass",
+      "reasoning": "The outline directly challenges Whitford's claimed business/market-risk explanations for the remarks. It probes the alleged credit analytics behind the 'border communities' and 'credit culture' comments, asks why he referred to 'people,' explores the Hispanic/Mexican-American association of those communities, questions whether 'background' meant ethnicity rather than professional experience, and asks whether 'in her blood/DNA' referred to her heritage. It also ties these questions to prior counseling on geographic/ethnic terminology."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_006: References discrimination complaint email as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists PX-3 as \u201cPlaintiff's complaint email to J. Embree, Jan. 8, 2024\u201d and uses it as an exhibit for protected activity and remarks, satisfying the requirement to reference the discrimination complaint email as an exhibit."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_007: Probes pattern of retaliation against complainants",
+      "verdict": "fail",
+      "reasoning": "The outline includes only general/foundational questions about other complainants and a caution not to recite the six-complainant statistics. It does not specifically probe the alleged 2020\u20132024 pattern that 4 of 6 internal discrimination/harassment complainants were terminated within 12 months, that 3 of those 4 were employees of color, and that the 2 non-terminated complainants were white."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_007: Probes Whitford's involvement in other terminations",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes Whitford\u2019s involvement and knowledge regarding other complainants and subsequent adverse actions. It asks how many terminations/PIPs he recommended and whether those employees had filed complaints, and in Section N asks him to identify Southwest Division discrimination/harassment complainants, whether he was accused, and whether he participated in any subsequent PIP, discipline, or termination and when relative to the complaint."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_008: Addresses the 2017 Patricia Yazzie complaint",
+      "verdict": "pass",
+      "reasoning": "The outline expressly addresses the 2017 Patricia Yazzie complaint in multiple places, including deponent profile and a dedicated Section D with questions about her Navajo heritage complaint, Whitford's use of 'reservation risk,' the 'different face' client-meeting issue, exclusion/client meeting changes, and subsequent counseling."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_008: Probes parallels between Yazzie and Delgado-Reyes situations",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly explores the Yazzie complaint as a parallel: it identifies similar ethnic/geographic lending-related remarks, notes the 2017 complaint was found unsubstantiated, covers Whitford\u2019s counseling and frustration about the complaint, asks about Yazzie\u2019s subsequent resignation, and ties the 2017 counseling to Whitford\u2019s 2023 remarks about \u201cborder communities\u201d and Delgado-Reyes. This satisfies the criterion."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_008: References Whitford personnel file/Yazzie complaint as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists PX-2 as \u201cWhitford personnel file excerpt re Yazzie complaint, RNB-WHITFORD-PF-000412--419\u201d and uses it in the Yazzie complaint section, satisfying the exhibit-reference requirement."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_009: Probes Sandra Cho's independent review of termination decision",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes Sandra Cho\u2019s role and independence, including whether she reviewed underlying data, examined the numbers, asked questions, spoke with Plaintiff or others, reviewed comparator data, approved the termination the same day, and relied on Whitford\u2019s account. It also identifies cat\u2019s paw as a strategic objective and includes a must-get admission that Cho did no independent review and relied on Whitford."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_009: Explores what information Whitford provided to Cho",
+      "verdict": "pass",
+      "reasoning": "The outline probes Whitford\u2019s information flow to Cho extensively: it asks what she reviewed for the performance review, whether she examined underlying data or SVP comparisons, what documents Whitford sent when recommending termination, whether she relied on his account, and how/when he recommended termination. It also explores Cho\u2019s knowledge of the complaint through the February 18 email chain, including references to \u201cthe complaint\u201d and the \u201copen investigation.\u201d"
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_010: Locks Whitford into specific reasons for termination",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes the PIP and termination-letter reasons, asks whether termination was solely performance-based, requires Whitford to identify specific facts supporting each stated basis, and includes clean-up questions asking whether there is any other reason or supporting document not identified. This is designed to lock him into the original stated reasons and prevent later shifting justifications."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_010: Probes whether any additional justifications emerged post-termination",
+      "verdict": "fail",
+      "reasoning": "The outline includes a cleanup question asking, \u201cIs there any reason for the PIP or termination that you have not told us today?\u201d and related questions about undisclosed supporting documents and later statements/EEOC position statements. However, it does not specifically ask whether any additional performance concerns or termination justifications were identified after March 14, 2024 that were not cited in the PIP or termination letter. The criterion requires probing post-termination/shifting justifications specifically, and the outline\u2019s broad catch-all is not sufficiently targeted."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_011: Probes Section 7.4 anti-retaliation policy requiring CHRO/GC approval for adverse action within 90 days",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly references HR-POL-007 Section 7.4, including the 90-day protected period and the requirement for prior written CHRO/GC approval before adverse actions. It includes specific deposition questions on whether Whitford knew the rule and whether such approval was obtained for the review, PIP, and termination."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_011: Probes whether CHRO/GC approval was obtained before PIP and/or termination",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes the 90-day approval requirement, including questions asking whether CHRO/GC approval was sought before the February 5 review, whether the deponent contacted the CHRO or General Counsel before issuing the February 20 PIP, whether CHRO approval was obtained for the PIP, and whether either the CHRO or General Counsel gave written approval before the March 14 termination. It also flags the issue in strategic objectives and the admissions checklist."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_011: Probes Whitford's awareness of anti-retaliation policy",
+      "verdict": "pass",
+      "reasoning": "The outline expressly probes Whitford\u2019s personal awareness of the anti-retaliation policy, including annual training, policy acknowledgments, knowledge of \u00a7 7.2.3 and \u00a7 7.4.1, the 90-day protected period, and the classification of negative evaluations/PIPs as adverse actions. It also asks whether he sought or obtained required CHRO/GC approval or complied with related procedures before the review, PIP, and termination within 90 days of Delgado-Reyes\u2019s complaint."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_011: References ridgeline-eeo-policy as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists PX-1 as \u201cRidgeline HR-POL-007, EEO / Anti-Discrimination / Anti-Retaliation Policy,\u201d and repeatedly uses it as an exhibit in the examination sections, satisfying the requirement to reference the Ridgeline EEO/anti-retaliation policy document as an exhibit."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_012: Probes anti-discrimination training and policy knowledge",
+      "verdict": "pass",
+      "reasoning": "The outline directly probes Whitford\u2019s anti-discrimination and anti-retaliation training and policy knowledge, including annual supervisory training, policy acknowledgments, awareness that certain remarks are prohibited, knowledge that negative evaluations/PIPs can constitute retaliation, the 90-day protected period, heightened supervisor obligations, and prior anti-retaliation counseling. These questions establish knowledge of protected rights and obligations sufficient to support a Kolstad-style punitive damages foundation, even though punitive damages are not labeled expressly."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_012: Seeks admissions supporting malice or reckless indifference",
+      "verdict": "pass",
+      "reasoning": "The outline expressly seeks admissions that Whitford knew of Delgado-Reyes's complaint and anti-retaliation rights, understood the 90-day protected period and CHRO/GC approval requirements, knew PIPs/negative reviews were adverse actions, disregarded PIP safeguards including the full-period rule, proceeded with review/PIP/termination anyway, and had prior counseling on similar conduct. It also probes the February 18 email for intentional retaliatory motive. These questions directly build a punitive-damages foundation for malice or reckless indifference."
+    },
+    {
+      "id": "C-046",
+      "title": "Addresses both discrimination and retaliation claims",
+      "verdict": "pass",
+      "reasoning": "The outline clearly develops both distinct theories: national origin discrimination through sections on discriminatory remarks, ethnic/geographic terminology, prior Yazzie counseling, animus/pattern, and comparator evidence; and retaliation through protected complaint timing, Whitford\u2019s knowledge, February 18 email, post-complaint review/PIP/termination, policy violations, and adverse actions within the protected period."
+    },
+    {
+      "id": "C-047",
+      "title": "Includes impeachment foundation with documentary evidence",
+      "verdict": "pass",
+      "reasoning": "The outline includes multiple documentary impeachment foundations, including using the Q4 email to contradict the claim that the Q4 report was five business days late, the LoanStar IT ticket/extension notice to challenge the Q3 lateness allegation, SVP performance data to impeach poor-performance/comparator justifications, and policy documents to contradict claimed compliance with protected-period/PIP rules."
+    },
+    {
+      "id": "C-048",
+      "title": "Includes examination strategy notes on sequencing",
+      "verdict": "pass",
+      "reasoning": "The outline includes explicit sequencing strategy: prioritized objectives, a suggested time allocation and topic order, instructions to lock in admissions before challenging explanations, emphasis to go slowly on the February 18 email, and strategic notes on whether to depose Whitford before Embree/Cho to lock his account first. This satisfies the criterion."
+    },
+    {
+      "id": "C-049",
+      "title": "Includes notes on open-ended vs. leading question usage",
+      "verdict": "fail",
+      "reasoning": "The outline includes some guidance to use short, single-fact/yes-no questions for key admissions, but it does not provide notes distinguishing when to use open-ended questions versus leading or closed questions. The required open-ended vs. leading usage guidance is not present."
+    },
+    {
+      "id": "C-050",
+      "title": "Includes key target admissions for sections",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly identifies numerous target admissions across multiple sections, including knowledge of the complaint, meaning of the February 18 email, report timing verification, comparator treatment, policy violations, early termination, Cho's reliance, and prior counseling. It also includes a dedicated 'Must-Get Admissions Checklist' tying admissions to sections."
+    },
+    {
+      "id": "C-051",
+      "title": "References performance review document as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists the 2023 Annual Performance Review as a proposed deposition exhibit (PX-7) and uses it throughout the examination outline, satisfying the requirement to reference the performance review document as an exhibit."
+    },
+    {
+      "id": "C-052",
+      "title": "References HR investigation report as exhibit",
+      "verdict": "pass",
+      "reasoning": "The outline lists the HR Internal Investigation Report as a proposed deposition exhibit (PX-4) and references it throughout the outline."
+    },
+    {
+      "id": "C-053",
+      "title": "Anticipates likely defense explanations with follow-up questions",
+      "verdict": "pass",
+      "reasoning": "The outline expressly anticipates multiple likely defense explanations, including that remarks were market-risk commentary, the PIP/termination were performance-based, HR signed off, the complaint was unsubstantiated, and Trujillo rebuts national-origin animus. It includes detailed follow-up questions challenging those explanations, such as asking for supporting credit analytics, probing comparator data, testing the Q3/Q4 report-timeliness rationale, and examining policy violations around the PIP and termination."
+    },
+    {
+      "id": "C-054",
+      "title": "Notes about Delgado-Reyes's strong prior performance record",
+      "verdict": "pass",
+      "reasoning": "The outline uses Delgado-Reyes\u2019s prior positive performance as context, including a dedicated section on her performance history, noting she received Exceeds Expectations in 2019, 2020, and 2022, had a strong track record, and had no prior PIP/warnings in 11 years. Although it does not state the exact '8 of 10 annual reviews' formulation, it provides a substantially equivalent reference to her strong track record."
+    },
+    {
+      "id": "C-055",
+      "title": "Notes Cho's email reply about 'open investigation' on February 18",
+      "verdict": "pass",
+      "reasoning": "The outline expressly addresses Cho's February 18 4:15 PM response: it quotes 'We need to be careful given the open investigation,' asks what Cho understood, and then examines Whitford's 4:47 PM reply stating 'Investigation is closed. Embree said unsubstantiated.' It also ties this to Cho's knowledge and approval of the PIP."
+    },
+    {
+      "id": "C-056",
+      "title": "Addresses Delgado-Reyes's origination volume vs. division average",
+      "verdict": "pass",
+      "reasoning": "The outline expressly addresses the division-average origination context, including a question stating Delgado-Reyes's 2023 origination was $42.3M, the SVP average was $38.7M, and asking whether she was above average, while elsewhere noting the $50M target and comparator figures."
+    },
+    {
+      "id": "C-057",
+      "title": "Notes Delgado-Reyes's disagreement notation on 2023 review",
+      "verdict": "fail",
+      "reasoning": "The outline discusses the 2023 review and PIP extensively, but it does not mention Delgado-Reyes's handwritten notation 'I disagree with this rating' on the review or any 'signed under protest' notation on the PIP."
+    },
+    {
+      "id": "C-058",
+      "title": "Correctly identifies the case and deponent",
+      "verdict": "pass",
+      "reasoning": "The outline identifies the case as Delgado-Reyes v. Ridgeline National Bank, N.A. and the deponent as Thomas J. Whitford, which substantially matches the required identification."
+    },
+    {
+      "id": "C-059",
+      "title": "Addresses emotional distress damages foundation",
+      "verdict": "fail",
+      "reasoning": "The outline focuses on liability, pretext, comparators, policy violations, and decision-making. It does not include any questions or section aimed at establishing emotional distress or compensatory damages, such as Whitford\u2019s observations of Delgado-Reyes\u2019s reaction to the PIP/termination or the personal impact of his actions."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-deposition-outline/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-deposition-outline",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:09:49.265884+00:00",
+  "cost": {
+    "input_tokens": 18,
+    "output_tokens": 27862,
+    "wall_clock_seconds": 275.96
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 12,
+    "documents_skipped": 3,
+    "documents_read_list": [
+      "first-amended-complaint.docx",
+      "2023-performance-review.docx",
+      "hr-investigation-report.docx",
+      "it-service-ticket.docx",
+      "performance-improvement-plan.docx",
+      "termination-letter.docx",
+      "whitford-personnel-yazzie.docx",
+      "svp-performance-data-2023.xlsx",
+      "ridgeline-eeo-policy.docx"
+    ],
+    "documents_skipped_list": [
+      "discrimination-complaint-email.eml",
+      "q4-risk-report-email.eml",
+      "whitford-cho-email-chain.eml"
+    ]
+  }
+}

@@ -1,0 +1,376 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "44/57 criteria passed.  Missed 13 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 57,
+  "n_passed": 44,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Title VII damages instruction does NOT disclose the $200,000 statutory cap to the jury",
+      "verdict": "pass",
+      "reasoning": "The Title VII compensatory and punitive damages instructions do not state the $200,000 cap or any specific statutory damages ceiling. They cite 42 U.S.C. \u00a7 1981a but do not disclose dollar limits to the jury."
+    },
+    {
+      "id": "C-002",
+      "title": "Cover memo explains that Title VII damages cap is not disclosed to jury",
+      "verdict": "pass",
+      "reasoning": "The cover memo expressly states that the Title VII statutory cap under 42 U.S.C. \u00a7 1981a(b)(3) should be applied by the Court after verdict and should not be disclosed to the jury, satisfying the criterion."
+    },
+    {
+      "id": "C-003",
+      "title": "No Faragher/Ellerth instruction included for the retaliation claim",
+      "verdict": "pass",
+      "reasoning": "The proposed instructions do not include a Faragher/Ellerth affirmative defense instruction for the Title VII retaliation claim; they expressly state that Defendant does not request such an instruction."
+    },
+    {
+      "id": "C-004",
+      "title": "Cover memo identifies defendant's Faragher/Ellerth request for retaliation claim",
+      "verdict": "pass",
+      "reasoning": "The cover memo expressly states that Creston \u201cdoes not renew its proposed Faragher/Ellerth instruction\u201d and notes the Court ruled the defense does not apply to Count I, the retaliation claim. This identifies that defendant had requested/proposed such an instruction for the retaliation claim."
+    },
+    {
+      "id": "C-005",
+      "title": "Cover memo explains legal basis for excluding Faragher/Ellerth from retaliation",
+      "verdict": "fail",
+      "reasoning": "The memo states that Faragher/Ellerth does not apply to the Title VII retaliation claim and should not be given, but it does not explain the required legal distinction: that Faragher/Ellerth is an affirmative defense to vicarious liability in hostile-work-environment harassment cases, not retaliation cases."
+    },
+    {
+      "id": "C-006",
+      "title": "Title VII retaliation instruction uses but-for causation standard",
+      "verdict": "pass",
+      "reasoning": "The Title VII retaliation instruction expressly requires Plaintiff to prove that the protected EEO complaint was the \u201cbut-for cause\u201d of her termination and explains that she would not prevail if Creston would have terminated her anyway. It cites Nassar and distinguishes this standard from the Ohio whistleblower contributing-factor standard."
+    },
+    {
+      "id": "C-007",
+      "title": "Ohio Whistleblower instruction uses contributing-factor causation standard",
+      "verdict": "pass",
+      "reasoning": "The Ohio Whistleblower instructions expressly require Plaintiff to prove the Ohio EPA report was a \u201ccontributing factor\u201d in the termination, define that as a factor that tended in any way to affect the outcome, and state that Plaintiff need not prove but-for causation, distinguishing it from Title VII\u2019s but-for standard."
+    },
+    {
+      "id": "C-008",
+      "title": "Cover memo explains different causation standards for the two retaliation claims",
+      "verdict": "pass",
+      "reasoning": "The cover memorandum expressly distinguishes Title VII retaliation causation under Nassar\u2019s but-for standard from the Ohio Whistleblower claim\u2019s contributing-factor causation standard under ORC \u00a7 4113.52, and reiterates this distinction in the requested rulings."
+    },
+    {
+      "id": "C-009",
+      "title": "Cover memo identifies plaintiff's mixed-motive request as legally incorrect",
+      "verdict": "fail",
+      "reasoning": "The memo states that Title VII retaliation requires but-for causation under Nassar and that there is no motivating-factor alternative. However, it does not identify that Plaintiff's pretrial brief requested a mixed-motive instruction or expressly frame the Nassar discussion as rejecting Plaintiff's mixed-motive request. The criterion specifically requires addressing that request."
+    },
+    {
+      "id": "C-010",
+      "title": "After-acquired evidence instruction is included",
+      "verdict": "pass",
+      "reasoning": "The proposed jury instructions include Instruction 21 titled \u201cAfter-Acquired Evidence \u2014 Liability and Remedial Findings,\u201d addressing evidence concerning Plaintiff\u2019s educational credential/misrepresentation and its effect on liability and remedies."
+    },
+    {
+      "id": "C-011",
+      "title": "After-acquired evidence instruction frames doctrine as remedies limitation, not complete defense",
+      "verdict": "pass",
+      "reasoning": "Instruction 21 expressly states that after-acquired evidence must not be considered in deciding liability, does not provide a complete defense to any claim, and may be used only for remedial findings with the Court applying any remedy limitations. This is consistent with McKennon."
+    },
+    {
+      "id": "C-012",
+      "title": "Cover memo explains after-acquired evidence is remedies limitation per McKennon",
+      "verdict": "pass",
+      "reasoning": "The cover memo explicitly states in Section V.C that 'After-acquired evidence is not a complete defense,' cites McKennon, explains that it 'does not defeat liability' and, if admissible and established, 'may affect remedies.' This directly satisfies the criterion that the memo explain after-acquired evidence is a remedies limitation rather than a claim bar."
+    },
+    {
+      "id": "C-013",
+      "title": "Cover memo notes defendant's overbroad framing of after-acquired evidence as complete defense",
+      "verdict": "pass",
+      "reasoning": "The cover memo expressly states that the prior brief proposed a complete defense based on after-acquired evidence, withdraws that formulation, and explains under McKennon that after-acquired evidence does not defeat liability but may affect remedies."
+    },
+    {
+      "id": "C-014",
+      "title": "Ohio Whistleblower instruction addresses internal-reporting prerequisite under ORC \u00a7 4113.52",
+      "verdict": "pass",
+      "reasoning": "The Ohio Whistleblower instructions expressly address the ORC \u00a7 4113.52 internal-reporting prerequisite: Instruction 9 states that before reporting to an outside authority the employee generally must orally notify a supervisor or responsible officer and allow a reasonable time to correct, and directs the jury to decide whether Plaintiff made the alleged oral report and allowed reasonable correction time before filing with the Ohio EPA."
+    },
+    {
+      "id": "C-015",
+      "title": "Internal-reporting instruction treats verbal report as disputed factual issue for jury",
+      "verdict": "pass",
+      "reasoning": "Instruction 9 expressly states that Plaintiff claims she orally reported the concern to Plant Manager Greg Felton on February 28, 2023, that Felton denies the conversation occurred, and that the jury must decide whether the oral report occurred based on the evidence. It does not assume either fact."
+    },
+    {
+      "id": "C-016",
+      "title": "Implied-contract instruction references at-will disclaimer from Employee Handbook",
+      "verdict": "pass",
+      "reasoning": "The implied-contract instructions expressly reference the Employee Handbook's at-will disclaimer, including that Ohio employment is generally at will, the handbook does not automatically create a contract, and the jury should consider whether the disclaimer clearly communicated that the handbook did not create a contract."
+    },
+    {
+      "id": "C-017",
+      "title": "Implied-contract instruction references progressive-discipline provision from Employee Handbook",
+      "verdict": "pass",
+      "reasoning": "The implied-contract instructions explicitly reference the Employee Handbook's progressive-discipline provision, including verbal, written, and final written warnings before termination, the gross-misconduct exception, and pages 27\u201328 of the handbook."
+    },
+    {
+      "id": "C-018",
+      "title": "Implied-contract instruction presents conflict between disclaimer and progressive discipline for jury determination",
+      "verdict": "pass",
+      "reasoning": "The implied-contract instructions expressly tell the jury to decide whether the handbook\u2019s progressive-discipline language created a sufficiently definite implied contractual commitment despite the at-will disclaimer. They direct the jury to consider the disclaimer, the mandatory wording of the discipline provision, context, reliance, and discretion language, and state that no single factor is conclusive. Thus the conflict is presented as a factual issue for the jury, not resolved as a matter of law."
+    },
+    {
+      "id": "C-019",
+      "title": "Implied-contract instruction reflects Ohio law (Mers v. Dispatch Printing Co.)",
+      "verdict": "pass",
+      "reasoning": "The implied-contract instructions expressly cite Mers v. Dispatch Printing Co. and related Ohio precedent, recognize that handbook provisions may create implied contractual obligations under certain circumstances, and state that an at-will disclaimer is a factor rather than automatically conclusive. This is consistent with the criterion."
+    },
+    {
+      "id": "C-020",
+      "title": "Mitigation instruction is included",
+      "verdict": "pass",
+      "reasoning": "The proposed jury instructions include Proposed Instruction 16 titled \u201cMitigation of Wage Loss,\u201d which addresses Plaintiff\u2019s duty to mitigate and Defendant\u2019s burden to prove failure to mitigate damages."
+    },
+    {
+      "id": "C-021",
+      "title": "Mitigation instruction places burden of proof on defendant",
+      "verdict": "pass",
+      "reasoning": "The mitigation instruction expressly states that Creston, the defendant, bears the burden to prove Plaintiff failed to use reasonable diligence to mitigate wage loss and the amount avoidable."
+    },
+    {
+      "id": "C-022",
+      "title": "Cover memo notes correction of mitigation burden from defendant's brief",
+      "verdict": "pass",
+      "reasoning": "The cover memo expressly states that the proposed instruction \u201ccorrects the burden allocation\u201d and that Creston/defendant bears the burden to prove unreasonable failure to mitigate and the amount of avoidable wage loss. Although it does not cite Ford Motor Co. v. EEOC or explicitly say the pretrial brief placed the burden on plaintiff, it addresses the mitigation burden correction required by the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "Temporal proximity / circumstantial evidence instruction included for retaliation",
+      "verdict": "pass",
+      "reasoning": "The instructions expressly tell the jury to consider the timing of events as part of the causation analysis, identify the March 22, 2023 Cavender email and March 9, 2023 EPA complaint, and state that timing alone neither proves nor disproves causation. Although they do not spell out the 13-day and five-month intervals, they do provide guidance on temporal proximity as circumstantial evidence of retaliation."
+    },
+    {
+      "id": "C-024",
+      "title": "Temporal proximity instruction permits inference of retaliatory motive",
+      "verdict": "pass",
+      "reasoning": "The instructions expressly allow the jury to consider the timing of events as part of the causation analysis, while noting that timing alone is not automatically dispositive. This permits temporal proximity to support an inference of retaliatory motive rather than directing the jury to disregard it."
+    },
+    {
+      "id": "C-025",
+      "title": "Temporal proximity instruction does not mandate finding of retaliation",
+      "verdict": "pass",
+      "reasoning": "The instructions state that timing/temporal proximity may be considered with other evidence and that timing alone does not automatically prove causation. They do not direct the jury that temporal proximity conclusively proves retaliation."
+    },
+    {
+      "id": "C-026",
+      "title": "Kolstad good-faith defense instruction included for punitive damages",
+      "verdict": "pass",
+      "reasoning": "The proposed instructions include Instruction 19, titled \u201cPunitive Damages Under Title VII \u2014 Threshold and Kolstad Defense,\u201d which cites Kolstad and states that Creston may avoid punitive damages by proving good-faith efforts to comply with Title VII and that the relevant conduct was contrary to those efforts."
+    },
+    {
+      "id": "C-027",
+      "title": "Kolstad defense is distinguished from Faragher/Ellerth in the instructions or memo",
+      "verdict": "pass",
+      "reasoning": "The cover memorandum expressly distinguishes Faragher/Ellerth from Kolstad. It states Faragher/Ellerth is omitted because it does not apply to the Title VII retaliation claim and is not a defense to liability, while Kolstad is described separately as a conditional, claim-specific good-faith defense limited to Title VII punitive damages requiring malice/reckless indifference and employer good-faith compliance efforts."
+    },
+    {
+      "id": "C-028",
+      "title": "Special verdict form (not general verdict) is included",
+      "verdict": "fail",
+      "reasoning": "The output only states a request for separate special-verdict interrogatories in the submission notes, but it does not include an actual special verdict form with interrogatories or specific questions."
+    },
+    {
+      "id": "C-029",
+      "title": "Special verdict form has separate interrogatories for Title VII retaliation claim",
+      "verdict": "fail",
+      "reasoning": "The output only requests separate special-verdict interrogatories in a submission note; it does not include an actual special verdict form or specific interrogatories/questions for the Title VII retaliation claim."
+    },
+    {
+      "id": "C-030",
+      "title": "Special verdict form has separate interrogatories for Ohio Whistleblower claim",
+      "verdict": "fail",
+      "reasoning": "The output does not include an actual special verdict form with separate interrogatories or questions for the Ohio Whistleblower Protection Act claim. It only states in a submission note that Defendant requests separate special-verdict interrogatories for Counts I, II, and IV, which is not enough to satisfy the criterion."
+    },
+    {
+      "id": "C-031",
+      "title": "Special verdict form has separate interrogatories for implied employment contract claim",
+      "verdict": "fail",
+      "reasoning": "The output only states in submission notes that Defendant requests separate special-verdict interrogatories for Count IV and contract questions, but it does not actually include a special verdict form with separate interrogatories/questions for the implied employment contract claim."
+    },
+    {
+      "id": "C-032",
+      "title": "Title VII retaliation damages instruction includes compensatory and punitive damages",
+      "verdict": "pass",
+      "reasoning": "The damages section includes a Title VII compensatory damages instruction for Count I and a separate punitive damages instruction expressly applicable to Count I, so both available categories are addressed."
+    },
+    {
+      "id": "C-033",
+      "title": "Ohio Whistleblower damages instruction is differentiated from Title VII damages",
+      "verdict": "fail",
+      "reasoning": "The output provides Title VII-specific compensatory and punitive damages instructions and states punitive damages apply only to Count I, but it does not provide a distinct Ohio Whistleblower Act damages instruction explaining the separate remedies or damages framework for Count II. Because the Ohio Whistleblower damages are not affirmatively differentiated in their own instruction from Title VII damages, the criterion is not satisfied."
+    },
+    {
+      "id": "C-034",
+      "title": "Implied-contract damages instruction reflects contract damages measure",
+      "verdict": "pass",
+      "reasoning": "The implied-contract damages instruction uses a contract/expectation-style measure by directing the jury to place Plaintiff in the position she would have occupied had Creston performed the contractual promise, requires reasonable certainty, and expressly states that emotional-distress and punitive damages are not available for breach of contract."
+    },
+    {
+      "id": "C-035",
+      "title": "Pre-existing condition / eggshell plaintiff instruction included for emotional distress",
+      "verdict": "pass",
+      "reasoning": "The proposed instructions include Instruction 17, titled \u201cPre-Existing Emotional Condition,\u201d which addresses a prior emotional/psychological condition, limits recovery to aggravation caused by defendant\u2019s unlawful conduct, and includes eggshell-plaintiff language that susceptibility does not bar recovery."
+    },
+    {
+      "id": "C-036",
+      "title": "Preliminary instructions on role of jury included",
+      "verdict": "pass",
+      "reasoning": "The instruction set includes preliminary general instructions stating that the jury must accept and apply the law as explained by the court, decide the facts from the evidence, apply the law to those facts, and base the verdict only on the evidence and instructions. This satisfies the criterion."
+    },
+    {
+      "id": "C-037",
+      "title": "Preliminary instruction on burden of proof included",
+      "verdict": "pass",
+      "reasoning": "The instruction set includes a general 'PROPOSED INSTRUCTION 2 --- Burden of Proof' stating that for each claim, Plaintiff has the burden to prove each required fact by a preponderance of the evidence, and defines preponderance of the evidence."
+    },
+    {
+      "id": "C-038",
+      "title": "Standard witness credibility instruction included",
+      "verdict": "pass",
+      "reasoning": "The instruction set includes Proposed Instruction 3, titled 'Evidence and Credibility,' which tells jurors to consider a witness's opportunity to observe, memory, manner while testifying, consistency or inconsistency, interest in the outcome, and other evidence bearing on credibility. This satisfies the standard witness credibility instruction criterion."
+    },
+    {
+      "id": "C-039",
+      "title": "Title VII retaliation elements instruction included",
+      "verdict": "fail",
+      "reasoning": "The instructions identify that the Court already determined protected activity and adverse action, and they instruct on but-for causation. But they do not include a substantive Title VII retaliation elements instruction listing the elements Plaintiff must prove, including protected activity, adverse employment action, and but-for causal connection."
+    },
+    {
+      "id": "C-040",
+      "title": "Ohio Whistleblower elements instruction included",
+      "verdict": "pass",
+      "reasoning": "The instruction set includes a substantive Ohio Whistleblower claim elements instruction (Instruction 8) listing the required report/protected activity, compliance with ORC \u00a7 4113.52 procedural requirements, adverse action, and causation. It also includes a separate instruction (Instruction 9) explaining the internal notice and opportunity-to-correct prerequisite."
+    },
+    {
+      "id": "C-041",
+      "title": "Implied employment contract elements instruction included",
+      "verdict": "pass",
+      "reasoning": "The output includes multiple substantive instructions on the implied employment contract claim. Instructions 12\u201314 address whether the handbook/progressive-discipline provisions created an implied contractual obligation, whether that obligation applied to the termination/RIF, breach, and the elements/burden including damages."
+    },
+    {
+      "id": "C-042",
+      "title": "Legitimate non-retaliatory reason (RIF) instruction included",
+      "verdict": "fail",
+      "reasoning": "The instructions discuss Creston\u2019s asserted RIF/business reason and tell the jury to consider the evidence about the RIF and stated reasons for termination. However, they do not instruct the jury using the legitimate non-retaliatory reason / pretext framework or state that Plaintiff must show the RIF reason was pretextual. The criterion specifically requires that framework."
+    },
+    {
+      "id": "C-043",
+      "title": "Protected activity instruction uses reasonable good-faith belief standard",
+      "verdict": "pass",
+      "reasoning": "The instructions do not require the jury to find that actual sex-based pay discrimination occurred. Instead, they state that the Court has already determined Plaintiff\u2019s internal EEO complaint opposing perceived sex-based pay discrimination was protected activity, so the jury must not reconsider that issue."
+    },
+    {
+      "id": "C-044",
+      "title": "Citations to Sixth Circuit Pattern Jury Instructions included",
+      "verdict": "pass",
+      "reasoning": "The document includes multiple citations to the Sixth Circuit Pattern Jury Instructions (Civil), including references to chapter 1 general instructions, Title VII retaliation instructions, chapter 5 damages, mitigation, and punitive damages. Although it does not provide many specific instruction numbers, it does cite the Sixth Circuit pattern instructions by source/title where applicable."
+    },
+    {
+      "id": "C-045",
+      "title": "Cover memo lists each instruction with its legal basis",
+      "verdict": "fail",
+      "reasoning": "The cover memo discusses groups of instructions and some legal concepts, and it cites a few authorities such as Nassar, Kolstad, McKennon, ORC \u00a7 4113.52, and 42 U.S.C. \u00a7 1981a. However, it does not list each proposed instruction, or each related group, with a specific paired legal basis such as statutes, case citations, or pattern instruction numbers. Several instruction groups are described without concrete supporting authority, so the criterion is not satisfied."
+    },
+    {
+      "id": "C-046",
+      "title": "Cover memo identifies rejected instruction requests with reasoning",
+      "verdict": "pass",
+      "reasoning": "The cover memo identifies multiple instruction requests that were declined or withdrawn and explains why. For example, it omits the Faragher/Ellerth instruction because the Court ruled that defense does not apply to the retaliation claim, rejects a Title VII motivating-factor alternative because Nassar requires but-for causation, and withdraws a complete after-acquired-evidence defense because McKennon limits such evidence to remedies rather than liability. These satisfy the requirement of at least two rejected instruction requests with legal reasoning."
+    },
+    {
+      "id": "C-047",
+      "title": "Cover memo identifies areas requiring particular legal care",
+      "verdict": "pass",
+      "reasoning": "The cover memo identifies numerous specific legal issues requiring careful drafting, including distinct causation standards for Title VII but-for causation under Nassar versus Ohio whistleblower contributing-factor causation, Faragher/Ellerth omission versus Kolstad punitive-damages defense, after-acquired evidence scope under McKennon, mitigation burden, statutory damages cap under \u00a7 1981a(b)(3), and ORC \u00a7 4113.52 notice/correction-time requirements. This exceeds the requirement of at least two named areas of legal complexity."
+    },
+    {
+      "id": "C-048",
+      "title": "Instructions organized by claim as required by standing order",
+      "verdict": "pass",
+      "reasoning": "The proposed jury instructions are clearly organized by claim, with separate sections for Count I\u2014Title VII Retaliation, Count II\u2014Ohio Whistleblower Protection Act, and Count IV\u2014Breach of Implied Employment Contract, followed by remedies. This satisfies the standing order\u2019s claim-by-claim organization requirement."
+    },
+    {
+      "id": "C-049",
+      "title": "Punitive damages instruction included for Title VII claim",
+      "verdict": "pass",
+      "reasoning": "The instruction set includes Proposed Instruction 19, titled 'Punitive Damages Under Title VII,' which states punitive damages may be considered on Count I and requires proof that Creston acted with malice or reckless indifference to Plaintiff's federally protected rights. This satisfies the criterion."
+    },
+    {
+      "id": "C-050",
+      "title": "Special verdict form includes separate damages questions per claim",
+      "verdict": "fail",
+      "reasoning": "The output provides jury instructions and notes requesting separate special-verdict interrogatories, and it instructs jurors generally to determine damages separately by claim. But it does not include a special verdict form with separate damages questions/amounts for Title VII retaliation, Ohio Whistleblower, and implied contract claims."
+    },
+    {
+      "id": "C-051",
+      "title": "Mitigation instruction references case-specific factual considerations",
+      "verdict": "pass",
+      "reasoning": "The output includes a mitigation instruction (Instruction 16) that addresses Plaintiff\u2019s duty to use reasonable diligence to mitigate wage loss, including seeking or accepting comparable employment, whether rejected opportunities were comparable, and whether any rejection was reasonable. This satisfies the criterion\u2019s requirement to reference factual considerations such as comparable employment or rejection of job opportunities rather than providing only an abstract mitigation statement."
+    },
+    {
+      "id": "C-052",
+      "title": "Proposed jury instructions document produced",
+      "verdict": "fail",
+      "reasoning": "The agent produced a proposed-jury-instructions.docx with detailed jury instructions, but it did not include an actual special verdict form\u2014only a note requesting separate special-verdict interrogatories. The criterion requires the document to contain both jury instructions and a special verdict form."
+    },
+    {
+      "id": "C-053",
+      "title": "Cover memorandum produced as separate deliverable",
+      "verdict": "pass",
+      "reasoning": "The agent produced a distinct separate deliverable labeled instruction-cover-memo.docx, with memorandum formatting and content separate from the proposed-jury-instructions.docx document."
+    },
+    {
+      "id": "C-054",
+      "title": "Instructions advance at least two identifiable defense positions",
+      "verdict": "pass",
+      "reasoning": "The proposed instructions incorporate multiple identifiable defense-favorable positions, including Title VII but-for causation, the RIF/business-reason theory, the Ohio whistleblower internal-reporting prerequisite, failure to mitigate, after-acquired evidence, and the Kolstad good-faith defense. These positions are stated in a generally legally accurate manner for purposes of the criterion."
+    },
+    {
+      "id": "C-055",
+      "title": "Emotional distress / compensatory damages instruction included",
+      "verdict": "pass",
+      "reasoning": "The instruction set includes a Title VII compensatory damages instruction allowing an award for proven emotional harm and other compensatory injury, with guidance that the amount must be fair, reasonable, evidence-based, and non-speculative. It also includes a pre-existing emotional condition instruction."
+    },
+    {
+      "id": "C-056",
+      "title": "Back pay instruction included",
+      "verdict": "fail",
+      "reasoning": "The instructions mention back pay only to tell the jury not to include it in Title VII compensatory damages, and include a mitigation-of-wage-loss instruction. They do not provide an actual back pay damages instruction or guidance for calculating back pay/lost wages as a remedy."
+    },
+    {
+      "id": "C-057",
+      "title": "No hostile-work-environment instruction included (claim was dismissed)",
+      "verdict": "pass",
+      "reasoning": "The proposed instructions state that the hostile-work-environment claim was dismissed and is not for the jury to consider, and they do not include any substantive instruction for that claim."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-jury-instructions/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-jury-instructions",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:47:31.271099+00:00",
+  "cost": {
+    "input_tokens": 1140333,
+    "output_tokens": 27591,
+    "wall_clock_seconds": 210.13
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 5,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "felton-deposition-excerpt.docx",
+      "partial-summary-judgment-order.docx",
+      "cavender-email-exhibit-14.eml",
+      "employee-handbook-excerpts.docx",
+      "defendant-pretrial-brief.docx",
+      "/workspace/output/proposed-jury-instructions.docx",
+      "/workspace/output/instruction-cover-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

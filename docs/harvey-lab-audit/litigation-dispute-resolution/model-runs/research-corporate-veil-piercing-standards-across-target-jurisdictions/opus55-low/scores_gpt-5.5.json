@@ -1,0 +1,425 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "60/65 criteria passed.  Missed 5 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 65,
+  "n_passed": 60,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies undercapitalization of Pryor ($3.5M initial)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly mentions Pryor's initial capitalization as \u201cOnly $3.5M\u201d and discusses it in the context of veil-piercing/undercapitalization concerns, including comparing it to the $78.5M acquisition price and treating inadequate capitalization as a relevant alter-ego factor. Although the memo also qualifies the point and suggests further verification, it still identifies the $3.5M figure and flags undercapitalization as a veil-piercing concern."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Notes no additional equity since formation",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses Pryor\u2019s initial/contributed capital of $3.5 million, current equity, growth metrics, and recommends recapitalization, but it does not expressly note that Pryor has never received additional equity capital from Cascade since formation despite significant growth."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Reports debt-to-equity ratio of approximately 9.81:1",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states the figure \u201cD/E 9.81:1\u201d in the financial table and also references the \u201c$4.2 million equity / 9.81:1\u201d figure, even though it later critiques that calculation and gives an alternative ratio using total equity."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Analyzes undercapitalization under multiple jurisdictions",
+      "verdict": "pass",
+      "reasoning": "The memorandum discusses undercapitalization as a veil-piercing factor with jurisdiction-specific treatment in at least three target jurisdictions: Delaware (factor and application noting solvency/insurance), Ohio (effect of LLC statute and undercapitalization/siphoning theory under Dombroski), Texas (alter-ego factors and application to Pryor\u2019s capitalization/solvency), and Illinois (factor and application to IEPA compliance funding)."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Identifies cash sweep mechanism ($31.6M annual)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies a $31.6M gross/annual sweep from Pryor, notes that Cascade can take Pryor's cash under the Intercompany Cash Management Agreement, and discusses the $31.6M sweep in the financial corrections and IEPA analysis."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Identifies corporate services fee ($5.3M)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly mentions the $5.3M services fee in the financial relationship section, stating that the FY2024 gross sweep includes the \u201c$5.3M services fee\u201d and $12.6M management fee."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Identifies management fee ($12.6M)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly mentions the $12.6M management fee in the financial relationship section, including the statement that the alleged $49.5M extraction included a $12.6M management fee and discussing its characterization as a member distribution."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Correctly reconciles cash extraction \u2014 avoids double-counting",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the $49.5M figure as double-counting, states that the $31.6M gross sweep includes the $5.3M services fee and $12.6M management fee, and warns that the Petition overstates extraction by $17.9M. It therefore correctly reconciles the cash extraction issue."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_002: Notes decline in retained earnings ($22.7M to $4.2M)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly notes the retained earnings decline as \u201c$22.7M \u2192 $4.2M (\u221281.5%)\u201d in the financial relationship table, satisfying the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Identifies Pryor has no independent board",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies the governance deficiency, stating that Pryor has had \u201cno independent governance ever\u201d and that \u201cPryor has never had a board, minutes, meetings, or resolutions.\u201d It also recommends creating an independent Pryor board of managers."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Identifies David Orvis's dual role",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that David Orvis is Pryor's General Manager and Cascade's VP Operations, reporting to CEO Dalworth in both roles, and later discusses his dual role as a concern."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Identifies overlapping officers (Yun, Colter)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that Rachel Yun (CFO) and Denise Colter (VP Legal) are Pryor \"authorized officers,\" identifying the relevant overlapping Cascade executives serving in Pryor officer roles."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Notes centralized decision-making (CEO approval required)",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states in the Governance section that \u201cThe CEO's written consent is required for product design approvals, capex over $50,000, and managerial hiring and firing,\u201d in the context of Cascade\u2019s control over Pryor. This directly addresses the required centralized decision-making authority."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Notes Pryor lacks in-house legal, HR, accounting",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that \u201cPryor has no in-house legal, HR, or accounting staff,\u201d and describes Cascade-provided centralized functions such as procurement, warranty processing, servers, and shared services."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_003: Analyzes control/domination under multiple jurisdictions",
+      "verdict": "pass",
+      "reasoning": "The memorandum applies specific control/domination facts to jurisdictional veil-piercing standards in at least three jurisdictions. For Ohio, it analyzes the Belvedere/Dombroski control prong using facts such as lack of independent governance, Cascade control over design/environmental decisions, cash sweeps, and intercompany arrangements. For Texas, it applies alter-ego unity factors to facts including common officers, parent payment/control of expenses, parent letterhead/address, and operational direction. For Delaware, it addresses the single-economic-entity prong and applies facts such as domination, siphoning/cash sweep, solvency, and corporate separateness. It also discusses Illinois factors and the IEPA facts, though less extensively. This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Identifies commingled branding (Cascade logo on Pryor products)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies commingled branding, including Cascade signage at Pryor locations, customer contracts on Cascade letterhead, business cards with Cascade's address, and the HP-4400 nameplate bearing \u201cA Cascade Industrial Company.\u201d"
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004: Identifies use of Cascade letterhead for Pryor contracts",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly notes under the Identity facts that \u201cCustomer contracts are signed on Cascade letterhead,\u201d and later references \u201cCascade letterhead on customer contracts.\u201d"
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004: Identifies vendor contracts negotiated by Cascade procurement",
+      "verdict": "fail",
+      "reasoning": "The memorandum states that \u201cCascade procurement signs Pryor vendor contracts,\u201d but it does not note that Pryor\u2019s key vendor agreements are negotiated by Cascade\u2019s procurement department. Because the criterion requires noting both negotiation and signing by Cascade procurement, this is incomplete."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_004: Notes Ohio LLC formalities defense argument",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses an Ohio LLC formalities defense, noting that Ohio\u2019s Revised LLC Act provides member nonliability and that failure to observe formalities is not a ground for imposing member liability. It further explains this blunts the \u201cno meetings, no minutes, no resolutions\u201d facts because Ohio LLC law did not require such formalities. Although the memo flags the pin cite for confirmation and cites a different section, the required defensive argument is clearly mentioned."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005: Identifies Texas single business enterprise doctrine",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies and analyzes Texas single business enterprise (SBE) as a distinct theory separate from traditional alter ego, including a dedicated subsection under Texas discussing SSP Partners and rating SBE risk as low."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005: Notes SSP Partners v. Gladstrong or judicial skepticism of SBE",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly cites SSP Partners v. Gladstrong Investments and states that the Texas Supreme Court rejected single business enterprise as an independent basis for imposing liability, describing the SBE claim as weak/low risk and a dismissal candidate."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_005: Analyzes whether plaintiffs will rely on alter ego, SBE, or both",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses both traditional alter ego and single business enterprise theories in the Texas Delgado litigation. It separately evaluates Texas alter ego risk, explains that SBE is weak after SSP Partners, notes that plaintiffs pleaded SBE \u201cfor appellate review,\u201d and recommends dismissal/summary judgment on that theory while treating alter ego as the more substantive veil-piercing theory. This satisfies the requirement to analyze whether plaintiffs will rely on alter ego, SBE, or both."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: Identifies Ohio three-part veil piercing test",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies Ohio's veil-piercing standard under Belvedere and Dombroski as a three-part test: complete control/no separate mind, use of that control to commit fraud/illegal/similarly unlawful act, and resulting injury or unjust loss. This substantially matches the required control, wrongful act, and causation/injury elements."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_006: Addresses Ohio LLC-specific statutory considerations",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses Pryor\u2019s status as an Ohio LLC, discusses Ohio\u2019s Revised LLC Act (R.C. Chapter 1706, effective 2022), notes statutory member-liability protection and reduced significance of failure to observe LLC formalities, and states that Ohio courts apply the Belvedere/Dombroski veil-piercing test to LLCs. It also applies those LLC-specific considerations to the facts."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: Identifies Delaware's fraud-or-similar requirement for veil piercing",
+      "verdict": "pass",
+      "reasoning": "The memorandum states that Delaware veil piercing requires operation as a single economic entity plus an overall element of injustice or unfairness, typically fraud or something like it, and notes that mere domination is insufficient. It also treats Delaware as exceptional and assigns lower risk under Delaware than the other analyzed jurisdictions, distinguishing it as a more demanding standard in substance."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_007: Identifies Delaware as Cascade's strongest defensive jurisdiction",
+      "verdict": "fail",
+      "reasoning": "The memorandum does not identify Delaware as Cascade\u2019s strongest defensive jurisdiction. Instead, it says Delaware is very unlikely to apply, recommends abandoning the \u201cDelaware first\u201d strategy, and emphasizes Ohio as the governing and demanding standard. Although it rates Delaware risk as low-moderate if applied, it does not conclude that Delaware is the most favorable or hardest standard for plaintiffs to satisfy."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_008: Identifies direct liability theory for product liability",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses direct product-liability exposure as separate from veil piercing. It states that Cascade\u2019s engineering group designed the HP-4400, approved the interlock, overruled Pryor\u2019s safety objection, and may be liable as a Texas \u201cmanufacturer\u201d/designer without needing to disregard Pryor\u2019s separate existence. It also labels direct design liability risk as high and explains that veil piercing is largely academic for Delgado because of this direct-liability theory."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008: References HP-4400 designed by Cascade engineering team",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that Cascade\u2019s Columbus engineering team developed/designed the HP-4400, that Pryor did not participate in the interlock design phase, and that Nathan Choi, Cascade VP of Engineering, approved the design."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_008: References Orvis Email raising safety interlock concerns",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly discusses the Orvis\u2013Choi email chain, including the July 14, 2022 email in which Orvis warned that the single-point barrier-guard interlock may not comply with OSHA and created crush/amputation hazards, and it later relies on those safety concerns in the analysis."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_008: References Cascade VP of Engineering overruling safety concerns",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly states that Cascade's VP of Engineering, Nathan Choi, approved the HP-4400 design and on July 19, 2022 directed Pryor to proceed despite Orvis/Tarlton safety interlock concerns and proposed safer alternative."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_008: Notes direct liability may moot veil piercing for product claims",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly connects Cascade\u2019s potential direct liability as the HP-4400 designer to the strategic implication that veil piercing may be unnecessary for the Delgado product claims. It states that direct liability \u201cdoes not depend on choice of law or on piercing\u201d and later that it makes the veil-piercing fight \u201clargely academic as to liability\u201d in Delgado."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_009: Identifies intercompany debt lacks formal documentation",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies the $41.2 million intercompany 'loans' as lacking notes, maturity, collateral, covenants, approvals, or formal documentation, and treats them as an undocumented intercompany balance/ledger issue requiring documentation going forward."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_009: Flags debt recharacterization risk",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses the $41.2 million intercompany 'loans,' notes the absence of notes, maturity, collateral, covenants, approvals, and written rate terms, and identifies 'Recharacterization risk.' It also connects continued treatment as debt to the undercapitalization narrative, stating that additional advances as debt strengthen the undercapitalization theme and recommending equity recapitalization/conversion."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_010: Addresses choice-of-law question for veil piercing",
+      "verdict": "pass",
+      "reasoning": "The memorandum contains a dedicated choice-of-law section analyzing what law a Texas court is likely to apply to veil piercing in the Delgado litigation. It discusses Texas conflict rules and the Texas Business Organizations Code, rejects Delaware as the governing law, identifies Ohio as the primary likely law because Pryor is an Ohio LLC, addresses plaintiffs\u2019 counterarguments, and notes Texas as a fallback with a probability estimate."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_010: References Texas choice-of-law methodology",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses Texas choice-of-law methodology, including the Restatement (Second) 'most significant relationship' test and the internal-affairs doctrine/statutory internal-affairs provisions as applied to veil piercing."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_010: Identifies which jurisdiction's law is most favorable to Cascade",
+      "verdict": "fail",
+      "reasoning": "The memorandum does identify a choice-of-law position, but it advises Cascade to abandon the Delaware-first strategy and advocate Ohio law as the primary governing law. The criterion requires the memo to advise that Delaware law is most favorable to Cascade for veil-piercing purposes due to its rigorous standard. Because the output does not do that, it fails the criterion."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_011: Identifies direct operator liability theory for IEPA action",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies a direct 'operator' liability theory for the IEPA matter, separate from veil piercing, citing Bestfoods and explaining that Cascade personnel\u2014especially Whitfield, who held no Pryor office\u2014actively directed facility-specific hazardous-waste storage and environmental compliance decisions at the Canton facility."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_011: References Bestfoods or parent company RCRA operator liability",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly references United States v. Bestfoods multiple times and substantively discusses parent-company operator liability under RCRA/CERCLA, including direct liability where parent agents manage facility-specific pollution or environmental compliance decisions."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_011: Notes Karen Whitfield's approval of Canton waste storage configuration",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses Karen Whitfield, Cascade\u2019s VP Environmental Affairs, and the December 2022 Whitfield Memorandum directing the Canton hazardous-waste storage configuration. In the operator-liability analysis, it identifies Whitfield\u2019s facility-specific storage directive, despite her holding no Pryor office, as strong evidence supporting direct operator liability under Bestfoods."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_011: Notes denial of $340,000 environmental budget request",
+      "verdict": "pass",
+      "reasoning": "The memorandum mentions the Canton manager\u2019s request to increase the environmental budget to $340,000 and CFO Rachel Yun\u2019s denial, and in the Bestfoods/operator-liability section it analyzes Yun\u2019s budget denial as part of the direct operator liability merits evidence, noting the agency would use it to show Cascade involvement."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_011: Notes IEPA may not need to pierce the veil at all",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly distinguishes IEPA alter-ego/veil-piercing liability from direct operator liability. It states that direct liability does not depend on veil piercing, includes a separate 'Cascade as Operator' analysis under Bestfoods, and notes Bestfoods distinguishes derivative veil-piercing liability from direct operator liability for pollution-related operations."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_012: Recommends establishing independent governance for Pryor",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends establishing independent governance for Pryor, including creating an independent Pryor board of managers and amending the Operating Agreement to add at least two independent managers with authority over key matters."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_012: Recommends separating branding and business identity",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends separating branding and identity, including Pryor letterhead/signature blocks, Pryor address on business cards, Pryor exterior signage, and removal of \u201cA Cascade Industrial Company\u201d from future production."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_012: Recommends formalizing intercompany agreements at arm's length",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends documenting intercompany debt and services on arm's-length terms, amending the cash management agreement, documenting intercompany loans with market terms and an independent rate study, and entering a shared-services agreement priced by an independent transfer-pricing study. It also addresses management fees and distributions."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_012: Recommends restoring adequate capitalization to Pryor",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends restoring Pryor\u2019s capitalization, including recapitalizing Pryor with equity rather than debt, amending the cash sweep to impose a minimum reserve, and converting a substantial portion of the $41.2 million intercompany balance to equity."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_012: Recommends appointing independent officers for Pryor",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly recommends resolving officer overlap by appointing Pryor-specific officers who are not Cascade officers, including a Pryor CFO/controller and environmental compliance officer, resolving Orvis\u2019s dual role, and revoking or limiting Yun\u2019s and Colter\u2019s authorized-officer designations."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_012: Caveats that prospective reforms do not cure retroactive exposure",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly caveats that remediation/governance reforms are forward-looking and do not cure past conduct, including stating that \u201cNone of these steps cures 2022--2024 conduct\u201d and that \u201cprospective reforms cannot cure 2022--2024 conduct.\u201d"
+    },
+    {
+      "id": "C-048",
+      "title": "Risk assessment: Provides jurisdiction-specific ratings",
+      "verdict": "pass",
+      "reasoning": "The memorandum provides jurisdiction-specific veil-piercing risk assessments for all four target jurisdictions: Delaware is rated \u201cLow-Moderate,\u201d Ohio \u201cModerate\u201d for Delgado and \u201cModerate-High\u201d for IEPA, Texas \u201cModerate-High\u201d for tort alter ego and \u201cLow\u201d for single business enterprise, and Illinois \u201cModerate-High.\u201d It also includes comparative and summary matrices differentiating the jurisdictions."
+    },
+    {
+      "id": "C-049",
+      "title": "Risk assessment: Delaware rated as lowest exposure",
+      "verdict": "pass",
+      "reasoning": "The memorandum rates Delaware veil-piercing risk as \u201cLow-Moderate,\u201d while Ohio is \u201cModerate\u201d for Delgado and \u201cModerate-High\u201d for IEPA, Texas tort alter ego is \u201cModerate-High\u201d with SBE separately \u201cLow,\u201d and Illinois is \u201cModerate-High.\u201d Overall, Delaware is presented as the lowest-exposure veil-piercing jurisdiction among the four."
+    },
+    {
+      "id": "C-050",
+      "title": "Risk assessment: Ohio and/or Texas rated as high or significant exposure",
+      "verdict": "pass",
+      "reasoning": "The memorandum rates Texas tort alter-ego veil-piercing risk as \u201cModerate-High\u201d and Ohio IEPA alter-ego risk as \u201cModerate-High,\u201d while discussing strong control, siphoning/cash sweep, shared services, branding, and undercapitalization/commingling facts. Thus at least one of Ohio or Texas is assessed as significant exposure, and neither is rated low overall."
+    },
+    {
+      "id": "C-051",
+      "title": "Covers all four jurisdictions: Delaware analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated Delaware section that states the veil-piercing standard: single economic entity plus an overall element of injustice or unfairness, with factors such as undercapitalization, solvency, formalities, siphoning, and fa\u00e7ade. It then applies Cascade/Pryor facts, including Pryor\u2019s solvency, insurance, profitability, and the systematic cash sweep/siphoning issue, and assigns a risk rating."
+    },
+    {
+      "id": "C-052",
+      "title": "Covers all four jurisdictions: Ohio analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated Ohio section stating the Belvedere/Dombroski three-part veil-piercing test, including the requirement that control be used to commit fraud, an illegal act, or similarly unlawful act. It then applies multiple Cascade/Pryor facts to the prongs, including Cascade\u2019s operational control over design and environmental decisions, cash sweeps, lack of independent governance, solvency/insurance, OSHA-related design allegations, and IEPA statutory violations."
+    },
+    {
+      "id": "C-053",
+      "title": "Covers all four jurisdictions: Texas analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated Texas section discussing veil piercing/alter ego law, including the Castleberry standard, the statutory actual-fraud requirement for contract claims under the Texas Business Organizations Code, and the distinction for tort claims. It then applies Cascade/Pryor facts to that standard, including common officers, parent control, shared address/letterhead, inadequate capitalization, and cash extraction. This satisfies both required elements."
+    },
+    {
+      "id": "C-054",
+      "title": "Covers all four jurisdictions: Illinois analysis",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated Illinois section stating the Illinois veil-piercing standard from Fontana\u2014unity of interest/ownership plus fraud or promotion of injustice\u2014and lists relevant factors. It then applies Cascade/Pryor facts, including alleged statutory violations, the compliance-budget denial, and the $31.6 million cash sweep, to conclude the IEPA alter-ego theory is strong if jurisdiction exists."
+    },
+    {
+      "id": "C-055",
+      "title": "IEPA enforcement evaluated separately from Delgado litigation",
+      "verdict": "pass",
+      "reasoning": "The memorandum evaluates the IEPA enforcement action as a distinct matter throughout: it identifies Action No. IEPA-2024-ENF-00341 and the $2.4M penalty, analyzes separate jurisdictional/authority defenses for Illinois regulation of Ohio storage, separately assesses IEPA alter ego and Bestfoods/operator liability, discusses environmental facts for the Canton facility, and provides IEPA-specific risk ratings and litigation positions apart from the Delgado product-liability claims."
+    },
+    {
+      "id": "C-056",
+      "title": "DISTRACTOR_003: Does not treat insurance coverage as mooting veil piercing",
+      "verdict": "pass",
+      "reasoning": "The memorandum notes Pryor\u2019s $20M insurance and uses it as a factor against the injustice/undercapitalization narrative, but it does not conclude that insurance moots or eliminates veil-piercing analysis. It still analyzes veil piercing across jurisdictions, assigns nonzero risk ratings, recognizes potential excess/punitive/uninsured exposure, and separately flags IEPA exposure."
+    },
+    {
+      "id": "C-057",
+      "title": "Correct identification of case name and number (Delgado litigation)",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies the Delgado litigation in the RE line as \u201cDelgado et al. v. Pryor Manufacturing LLC et al., Cause No. 2024-CV-78412 (189th Dist. Ct., Harris County, Tex.)\u201d and also references Luis Delgado in the facts. This satisfies the requirement to identify the case number and Harris County District Court, Texas."
+    },
+    {
+      "id": "C-058",
+      "title": "Correct identification of IEPA action number",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly references the matter in the header as \u201cIEPA Action No. IEPA-2024-ENF-00341\u201d and also identifies the IEPA Administrative Complaint as dated October 3, 2024 with a $2.4 million proposed penalty."
+    },
+    {
+      "id": "C-059",
+      "title": "Correct financial figure: Pryor FY2024 net income ($16.8M)",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses Pryor\u2019s FY2024 financial extraction and related equity/current-year income figures, but it does not correctly state Pryor\u2019s FY2024 net income as $16.8 million. The required figure is omitted and potentially confused with other income/equity figures such as $14.0 million undistributed current-year income."
+    },
+    {
+      "id": "C-060",
+      "title": "Correct financial figure: Intercompany debt amount ($41.2M)",
+      "verdict": "pass",
+      "reasoning": "The memorandum correctly states the intercompany debt amount as $41.2 million in multiple places, including references to undocumented debt and the financial relationship table."
+    },
+    {
+      "id": "C-061",
+      "title": "Correct financial figure: Intercompany debt interest rate (6.5%)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that the intercompany debt had a 6.5% rate, noting that the \u201c6.5% rate came from a verbal arrangement between Yun and Orvis.\u201d"
+    },
+    {
+      "id": "C-062",
+      "title": "Notes corporate services fee not independently benchmarked",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies the $5.3 million services fee and elsewhere flags shared-services/transfer-pricing deficiencies, including recommending a written shared-services agreement priced by an independent transfer-pricing study. This sufficiently notes the lack of independent benchmarking/support for the corporate services fee."
+    },
+    {
+      "id": "C-063",
+      "title": "Correct damages figure ($18.5M)",
+      "verdict": "pass",
+      "reasoning": "The memorandum states that Pryor\u2019s insurance limits are against an \u201c$18.5 million demand,\u201d and later breaks out the pleaded damages as $11.0 million economic plus a $7.5 million punitive/pain-and-suffering bucket, totaling $18.5 million. This satisfies the criterion."
+    },
+    {
+      "id": "C-064",
+      "title": "Notes Cascade D&O policy excludes subsidiary product liability",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies the Evergreen D&O policy as having indemnity excluded by a \u201csubsidiary product BI exclusion\u201d for the Delgado matter and notes that the subsidiary-product exclusion may leave parties uninsured for indemnity. This satisfies the requirement to note the Cascade D&O policy exclusion for subsidiary product liability claims."
+    },
+    {
+      "id": "C-065",
+      "title": "Distinguishes veil piercing standards across jurisdictions",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly distinguishes veil-piercing standards across all four jurisdictions, including Delaware\u2019s exceptional/single-economic-entity plus injustice standard, Ohio\u2019s Dombroski fraud/illegal/similarly unlawful act requirement and LLC formalities considerations, Texas\u2019s distinction between tort alter ego and statutory contract actual-fraud requirements plus rejection of SBE under SSP Partners, and Illinois\u2019s broader promote-injustice test and operator-liability alternative. It identifies well over two specific differences."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/research-corporate-veil-piercing-standards-across-target-jurisdictions/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/research-corporate-veil-piercing-standards-across-target-jurisdictions",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T23:01:26.870303+00:00",
+  "cost": {
+    "input_tokens": 12,
+    "output_tokens": 33425,
+    "wall_clock_seconds": 332.55
+  },
+  "doc_coverage": {
+    "documents_read": 8,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "birchfield-novak-preliminary-assessment.docx",
+      "cascade-corporate-structure-summary.docx",
+      "iepa-enforcement-complaint.docx",
+      "insurance-coverage-summary.docx",
+      "intercompany-cash-management-agreement.docx",
+      "orvis-email-chain-hp4400-safety.eml",
+      "plaintiffs-original-petition.docx",
+      "pryor-financial-summary-fy2020-fy2024.xlsx"
+    ],
+    "documents_skipped_list": []
+  }
+}

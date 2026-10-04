@@ -1,0 +1,337 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "39/50 criteria passed.  Missed 11 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 50,
+  "n_passed": 39,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption includes correct court name",
+      "verdict": "pass",
+      "reasoning": "The caption clearly states 'UNITED STATES DISTRICT COURT' and 'WESTERN DISTRICT OF TEXAS' and 'AUSTIN DIVISION', which matches the required court name exactly."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption includes correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption clearly includes the case number 1:24-cv-03841-RLH, which matches the required case number exactly."
+    },
+    {
+      "id": "C-003",
+      "title": "Caption identifies Castillo Medical Technologies, Inc. as Plaintiff",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies 'CASTILLO MEDICAL TECHNOLOGIES, INC.' as Plaintiff in the case header."
+    },
+    {
+      "id": "C-004",
+      "title": "Caption identifies Ryan Oshiro as Defendant",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies 'RYAN OSHIRO and VERIDIAN HEALTH SYSTEMS, LLC' as Defendants."
+    },
+    {
+      "id": "C-005",
+      "title": "Caption identifies Veridian Health Systems, LLC as Defendant",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies 'RYAN OSHIRO and VERIDIAN HEALTH SYSTEMS, LLC' as Defendants in the case."
+    },
+    {
+      "id": "C-006",
+      "title": "Caption includes appropriate document title",
+      "verdict": "pass",
+      "reasoning": "The document contains a clear title 'PLAINTIFF CASTILLO MEDICAL TECHNOLOGIES, INC.'S FIRST SET OF INTERROGATORIES TO DEFENDANT VERIDIAN HEALTH SYSTEMS, LLC' which explicitly identifies the nature of the document (First Set of Interrogatories), the propounding party (CMT), and the target party (Veridian Health Systems, LLC)."
+    },
+    {
+      "id": "C-007",
+      "title": "Definitions section defines 'Identify' for persons",
+      "verdict": "fail",
+      "reasoning": "The Definitions section includes a definition of 'Identify' for persons: 'Identify a person means state the person's full name, title or position, and role in the matter asked about.' However, the criterion requires that the definition also include employer and contact information or address. The agent's definition omits employer and contact information/address, so it does not fully satisfy the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "Definitions section defines 'Document' or 'Documents'",
+      "verdict": "fail",
+      "reasoning": "The Definitions section in the agent's output contains six definitions: 'Veridian,' 'Oshiro,' 'CMT Trade Secrets,' 'CMT Materials,' 'SynapticEdge,' and 'Identify.' There is no definition of 'Document' or 'Documents' anywhere in the Definitions section. The criterion requires a definition of 'Document' or 'Documents' broad enough to encompass ESI, emails, and physical documents. Since no such definition exists in the output, the criterion is not satisfied."
+    },
+    {
+      "id": "C-009",
+      "title": "Definitions section defines 'Communication'",
+      "verdict": "fail",
+      "reasoning": "The Definitions section in the agent's output includes definitions numbered 1 through 6 (Veridian, Oshiro, CMT Trade Secrets, CMT Materials, SynapticEdge, and Identify). There is no definition of 'Communication' or 'Communications' covering oral, written, and electronic exchanges of information."
+    },
+    {
+      "id": "C-010",
+      "title": "Definitions section defines 'You/Your' as Veridian",
+      "verdict": "fail",
+      "reasoning": "The Definitions section defines 'Veridian' (Definition 1) to mean 'Defendant Veridian Health Systems, LLC, including its officers, employees, agents, and representatives acting or purporting to act on its behalf.' However, the criterion specifically requires that 'You' and/or 'Your' be defined to mean Veridian Health Systems, LLC. The agent's output does not include a definition for 'You' or 'Your' anywhere in the Definitions section. The interrogatories use 'Veridian' throughout rather than 'You/Your,' but the criterion specifically asks whether 'You/Your' is defined. Since there is no definition of 'You' or 'Your' in the Definitions section, the criterion is not satisfied."
+    },
+    {
+      "id": "C-011",
+      "title": "Document references NeuralPath Algorithm by name",
+      "verdict": "pass",
+      "reasoning": "The document references 'NeuralPath Algorithm' by name in Definition No. 3: 'CMT Trade Secrets' means the three categories of technology identified in the First Amended Complaint: the NeuralPath Algorithm, the PrecisionDrive System, and the PathPlanner Module..."
+    },
+    {
+      "id": "C-012",
+      "title": "Document references PrecisionDrive System by name",
+      "verdict": "pass",
+      "reasoning": "The document references 'PrecisionDrive System' by name in Definition No. 3: 'CMT Trade Secrets' means the three categories of technology identified in the First Amended Complaint: the NeuralPath Algorithm, the PrecisionDrive System, and the PathPlanner Module..."
+    },
+    {
+      "id": "C-013",
+      "title": "Document references PathPlanner Module by name",
+      "verdict": "pass",
+      "reasoning": "The document explicitly references 'PathPlanner Module' by name in Definition No. 3: 'CMT Trade Secrets' means the three categories of technology identified in the First Amended Complaint: the NeuralPath Algorithm, the PrecisionDrive System, and the PathPlanner Module..."
+    },
+    {
+      "id": "C-014",
+      "title": "Definitions section defines 'SynapticEdge'",
+      "verdict": "pass",
+      "reasoning": "Definition 5 in the Definitions section explicitly defines 'SynapticEdge' as 'Veridian's surgical robotics platform announced on June 11, 2024, including its software, hardware, features, and development work.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Definitions section defines 'Describe'",
+      "verdict": "fail",
+      "reasoning": "The Definitions section defines 'Identify' for persons, communications, and records/systems, but does not include a definition of 'Describe' requiring a detailed narrative or factual account. The word 'Describe' is used extensively throughout the interrogatories but is never defined in the Definitions section."
+    },
+    {
+      "id": "C-016",
+      "title": "Instructions include continuing duty to supplement",
+      "verdict": "fail",
+      "reasoning": "The Instructions section (A through E) does not mention the continuing duty to supplement responses under FRCP 26(e) or any equivalent obligation to update answers if additional information becomes available. None of the five instructions (A-E) address supplementation."
+    },
+    {
+      "id": "C-017",
+      "title": "Instructions require answers based on information available to respondent, its agents, employees, and attorneys",
+      "verdict": "pass",
+      "reasoning": "Instruction A states: 'Each Interrogatory shall be answered separately and fully in writing under oath, based on information reasonably available to Veridian, including information held by its present or former officers, employees, agents, and representatives within Veridian's possession, custody, or control, consistent with Rule 33.' This covers agents, employees, and representatives, which satisfies the criterion. However, it does not explicitly mention 'attorneys.' The criterion asks for agents, employees, and/or attorneys. The instruction covers agents and employees but not attorneys. That said, the criterion says 'agents, employees, and/or attorneys' with 'and/or' suggesting that covering agents and employees (without attorneys) may be sufficient. The criterion uses 'and/or' which means any combination suffices. Since agents and employees are covered, this satisfies the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "Instructions address treatment of objections",
+      "verdict": "pass",
+      "reasoning": "Instruction C explicitly states: 'If Veridian objects to any Interrogatory or any portion of one, state the specific grounds for the objection and answer the unobjectionable portion. A general or blanket objection is insufficient.' This directly addresses how objections should be handled, requiring the responding party to state specific grounds and still answer the non-objectionable portion."
+    },
+    {
+      "id": "C-019",
+      "title": "Total interrogatory count does not exceed 25 including subparts",
+      "verdict": "pass",
+      "reasoning": "The document explicitly states it contains 25 interrogatories inclusive of discrete subparts. Reviewing each interrogatory: Nos. 1-25 are numbered sequentially. Most interrogatories ask for a single category of information or a closely related set. Let me check for discrete subparts that might push the count over 25. Interrogatory No. 1 asks to identify persons involved in various steps of hiring (contact, recruit, interview, offer, hire) - these are related aspects of a single topic (hiring decision). Interrogatory No. 8 asks whether materials were provided AND for each occasion identify materials, date, source, recipient, method - the 'for each occasion' details are follow-up details rather than discrete subparts asking different categories. Interrogatory No. 6 asks about knowledge of the agreement AND how Veridian learned AND which provisions - these could be considered subparts but relate to a single topic. Interrogatory No. 23, 24, 25 each ask about recruitment including first contact, persons involved, Oshiro's role, offer and start dates - these have multiple components but relate to a single hiring event per person. Overall, while some interrogatories have multiple components, they generally relate to unified topics rather than asking for distinctly different categories of information. The document states 25 interrogatories inclusive of subparts, and a reasonable reading of the interrogatories supports that the count does not exceed 25 when applying the FRCP 33 standard for discrete subparts."
+    },
+    {
+      "id": "C-020",
+      "title": "Interrogatory re: recruitment/hiring timeline of Oshiro",
+      "verdict": "pass",
+      "reasoning": "Interrogatories 1-4 directly address the recruitment and hiring of Oshiro. Interrogatory 1 asks to identify persons involved in the decision to contact, recruit, interview, make an offer to, or hire Oshiro. Interrogatory 2 asks about the initial contact made by Marcus Trent to Oshiro on December 3, 2023. Interrogatory 3 asks about communications between Veridian and Oshiro after initial contact and before employment. Interrogatory 4 asks about the material terms of the employment offer including dates. These clearly satisfy the criterion of asking about the timeline and circumstances of recruiting/hiring Oshiro, including when Veridian first contacted him."
+    },
+    {
+      "id": "C-021",
+      "title": "Interrogatory references Marcus Trent's involvement in recruiting Oshiro",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 1 asks Veridian to identify each person who participated in, recommended, approved, or had primary responsibility for recruiting/hiring Oshiro, which would capture Marcus Trent. More directly, Interrogatory No. 2 specifically references Marcus Trent by name and asks about his initial contact with Oshiro on or about December 3, 2023. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "Interrogatory re: Veridian's knowledge of Oshiro's NDA obligations",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 6 directly asks Veridian to describe its knowledge of the March 5, 2018 confidentiality, nondisclosure, and invention-assignment agreement between Oshiro and CMT, including how Veridian learned of the agreement and which provisions were communicated or reviewed. This satisfies the criterion of asking about Veridian's knowledge of Oshiro's NDA obligations and when it first learned of them."
+    },
+    {
+      "id": "C-023",
+      "title": "Interrogatory re: pre-employment due diligence on trade secret restrictions",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 7 asks Veridian to 'Describe the steps Veridian took before or during Oshiro's onboarding to determine whether he possessed or might use CMT Materials, and the results of those steps.' Additionally, Interrogatory No. 6 asks Veridian to describe its knowledge of Oshiro's confidentiality, nondisclosure, and invention-assignment agreement with CMT before he began working for Veridian. These interrogatories directly address pre-hire due diligence regarding Oshiro's trade secret and confidentiality obligations from his prior employer CMT."
+    },
+    {
+      "id": "C-024",
+      "title": "Interrogatory re: SynapticEdge development timeline",
+      "verdict": "pass",
+      "reasoning": "Interrogatories 13 and 14 directly address the SynapticEdge development timeline. Interrogatory 13 asks for the date Veridian first began development of SynapticEdge and the contemporaneous record supporting that date. Interrogatory 14 asks for development milestones completed before March 18, 2024 (the date Oshiro joined Veridian). Together, these interrogatories cover when development began, key milestones, and implicitly whether development commenced before or after Oshiro joined. The criterion is satisfied."
+    },
+    {
+      "id": "C-025",
+      "title": "Interrogatory re: personnel involved in SynapticEdge development",
+      "verdict": "pass",
+      "reasoning": "Interrogatories 16 and 17 both ask Veridian to identify each person who performed or supervised technical work on SynapticEdge (before March 18, 2024, and from March 18 through June 11, 2024, respectively), and to state each person's role. This clearly satisfies the criterion of asking Veridian to identify all persons who worked on or contributed to the development of SynapticEdge."
+    },
+    {
+      "id": "C-026",
+      "title": "Interrogatory re: USB drive or CMT files on Veridian systems",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 9 specifically asks about the custody and disposition of the '2TB Corsair USB drive bearing serial number CX-8827491' after Oshiro began working for Veridian. Interrogatory No. 10 asks Veridian to identify all CMT Materials presently within its possession, custody, or control. Interrogatory No. 8 asks whether Oshiro or any other person provided or made available any CMT Materials to Veridian. These interrogatories collectively address both the USB drive (by serial number) and CMT files on Veridian systems, satisfying the criterion."
+    },
+    {
+      "id": "C-027",
+      "title": "Interrogatory re: document preservation / litigation hold",
+      "verdict": "fail",
+      "reasoning": "Interrogatory No. 12 asks Veridian to 'Describe the steps Veridian has taken, after becoming aware of CMT's allegations, to identify, segregate, return, destroy, delete, or otherwise prevent use or disclosure of CMT Materials.' While this touches on post-notice preservation steps, it focuses on remediation of CMT Materials rather than on litigation hold implementation, ESI preservation scope, or when a litigation hold was issued. There is no interrogatory that specifically asks about a litigation hold, when it was issued, its scope, or what steps were taken to preserve ESI generally. The criterion requires at least one interrogatory addressing document preservation efforts including whether/when a litigation hold was issued, the scope of the hold, and/or steps taken to preserve ESI. Interrogatory No. 12 is narrowly focused on CMT Materials remediation, not on the broader litigation hold and ESI preservation obligations. No interrogatory squarely addresses litigation hold implementation or ESI preservation as required by the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "Interrogatory re: Furukawa, Briggs, and Moreno joining Veridian",
+      "verdict": "pass",
+      "reasoning": "Interrogatories 23, 24, and 25 explicitly address the recruitment and hiring of Dr. Kenji Furukawa, Samantha Briggs, and David Moreno respectively, naming each individual and asking about the circumstances of their recruitment by Veridian."
+    },
+    {
+      "id": "C-029",
+      "title": "Interrogatory re: Oshiro's role in soliciting former CMT employees",
+      "verdict": "pass",
+      "reasoning": "Interrogatories 23, 24, and 25 each ask about the recruitment and hiring of Dr. Kenji Furukawa, Samantha Briggs, and David Moreno respectively, and each explicitly includes 'any role played by Oshiro' as part of the required description. This directly probes Oshiro's specific involvement in soliciting these former CMT employees to join Veridian."
+    },
+    {
+      "id": "C-030",
+      "title": "Interrogatory re: Veridian's awareness of Oshiro's non-solicitation clause",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 6 asks Veridian to describe its knowledge of the 'March 5, 2018 confidentiality, nondisclosure, and invention-assignment agreement between Oshiro and CMT, including how Veridian learned of the agreement and which provisions were communicated or reviewed.' This addresses Veridian's knowledge of Oshiro's NDA/restrictive covenant obligations broadly, but does not specifically mention the non-solicitation clause or non-solicitation obligations. The criterion requires at least one interrogatory that asks about Veridian's awareness of Oshiro's 18-month non-solicitation obligation, either specifically or as part of a broader question about restrictive covenants/NDA obligations. Interrogatory No. 6 references the NDA agreement broadly and asks which provisions were communicated or reviewed, which could encompass the non-solicitation clause. However, the criterion states it passes if phrased 'as part of a broader question about Veridian's knowledge of Oshiro's restrictive covenants/NDA obligations.' Interrogatory No. 6 does ask about Veridian's knowledge of the NDA and 'which provisions were communicated or reviewed,' which is broad enough to encompass non-solicitation. This satisfies the criterion as a broader question about NDA obligations that would include the non-solicitation clause."
+    },
+    {
+      "id": "C-031",
+      "title": "Interrogatory re: independent development defense",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 15 explicitly asks Veridian to 'State the facts supporting any contention by Veridian that SynapticEdge was developed independently of the CMT Trade Secrets.' This directly probes the independent development defense, satisfying the criterion."
+    },
+    {
+      "id": "C-032",
+      "title": "Contention interrogatories either absent, deferred per FRCP 33(a)(2), or framed as factual inquiries",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 15 asks Veridian to 'State the facts supporting any contention by Veridian that SynapticEdge was developed independently of the CMT Trade Secrets.' This is a contention-style interrogatory. However, the criterion specifies FAIL only if the interrogatory is in the form 'State all facts supporting [affirmative defense/legal contention]' with no reference to FRCP 33(a)(2) deferral and no factual framing. Interrogatory No. 15 asks for 'the facts supporting any contention' rather than 'all facts supporting each affirmative defense.' More importantly, it is framed around a specific factual inquiry (independent development of SynapticEdge) rather than asking Veridian to marshal all facts for a broad legal position or affirmative defense. The other interrogatories (Nos. 11, 18, 19, 20) are clearly framed as factual inquiries about how things were designed and developed. No. 15 is the closest to a contention interrogatory, but it is framed as asking for facts supporting a specific factual contention (independent development) rather than asking for all facts supporting a legal defense. Under criterion (c), this qualifies as framing contention-style questions by asking for specific factual information. There is no interrogatory in the pure 'State all facts supporting [affirmative defense]' form without factual framing."
+    },
+    {
+      "id": "C-033",
+      "title": "Interrogatory re: DTSA willfulness \u2014 information barriers or ethical walls",
+      "verdict": "fail",
+      "reasoning": "Interrogatory No. 7 asks Veridian to 'Describe the steps Veridian took before or during Oshiro's onboarding to determine whether he possessed or might use CMT Materials, and the results of those steps.' Interrogatory No. 12 asks Veridian to 'Describe the steps Veridian has taken, after becoming aware of CMT's allegations, to identify, segregate, return, destroy, delete, or otherwise prevent use or disclosure of CMT Materials.' Neither of these interrogatories specifically asks about information barriers, ethical walls, or screening procedures implemented to prevent Oshiro from using or disclosing CMT's confidential information after joining Veridian. Interrogatory No. 7 is limited to pre-onboarding due diligence steps, and Interrogatory No. 12 is limited to post-allegation remediation steps. No interrogatory directly asks whether Veridian implemented information barriers, ethical walls, or screening procedures as ongoing protective measures during Oshiro's employment to prevent him from using or disclosing CMT trade secrets."
+    },
+    {
+      "id": "C-034",
+      "title": "Interrogatory re: damages / SynapticEdge revenues or contracts",
+      "verdict": "fail",
+      "reasoning": "Reviewing all 25 interrogatories, none of them ask Veridian to identify or describe revenues, profits, licensing agreements, sales, contracts, or other financial information related to SynapticEdge. Interrogatory 22 asks about hospitals in negotiations with CMT or with letters of intent regarding NeuroGuide 4.0, and communications between Veridian and those hospitals, but this is about competitive intelligence/tortious interference rather than Veridian's own financial information related to SynapticEdge. No interrogatory asks about SynapticEdge revenues, profits, sales figures, contracts, or licensing deals. The criterion requires at least one interrogatory addressing Veridian's financial information related to SynapticEdge, which is absent."
+    },
+    {
+      "id": "C-035",
+      "title": "Signature block identifies Hargrove, Pell & Sutton LLP",
+      "verdict": "pass",
+      "reasoning": "The signature block clearly identifies 'HARGROVE, PELL & SUTTON LLP' as plaintiff's counsel, with the firm name, address, and attorney signatures included."
+    },
+    {
+      "id": "C-036",
+      "title": "Signature block includes at least one attorney name (Margaret Hargrove or Kevin Nakamura)",
+      "verdict": "pass",
+      "reasoning": "The signature block includes both Margaret 'Meg' Hargrove and Kevin Nakamura, satisfying the criterion that at least one attorney name appears in the signature block."
+    },
+    {
+      "id": "C-037",
+      "title": "Includes certificate of service",
+      "verdict": "pass",
+      "reasoning": "The document includes a Certificate of Service section at the end, which identifies Stephen Osei of Drummond & Wakefield LLP as counsel for Defendant Veridian Health Systems, LLC, and indicates that a copy of the interrogatories was served on that counsel by a method authorized by the Federal Rules of Civil Procedure. The certificate includes a signature line for Margaret 'Meg' Hargrove and a blank date line to be filled in upon service."
+    },
+    {
+      "id": "C-038",
+      "title": "Correct entity name for plaintiff: Castillo Medical Technologies, Inc.",
+      "verdict": "pass",
+      "reasoning": "The document consistently uses 'Castillo Medical Technologies, Inc.' as the plaintiff's name throughout, including in the caption, definitions, signature block, and certificate of service."
+    },
+    {
+      "id": "C-039",
+      "title": "Correct entity name for defendant: Veridian Health Systems, LLC",
+      "verdict": "pass",
+      "reasoning": "The document consistently uses 'Veridian Health Systems, LLC' throughout, including in the caption, definitions, title, and certificate of service."
+    },
+    {
+      "id": "C-040",
+      "title": "Correct name for Ryan Oshiro",
+      "verdict": "pass",
+      "reasoning": "The document consistently uses 'Ryan Oshiro' throughout, including in the case caption, definitions, and all interrogatories. There are no misspellings of the name."
+    },
+    {
+      "id": "C-041",
+      "title": "Correct name for Dr. Kenji Furukawa",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 23 explicitly names 'Dr. Kenji Furukawa' with correct spelling when addressing the recruitment and hiring of departing CMT employees."
+    },
+    {
+      "id": "C-042",
+      "title": "Correct name for Samantha Briggs",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 24 explicitly names 'Samantha Briggs' correctly with no misspelling."
+    },
+    {
+      "id": "C-043",
+      "title": "Correct name for David Moreno",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 25 correctly names 'David Moreno' without any misspelling."
+    },
+    {
+      "id": "C-044",
+      "title": "References FRCP 33 in instructions or elsewhere",
+      "verdict": "pass",
+      "reasoning": "The document references Rule 33 multiple times: in the preamble ('Pursuant to Rules 26 and 33 of the Federal Rules of Civil Procedure'), in the introductory paragraph ('within the time prescribed by Rule 33(b)(2)'), and in Instruction A ('consistent with Rule 33'). These are clear references to FRCP 33."
+    },
+    {
+      "id": "C-045",
+      "title": "Interrogatory re: Oshiro's compensation at Veridian",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 4 asks Veridian to 'State the material terms of Veridian's employment offer to Oshiro, including the date the offer was made and the compensation and equity components offered.' This addresses the offer terms but focuses on the offer made to Oshiro, not necessarily his actual compensation at Veridian (i.e., what he actually received/earns). However, no interrogatory explicitly asks about Oshiro's actual compensation, salary, signing bonus, or benefits as an employee of Veridian. Interrogatory No. 4 covers the offer terms including compensation and equity components, which is closely related but technically asks about the offer rather than actual employment terms/compensation received. That said, the criterion asks whether at least one interrogatory 'asks Veridian to describe or identify the terms of Oshiro's compensation at Veridian, including salary, signing bonus, equity, or other benefits.' Interrogatory No. 4 does ask about compensation and equity components of the employment offer, which substantially covers this ground. The offer terms would include salary, signing bonus, and equity - the very items listed in the criterion. This satisfies the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "Interrogatory re: communications between Veridian and Oshiro before his resignation",
+      "verdict": "fail",
+      "reasoning": "Interrogatory No. 3 asks Veridian to 'Describe communications between Veridian and Oshiro after that initial contact and before Oshiro began working for Veridian that concerned potential employment with Veridian.' This covers communications before Oshiro started at Veridian, but it is limited to communications 'concerning potential employment with Veridian' and does not specifically target the pre-resignation period (before February 14, 2024 or March 1, 2024). Interrogatory No. 2 asks about the initial contact on December 3, 2023. However, neither interrogatory specifically asks for all communications between Veridian and Oshiro prior to his resignation from CMT. The criterion requires at least one interrogatory that specifically targets pre-resignation communications (before February 14, 2024 or March 1, 2024). The interrogatories cover communications before Oshiro 'began working for Veridian' but do not specifically reference his resignation date or last day at CMT, and Interrogatory No. 3 is limited to employment-related communications rather than all communications. No interrogatory broadly asks for all communications between Veridian and Oshiro prior to his resignation from CMT."
+    },
+    {
+      "id": "C-047",
+      "title": "Interrogatory re: Veridian's knowledge or possession of CMT confidential information",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 10 asks Veridian to identify all CMT Materials within its possession, custody, or control, and Interrogatory No. 11 asks Veridian to describe any review, use, copying, adaptation, or reliance on CMT Materials or CMT Trade Secrets in connection with SynapticEdge. These interrogatories clearly ask about Veridian's possession and use of CMT's confidential information, satisfying the criterion."
+    },
+    {
+      "id": "C-048",
+      "title": "USB drive referenced with serial number CX-8827491",
+      "verdict": "pass",
+      "reasoning": "Interrogatory No. 9 explicitly references '2TB Corsair USB drive bearing serial number CX-8827491', which satisfies the criterion requiring the serial number CX-8827491 to be included in the document."
+    },
+    {
+      "id": "C-049",
+      "title": "Interrogatory re: Oshiro's work assignments or projects at Veridian",
+      "verdict": "fail",
+      "reasoning": "Reviewing all 25 interrogatories, none of them ask Veridian to describe Oshiro's roles, responsibilities, projects, or work assignments since joining Veridian. The interrogatories cover recruitment/hiring (Nos. 1-7), CMT materials (Nos. 8-12), SynapticEdge development (Nos. 13-21), hospital negotiations (No. 22), and recruitment of other employees (Nos. 23-25). While Oshiro is mentioned in several interrogatories, none ask what Oshiro has actually been doing at Veridian in terms of his job duties, projects, or work assignments after joining the company."
+    },
+    {
+      "id": "C-050",
+      "title": "Document is addressed/directed to Veridian Health Systems, LLC",
+      "verdict": "pass",
+      "reasoning": "The document is clearly titled 'PLAINTIFF CASTILLO MEDICAL TECHNOLOGIES, INC.'S FIRST SET OF INTERROGATORIES TO DEFENDANT VERIDIAN HEALTH SYSTEMS, LLC' and the introductory paragraph explicitly states these interrogatories are propounded to 'Defendant Veridian Health Systems, LLC (\"Veridian\").' The definitions section distinguishes Veridian from Oshiro. All interrogatories are directed at Veridian's knowledge, actions, and conduct. The document is unambiguously directed to Veridian Health Systems, LLC."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-interrogatories/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-interrogatories",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T01:42:13.722674+00:00",
+  "cost": {
+    "input_tokens": 895170,
+    "output_tokens": 21631,
+    "wall_clock_seconds": 160.75
+  },
+  "doc_coverage": {
+    "documents_read": 10,
+    "total_documents": 9,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "first-amended-complaint.docx",
+      "scheduling-order.docx",
+      "oshiro-nda-agreement.docx",
+      "tro-order.docx",
+      "litigation-hold-letter.docx",
+      "ashcroft-forensics-report.docx",
+      "yilmaz-preliminary-report.docx",
+      "veridian-press-release.docx",
+      "cmt-internal-emails.eml",
+      "/workspace/output/first-set-interrogatories-to-veridian.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

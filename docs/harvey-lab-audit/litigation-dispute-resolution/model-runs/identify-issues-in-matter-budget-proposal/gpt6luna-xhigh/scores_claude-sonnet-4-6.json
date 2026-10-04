@@ -1,0 +1,267 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "34/39 criteria passed.  Missed 5 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 39,
+  "n_passed": 34,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies fee total reconciliation discrepancy (ISSUE_001)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the discrepancy between the phase fee total ($1,708,950) and the staffing-table-derived fee total ($1,825,000), noting a $116,050 gap. This is prominently featured in section 1.1 with a detailed table showing the difference by phase, and is also highlighted in the Executive Conclusion as 'the most material quantified issue.'"
+    },
+    {
+      "id": "C-002",
+      "title": "Correctly quantifies fee discrepancy as $116,050",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states '$116,050 gap between the phase fee estimate ($1,708,950) and the staffing-table fees ($1,825,000)' in the executive conclusion, and the reconciliation table shows TOTAL difference of $116,050 ($1,825,000 - $1,708,950). This matches the criterion exactly."
+    },
+    {
+      "id": "C-003",
+      "title": "Identifies Croft's rate exceeds OCG partner cap (ISSUE_002)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies in Section 2 (Rates and timekeeper approvals) that Nathaniel Croft's proposed rate of $850 exceeds the OCG cap of $825 by $25/hr, stating 'Above absolute cap by $25/hr; a 3% increase from $825 would still be capped at $825.' It also quantifies the direct excess as $15,500 (620 hours \u00d7 $25)."
+    },
+    {
+      "id": "C-004",
+      "title": "Quantifies Croft rate overage at $25/hr over $825 cap",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states 'Croft \\ $15,500 (620 \u00d7 \\ $25)' in Section 2, and also notes the cap is \\ $825 with the proposed rate at \\ $850, making the overage \\ $25/hr. Both the per-hour overage and total financial impact are quantified."
+    },
+    {
+      "id": "C-005",
+      "title": "Identifies Okeke's rate exceeds OCG senior associate cap (ISSUE_003)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies Samara Okeke's proposed rate of $575 as exceeding the $550 cap, noting it is 'Above cap by $25/hr' and that the increase 'exceeds both the cap and annual limit.' This is clearly stated in the rates table in Section 2."
+    },
+    {
+      "id": "C-006",
+      "title": "Quantifies Okeke rate overage at $25/hr over $550 cap",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states 'Okeke \\ $24,500 (980 \u00d7 \\ $25)' in Section 2, and also notes 'Above cap by \\ $25/hr' in the rates table. Both the per-hour overage ($25/hr) and the total financial impact ($24,500) are quantified."
+    },
+    {
+      "id": "C-007",
+      "title": "Identifies Okeke's rate increase exceeds 3% annual cap (ISSUE_013)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states for Okeke: 'Above cap by $25/hr; increase is about 4.55% and exceeds both the cap and annual limit.' This clearly identifies that Okeke's rate increase exceeds the 3% annual cap, satisfying the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "States correct OCG-compliant max rate for Okeke ($566.50)",
+      "verdict": "fail",
+      "reasoning": "The memorandum states that Okeke's proposed rate of $575 is above the $550 cap by $25/hr and that the increase is about 4.55%, exceeding both the cap and annual limit. However, it never calculates or states the maximum permissible rate under the 3% annual increase limit, which would be $550 \u00d7 1.03 = $566.50. The criterion requires that the memo compute or state approximately $566.50 as the OCG-compliant maximum. The memo only cites the $550 cap without addressing what the 3% increase calculation would yield as a maximum compliant rate."
+    },
+    {
+      "id": "C-009",
+      "title": "Identifies insufficient rate increase notice period (ISSUE_004)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the memorandum to identify that the December 15, 2024 rate notice was submitted only 17 days before the January 1, 2025 effective date, violating a 60-day advance written notice requirement. The memorandum does state that the December 15, 2024 notice is 'after the November 1 deadline' and that 'OCG \u00a7\u00a73.1--3.3 ... require notice by November 1 for a January 1 increase.' However, it does not specify the 60-day advance notice requirement, nor does it calculate the 17-day gap. The criterion specifically requires identification of the 60-day requirement and the 17-day shortfall. The memorandum only references a November 1 deadline without quantifying the notice period as 60 days or noting the 17-day gap. This is a partial match but does not fully satisfy the criterion as described."
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies paralegal rate exceeds OCG cap (ISSUE_005)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies that Margaret Hsu's proposed rate of $225/hr exceeds the OCG paralegal cap of $200/hr. This appears in the rates table (Section 2) noting '$225 \u2014 $200 paralegal cap \u2014 Above cap by $25/hr' and again in Section 3.1 stating '$225 exceeds the $200 paralegal cap.'"
+    },
+    {
+      "id": "C-011",
+      "title": "Quantifies Hu paralegal rate overage at $25/hr over $200 cap",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 2 that Hsu/Hu is 'Above cap by $25/hr' and in the quantification paragraph: 'Hsu/Hu $18,500 (740 \u00d7 $25)'. Both the per-hour overage ($25/hr) and the total financial impact ($18,500) are provided."
+    },
+    {
+      "id": "C-012",
+      "title": "Identifies inadequate notice for Hu's addition to matter (ISSUE_006)",
+      "verdict": "pass",
+      "reasoning": "Section 3.1 explicitly states: 'The April 25, 2025 email requests approval to add \"Margaret Hsu\" effective April 28---approximately one business day later---and asks the GC to confirm... OCG \u00a74.3 requires at least ten business days' advance notice and written approval.' This directly identifies the inadequate notice issue (approximately 1-2 business days vs. the required 10 business days)."
+    },
+    {
+      "id": "C-013",
+      "title": "Identifies e-discovery vendor sole-source violation (ISSUE_007)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the Clearpoint e-discovery issue in Section 5 (Expenses). It states that the $285,000 exceeds the $200,000 life-of-matter threshold, that OCG \u00a77.2(a) requires bids from at least three qualified vendors and documented GC approval before selection, that sole source requires express written approval and justification, and that bid/approval records are absent. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "Identifies expert witness fees exceed pre-approval threshold (ISSUE_008)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies in Section 5 (Expenses table) that the two proposed experts at $90,000 and $85,000 each exceed the $75,000 per-expert threshold under OCG \u00a77.3(a), and notes that pre-approval with CV, scope, fee schedule/estimated total and written selection justification is required before retention. It also notes that no approval package has been submitted ('The proposal says selection is underway and details will follow'). This satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies business class travel without pre-approval (ISSUE_009)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the business-class travel issue in Section 5 under the Travel expense row: 'The narrative budgets business-class airfare for Croft to Miami/New York based on scheduling demands. OCG \u00a77.4(a) reimburses economy only; business class requires advance written approval and extraordinary circumstances.' It also requires removal of the business-class premium unless advance GC approval is obtained. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "Identifies internal copying/printing as non-reimbursable (ISSUE_010)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the $15,000 internal copying/printing line item as non-reimbursable under OCG \u00a7\u00a77.5 and 7.8(a), stating 'OCG \u00a7\u00a77.5 and 7.8(a) prohibit reimbursement of internal copying/printing regardless of label' and directs to 'Delete the $15,000.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "Recommends removal of $15,000 copying/printing from budget",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses the $15,000 internal copying/printing line item in Section 5 (Expenses), stating 'Delete the $15,000. Only third-party reproduction may be considered, with vendor, purpose, volume, unit cost and supporting third-party invoice.' This clearly recommends removal of the $15,000 internal copying/printing from the budget, satisfying the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "Identifies unauthorized post-trial/appeal reserve (ISSUE_011)",
+      "verdict": "pass",
+      "reasoning": "Section 4 of the memorandum explicitly addresses the L700 reserve, stating that OCG \u00a75.4 and Appendix A prohibit post-trial/appellate reserves unless the Company expressly requests appellate planning in writing, that no such written request or approval is included, and that the $92,000 L700 phase must be removed unless the GC first requests appellate planning in writing and separately approves a supported L700 budget. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "Identifies Boyd Whitaker as unbudgeted phantom timekeeper (ISSUE_012)",
+      "verdict": "pass",
+      "reasoning": "Section 1.2 of the memorandum explicitly addresses Boyd Whitaker as a 'disclosed but unpriced/unreconciled resource,' noting that the proposal describes approximately 60 hours of possible partner time in L400 but expressly excludes him from staffing totals and fee estimates, with no rate, detailed hours by phase, or GC approval provided. This directly identifies the phantom timekeeper issue described in the criterion."
+    },
+    {
+      "id": "C-020",
+      "title": "Notes Whitaker addition would require GC notice under OCGs",
+      "verdict": "fail",
+      "reasoning": "In section 1.2, the memorandum discusses Boyd Whitaker and states that OCG \u00a7\u00a72.1 and 5.2 require the anticipated team and associated rates/hours to be budgeted, and that OCG \u00a74.2 permits at most two partners but requires advance approval to add a second partner. However, the memorandum does not explicitly mention the 10 business days' notice requirement in connection with Whitaker's addition. The 10 business days' notice requirement is mentioned only in section 3.1 in connection with Margaret Hsu/Hu (OCG \u00a74.3). The Whitaker discussion references needing 'advance approval' and 'written' approval, but does not cite the specific 10 business day notice requirement under the timekeeper addition provisions. The criterion specifically asks whether the memorandum notes that adding Whitaker would require written notice to and approval from the GC under the OCG timekeeper addition requirements (10 business days' notice). Since the 10 business days' notice requirement is not mentioned in connection with Whitaker, this criterion is not fully satisfied."
+    },
+    {
+      "id": "C-021",
+      "title": "Identifies mock trial/jury consulting expense as requiring GC pre-approval",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly flags the $95,000 Silvermark mock trial/jury consulting expense in Section 5 (Expenses), noting that mock trials/jury consultants require advance GC approval above $10,000 under \u00a77.7, and that no approval package is shown. The required action states to 'Obtain advance written approval and provide scope, fee basis, deliverables and justification.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "Does NOT flag two-partner limit as violated (DISTRACTOR_005)",
+      "verdict": "pass",
+      "reasoning": "In section 1.2, the memorandum explicitly states: 'OCG \u00a74.2 permits at most two partners (including partner-level of counsel), but requires advance approval to add a second partner if the approved plan included only one. Croft plus Whitaker would be two partners---not automatically a numerical breach.' The memo correctly notes that having both Croft and Whitaker does NOT violate the two-partner limit, and flags only the approval/notice requirements and the unbudgeted hours issue. It does not claim the two-partner cap is exceeded."
+    },
+    {
+      "id": "C-023",
+      "title": "Recommends reducing Croft's rate to $825/hr or obtaining waiver",
+      "verdict": "pass",
+      "reasoning": "In Section 2, the memorandum explicitly states for Nathaniel Croft: 'Above absolute cap by $25/hr; a 3% increase from $825 would still be capped at $825.' The Action item then states: 'Use only the last rate actually approved in writing, subject to the applicable cap, until the GC confirms otherwise in writing.' This directs that Croft's rate be reduced to $825 (the last approved rate and the cap), and that any exception requires written GC confirmation. This satisfies the criterion of recommending reducing Croft's rate to $825/hr or obtaining a written waiver/exception."
+    },
+    {
+      "id": "C-024",
+      "title": "Recommends reducing Okeke's rate to comply with OCG caps",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies Okeke's proposed rate of $575 as above the $550 cap by $25/hr and exceeding the 3% annual increase limit. In Section 2, the action item states: 'Use only the last rate actually approved in writing, subject to the applicable cap, until the GC confirms otherwise in writing.' This effectively recommends reducing Okeke's rate to the last approved rate ($550) or obtaining written GC approval. The memorandum clearly identifies the issue and recommends a specific remediation action (use only the approved rate subject to the cap, or get written GC approval), which satisfies the criterion."
+    },
+    {
+      "id": "C-025",
+      "title": "Recommends reducing Hu's rate to $200/hr or obtaining waiver",
+      "verdict": "pass",
+      "reasoning": "The memorandum identifies that Margaret Hsu/Hu's proposed rate of $225 exceeds the $200 paralegal cap. In Section 2 (Rates and timekeeper approvals), it states '$225 exceeds the $200 paralegal cap' and notes the issue. In Section 3.1, it states 'Do not authorize/bill those hours until the timekeeper identity, qualifications, role, capped rate and GC approval are documented.' The action required is to use only the capped rate ($200) with GC approval. The memorandum also states in Section 2's action item: 'Use only the last rate actually approved in writing, subject to the applicable cap, until the GC confirms otherwise in writing.' This effectively recommends reducing to the $200 cap or obtaining written GC approval for any exception. The criterion is satisfied."
+    },
+    {
+      "id": "C-026",
+      "title": "Recommends competitive bidding for e-discovery vendor",
+      "verdict": "pass",
+      "reasoning": "In Section 5 (Expenses), the memorandum explicitly addresses the Clearpoint e-discovery issue and states: 'OCG \u00a77.2(a) requires bids from at least three qualified vendors and documented GC approval before selection; sole source requires express written approval and justification.' The required action column states: 'Provide three-bid/evaluation record and approval, or a documented sole-source exception.' This clearly recommends competitive bidding among at least three vendors and submission of documentation to the GC, satisfying the criterion."
+    },
+    {
+      "id": "C-027",
+      "title": "Recommends submitting expert CVs and scope for GC pre-approval",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses the expert witness fee issue in Section 5 (Expenses). For the two experts at $90,000 and $85,000, it notes that each exceeds the $75,000 per expert threshold under OCG \u00a77.3(a), which requires pre-approval before retention with CV, scope, fee schedule/estimated total and written selection justification. The required action states: 'Submit a separate complete approval package for each expert before retention.' This directly recommends submitting expert CVs and scope documents for GC pre-approval, satisfying the criterion."
+    },
+    {
+      "id": "C-028",
+      "title": "Assigns severity levels to identified issues",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a 'Priority findings at a glance' table that explicitly assigns severity levels (Critical, High, Medium) to each identified issue. This satisfies the criterion of assigning severity levels to identified issues."
+    },
+    {
+      "id": "C-029",
+      "title": "Budget inconsistency rated as Critical or High severity",
+      "verdict": "pass",
+      "reasoning": "The agent's output uses a three-tier severity scale: Critical, High, and Medium. The fee budget reconciliation discrepancy ($116,050 difference between phase-based fees and staffing-table fees) is listed in the 'Priority findings at a glance' table under the 'Critical' severity level, which is the highest tier in the scale used. This satisfies the criterion that the issue be assigned Critical or High severity."
+    },
+    {
+      "id": "C-030",
+      "title": "Rate cap violations rated as Critical or High severity",
+      "verdict": "pass",
+      "reasoning": "The agent's output groups rate cap violations (Croft, Okeke, Hsu/Hu exceeding OCG caps) under the 'Critical' priority finding: 'Rates late, unapproved and/or above caps; Hsu not approved' is listed as Critical in the priority findings table. This satisfies the criterion that at least one rate cap violation is assigned Critical or High severity."
+    },
+    {
+      "id": "C-031",
+      "title": "Notes at least two compliant budget areas",
+      "verdict": "pass",
+      "reasoning": "The memorandum affirmatively identifies multiple compliant areas. In Section 3.5, it states the efficiency ratio passes: 'Yoon and Novak total 1,400 of 3,000 attorney hours (46.67%), above the 40% threshold' and 'Okeke is budgeted at 980/3,000 attorney hours (32.67%), above the 15% significant-role threshold.' In Section 7, it also notes 'The proposal uses the standard Appendix A codes L200--L700 and the phase-hour totals tie to the timekeeper hours.' That gives at least three compliant areas: (a) staffing efficiency ratio, (b) Okeke's diversity/significant-role percentage, and (e) UTBMS phase code usage. The criterion requires at least two, so this passes."
+    },
+    {
+      "id": "C-032",
+      "title": "Recommends removal or separate approval for L700 appeal reserve",
+      "verdict": "pass",
+      "reasoning": "Section 4 of the memorandum explicitly addresses the L700 reserve, stating that OCG \u00a75.4 and Appendix A prohibit post-trial/appellate reserves unless expressly requested in writing by the client. It recommends removing the $92,000 L700 phase and all corresponding staffing hours unless the GC first requests appellate planning in writing and separately approves a supported L700 budget. This directly satisfies the criterion of recommending removal or separate express written approval for the L700 appeal reserve."
+    },
+    {
+      "id": "C-033",
+      "title": "Cites OCG rate cap provisions specifically",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly references specific OCG rate cap amounts when discussing rate violations. In Section 2, the table lists the OCG cap for each timekeeper: Croft's cap is $825, Okeke's cap is $550, Yoon's cap is $425, Novak's cap is $375, and Hsu/Hu's paralegal cap is $200. These specific dollar amounts are cited alongside the proposed rates and the identified violations. The memorandum does not merely make generic statements about rates being too high but provides the actual cap figures for each timekeeper category."
+    },
+    {
+      "id": "C-034",
+      "title": "Cites OCG 60-day notice requirement for rate increases",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses the late rate increase notice in Section 2, noting that the December 15, 2024 notice is after the November 1 deadline and that it does not constitute approval. However, it references a 'November 1' deadline for notice (implying a ~45-day notice period before January 1) rather than a specific '60-day advance written notice requirement.' The criterion requires the memorandum to specifically reference the OCG's 60-day advance written notice requirement and note that the actual notice period was approximately 17 days. Neither the 60-day requirement nor the ~17-day actual notice period is mentioned anywhere in the document."
+    },
+    {
+      "id": "C-035",
+      "title": "Cites OCG 10-business-day notice requirement for new timekeepers",
+      "verdict": "pass",
+      "reasoning": "Section 3.1 of the memorandum explicitly states: 'OCG \u00a74.3 requires at least ten business days' advance notice and written approval' when discussing Margaret Hsu's addition. It also notes the actual notice was approximately one business day ('requests approval to add "
+    },
+    {
+      "id": "C-036",
+      "title": "Recommends reconciling the two fee totals before approval",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the $116,050 gap between the phase fee total ($1,708,950) and the staffing-table total ($1,825,000) in section 1.1, and in the Action item states: 'Require one revised fee schedule in which each phase total equals the allocated hours times the applicable approved rates, and the grand total rolls through to expenses. Do not approve either fee total until corrected.' This directly recommends reconciling the two fee totals before approval."
+    },
+    {
+      "id": "C-037",
+      "title": "Identifies Croft's rate increase notice also has percentage issue",
+      "verdict": "pass",
+      "reasoning": "The memorandum addresses Croft's rate issue in Section 2 (Rates and timekeeper approvals). It states: 'Nathaniel Croft: $850 proposed, $825 cap; 2024 approved $825. Above absolute cap by $25/hr; a 3% increase from $825 would still be capped at $825.' This explicitly notes that even if a 3% increase were applied to $825 (which would yield $849.75, rounded to ~$850), the result would still be capped at $825 because $825 is the absolute OCG partner cap. The memorandum thus addresses the interaction between the percentage increase and the absolute rate cap, satisfying the criterion."
+    },
+    {
+      "id": "C-038",
+      "title": "Recommends obtaining pre-approval for business class travel",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses business-class travel in Section 5 under the Travel expense line item. It states: 'Remove business-class premium unless advance GC approval is obtained on an extraordinary-circumstances basis; otherwise limit reimbursement to lowest available economy fare.' This clearly recommends either obtaining written pre-approval from the GC for business class travel or revising the budget to economy-class-only travel, satisfying the criterion."
+    },
+    {
+      "id": "C-039",
+      "title": "Quantifies expert fee per-expert average as ~$87,500",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions the two expert fees ($90,000 and $85,000) and notes that each exceeds the $75,000 per-expert threshold, but it never calculates or states a per-expert average of ~$87,500 ($175,000 \u00f7 2). The criterion specifically requires that the per-expert average be calculated or stated as approximately $87,500 and compared against the $75,000 threshold. The agent only lists the individual amounts and compares each individually to the threshold, without computing the average."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/identify-issues-in-matter-budget-proposal/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/identify-issues-in-matter-budget-proposal",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:21:41.698914+00:00",
+  "cost": {
+    "input_tokens": 712933,
+    "output_tokens": 32276,
+    "wall_clock_seconds": 224.39
+  },
+  "doc_coverage": {
+    "documents_read": 6,
+    "total_documents": 5,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "colton-ocg-v4.2.docx",
+      "matter-budget-proposal.docx",
+      "rate-increase-notice.eml",
+      "timekeeper-addition-notice.eml",
+      "prior-year-budget-actuals.xlsx",
+      "/workspace/output/budget-issue-memorandum.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

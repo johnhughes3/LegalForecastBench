@@ -1,0 +1,325 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "47/48 criteria passed.  Missed 1 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 48,
+  "n_passed": 47,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Document includes general/prefatory objections section",
+      "verdict": "pass",
+      "reasoning": "The document contains a clearly labeled 'GENERAL OBJECTIONS' section with seven numbered general objections (covering scope/relevance, overbreadth/burden, privilege, vagueness/ambiguity, ongoing investigation, definitions/instructions, and numerical limits) that appear before the individual interrogatory responses and are incorporated by reference into each specific response."
+    },
+    {
+      "id": "C-002",
+      "title": "Responses cover all 25 interrogatories",
+      "verdict": "pass",
+      "reasoning": "The document provides responses and objections to all 25 interrogatories (Nos. 1 through 25). Each interrogatory number is addressed with both objections and a substantive response (or reference to other responses). Interrogatory Nos. 18-25 are addressed voluntarily despite the numerical limit objection. No interrogatory number is entirely omitted."
+    },
+    {
+      "id": "C-003",
+      "title": "Identifies Interrogatory No. 17 subparts as discrete subparts",
+      "verdict": "pass",
+      "reasoning": "In General Objection No. 7, the document explicitly states: 'Numerous Interrogatories contain subparts seeking separate and independent categories of information (including, without limitation, Interrogatory Nos. 2, 4, 6, 7, 8, 13, 16, and 17).' Furthermore, in the specific objections to Interrogatory No. 17, the document states: 'Pinnacle objects to Interrogatory No. 17 on the ground that subparts (a), (b), (c), and (d) seek four separate and independent categories of information (Tri-Basin revenue, Meridian revenue, Pinnacle's defect-related costs, and Pinnacle's limitation-of-liability contention), each of which constitutes a discrete interrogatory.' The document clearly identifies Interrogatory No. 17's subparts (a) through (d) as discrete subparts that should be counted separately under Fed. R. Civ. P. 33(a)(1)."
+    },
+    {
+      "id": "C-004",
+      "title": "Notes total interrogatory count exceeds 25 due to subparts",
+      "verdict": "pass",
+      "reasoning": "General Objection No. 7 explicitly states that counting discrete subparts, the interrogatories exceed the 25-interrogatory limit, and specifies that 'Plaintiff's twenty-fifth interrogatory is reached at Interrogatory No. 17(a); Interrogatory Nos. 17(b)--(d) and 18 through 25 exceed the limit.' This means the total count is at least 25 + 4 (17b-d) + 8 (18-25) = more than 25. The document clearly notes the total exceeds 25 due to subparts, satisfying the criterion."
+    },
+    {
+      "id": "C-005",
+      "title": "Objects to excess interrogatories citing Rule 33(a)(1)",
+      "verdict": "pass",
+      "reasoning": "General Objection No. 7 explicitly cites Fed. R. Civ. P. 33(a)(1) as the basis for objecting to interrogatories exceeding the numerical limit due to discrete subparts. This objection is also incorporated and reiterated in the responses to Interrogatory Nos. 17 through 25, each citing Rule 33(a)(1) and the Case Management Order's 25-interrogatory limit."
+    },
+    {
+      "id": "C-006",
+      "title": "Addresses termination grounds without admitting no cure notice was sent in 2020",
+      "verdict": "pass",
+      "reasoning": "The responses to Interrogatory Nos. 3, 4, and 19 do acknowledge that Pinnacle did not send a written notice regarding the 2020 shortfall before the Termination Letter. However, the criterion asks whether the response 'explicitly admits that Pinnacle failed to provide the required 90-day cure notice for the 2020 shortfall at or near the time of the breach.' The responses carefully frame this by: (1) characterizing the Termination Letter itself as the Section 9.1 notice ('constitutes formal written notice of the material breaches described therein pursuant to Section 9.1'); (2) explaining the business reasons for not sending earlier notice (COVID-19 pandemic, expected recovery); (3) relying on non-waiver provisions (\u00a7\u00a7 6.2, 12.3, 12.7); and (4) treating the shortfall as a continuing breach. The responses do state that no written notice was sent before the Termination Letter, but they do not admit that this constituted a failure to provide a 'required' cure notice \u2014 they frame the Termination Letter as the operative notice under Section 9.1. The criterion says FAIL only if the response 'explicitly admits that Pinnacle failed to provide the required 90-day cure notice for the 2020 shortfall at or near the time of the breach.' The responses acknowledge no prior notice was sent but do not concede it was 'required' at the time of the breach, and instead position the Termination Letter as the Section 9.1 notice. This satisfies the criterion as stated."
+    },
+    {
+      "id": "C-007",
+      "title": "Presents 2020 shortfall as legitimate termination basis while preserving continuing-breach argument",
+      "verdict": "pass",
+      "reasoning": "The response to Interrogatory No. 3 explicitly identifies the 2020 minimum purchase shortfall as a ground for termination under Section 9.1, citing Section 9.1(d)(i) and Section 6.2(c) of the MDA. In Interrogatory No. 4(e), Pinnacle explains it continued to perform because it expected volumes to recover, but expressly states it did not waive the shortfall in writing and relies on MDA Sections 6.2, 12.3, and 12.7 (non-waiver provisions) to preserve the right to terminate. Interrogatory No. 19 similarly invokes the non-waiver provisions and states Tri-Basin never made up the shortfall. Interrogatory No. 22 (First Affirmative Defense) again lists the 2020 shortfall as a supporting fact and cites the non-waiver provisions. The framing throughout treats the shortfall as an uncured, continuing breach that Pinnacle did not waive, preserving the legal argument that it remained a valid termination ground despite the passage of time."
+    },
+    {
+      "id": "C-008",
+      "title": "Does not make admissions strengthening waiver/estoppel argument",
+      "verdict": "fail",
+      "reasoning": "The responses in Interrogatory No. 4(e) explicitly state: 'Pinnacle continued to perform its own obligations under the MDA from January 2021 through the termination date. Pinnacle did not issue a notice in 2021 because it understood that the 2020 shortfall occurred during the industry-wide downturn...' and 'Pinnacle did not agree in writing to waive the 2020 Minimum Purchase Obligation or to amend the MDA.' Similarly, Interrogatory No. 3(c) states: 'Pinnacle did not send Tri-Basin a written notice regarding the 2020 shortfall before the Termination Letter.' And Interrogatory No. 19 states: 'Pinnacle did not send Tri-Basin a written notice asserting a breach of Section 6.1 of the MDA before the Termination Letter dated June 2, 2023.' While the responses do attempt to mitigate these admissions by citing the non-waiver provisions of the MDA, the explicit acknowledgment that Pinnacle 'continued to perform its own obligations under the MDA from January 2021 through the termination date' without raising the shortfall issue for over 2.5 years is a clear admission that would bolster a waiver/estoppel argument. The language 'Pinnacle continued to perform its own obligations under the MDA from January 2021 through the termination date' combined with 'Pinnacle did not issue a notice in 2021' directly acknowledges continued performance without objection for years after the 2020 shortfall, which is precisely the type of language the criterion flags as problematic."
+    },
+    {
+      "id": "C-009",
+      "title": "Does not deny existence of Sept. 22, 2022 Hauck email",
+      "verdict": "pass",
+      "reasoning": "The agent's output repeatedly and explicitly references the September 22, 2022 Hauck-to-Crandall email (produced at PINNACLE_004223--004226) in multiple interrogatory responses. In Interrogatory No. 4(d), it identifies this email as an internal communication referencing the 2020 shortfall. In Interrogatory No. 13(c), it references the September 22, 2022 email as the basis for Mr. Crandall requesting the Quality Assurance Department to maintain the complaint log. In Interrogatory No. 20, it explicitly states that 'on September 22, 2022, Gerald R. Hauck asked Mr. Crandall to document the quality complaints and to work with the quality department to compile customer complaints concerning products sold through Tri-Basin' citing PINNACLE_004223--004226. The response does not deny or omit this communication when directly asked about quality complaint documentation or the decision to terminate. The criterion is fully satisfied."
+    },
+    {
+      "id": "C-010",
+      "title": "Does not characterize Hauck email as conceding pretext",
+      "verdict": "pass",
+      "reasoning": "The agent's output references the September 22, 2022 Hauck-to-Crandall email multiple times (at PINNACLE_004223--004226). In Interrogatory No. 20's response, the agent describes it as: 'On September 22, 2022, Gerald R. Hauck asked Mr. Crandall to document the quality complaints and to work with the quality department to compile customer complaints concerning products sold through Tri-Basin.' This framing presents the email as directing proper documentation of existing complaints, not as evidence of pretext. The response also notes 'Pinnacle's position regarding the September 22, 2022 email is set forth in Paragraphs 29 and 60 of its Answer,' which further distances the response from any concession of pretext. In Interrogatory No. 13, the email is referenced in the context of Mr. Crandall recommending timing and grounds for termination, but this is presented as a factual description without characterizing it as pretextual. Nowhere in the responses does the agent characterize the email as a 'build the file' directive or concede that the termination was pretextual. The framing consistently presents the documentation as legitimate complaint tracking."
+    },
+    {
+      "id": "C-011",
+      "title": "Does not incorporate Hauck's false awareness timeline",
+      "verdict": "pass",
+      "reasoning": "The responses correctly state that Hauck became aware of Meridian discussions no later than May 17, 2022, when Crandall sent him the 'Meridian Distribution -- West Texas Opportunity' email and Hauck replied the same day. This is consistent with the documentary evidence (the May 17, 2022 email addressed to Hauck). The responses do not state that Hauck was unaware until 'late 2022 or early 2023.' The criterion is satisfied."
+    },
+    {
+      "id": "C-012",
+      "title": "Does not assert unqualified blanket work product objection for Aldersgate Report",
+      "verdict": "pass",
+      "reasoning": "The agent's output does not assert a categorical, unqualified work product objection to withhold all information about the Aldersgate Report. Instead, the responses repeatedly disclose substantive findings from the Aldersgate Report throughout the document. For example, in Response to Interrogatory No. 5(e), the agent discloses that 'Aldersgate's Executive Summary dated June 14, 2023 determined that the primary root cause of the Series 7200 failures was excessive porosity in valve disc castings produced by Gansu Precision Metals Co.' In Response to Interrogatory No. 7(e), the agent discloses specific metallurgical findings (average void fraction of 4.7%, tensile strength below specification minimums, etc.). In Response to Interrogatory No. 6, the agent describes the scope, timeline, and findings of the Aldersgate investigation in detail. While there is a bracketed note '[PARTNER DECISION PENDING RE: WORK PRODUCT POSITION ON ALDERSGATE REPORT]' in Response No. 6(f), this is an internal drafting note, not an asserted objection, and the response still provides substantive information. The privilege/work product objections raised relate to communications with counsel about the report, not to the report's findings themselves. The agent clearly addresses the Aldersgate Report's findings substantively throughout, satisfying criterion (c)."
+    },
+    {
+      "id": "C-013",
+      "title": "Invokes Rule 33(d) for appropriate interrogatories",
+      "verdict": "pass",
+      "reasoning": "The document repeatedly invokes Fed. R. Civ. P. 33(d) for interrogatories requesting voluminous transactional data. For example, in Response to Interrogatory No. 4(b), it invokes Rule 33(d) for SAP Report ID RPT-SALES-TB4401-202312 containing invoice-level purchase data. In Response to Interrogatory No. 5, it invokes Rule 33(d) for the Series 7200 complaint log spreadsheet. In Response to Interrogatory No. 10, it invokes Rule 33(d) for SAP ERP sales and shipment records for Meridian's account. In Response to Interrogatory No. 14, it invokes Rule 33(d) for the SAP report and underlying invoice-level data. These are all appropriate uses of Rule 33(d) for voluminous transactional data, and the responses specify the particular business records from which the answers may be derived, including report IDs and custodians."
+    },
+    {
+      "id": "C-014",
+      "title": "Rule 33(d) invocations identify specific records",
+      "verdict": "pass",
+      "reasoning": "Every Rule 33(d) invocation in the document identifies the business records with at least one specific identifier. Examples: Interrogatory No. 4(b) cites 'SAP Report ID RPT-SALES-TB4401-202312 (extracted December 1, 2023)'; Interrogatory No. 5 cites the 'Series_7200_Complaints_Master_Q4_2022.xlsx' spreadsheet with custodian Karen L. Przybylski; Interrogatory No. 7 cites 'SAP Report ID RPT-PRODLINE-TB4401-202312 (product line BV-7200)'; Interrogatory No. 9 identifies custodians (Thomas J. Crandall, Verona distribution coordinator) and domain (meridiandist.com); Interrogatory No. 10 describes 'an SAP ERP sales and shipment report for Meridian's customer account' with specific fields listed; Interrogatory No. 14 cites 'SAP Report ID RPT-SALES-TB4401-202312'; Interrogatory No. 17(a) cites the same SAP report ID; Interrogatory No. 21 references an SAP report of shipments to ship-to addresses in counties listed in Exhibit C. None of the Rule 33(d) invocations merely say 'see business records' without further specification. All identify record type, custodian, report ID, or some combination thereof."
+    },
+    {
+      "id": "C-015",
+      "title": "Objects to contention interrogatories as premature",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly objects to Interrogatory Nos. 22, 23, and 24 as premature contention interrogatories. For each of these interrogatories, the objections section states: 'Pinnacle objects to this Interrogatory as a premature contention interrogatory. Fact discovery does not close until October 15, 2024; Pinnacle's document review is ongoing; no depositions have been taken; and expert reports are not due until December 1, 2024. Pursuant to Fed. R. Civ. P. 33(a)(2), a complete answer should not be required until designated discovery is complete.' This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "Includes privilege log obligation notice",
+      "verdict": "pass",
+      "reasoning": "The document repeatedly mentions the privilege log obligation. General Objection No. 3 explicitly states: 'Pinnacle will provide a privilege log identifying documents and communications withheld on these grounds in accordance with Fed. R. Civ. P. 26(b)(5)(A) and any applicable scheduling order.' This same language is repeated in the specific objections to Interrogatory Nos. 3, 4, 6, 8, 11, 12, 13, 16, 18, 19, 20, and 25. The document clearly satisfies the criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "Does not inadvertently waive privilege by disclosing substance",
+      "verdict": "pass",
+      "reasoning": "Reviewing the responses for inadvertent privilege waiver: The document consistently acknowledges the existence of attorney-client communications without disclosing their substance. For example, in Interrogatory No. 11(d), it states Ms. Trevino 'provided legal analysis regarding Section 4.2; the substance of that analysis is privileged and is being withheld.' In Interrogatory No. 16(d), it confirms Pinnacle 'sought and received legal advice from its General Counsel concerning the termination of the MDA' but states 'the substance of that advice is privileged.' In Interrogatory No. 24(c), it objects on work product grounds to further legal theories. The responses reference Bates numbers for documents but do not reveal the content of privileged communications. There is one internal note '[PARTNER DECISION PENDING RE: WORK PRODUCT POSITION ON ALDERSGATE REPORT --- SEE TRANSMITTAL NOTES]' in Interrogatory No. 6(f) which is a drafting note that should be removed before service, but it does not disclose the substance of any attorney-client communication - it merely flags an internal decision pending. Throughout, the responses acknowledge communications with counsel exist, identify who was involved, and commit to privilege logs, but do not reveal the substantive legal advice given. No privileged content is disclosed."
+    },
+    {
+      "id": "C-018",
+      "title": "Includes Rule 26(e) supplementation reservation",
+      "verdict": "pass",
+      "reasoning": "The document extensively includes Rule 26(e) supplementation reservations. The Preliminary Statement explicitly states Pinnacle 'expressly reserves the right to amend or supplement these Responses in accordance with Fed. R. Civ. P. 26(e) as additional information is identified.' General Objection No. 5 also addresses this. Furthermore, every single individual response (Interrogatory Nos. 1-25) ends with the statement: 'Pinnacle's investigation, including its review of approximately 48,000 potentially responsive documents, is ongoing. Pinnacle reserves the right to supplement or amend this response in accordance with Fed. R. Civ. P. 26(e).' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "Notes ongoing document review as basis for potential incompleteness",
+      "verdict": "pass",
+      "reasoning": "The agent's output extensively acknowledges ongoing document review and investigation as a basis for potential incompleteness. The Preliminary Statement explicitly states that 'Pinnacle's investigation of the facts relevant to this action is continuing' and that they are 'reviewing approximately 48,000 potentially responsive documents.' General Objection No. 5 is specifically titled 'Ongoing Investigation' and states responses are based on information reasonably available as of the date. Additionally, every single specific response concludes with: 'Pinnacle's investigation, including its review of approximately 48,000 potentially responsive documents, is ongoing. Pinnacle reserves the right to supplement or amend this response in accordance with Fed. R. Civ. P. 26(e).' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-020",
+      "title": "Asserts Section 11.2 damages cap defense",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly addresses the Section 11.2 damages cap in multiple places. In Interrogatory No. 24, the response states: 'Section 11.2 of the MDA caps each Party's aggregate liability for consequential, incidental, or indirect damages at the greater of (A) $5,000,000 or (B) the aggregate Net Purchase Price paid by Tri-Basin during the twelve-month period immediately preceding the event giving rise to liability.' The response also calculates the applicable cap at approximately $17,023,600 based on trailing 12-month purchases, identifies which categories of damages are subject to the cap, and addresses whether the cap applies to the fraud claim. The Section 11.2 cap is also referenced in Interrogatory No. 17(d) and No. 25 responses. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-021",
+      "title": "Does not make admissions bolstering fraud claim that would undermine damages cap",
+      "verdict": "pass",
+      "reasoning": "Reviewing the interrogatory responses for any admissions that concede fraudulent intent or intentional concealment that would undermine the Section 11.2 damages cap. The responses consistently deny fraud and avoid admissions of fraudulent intent. In Response to Interrogatory No. 6(f), Pinnacle states it did not provide the Aldersgate Report to Tri-Basin before litigation, but attributes this to the pending termination and notes the position is set forth in the Answer paragraphs 39-40, without admitting intentional concealment to deceive. In Response to Interrogatory No. 24(c), Pinnacle explicitly denies committing fraud or willful misconduct and argues the cap applies if fraud is not established. The responses characterize the Aldersgate retention as a legitimate quality investigation, the termination as justified under Section 9.1, and the non-disclosure as a business/legal decision rather than fraudulent concealment. No response admits that Pinnacle intentionally concealed findings to deceive Tri-Basin or that the termination was pretextual. The note in Interrogatory No. 6(f) about a pending partner decision on work product position is an internal drafting note, not a factual admission. Overall, the responses carefully avoid any admission of fraudulent intent or intentional concealment."
+    },
+    {
+      "id": "C-022",
+      "title": "Includes proper verification language under Rule 33(b)(3)",
+      "verdict": "pass",
+      "reasoning": "The document includes a VERIFICATION section at the end that contains language stating the signatory declares under penalty of perjury pursuant to 28 U.S.C. \u00a7 1746 that the factual statements are true and correct to the best of their knowledge, information, and belief. The verification is to be signed by a corporate representative of Pinnacle Manufacturing Corp. (with blanks for name and title to be filled in). This satisfies Fed. R. Civ. P. 33(b)(3)'s requirement that answers be made under oath."
+    },
+    {
+      "id": "C-023",
+      "title": "Includes attorney signature block for objections",
+      "verdict": "pass",
+      "reasoning": "The document includes a signature block at the end labeled 'AS TO OBJECTIONS:' with 'KELLNER, STRAUSS & WHITMORE LLP' and signature lines for Margaret A. Kellner (PA Bar No. 78214) and Philip R. Ostrowski (PA Bar No. 314087), along with their address, telephone, facsimile, and email information, identifying them as 'Attorneys for Defendant Pinnacle Manufacturing Corp.' This satisfies the requirement for an attorney signature block for the objections consistent with Fed. R. Civ. P. 33(b)(5)."
+    },
+    {
+      "id": "C-024",
+      "title": "Correct party names in case caption",
+      "verdict": "pass",
+      "reasoning": "The document includes a case caption at the top identifying the plaintiff as 'TRI-BASIN SUPPLY GROUP, LLC' and the defendant as 'PINNACLE MANUFACTURING CORP.' These party names are correct and match the criterion requirements."
+    },
+    {
+      "id": "C-025",
+      "title": "Correct case number in caption",
+      "verdict": "pass",
+      "reasoning": "The document caption clearly shows 'Civil Action No. 2:23-cv-01847-NR' in the header table, which matches the required case number exactly."
+    },
+    {
+      "id": "C-026",
+      "title": "Correct court in caption",
+      "verdict": "pass",
+      "reasoning": "The document caption clearly states 'IN THE UNITED STATES DISTRICT COURT FOR THE WESTERN DISTRICT OF PENNSYLVANIA' at the top of the filing, which correctly identifies the court."
+    },
+    {
+      "id": "C-027",
+      "title": "Responses use 'subject to and without waiving' objection language",
+      "verdict": "pass",
+      "reasoning": "Every substantive response in the document that follows stated objections includes the phrase 'Subject to and without waiving the foregoing General Objections and the specific objections stated herein, Defendant responds as follows:' This language appears consistently across all 25 interrogatory responses (Nos. 1-25), satisfying the criterion that substantive responses include preservation language indicating the answer is provided subject to and without waiving the stated objections."
+    },
+    {
+      "id": "C-028",
+      "title": "Correct financial figures for Tri-Basin purchase history",
+      "verdict": "pass",
+      "reasoning": "The agent's output in Interrogatory No. 14 provides a detailed table of Tri-Basin's annual purchases: 2015: $9,200,000; 2016: $10,100,000; 2017: $10,800,000; 2018: $12,400,000; 2019: $13,600,000; 2020: $9,700,000; 2021: $15,300,000; 2022: $16,800,000; 2023 (Jan.\u2013Aug.): $11,900,000. These figures match exactly the canonical data provided in the criterion. The agent also invokes Rule 33(d) to refer to underlying SAP records. All figures are consistent with the canonical data."
+    },
+    {
+      "id": "C-029",
+      "title": "Correctly identifies Meridian shipment amount",
+      "verdict": "pass",
+      "reasoning": "The agent's output states in Interrogatory No. 10 response: 'approximately $2.3 million cumulatively from August 2022 through June 2023.' This matches the $2.3 million figure specified in the criterion. The same figure is referenced in Interrogatory No. 21 response. The criterion passes if the amount stated is $2.3 million (Aug 2022\u2013Jun 2023), which it is."
+    },
+    {
+      "id": "C-030",
+      "title": "Addresses communications with Meridian honestly",
+      "verdict": "pass",
+      "reasoning": "The responses to Interrogatory Nos. 9, 10, 11, 12, 13, 15, 21, and others extensively acknowledge the Meridian relationship, including specific dates of communications, names of participants, dollar amounts of shipments, and Bates numbers of produced documents. The agent does not deny any communications or business relationship with Meridian. Instead, it provides detailed factual responses acknowledging the relationship began in April 2022 at a trade conference, that shipments began August 1, 2022, and that approximately $2.3 million in products were sold to Meridian through June 2023. The responses use Rule 33(d) to refer to business records for detailed transactional data but do not deny the existence of the relationship."
+    },
+    {
+      "id": "C-031",
+      "title": "Acknowledges existence of quality complaints for Series 7200 valves",
+      "verdict": "pass",
+      "reasoning": "The agent's output clearly acknowledges the existence of quality complaints regarding Series 7200 valves. In the response to Interrogatory No. 5, the agent explicitly states that 'Pinnacle's records reflect that it received a total of forty-seven (47) customer complaints concerning premature failure of Series 7200 butterfly valves between January 2022 and May 2023.' The response also extensively discusses the Aldersgate investigation, including its findings about casting defects. The response does include objections and qualifications, but it does not deny the existence of complaints - it affirmatively acknowledges them with specific numbers and details."
+    },
+    {
+      "id": "C-032",
+      "title": "Does not misrepresent nature of Series 7200 defect",
+      "verdict": "pass",
+      "reasoning": "The agent's output accurately represents both the metallurgical defect finding from the Aldersgate Report and the storage/handling concerns. In Response to Interrogatory No. 5(e), the agent explicitly states that 'Aldersgate's Executive Summary dated June 14, 2023 determined that the primary root cause of the Series 7200 failures was excessive porosity in valve disc castings produced by Gansu Precision Metals Co.' In Response to Interrogatory No. 7(e), the agent confirms that Aldersgate's testing found void fractions far exceeding ASTM A351 Grade CF8M specifications. In Response to Interrogatory No. 23, the agent acknowledges that 'Pinnacle is aware that Aldersgate's Executive Summary concluded that Tri-Basin's storage and handling practices were not a contributing factor to the disc casting failures that Aldersgate examined.' The response raises storage practices as a preliminary/earlier assessment but does not deny the metallurgical defect or attribute all failures solely to Tri-Basin's storage practices. The document accurately presents both the initial storage-based assessment and the subsequent Aldersgate finding of a manufacturing defect."
+    },
+    {
+      "id": "C-033",
+      "title": "Correct MDA execution date referenced",
+      "verdict": "pass",
+      "reasoning": "The document references the MDA's execution date implicitly through Contract Year references (e.g., 'Contract Year 6 (January 15, 2020 -- January 14, 2021)') and states 'January 15, 2015' as the start of Contract Years in the context of the MDA's term. The document does not explicitly state a specific MDA execution date that differs from January 15, 2015. The references to January 15 as the contract year start date are consistent with an execution date of January 15, 2015. No specific MDA execution date is stated that contradicts January 15, 2015."
+    },
+    {
+      "id": "C-034",
+      "title": "Correct termination letter date referenced",
+      "verdict": "pass",
+      "reasoning": "The agent's output references the Termination Letter's date multiple times throughout the document. Every specific reference to the Termination Letter's date states 'June 2, 2023' (e.g., in Interrogatory No. 3 response: 'The Termination Letter dated June 2, 2023'; in Interrogatory No. 4 response: 'before the Termination Letter of June 2, 2023'; in Interrogatory No. 8 response: 'Pinnacle initiated a voluntary recall...on August 1, 2023...approved by Gerald R. Hauck on July 18, 2023'; in Interrogatory No. 16 response: 'The Termination Letter was drafted...'; in Interrogatory No. 19 response: 'before the Termination Letter dated June 2, 2023'; in Interrogatory No. 24 response: 'Taking the June 2, 2023 Termination Letter as the event giving rise to liability'). All references consistently state June 2, 2023 as the date of the Termination Letter."
+    },
+    {
+      "id": "C-035",
+      "title": "Correct Aldersgate Report date referenced",
+      "verdict": "pass",
+      "reasoning": "The agent's output references the Aldersgate Report/Executive Summary date multiple times throughout the document. Every specific date reference states 'June 14, 2023' (e.g., 'Aldersgate's Executive Summary dated June 14, 2023', 'Ms. Trevino received Aldersgate's Executive Summary on June 14, 2023'). No other date is cited for the Aldersgate Report. This satisfies the criterion."
+    },
+    {
+      "id": "C-036",
+      "title": "Cites Section 9.1 as termination-for-cause provision",
+      "verdict": "pass",
+      "reasoning": "The agent's output repeatedly and consistently cites Section 9.1 as the termination-for-cause provision throughout the document. For example, in the response to Interrogatory No. 3, it states 'Pinnacle relies to support its contention that the termination of the MDA was justified under Section 9.1 (Termination for Cause).' In the response to Interrogatory No. 4, it references 'Section 9.1.' In Interrogatory No. 22, it references 'First Affirmative Defense that the MDA was rightfully terminated for cause under Section 9.1 of the MDA.' The section number is cited correctly and consistently throughout."
+    },
+    {
+      "id": "C-037",
+      "title": "Correctly states the 2020 minimum purchase obligation was $11.0M",
+      "verdict": "pass",
+      "reasoning": "The document repeatedly states the 2020 minimum purchase obligation as $11,000,000 (e.g., in Interrogatory No. 3 response: 'the $11,000,000 Minimum Purchase Obligation applicable to Contract Years 4 through 7'; in Interrogatory No. 4: 'The Minimum Purchase Obligation under Section 6.1 and Exhibit B of the MDA for Contract Year 6 (January 15, 2020 -- January 14, 2021) was $11,000,000'; and in the table in Interrogatory No. 14 showing $11,000,000 for 2020). This is consistent with the criterion requiring $11.0 million."
+    },
+    {
+      "id": "C-038",
+      "title": "Objections cite specific Federal Rules of Civil Procedure by rule number",
+      "verdict": "pass",
+      "reasoning": "The document contains numerous objections that cite specific Federal Rules of Civil Procedure by rule number. For example: General Objection No. 1 cites 'Fed. R. Civ. P. 26(b)(1)'; General Objection No. 2 cites 'Fed. R. Civ. P. 33(d)'; General Objection No. 3 cites 'Fed. R. Civ. P. 26(b)(3)', 'Fed. R. Civ. P. 26(b)(5)(A)', and 'Fed. R. Evid. 502(b)'; General Objection No. 7 cites 'Fed. R. Civ. P. 33(a)(1)'; and many individual responses cite Rules 33(d), 26(b)(1), 26(b)(5)(A), 33(a)(2), etc. There are well more than three objections citing specific Federal Rules by number throughout the document."
+    },
+    {
+      "id": "C-039",
+      "title": "Response deadline is April 25, 2024",
+      "verdict": "pass",
+      "reasoning": "The document is dated April 25, 2024 throughout - in the introductory paragraph ('These Responses are served on April 25, 2024'), in the signature block ('Dated: April 25, 2024'), and in the Certificate of Service ('on April 25, 2024'). The introductory paragraph also explicitly states the responses are 'within the time provided by the parties' stipulated fourteen-day extension approved by the Court on April 5, 2024.' The document is consistent with the April 25, 2024 response deadline."
+    },
+    {
+      "id": "C-040",
+      "title": "Identifies Gerald Hauck (CEO) as person with knowledge",
+      "verdict": "pass",
+      "reasoning": "In the response to Interrogatory No. 1 (persons with knowledge), Gerald R. Hauck is explicitly identified as the Chief Executive Officer of Pinnacle Manufacturing Corp., with a description of his subject matter knowledge including negotiation and execution of the MDA, Tri-Basin relationship, 2020 purchase shortfall, decision to terminate and Termination Letter, communications concerning Meridian, retention of Aldersgate, and August 2023 recall."
+    },
+    {
+      "id": "C-041",
+      "title": "Identifies Sandra Trevino (General Counsel) as person with knowledge",
+      "verdict": "pass",
+      "reasoning": "In the response to Interrogatory No. 1 (persons with knowledge), Sandra M. Trevino is explicitly identified in the table as 'Sandra M. Trevino, General Counsel, Pinnacle Manufacturing Corp.' with her relationship listed as 'Current officer (in-house counsel)' and her subject matter of knowledge described as 'Non-privileged facts concerning the MDA since 2018; retention of and communications with Aldersgate; receipt of the Aldersgate Report; August 2023 recall; Termination Letter.'"
+    },
+    {
+      "id": "C-042",
+      "title": "Identifies Thomas Crandall (VP of Sales) as person with knowledge",
+      "verdict": "pass",
+      "reasoning": "In the response to Interrogatory No. 1 (persons with knowledge), Thomas J. Crandall, Vice President of Sales, Pinnacle Manufacturing Corp. is explicitly identified in the table with a description of his subject matter knowledge: 'Management of the Tri-Basin account; relationship and communications with Meridian; shipments to Meridian; compilation of Series 7200 complaint documentation; termination timing.'"
+    },
+    {
+      "id": "C-043",
+      "title": "Response correctly identifies Pinnacle as the responding party",
+      "verdict": "pass",
+      "reasoning": "The document clearly and repeatedly identifies Pinnacle Manufacturing Corp. as the responding party. The title states 'DEFENDANT PINNACLE MANUFACTURING CORP.'S RESPONSES AND OBJECTIONS TO PLAINTIFF TRI-BASIN SUPPLY GROUP, LLC'S FIRST SET OF INTERROGATORIES.' The header also states 'RESPONDING PARTY: Defendant Pinnacle Manufacturing Corp.' Throughout the document, Pinnacle is consistently referred to as the defendant and responding party."
+    },
+    {
+      "id": "C-044",
+      "title": "References Section 4.2 when addressing exclusivity violation",
+      "verdict": "pass",
+      "reasoning": "The agent's output references MDA Section 4.2 multiple times when addressing the exclusivity provisions and Meridian distribution. Specifically, in Interrogatory No. 11(d), the response states: 'Pinnacle personnel were aware of Section 4.2 when Meridian was under consideration; the exclusivity provision is referenced in PINNACLE_004217--004219, PINNACLE_004220--004222, and PINNACLE_004227--004229. Ms. Trevino, as General Counsel, provided legal analysis regarding Section 4.2...' Additionally, in the objections to Interrogatory No. 11, the response specifically objects to subpart (d) 'to the extent it seeks the substance of any legal analysis of Section 4.2 of the MDA performed by or at the direction of Pinnacle's General Counsel.' The section number 4.2 is correctly cited as the exclusivity provision throughout the document."
+    },
+    {
+      "id": "C-045",
+      "title": "Does not deny existence of Crandall-Meridian communications",
+      "verdict": "pass",
+      "reasoning": "The responses extensively acknowledge and describe communications between Thomas J. Crandall and Victor Salinas of Meridian Distribution Partners. In Interrogatory No. 9, the response lists specific communications including the April 2022 NIDA conference conversations, May-June 2022 calls and meetings, July 5 and July 8, 2022 communications, and ongoing ordering/logistics communications. In Interrogatory No. 11, the response states Crandall 'first discussed Meridian's interest in Pinnacle products with Victor Salinas at the NIDA trade conference.' In Interrogatory No. 12, the response identifies the May 17, 2022 email from Crandall to Hauck about Meridian and subsequent communications. Throughout the document, Bates-numbered documents (PINNACLE_004217-004248) referencing Crandall-Meridian communications are cited. At no point do the responses deny the existence of these communications."
+    },
+    {
+      "id": "C-046",
+      "title": "Correctly identifies number of defective Series 7200 units",
+      "verdict": "pass",
+      "reasoning": "The agent's output references approximately 3,200 Series 7200 valve units in multiple places (Interrogatory Nos. 7, 8, and 24 responses), which is consistent with the criterion requiring the number to be approximately 3,200. No materially different number is stated anywhere in the document."
+    },
+    {
+      "id": "C-047",
+      "title": "Correctly identifies number of customer complaints as 47",
+      "verdict": "pass",
+      "reasoning": "In the Response to Interrogatory No. 5, the agent states: 'Pinnacle's records reflect that it received a total of forty-seven (47) customer complaints concerning premature failure of Series 7200 butterfly valves between January 2022 and May 2023.' This exactly matches the criterion of 47 complaints."
+    },
+    {
+      "id": "C-048",
+      "title": "Identifies Kellner Strauss & Whitmore as counsel for Pinnacle",
+      "verdict": "pass",
+      "reasoning": "The document clearly identifies Kellner, Strauss & Whitmore LLP as counsel for Pinnacle Manufacturing Corp. in multiple places: in the preliminary statement ('c/o Kellner, Strauss & Whitmore LLP, 610 Grant Street, Suite 3500, Pittsburgh, PA 15219'), in the signature block ('KELLNER, STRAUSS & WHITMORE LLP'), and in the certificate of service. The firm name is correctly stated and not materially misstated."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-responses-to-interrogatories/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-responses-to-interrogatories",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:31:41.265858+00:00",
+  "cost": {
+    "input_tokens": 26,
+    "output_tokens": 47777,
+    "wall_clock_seconds": 438.75
+  },
+  "doc_coverage": {
+    "documents_read": 10,
+    "total_documents": 10,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "first-set-interrogatories.docx",
+      "discovery-response-guidelines.docx",
+      "case-management-order.docx",
+      "client-interview-memo.docx",
+      "pinnacle-answer.docx",
+      "internal-emails-compilation.docx",
+      "aldersgate-report-summary.docx",
+      "termination-letter.docx",
+      "master-distribution-agreement.docx",
+      "tri-basin-purchase-history.xlsx"
+    ],
+    "documents_skipped_list": []
+  }
+}

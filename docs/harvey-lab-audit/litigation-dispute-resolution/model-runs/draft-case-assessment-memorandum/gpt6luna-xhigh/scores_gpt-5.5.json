@@ -1,0 +1,365 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "44/55 criteria passed.  Missed 11 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 55,
+  "n_passed": 44,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies termination letter failed to provide 12-month notice",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Greenleaf invoked Section 9.2's convenience-termination clause but demanded immediate termination despite the mandatory 12-month advance notice requirement, and later repeats that the Sept. 8 letter cited \u00a79.2 but said \u201ceffective immediately\u201d without a compliant future date."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Identifies termination letter failed to tender termination fee",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Greenleaf\u2019s September 8 letter invoked \u00a79.2 but did not acknowledge or tender the termination fee, and elsewhere notes it failed to pay/offer the fee required for convenience termination."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Correctly calculates termination fee as $5.37M",
+      "verdict": "pass",
+      "reasoning": "The memo states the termination fee as $5.37 million / $5,370,000 and explicitly gives the correct formula: 15% multiplied by the average of Year 3 and Year 4 purchase volumes ($33.5M and $38.1M)."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Assesses termination as ineffective/constituting breach",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Greenleaf\u2019s September 8 notice did not comply with Section 9.2, was void/defective, and that stopping shipments and moving to direct sales supported repudiation and breach of the exclusivity/supply obligations. It specifically identifies the October 2 cessation/direct-to-retail launch as a key breach fact."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_001: Notes internal emails show defective termination was deliberate",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the Sept. 5\u20138 internal communications, including that on Sept. 7 Ellison rejected the cause route, said she did not want to pay the fee, and directed a convenience letter after GC explained the 12-month notice and $5.37m fee. It also frames those CEO/GC communications as corroborating knowledge, intent, and fee avoidance, showing the defective termination was deliberate rather than inadvertent."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_001: Rates breach of contract claim as strong/high likelihood for Cascade",
+      "verdict": "pass",
+      "reasoning": "The memo expressly characterizes Cascade's breach of contract claim\u2014especially the defective convenience termination\u2014as strong, calling it the 'strongest claim,' noting a 'strong documentary case' and 'particularly strong breach record,' and emphasizing Greenleaf's significant exposure for stopping supply and direct sales."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_002: Identifies hiring of Jantzen as violation of Section 11.3",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Greenleaf\u2019s recruitment and hiring of Jantzen as a strong separate contractual claim under Section 11.3, explains that the provision prohibits solicitation/recruitment/hiring during the term and 18 months thereafter, notes Jantzen was a covered Cascade employee involved in performance, and states no written consent is shown."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_002: Notes Jantzen hiring occurred during the Agreement term",
+      "verdict": "pass",
+      "reasoning": "The memo states the Agreement\u2019s initial term ran through March 14, 2024, notes Jantzen\u2019s Greenleaf employment was effective November 1, 2023, and expressly says he was recruited and hired during the initial term, making Section 11.3 applicable."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_002: Notes Ellison-Jantzen contact began before termination letter",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that on Aug. 3\u201310, 2023 Ellison met and pursued Jantzen while he was still at Cascade, including an Aug. 10 email, before the Sept. 8 termination letter. It also discusses Ellison\u2019s recruitment/pursuit of Jantzen and uses those facts as evidence of intent/knowledge, which addresses the good-faith concern sufficiently."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_003: Identifies forensic evidence of Jantzen's file transfer",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses the forensic evidence that on October 15, 2023, Jantzen emailed three Cascade files to his personal Gmail, and identifies the files as a pricing model, a 1,847-account customer database, and route analytics/optimization data."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_003: Identifies contradiction between Jantzen's email and forensic evidence",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the contradiction: it notes that Jantzen\u2019s October 20 email said he did not bring files, while the forensic evidence shows he emailed Cascade files to his personal Gmail on October 15. It further states that the October 15 transfer contradicts the claim that no files were taken, supporting credibility concerns even if it does not use the word \u201cfraud.\u201d"
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_003: Identifies Brennan email as evidence of actual use of trade secrets",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the November 15 pricing-similarity concern in the trade secret analysis, treating it as probative circumstantial evidence related to Greenleaf\u2019s possible use of the misappropriated pricing data, and also references it in the chronology. Although it does not quote the email or name Rachel Brennan in that section, it identifies the relevant email/event and its significance to actual use."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_003: Identifies risk of enhanced damages for willful misappropriation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses enhanced/exemplary damages and fees, noting that OUTSA and DTSA provide exemplary damages up to two times the damages award for willful/malicious misappropriation and that statutory fee provisions may apply."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_003: Discusses Ellison's 'don't put that in email' as consciousness of guilt",
+      "verdict": "pass",
+      "reasoning": "The memo specifically references Ellison\u2019s Nov. 18 response, quotes/paraphrases \u201cDon\u2019t put stuff like that in email,\u201d and analyzes it in the trade-secret section as probative of notice and possible consciousness of risk regarding pricing similarity/misappropriation. This satisfies the requirement to discuss it as damaging consciousness-type evidence relevant to trade secret misappropriation."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_004: Identifies waiver defense re Year 2 shortfall",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the April 2021 breach notice, Greenleaf\u2019s continued performance for more than two years, and the resulting waiver risk/waiver analysis as favorable to Cascade and weakening Greenleaf\u2019s after-the-fact cause defense. Although it hedges by noting anti-waiver language and saying the defense is fact-dependent rather than categorically waived, it sufficiently identifies the waiver issue required by the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_004: Notes Hyun-Park email suggesting cause-based termination was risky",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the September 5, 2023 GC email stating that Greenleaf considered a cause-based termination route based on the old Year 2 shortfall and that the email flagged waiver risk. It also later ties the Year 2 shortfall defense to waiver/election concerns from continued performance and counsel\u2019s contemporaneous waiver analysis."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_005a: Identifies Section 16.2 consequential damages limitation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Section 16.2 and discusses its exclusion of consequential, indirect, special, and punitive damages, including its potential exceptions and relevance to lost profits and limitation-of-liability defenses."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_005b: Analyzes whether lost profits claim is barred as consequential damages under Section 16.2",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses Section 16.2\u2019s exclusion of consequential damages, notes that it specifically names lost profits/loss of business, characterizes the lost profits claim as consequential, and discusses the potential exception for willful misconduct or misuse of confidential information. It therefore analyzes whether the $10.5M lost profits claim may be barred by Section 16.2."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005: Identifies willful misconduct/misappropriation exception to damages cap",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Section 16.2\u2019s exception for \u201cwillful misconduct or misappropriation of Confidential Information,\u201d ties it to the internal emails and alleged trade-secret conduct, and analyzes its effect on the limitation of liability, including that it may overcome the exclusion of consequential/lost-profit damages but may not necessarily eliminate the separate aggregate cap in Section 16.1. It also notes the need to prove willful misconduct or misuse to invoke the exception."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_006a-1: Identifies automatic renewal provision and 180-day non-renewal deadline of September 16, 2023",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses automatic renewal under Section 3.2, states that the initial term ran through March 14, 2024, and notes that the Section 3.2 non-renewal deadline was September 16, 2023, 180 days before term end. It also analyzes whether the September 8 letter satisfied that requirement."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_006a-2: Notes September 8 termination letter was sent before the non-renewal deadline",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states in the chronology that the September 8 letter preceded the September 16 non-renewal deadline, and in the liability analysis notes it was timely in date, 'eight days before Sept. 16.'"
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_006b: Evaluates whether termination letter could be construed as non-renewal notice or whether automatic renewal extended the Agreement",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes automatic renewal and whether the September 8 letter could qualify as a non-renewal notice, noting the letter was timely but did not expressly invoke Section 3.2 or state non-renewal, and concluding Cascade has a strong argument that the term renewed through March 14, 2025. It also ties this issue to damages exposure through March 2025."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006: Addresses extended damages period through March 2025",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes automatic renewal through March 14, 2025, including whether the September 8 letter failed to satisfy the non-renewal requirements, and explains that if no compliant notice was given the term renewed. It also evaluates the damages report's 17.5-month lost-profits period through March 2025 and flags risks and assumptions in that calculation."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_007: Identifies unjust enrichment claim is likely subject to dismissal",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags the unjust enrichment claim as vulnerable because the written Distribution Agreement governs much of the relationship, making quasi-contract restitution difficult for matters within its scope. Although it does not specifically cite Oregon law or say \u201clikely subject to dismissal\u201d in those exact words, it identifies the core dismissal vulnerability required by the criterion."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007: Recommends motion to dismiss on unjust enrichment",
+      "verdict": "fail",
+      "reasoning": "The memo notes that unjust enrichment is vulnerable because the written agreement governs much of the relationship, but it recommends preserving the claim in the alternative rather than filing a motion to dismiss or similar dispositive motion targeting Count IV."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_008: Confirms mediation condition precedent was satisfied",
+      "verdict": "fail",
+      "reasoning": "The memo addresses Section 15 but does not confirm the mediation condition precedent was satisfied. Instead, it flags uncertainty about when mediation commenced and states that if commencement is treated as March 15, suit may have been premature and Greenleaf could seek a stay or dismissal. This conflicts with the criterion\u2019s required conclusion that mediation occurred, ended unresolved, and a motion to dismiss on this basis would fail."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_009: Identifies infrastructure investment overstatement in Bridger report",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags the infrastructure damages issue, noting the $1.85M replacement-cost figure and contrasting it with the report\u2019s straight-line book value of $288,000 after 4.55 years, while warning that replacement cost may not measure Cascade\u2019s actual loss."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_009: Identifies Bridger's replacement cost methodology as challengeable",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes Bridger used replacement cost less 35% functional depreciation to reach about $1.85M, contrasts it with the $288,000 book value, and states that replacement cost may not measure Cascade's actual loss and is subject to mitigation, double-count, and evidentiary challenges."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_010: Identifies double-counting of termination fee and lost profits",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags that adding the $5.37M termination fee to $10.50M lost profits is a principal damages risk, states the fee should be pleaded/valued in the alternative and is not automatically additive to lost profits, and warns of double recovery between the fee and lost profits."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_011: Identifies Ellison 'plug and play' email as significant litigation risk",
+      "verdict": "pass",
+      "reasoning": "The memo specifically identifies the Aug. 10 Ellison email, quotes the key 'bring the whole playbook' and 'plug and play Cascade's network' language, and treats it as powerful circumstantial evidence of expectation/intent relevant to trade secret misuse and targeted business relationship exploitation, while noting related litigation risks and proof issues."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_011: Recommends litigation hold / document preservation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends immediate preservation of communications, devices, backups, mailboxes, cloud accounts, forensic images/logs, and Greenleaf rollout records, and specifically says to issue/refresh litigation holds to prevent spoliation."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_011: Evaluates attorney-client privilege for Ellison-Hyun-Park emails",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses privilege for CEO/GC communications, including the Aug. 10 Ellison-to-GC email and the Sept. 5/Sept. 7 exchanges, noting they may be privileged in whole or part and that mixed legal/business content may be segregable. It also states business communications are not privileged merely because they were later forwarded to counsel. Although it does not specifically say the Aug. 10 'plug and play' business-strategy content may be nonprivileged, it sufficiently evaluates the attorney-client privilege issue for Ellison-Hyun-Park emails and recognizes the legal-advice vs. business-communication distinction."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_012a: Addresses Jantzen's personal non-compete and non-solicitation clauses",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses Jantzen's Cascade employment agreement, including its broad 12-month non-compete and 18-month customer/employee non-solicitation provisions, and notes enforceability/venue considerations."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_012b: Discusses Oregon's restrictions on non-compete enforceability",
+      "verdict": "pass",
+      "reasoning": "The memo flags that Jantzen\u2019s broad non-compete/nonsolicits may not be enforceable against an Oregon-based worker and that statutory limits require separate current-law analysis, and cautions not to assume enforceability. Although it does not cite ORS 653.295, it generally references Oregon-related statutory restrictions on non-compete enforceability."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_012c: Considers Greenleaf's exposure for inducing breach of Jantzen's restrictive covenants",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Jantzen\u2019s employment agreement, confidentiality duties, non-compete/nonsolicits, and cautions that enforceability requires separate analysis. However, it does not meaningfully analyze Greenleaf\u2019s own exposure for inducing Jantzen\u2019s breach of those restrictive covenants, such as a tortious interference/inducement theory based on Greenleaf hiring or directing Jantzen to violate them. The discussion focuses on Jantzen\u2019s duties and Greenleaf\u2019s distribution-agreement non-hire obligations, not Greenleaf\u2019s inducement liability."
+    },
+    {
+      "id": "C-036",
+      "title": "Memo includes Executive Summary section",
+      "verdict": "pass",
+      "reasoning": "The memo includes an introductory section titled \"Executive assessment\" with a bottom-line summary and key points, which functions as an Executive Summary."
+    },
+    {
+      "id": "C-037",
+      "title": "Executive Summary contains settle-vs-litigate recommendation",
+      "verdict": "fail",
+      "reasoning": "The Executive assessment summarizes liability strengths, proof gaps, damages risks, and immediate actions, but it does not provide a bottom-line recommendation on whether to settle or litigate."
+    },
+    {
+      "id": "C-038",
+      "title": "Claim-by-claim analysis includes breach of contract (Count I)",
+      "verdict": "pass",
+      "reasoning": "The memo includes a separate claim-by-claim section titled \u201cA. Breach of contract \u2014 strongest claim,\u201d analyzing the breach of contract issues including termination mechanics, exclusivity, automatic renewal, and defenses."
+    },
+    {
+      "id": "C-039",
+      "title": "Claim-by-claim analysis includes tortious interference (Count II)",
+      "verdict": "pass",
+      "reasoning": "The memo includes a separate claim-by-claim subsection titled \u201cTortious interference and unjust enrichment,\u201d which analyzes the elements, evidentiary needs, defenses, and overlap concerns for tortious interference with business relationships."
+    },
+    {
+      "id": "C-040",
+      "title": "Claim-by-claim analysis includes trade secret misappropriation (Count III)",
+      "verdict": "pass",
+      "reasoning": "The memo includes a distinct claim-by-claim section titled \u201cTrade secret misappropriation (OUTSA / DTSA)\u201d with substantive analysis of protectable information, secrecy measures, acquisition, Greenleaf\u2019s use/knowledge, defenses, and proof gaps."
+    },
+    {
+      "id": "C-041",
+      "title": "Claim-by-claim analysis includes unjust enrichment (Count IV)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly includes an unjust enrichment analysis in Section 3.D, discussing it as pleaded in the alternative, noting the written agreement may limit quasi-contract recovery, and warning against duplicative restitution. Although combined with tortious interference in the heading, unjust enrichment is separately addressed in its own paragraph."
+    },
+    {
+      "id": "C-042",
+      "title": "Claim analysis uses high/medium/low likelihood framework",
+      "verdict": "fail",
+      "reasoning": "The memo analyzes claims qualitatively using terms like \u201cstrong,\u201d \u201ccredible,\u201d and \u201csupportive,\u201d but it does not apply a clear high/medium/low or equivalent graduated likelihood-of-success rating framework to each claim. Some claims are grouped together without individual likelihood ratings."
+    },
+    {
+      "id": "C-043",
+      "title": "Damages section provides a realistic damages range estimate",
+      "verdict": "pass",
+      "reasoning": "The damages section does not present a formal total low/mid/high range, but it does provide dollar-valued alternative estimates for at least one individual damages category: lost distribution profits are discussed at approximately $9.240M under contractual minimums, $10.501M under the report approach, and $10.861M under a compounded illustration. That is an equivalent category-level damages range with dollar figures, satisfying the criterion."
+    },
+    {
+      "id": "C-044",
+      "title": "Damages section states Cascade's total claimed damages as ~$22.5M",
+      "verdict": "pass",
+      "reasoning": "The memo's damages section expressly states that Bridger's preliminary report values total damages at $22,521,312.50 and references the $22.52 million total multiple times, satisfying the criterion."
+    },
+    {
+      "id": "C-045",
+      "title": "Memo provides a recommended settlement range",
+      "verdict": "fail",
+      "reasoning": "The memo does not provide a specific recommended settlement range with dollar figures. It expressly states that the current record does not support a reliable settlement range and does not account for the stated $2.5M prior offer or $18M demand in a settlement recommendation."
+    },
+    {
+      "id": "C-046",
+      "title": "Memo includes overall risk rating",
+      "verdict": "fail",
+      "reasoning": "The memo provides a qualitative assessment of claim strengths and weaknesses, but it does not include an overall high/medium/low or equivalent risk rating for Greenleaf's exposure in the case."
+    },
+    {
+      "id": "C-047",
+      "title": "Memo includes final settle-vs-litigate recommendation",
+      "verdict": "fail",
+      "reasoning": "The memo provides litigation risk analysis, posture, and notes that the current record does not support a reliable settlement range, but it does not include a final recommendation on whether Greenleaf should settle or litigate."
+    },
+    {
+      "id": "C-048",
+      "title": "Memo analyzes tortious interference claim including solicitation of Cascade's retail accounts",
+      "verdict": "pass",
+      "reasoning": "The memo includes a dedicated tortious interference analysis, discusses interference with Cascade\u2019s retail relationships/accounts and the need to prove accounts shifted to Greenleaf after direct-to-retail sales, and identifies defenses including that Greenleaf was selling its own products to willing retailers/ordinary competition and that damages may merely duplicate contract expectancy."
+    },
+    {
+      "id": "C-049",
+      "title": "Correctly identifies September 16, 2023 as non-renewal notice deadline",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the \u00a73.2 non-renewal deadline as September 16, 2023 and states that the September 8 letter was timely in date, eight days before that deadline."
+    },
+    {
+      "id": "C-050",
+      "title": "Discusses both DTSA and Oregon UTSA claims",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly addresses trade secret misappropriation under both statutes, including a section titled \u201cTrade secret misappropriation (OUTSA / DTSA),\u201d references to \u201cboth statutory claims,\u201d and discussion of OUTSA/DTSA remedies and fees."
+    },
+    {
+      "id": "C-051",
+      "title": "Identifies the three specific files taken by Jantzen by name or description",
+      "verdict": "pass",
+      "reasoning": "The memo identifies all three files by clear description: a pricing model, a 1,847-account customer/account database, and route analytics/routing files. Exact filenames are not required under the criterion."
+    },
+    {
+      "id": "C-052",
+      "title": "Accurately states Greenleaf's mediation offer and Cascade's demand",
+      "verdict": "fail",
+      "reasoning": "The memo mentions the March 15, 2024 mediation but does not state that Greenleaf offered $2.5M and Cascade demanded $18M. The required figures are omitted."
+    },
+    {
+      "id": "C-053",
+      "title": "Notes Jantzen's separation agreement is silent on restrictive covenants",
+      "verdict": "fail",
+      "reasoning": "The memo mentions Jantzen's October 28 separation agreement only in the chronology and discusses enforceability issues with his original employment agreement, but it does not note that the separation agreement is silent on whether it supersedes or releases the original restrictive covenants or that this creates ambiguity about their continued enforceability."
+    },
+    {
+      "id": "C-054",
+      "title": "Discusses early discovery priorities",
+      "verdict": "pass",
+      "reasoning": "The memo includes a dedicated 'Priority discovery and action plan' with specific early discovery steps, including forensic review of Jantzen's personal Gmail/devices, inspection of Greenleaf systems to determine receipt/use of files, obtaining rollout/pricing records, and deposing key witnesses such as Ellison, Hyun-Park, Jantzen, and Brennan."
+    },
+    {
+      "id": "C-055",
+      "title": "Correctly identifies governing law as Oregon law",
+      "verdict": "fail",
+      "reasoning": "The memo notes that the Agreement\u2019s governing-law clause is in \u00a717.1, but it does not state that Oregon law governs the Agreement or the contract-based claims. Therefore it does not satisfy the criterion."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-case-assessment-memorandum/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-case-assessment-memorandum",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:30:17.067400+00:00",
+  "cost": {
+    "input_tokens": 826914,
+    "output_tokens": 23565,
+    "wall_clock_seconds": 196.47
+  },
+  "doc_coverage": {
+    "documents_read": 8,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "cascade-complaint.docx",
+      "distribution-agreement.docx",
+      "cascade-rejection-letter.docx",
+      "termination-letter.docx",
+      "bridger-damages-report.docx",
+      "cascade-forensic-summary.docx",
+      "greenleaf-internal-emails.eml",
+      "jantzen-employment-agreement.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

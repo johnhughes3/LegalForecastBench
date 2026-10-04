@@ -1,0 +1,336 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "48/50 criteria passed.  Missed 2 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 50,
+  "n_passed": 48,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Custodian: Darren Kovach identified as custodian",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Darren T. Kovach, former VP, Sales Americas, in the custodian table as a custodian for both matters, describing him as the primary complainant and custodian of complaint communications, sales directives, texts, and supporting records, and directs preservation of his mailbox, files, laptop, and personal iPhone work data."
+    },
+    {
+      "id": "C-002",
+      "title": "Custodian: Renata Sokolova identified as custodian",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly lists Renata Sokolova as a custodian in the Custodian Identification table, identifies her as CFO, notes she was the alleged recipient of Kovach's June 14 and July 2 complaints, and describes her role in financial reporting, forecasts, and revenue decisions."
+    },
+    {
+      "id": "C-003",
+      "title": "Custodian: Graham Ellicott identified as custodian",
+      "verdict": "pass",
+      "reasoning": "The memo lists Graham Ellicott \u2014 CEO in the Custodian Identification table, notes he approved the PIP and made the termination decision, and directs preservation of PIP/termination drafts and communications with key decision-makers. This satisfies the criterion that he be identified as a custodian and key termination decision-maker."
+    },
+    {
+      "id": "C-004",
+      "title": "Custodian: Janet Purdy identified as custodian",
+      "verdict": "pass",
+      "reasoning": "The memo lists Janet Purdy as \u201cVP, HR\u201d in the custodian identification table and ties her to the PIP, check-ins, termination, personnel file, PIP drafts, termination/release records, and communications with decision-makers."
+    },
+    {
+      "id": "C-005",
+      "title": "Custodian: Tom\u00e1s Herrera identified as custodian",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly lists \u201cTom\u00e1s Herrera \u2014 Sales Operations Director / interim VP Sales\u201d as a custodian, states he was a direct report to Kovach and successor/interim VP Sales, and directs preservation of Salesforce records/reports, channel communications, sales directives, and related sales data."
+    },
+    {
+      "id": "C-006",
+      "title": "Custodian: Li Wei Chen identified as custodian",
+      "verdict": "pass",
+      "reasoning": "The memo expressly lists Li Wei Chen as a custodian, identifies him as Controller, notes he was the alleged June 28 complaint recipient, and ties him to revenue entries/revenue recognition-related records."
+    },
+    {
+      "id": "C-007",
+      "title": "Custodian: Marcus Ainsley identified as custodian (ISSUE_009)",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly lists Marcus Ainsley as \u201cAudit Committee Chair\u201d in the custodian table, stating that he received the August 5 complaint and directed the investigation, and further emphasizes that he must be included as a custodian."
+    },
+    {
+      "id": "C-008",
+      "title": "Ainsley: Board-level privilege/governance concerns flagged",
+      "verdict": "pass",
+      "reasoning": "The memo specifically includes Marcus Ainsley as a custodian while flagging Audit Committee, privilege, and governance sensitivities. It recommends a controlled Ainsley collection protocol, restricted repositories, separate privilege/work-product review tracks, preservation of board/committee materials, and counsel-led review before access or production."
+    },
+    {
+      "id": "C-009",
+      "title": "Custodian: Regional sales managers (Collings, Mu\u00f1oz, Patwardhan) evaluated",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Brett Collings, Diana Mu\u00f1oz, and Raj Patwardhan as custodians in the custodian table, tying each to SEC-RR/channel sales issues such as shipment targets, Q3 shipments, channel-loading concerns, and acceleration/milestone emails relevant to quarter-end sales practices."
+    },
+    {
+      "id": "C-010",
+      "title": "Custodian: Frank Jessup evaluated as potential custodian",
+      "verdict": "pass",
+      "reasoning": "The memo expressly lists \u201cFrank Jessup \u2014 VP, Operations\u201d in the custodian identification table as an SEC-RR custodian, citing his knowledge of shipping capacity, extended shifts, ship-ahead arrangements, and logistics communications relevant to the revenue/channel-stuffing issues. It also states that the internal-investigation interviewees are relevant candidates."
+    },
+    {
+      "id": "C-011",
+      "title": "Internal investigation interviewees linked to custodian rationale",
+      "verdict": "pass",
+      "reasoning": "The memo expressly ties the internal investigation interviewees to custodian identification, stating that the eight interviewees in the internal-investigation summary are relevant candidates and should not be excluded merely because they were interviewed. It further explains that custodians with evidence of revenue/channel sales practices should be included even if they were not involved in Kovach\u2019s employment decision, and identifies several sales personnel with quarter-end shipment/return communications relevant to both the Kovach employment matter and SEC revenue-recognition inquiry."
+    },
+    {
+      "id": "C-012",
+      "title": "Teams chat 90-day auto-purge identified as spoliation risk",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Teams chats are subject to a 90-day purge, that the purge remained active as of early November, and that messages older than about August 8\u2014including possible June/July complaint or revenue-concern chats involving Kovach and others\u2014were likely purged, identifying this as a high/immediate spoliation/data-loss risk."
+    },
+    {
+      "id": "C-013",
+      "title": "Teams chat: Specific timeline of likely data loss assessed",
+      "verdict": "pass",
+      "reasoning": "The memo specifically calculates the 90-day Teams purge window, noting that as of Nov. 6 messages older than about Aug. 8 were likely purged, and it expressly states that June/July complaint communications may be gone if sent via Teams. This covers the critical June 14, June 28, and July 2 dates as outside the window and likely already purged."
+    },
+    {
+      "id": "C-014",
+      "title": "Teams: Immediate suspension of retention policy recommended",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly recommends immediate suspension of the Teams 90-day chat purge/retention policy, including in the executive summary, data sources table, workplan, and milestones, to prevent further data loss."
+    },
+    {
+      "id": "C-015",
+      "title": "Teams: Forensic recovery investigation recommended",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the active Teams purge and expressly recommends recovery investigation steps, including preserving surviving chats/logs, checking Kovach\u2019s iPhone and other copies, and assessing permitted recovery from Microsoft/substrate with Ridgeway/Microsoft, while also preserving backups/logs. This satisfies the requirement to investigate recoverability of purged Teams chats."
+    },
+    {
+      "id": "C-016",
+      "title": "Incomplete email archive migration flagged as risk",
+      "verdict": "pass",
+      "reasoning": "The memo flags the Enterprise Vault/Exchange-to-M365 migration issue, noting that pre-April 1, 2024 email archive history may have gaps because 421 of approximately 2,800 mailboxes had incomplete ingestion, and it specifically calls for cross-referencing key custodians against the affected-mailbox list."
+    },
+    {
+      "id": "C-017",
+      "title": "Veritas Enterprise Vault identified as separate hold target",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Veritas Enterprise Vault (NXF-EV01) as a separate data source for pre-April 2024 email archives, notes the incomplete migration affecting 421 mailboxes, and directs that the archive, configuration, indexes, migration logs, and remediation logs be held and preserved."
+    },
+    {
+      "id": "C-018",
+      "title": "Recommendation to verify if key custodians' mailboxes were in the affected 15%",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends cross-referencing all custodians against the Enterprise Vault affected-mailbox/remediation list and specifically notes that it is unknown whether Kovach, Sokolova, Chen, or other key custodians are affected by the incomplete ingestion."
+    },
+    {
+      "id": "C-019",
+      "title": "NXF-FS01 file server decommissioning flagged as imminent risk",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies NXF-FS01 as containing Sales/Sales Operations shared folders, notes the January 31, 2025 decommission date and planned stale-file deletion, characterizes it as a high/imminent preservation risk, and recommends freezing deletion/decommissioning and forensic imaging before that date."
+    },
+    {
+      "id": "C-020",
+      "title": "NXF-FS01: Preservation action recommended before decommissioning",
+      "verdict": "pass",
+      "reasoning": "The memo specifically addresses NXF-FS01 multiple times, recommending freezing deletion and decommissioning, authorizing a forensic image or preservation of relevant Sales/Sales Ops shares before the January 31, 2025 decommissioning date, and preserving metadata/migration logs until Legal sign-off."
+    },
+    {
+      "id": "C-021",
+      "title": "Kovach personal iPhone / BYOD preservation issue identified",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Kovach\u2019s personal iPhone/BYOD issue, noting it was used for work-related Outlook/email, Teams/cache, and Salesforce data, and states the company has no MDM or remote access/image/wipe capability, so preservation must be sought through counsel."
+    },
+    {
+      "id": "C-022",
+      "title": "Recommendation to send preservation demand to Kovach's counsel re personal device",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends that Pinnacle Hartwell/outside counsel send a prompt preservation demand to Kovach\u2019s counsel at Stadler Raines covering Kovach\u2019s personal iPhone and work-related data, including Outlook, Teams/cache, Salesforce, SMS/texts, photos/notes, and preventing deletion/reset."
+    },
+    {
+      "id": "C-023",
+      "title": "Kovach device may hold unique surviving copies of communications",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly links Kovach\u2019s personal iPhone to potentially unique surviving evidence, stating that local email/Teams cache may survive and that local emails/chat cache may be \u201cunique surviving copies,\u201d particularly in the context of likely Teams purge from Nexfield systems."
+    },
+    {
+      "id": "C-024",
+      "title": "Salesforce auto-deletion of inactive records flagged",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags Salesforce as running a nightly deletion job for records inactive for 18 months, including child records, notes the job remains active, and identifies FY2023 channel/sales records as potentially already deleted or at risk, with instructions to suspend the job and preserve/export relevant channel distributor data."
+    },
+    {
+      "id": "C-025",
+      "title": "Salesforce: Recommendation to suspend auto-deletion or export data",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly identifies the Salesforce inactive-record deletion risk and recommends immediate suspension of the nightly batch deletion, preservation of snapshots/logs/backups, and targeted exports of channel distributor accounts/opportunities and related records for the relevant period."
+    },
+    {
+      "id": "C-026",
+      "title": "SEC inquiry overlap recognized \u2014 coordinated hold recommended",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Nexfield should issue one coordinated preservation hold covering both Kovach\u2019s employment claims and the SEC October 28 informal inquiry, notes substantial factual overlap in revenue-recognition/channel sales evidence, and separately tracks SEC-RR scope for Q1\u2013Q3 channel distribution and revenue recognition materials."
+    },
+    {
+      "id": "C-027",
+      "title": "SEC inquiry may require broader custodian set",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that custodians who hold evidence of revenue practices should be included even if they had no role in Kovach's employment decision, and it identifies additional sales, sales operations, finance/accounting/revenue/returns personnel, Audit Committee/governance custodians, IT admins, and auditor-related sources for the SEC revenue-recognition inquiry. This directly addresses that the SEC matter may require custodians beyond the Kovach termination list."
+    },
+    {
+      "id": "C-028",
+      "title": "Pinnacle Hartwell engagement scope gap noted (SEC not covered)",
+      "verdict": "fail",
+      "reasoning": "The memo identifies Pinnacle Hartwell's October 18 defense engagement and the later October 28 SEC inquiry, and it recommends separate tracking of the matters. However, it does not state or clearly imply that the October 18 engagement letter covered only Kovach employment claims and omitted the SEC inquiry, nor does it recommend updating the engagement scope to cover the SEC matter."
+    },
+    {
+      "id": "C-029",
+      "title": "Temporal proximity (13 days) between complaint and PIP flagged",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that the July 15, 2024 PIP was issued \u201cthirteen days after the second reported Sokolova complaint,\u201d i.e., Kovach\u2019s July 2 complaint, and places this fact in the preservation timeline for the retaliation/employment dispute."
+    },
+    {
+      "id": "C-030",
+      "title": "Priority preservation of decision-maker communications in July 2\u201315 window",
+      "verdict": "pass",
+      "reasoning": "The memo expressly calls out the July 2\u201315 decision period for preservation, including PIP/termination drafts and communications among Sokolova, Ellicott, and Purdy. It also notes the July 15 PIP followed shortly after Kovach\u2019s July 2 complaint and directs preservation of related decision-making communications."
+    },
+    {
+      "id": "C-031",
+      "title": "Duty to preserve trigger date analyzed (pre-demand letter)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes the preservation trigger date and concludes preservation likely became necessary no later than August 5, 2024, when Kovach sent a written accounting-misconduct complaint to the Audit Committee Chair. It also notes the September 12 termination reinforced foreseeability and that the October 3 demand letter merely made threatened litigation explicit. Thus it satisfies the pre-demand trigger analysis criterion."
+    },
+    {
+      "id": "C-032",
+      "title": "Preservation gap between trigger date and vendor engagement assessed",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies August 5, 2024 as the likely preservation trigger, notes Ridgeway's November 1 engagement and lack of effective holds by November 4, calculates a 95-day gap to November 8, and assesses potential data loss during that interval including Teams purge, Salesforce deletions, Enterprise Vault gaps, and other risks. It also recommends investigation and mitigation of any lost data. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-033",
+      "title": "SOX Section 806 whistleblower protections flagged",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the Kovach matter includes \u201ca SOX Section 806 claim\u201d and frames the dispute as whistleblower retaliation involving accounting/revenue-recognition complaints, thereby flagging the Sarbanes-Oxley whistleblower-protection issue and broadening the preservation scope beyond state-law wrongful termination."
+    },
+    {
+      "id": "C-034",
+      "title": "SOX implications for preservation breadth noted",
+      "verdict": "pass",
+      "reasoning": "The memo identifies the Kovach matter as including a SOX Section 806 retaliation claim and ties the employment hold scope to preservation of complaint/reporting communications, Audit Committee materials, investigation files, PIP/termination decision-making, and alleged retaliatory actions. This connects the SOX retaliation theory to the breadth of the litigation hold rather than merely mentioning SOX in passing."
+    },
+    {
+      "id": "C-035",
+      "title": "Data source: Microsoft 365 / Exchange email included",
+      "verdict": "pass",
+      "reasoning": "The memo expressly lists \u201cMicrosoft 365 / Exchange Online\u201d as a data source and discusses email, attachments, calendar, mailbox holds, and preservation actions for that system."
+    },
+    {
+      "id": "C-036",
+      "title": "Data source: Microsoft Teams included",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly lists Microsoft Teams as a data source, including \u201c1:1/group chat\u201d and \u201cchannels/channel posts,\u201d and directs preservation of Teams chats, channels, meeting artifacts, and related content under the hold."
+    },
+    {
+      "id": "C-037",
+      "title": "Data source: Salesforce CRM included",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Salesforce Enterprise (U.S. org) as a data source, describes relevant CRM records such as accounts, opportunities, activity, agreements/attachments, pipeline, territory and deal data, and directs preservation actions including suspending deletion and exporting records."
+    },
+    {
+      "id": "C-038",
+      "title": "Data source: SAP S/4HANA ERP included",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly lists \u201cSAP S/4HANA\u201d in the Data Sources section, describing it as containing orders, shipments, invoices, AR, credits, returns, GL/journals and revenue recognition, and directs preservation/controlled extracts for relevant Q1\u2013Q3 data. This satisfies the criterion."
+    },
+    {
+      "id": "C-039",
+      "title": "Data source: NXF-FS01 legacy file server included",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies \u201cNXF-FS01 (file server)\u201d as a data source containing Sales/Sales Operations shared folders and directs preservation actions, including freezing deletion/decommissioning and imaging relevant shares."
+    },
+    {
+      "id": "C-040",
+      "title": "Data source: Physical HR/personnel files included",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Janet Purdy/HR as custodian of Kovach personnel-file materials, directs preservation of paper originals, and separately lists the HR physical file/HRIS as containing the personnel file, performance reviews, PIP documentation, and termination/release records subject to hold."
+    },
+    {
+      "id": "C-041",
+      "title": "Custodian: Monica Tran-Nguyen identified as custodian",
+      "verdict": "fail",
+      "reasoning": "The memo names Monica Tran-Nguyen as General Counsel and assigns her legal oversight responsibilities, but it does not list or identify her as a custodian in the custodian identification section or otherwise direct preservation of her records as a custodian."
+    },
+    {
+      "id": "C-042",
+      "title": "Immediate action items distinguished from routine hold steps",
+      "verdict": "pass",
+      "reasoning": "The memo clearly distinguishes urgent/immediate items from routine steps. It lists \u201cmost urgent steps\u201d in the executive summary, labels risk areas as \u201cHIGH / immediate\u201d or \u201curgent,\u201d includes a \u201cToday\u201d immediate milestones list, and separately discusses routine hold administration such as periodic reminders and monitoring."
+    },
+    {
+      "id": "C-043",
+      "title": "Accurate citation of Teams chat retention as 90 days",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly and correctly states that Microsoft Teams chats are subject to a 90-day deletion/purge policy, including noting that the 90-day Teams chat deletion policy remained active and that chats purge after 90 days."
+    },
+    {
+      "id": "C-044",
+      "title": "Accurate citation of Salesforce auto-delete as 18 months for inactive records",
+      "verdict": "pass",
+      "reasoning": "The memo correctly states that Salesforce has a nightly deletion job for records inactive for 18 months, including child records, and refers to the active 18-month inactive-record deletion policy."
+    },
+    {
+      "id": "C-045",
+      "title": "Accurate date: NXF-FS01 decommission January 31, 2025",
+      "verdict": "pass",
+      "reasoning": "The memo correctly states multiple times that NXF-FS01 is planned/scheduled for decommissioning by January 31, 2025."
+    },
+    {
+      "id": "C-046",
+      "title": "Accurate date: Email migration on April 1, 2024",
+      "verdict": "pass",
+      "reasoning": "The memo correctly references the migration timing by describing Microsoft 365/Exchange Online as containing Kovach mailbox data 'for Apr. 1, 2024 onward' and Enterprise Vault as the 'Pre-Apr. 1, 2024 email archive,' consistent with an email migration occurring on or around April 1, 2024."
+    },
+    {
+      "id": "C-047",
+      "title": "Accurate citation of 15% incomplete mailbox migration rate",
+      "verdict": "pass",
+      "reasoning": "The memo states that 421 of approximately 2,800 mailboxes had incomplete ingestion, which is about 15%, and it does not state an incorrect percentage."
+    },
+    {
+      "id": "C-048",
+      "title": "Ridgeway Forensics referenced as engaged e-discovery vendor",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly references Ridgeway Forensics multiple times, including noting Ridgeway Forensics was engaged on November 1, has preliminary M365 access, and assigning Ridgeway Forensics Group responsibilities for defensible collections/images and preservation support."
+    },
+    {
+      "id": "C-049",
+      "title": "Preservation hold on internal investigation work product addressed",
+      "verdict": "pass",
+      "reasoning": "The memo expressly includes the Audit Committee/Pinnacle Hartwell internal investigation materials as preservation targets, including interview materials, interview notes, counsel files, source documents, collection logs, and investigation files. It also repeatedly notes the need for controlled privileged protocols, separate repositories, and privilege/work-product review."
+    },
+    {
+      "id": "C-050",
+      "title": "Teams channel messages distinguished from chat messages",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly distinguishes Microsoft Teams 1:1/group chats from channel posts and states different retention periods: chats purge after 90 days while channel posts are retained for one year."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/assess-litigation-hold-scope-for-custodian-identification/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/assess-litigation-hold-scope-for-custodian-identification",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T00:20:51.369358+00:00",
+  "cost": {
+    "input_tokens": 349917,
+    "output_tokens": 17258,
+    "wall_clock_seconds": 134.1
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "it-infrastructure-memo.docx",
+      "internal-investigation-summary.docx",
+      "kovach-personnel-file-summary.docx",
+      "demand-letter-stadler-raines.docx",
+      "pinnacle-hartwell-engagement.docx",
+      "sec-informal-inquiry-letter.docx",
+      "nexfield-retention-policy.docx",
+      "brashear-tran-nguyen-emails.eml",
+      "/workspace/output/litigation-hold-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

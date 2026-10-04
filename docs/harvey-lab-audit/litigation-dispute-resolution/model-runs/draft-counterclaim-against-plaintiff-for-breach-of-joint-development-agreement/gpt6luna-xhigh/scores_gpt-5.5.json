@@ -1,0 +1,474 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "71/73 criteria passed.  Missed 2 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 73,
+  "n_passed": 71,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption: Correct Court Identification",
+      "verdict": "pass",
+      "reasoning": "The caption states \u201cIN THE UNITED STATES DISTRICT COURT,\u201d \u201cFOR THE WESTERN DISTRICT OF TEXAS,\u201d and \u201cAUSTIN DIVISION,\u201d correctly identifying the required court and division."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption: Correct Case Number",
+      "verdict": "pass",
+      "reasoning": "The caption includes the case number \u201cCivil Action No. 1:24-cv-00583-DAE,\u201d which exactly matches the required case number."
+    },
+    {
+      "id": "C-003",
+      "title": "Caption: Lumenara Identified as Plaintiff/Counterdefendant",
+      "verdict": "pass",
+      "reasoning": "The caption identifies Lumenara Optics Corporation as \u201cPlaintiff and Counterclaim Defendant,\u201d which reflects its counterclaim posture."
+    },
+    {
+      "id": "C-004",
+      "title": "Caption: Vantage Identified as Defendant/Counterclaimant",
+      "verdict": "pass",
+      "reasoning": "The caption identifies Vantage Micro Systems, Inc. as \u201cDefendant and Counterclaim Plaintiff,\u201d which clearly reflects its defendant/counterclaimant posture."
+    },
+    {
+      "id": "C-005",
+      "title": "Document Titled as Counterclaim",
+      "verdict": "pass",
+      "reasoning": "The document is expressly titled \u201cVANTAGE MICRO SYSTEMS, INC.'S COUNTERCLAIMS AGAINST PLAINTIFF LUMENARA OPTICS CORPORATION\u201d and includes a \u201cCOUNTERCLAIMS\u201d section, clearly designating it as a counterclaim pleading."
+    },
+    {
+      "id": "C-006",
+      "title": "Separate Counts for Each Cause of Action",
+      "verdict": "pass",
+      "reasoning": "The draft sets out each cause of action in separately numbered counts with distinct headings, including Count I for breach of the JDA, Count II for DTSA misappropriation, Count III for TUTSA misappropriation, Count IV for breach of the MNDA, Count V for patent infringement, Count VI for fraudulent inducement, and Count VII for unjust enrichment."
+    },
+    {
+      "id": "C-007",
+      "title": "Party Identification: Vantage Incorporation and Principal Place of Business",
+      "verdict": "pass",
+      "reasoning": "The counterclaim identifies Vantage Micro Systems, Inc. as a Delaware corporation and states its principal place of business is at 4200 Balcones Research Boulevard, Austin, Texas 78759."
+    },
+    {
+      "id": "C-008",
+      "title": "Party Identification: Lumenara Incorporation and Principal Place of Business",
+      "verdict": "pass",
+      "reasoning": "The counterclaim identifies Lumenara as a California corporation with its principal place of business at 1875 Innovation Way, Irvine, California 92617, satisfying the required party identification."
+    },
+    {
+      "id": "C-009",
+      "title": "Jurisdiction and Venue Allegations",
+      "verdict": "pass",
+      "reasoning": "The counterclaim expressly includes jurisdiction and venue allegations. It pleads federal-question jurisdiction under the DTSA, patent jurisdiction under 28 U.S.C. \u00a7\u00a7 1331 and 1338(a), supplemental jurisdiction, diversity jurisdiction, personal jurisdiction, and venue in the Western District of Texas based on forum-selection provisions, compulsory counterclaim status, and alleged sales into the district."
+    },
+    {
+      "id": "C-010",
+      "title": "Compulsory Counterclaim Designation (ISSUE_002)",
+      "verdict": "pass",
+      "reasoning": "The output expressly states in paragraph 2 that the counterclaims arise from the same parties, agreements, information exchange, and Project Meridian relationship placed at issue by Lumenara's Complaint, and that they are compulsory counterclaims under Federal Rule of Civil Procedure 13(a)."
+    },
+    {
+      "id": "C-011",
+      "title": "Factual Background: MNDA Execution Date",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state: \u201cOn February 14, 2022, Vantage and Lumenara executed a Mutual Non-Disclosure Agreement (MNDA).\u201d This matches the required execution date."
+    },
+    {
+      "id": "C-012",
+      "title": "Factual Background: JDA Execution Date",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state that the parties executed the Joint Development Agreement on June 1, 2022, and later references also confirm execution on June 1, 2022."
+    },
+    {
+      "id": "C-013",
+      "title": "Factual Background: Project Meridian Referenced",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly reference the JDA project as \u201cProject Meridian\u201d multiple times, including in the section heading \u201cThe parties' agreements and Project Meridian\u201d and allegations describing the collaboration."
+    },
+    {
+      "id": "C-014",
+      "title": "Factual Background: JDA Scope and Purpose",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state that the JDA for Project Meridian was a collaboration to develop an integrated sensor-optics module combining Vantage's substrate-level sensor arrays with Lumenara's anti-reflective optical coatings."
+    },
+    {
+      "id": "C-015",
+      "title": "Factual Background: Vantage's Resource Commitment ($3.4M)",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state that Vantage committed engineering and technical resources valued at $3.4 million over the initial JDA term, satisfying the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "Factual Background: IP Ownership\u2014Background IP Retained",
+      "verdict": "pass",
+      "reasoning": "The factual allegations state that the JDA preserves each party's Background IP as that party's sole property and identifies Vantage's SensorCore technology as Vantage Background IP. This satisfies the requirement to reference the JDA's Background IP ownership-retention provision or equivalent."
+    },
+    {
+      "id": "C-017",
+      "title": "Factual Background: Section 7.3 Restriction on Use of Background IP",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly reference JDA Section 7.3 and allege that it prohibits use of the other party's Background IP or Confidential Information outside Project Meridian, including incorporation into another product, absent prior written consent."
+    },
+    {
+      "id": "C-018",
+      "title": "Factual Background: SensorCore\u2122 Designs Uploaded to Shared Portal on or about July 15, 2022",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state that Vantage uploaded its SensorCore\u2122 design package to the Portal on July 15, 2022."
+    },
+    {
+      "id": "C-019",
+      "title": "Factual Background: SensorCore\u2122 Designs Marked as Proprietary",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state that the SensorCore\u2122 design package files uploaded to the Portal were marked \u201cPROPRIETARY --- VANTAGE MICRO SYSTEMS,\u201d which is substantially the required proprietary marking language."
+    },
+    {
+      "id": "C-020",
+      "title": "Factual Background: U.S. Patent No. 11,234,567",
+      "verdict": "pass",
+      "reasoning": "The counterclaim explicitly references U.S. Patent No. 11,234,567 multiple times, including that it issued to Vantage on January 10, 2023 and covers the SensorCore\u2122 architecture/background IP."
+    },
+    {
+      "id": "C-021",
+      "title": "Factual Background: M2 Partial and Late Delivery",
+      "verdict": "pass",
+      "reasoning": "The output specifically alleges that M2 required 50 prototype coated lens assemblies by March 31, 2023, and that Lumenara delivered only 28 units on April 22, 2023, making the delivery both partial and late."
+    },
+    {
+      "id": "C-022",
+      "title": "Factual Background: M3 Complete Failure to Deliver",
+      "verdict": "pass",
+      "reasoning": "The output expressly alleges that M3 required complete MIL-STD-810H compliance results by September 30, 2023, that Lumenara delivered no compliant M3 package by that deadline, and that only partial thermal data was submitted on November 15, 2023, which did not satisfy M3."
+    },
+    {
+      "id": "C-023",
+      "title": "Factual Background: M4 Complete Failure to Deliver",
+      "verdict": "pass",
+      "reasoning": "The output alleges that M4 required complete production-ready coating-process documentation by March 31, 2024 and states that Lumenara failed M4 because it did not deliver the required documentation by that deadline. It also references missing production-readiness materials elsewhere."
+    },
+    {
+      "id": "C-024",
+      "title": "Factual Background: Elena Vasquez Portal Downloads Including Dec 2023",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly identify Elena Vasquez as downloading the complete SensorCore\u2122 package multiple times, including a fourth full-package download on December 12, 2023. The pleading states that this occurred after Lumenara had missed M3 and provided only partial, noncompliant data, and 27 days before the January 8, 2024 LumiSense 400 announcement, satisfying the requirement."
+    },
+    {
+      "id": "C-025",
+      "title": "Factual Background: LumiSense 400 Product and Its Substrate",
+      "verdict": "pass",
+      "reasoning": "The factual allegations specifically describe LumiSense 400's substrate as substantially derived from SensorCore\u2122, including a 14-layer copper-pillar micro-bump structure, approximately 45-micrometer pitch, and a radial-array thermal-via arrangement with 93% positional correspondence, along with matching via dimensions and other design artifacts."
+    },
+    {
+      "id": "C-026",
+      "title": "Factual Background: Dr. Ayers Expert Teardown Conclusions",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly reference Dr. Franklin Ayers\u2019 expert inspection/teardown of a LumiSense 400 unit and state that he concluded the substrate was substantially derived from Vantage\u2019s SensorCore\u2122 designs, with independent development not a plausible explanation."
+    },
+    {
+      "id": "C-027",
+      "title": "Factual Background: Bellingham Email (May 15, 2022) \u2014 Smoking Gun",
+      "verdict": "fail",
+      "reasoning": "The output references Craig Bellingham\u2019s May 15, 2022 email to Martin DeLuca and includes the key statement that the \u201creal value\u201d was getting access to Vantage\u2019s substrate technology. However, it does not allege that the email stated Lumenara\u2019s coating process was already ahead of schedule, which is a required part of the criterion\u2019s specified substance."
+    },
+    {
+      "id": "C-028",
+      "title": "Factual Background: DeLuca Reply Email (May 16, 2022) \u2014 Smoking Gun",
+      "verdict": "pass",
+      "reasoning": "The factual allegations explicitly reference DeLuca's May 16, 2022 reply, quote that he agreed to keep Meridian going 'long enough to extract what we need,' and state that he directed Bellingham to ensure Vasquez received full Portal access from day one. The email is also referenced again in the fraudulent inducement count."
+    },
+    {
+      "id": "C-029",
+      "title": "Factual Background: LumiSense 400 Revenue ($14.2M)",
+      "verdict": "pass",
+      "reasoning": "The output states in paragraph 30 that LumiSense 400 generated estimated product revenue of approximately $14.2 million from March 1 through June 30, 2024, satisfying the criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "Factual Background: Northfield Aerospace Lost Contract ($8.7M)",
+      "verdict": "pass",
+      "reasoning": "The output expressly alleges an $8.7 million lost Northfield Aerospace Solutions contract opportunity, states that Northfield\u2019s February 2024 award communication identified missing qualification and production-readiness materials as the reason Vantage was not selected, and ties those missing materials to Lumenara\u2019s obligated but undelivered environmental testing and production documentation."
+    },
+    {
+      "id": "C-031",
+      "title": "Count: Breach of JDA \u2014 M2 Partial/Late Delivery (ISSUE_004a)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes Count I for Breach of Joint Development Agreement and specifically alleges that M2 required 50 prototype coated lens assemblies by March 31, 2023, but Lumenara delivered only 28 units on April 22, 2023, making the delivery 22 days late and incomplete, and pleads this as a breach/failure of M2."
+    },
+    {
+      "id": "C-032",
+      "title": "Count: Breach of JDA \u2014 M3 Non-Delivery (ISSUE_004b)",
+      "verdict": "pass",
+      "reasoning": "The breach of JDA count expressly alleges a distinct M3 breach: Milestone 3 required complete MIL-STD-810H environmental test results by September 30, 2023, Lumenara delivered no compliant M3 package by that date, and later partial thermal data did not satisfy M3."
+    },
+    {
+      "id": "C-033",
+      "title": "Count: Breach of JDA \u2014 M4 Non-Delivery (ISSUE_004c)",
+      "verdict": "pass",
+      "reasoning": "The breach of JDA count expressly alleges that M4 required complete production-ready coating-process documentation by March 31, 2024, that Lumenara did not deliver it by the deadline, and that this M4 failure constituted a material breach."
+    },
+    {
+      "id": "C-034",
+      "title": "Count: Breach of JDA \u2014 Unauthorized Use of Background IP (ISSUE_004d)",
+      "verdict": "pass",
+      "reasoning": "The breach of JDA count specifically alleges that Lumenara breached JDA \u00a7 7.3 by using Vantage\u2019s Background IP and Confidential Information outside Project Meridian and incorporating SensorCore\u2122 into the separate LumiSense 400 product without consent."
+    },
+    {
+      "id": "C-035",
+      "title": "Count: DTSA Misappropriation Counterclaim (ISSUE_003)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes a separate Count II titled \u201cMISAPPROPRIATION OF TRADE SECRETS (DTSA)\u201d expressly citing 18 U.S.C. \u00a7 1836 and alleging that Lumenara misappropriated Vantage\u2019s SensorCore\u2122 trade secrets."
+    },
+    {
+      "id": "C-036",
+      "title": "DTSA Count: Existence of Trade Secret Alleged",
+      "verdict": "pass",
+      "reasoning": "The DTSA count expressly alleges that the nonpublic SensorCore\u2122 technical information and compilations are trade secrets because they derive independent economic value from not being generally known or readily ascertainable, and it alleges reasonable secrecy measures including proprietary markings, access limitations, individualized portal credentials, logging, and NDA/JDA confidentiality and use restrictions."
+    },
+    {
+      "id": "C-037",
+      "title": "DTSA Count: Misappropriation by Improper Means or Breach of Duty",
+      "verdict": "pass",
+      "reasoning": "The DTSA count expressly alleges that Lumenara acquired access to SensorCore\u2122 trade secrets through the parties\u2019 confidential relationship, knew they were subject to MNDA/JDA duties to maintain secrecy and limit use, and then used them without consent outside Project Meridian by incorporating them into LumiSense 400. It also references the Portal downloads, the December 2023 download, commercial exploitation, and willful/malicious misappropriation."
+    },
+    {
+      "id": "C-038",
+      "title": "DTSA Count: Interstate Commerce Nexus",
+      "verdict": "pass",
+      "reasoning": "The DTSA count expressly alleges that the use and threatened continued use of the trade secrets concern products used in and intended for use in interstate and foreign commerce, and notes Lumenara\u2019s commercialization of LumiSense 400."
+    },
+    {
+      "id": "C-039",
+      "title": "Count: Breach of MNDA (ISSUE_006)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes a separate Count IV for breach of the Mutual Non-Disclosure Agreement, alleging that SensorCore information was confidential under the MNDA and that Lumenara used it outside the permitted purpose to develop, manufacture, market, and sell the LumiSense 400 commercial product."
+    },
+    {
+      "id": "C-040",
+      "title": "Count: Fraudulent Inducement (ISSUE_001)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes a separate Count VI for fraudulent inducement, alleging that Lumenara represented it intended to collaborate in good faith on Project Meridian while contemporaneous internal communications showed its actual intent was to obtain/extract Vantage's SensorCore substrate technology."
+    },
+    {
+      "id": "C-041",
+      "title": "Fraudulent Inducement: Rule 9(b) Specificity \u2014 Who",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count specifically identifies Martin DeLuca as the authorized CEO who made the JDA \u00a7 9.3 representations and Craig Bellingham as the program manager whose pre-JDA email described the concealed plan. It also alleges DeLuca directed the plan and concealment. This satisfies the 'who' specificity requirement."
+    },
+    {
+      "id": "C-042",
+      "title": "Fraudulent Inducement: Rule 9(b) Specificity \u2014 What",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count specifically identifies the alleged misrepresentations: Lumenara represented in JDA \u00a7 9.3 that it entered in good faith, intended to perform and devote resources to Project Meridian, and had no plan to use the collaboration for any other purpose. It further alleges these statements were false because Lumenara actually intended to obtain/extract Vantage\u2019s substrate technology, citing contemporaneous emails. This meets the Rule 9(b) 'what' criterion."
+    },
+    {
+      "id": "C-043",
+      "title": "Fraudulent Inducement: Rule 9(b) Specificity \u2014 When",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count specifically alleges the misrepresentations were made in the written JDA executed on June 1, 2022, and identifies pre-JDA fraudulent intent through the May 15, 2022 Bellingham email and May 16, 2022 DeLuca response. This satisfies the required Rule 9(b) timing specificity."
+    },
+    {
+      "id": "C-044",
+      "title": "Fraudulent Inducement: Reliance Alleged",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count expressly alleges that Vantage justifiably relied on Lumenara\u2019s representations by executing the JDA, uploading the SensorCore\u2122 design package, and committing resources, and further alleges Vantage would not have granted access or entered the collaboration had Lumenara disclosed its contrary plan."
+    },
+    {
+      "id": "C-045",
+      "title": "Count: Patent Infringement (ISSUE_005)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes a separate Count V titled Patent Infringement under 35 U.S.C. \u00a7\u00a7 271 and 281, alleging that Lumenara\u2019s LumiSense 400 infringes U.S. Patent No. 11,234,567 covering the SensorCore\u2122 substrate architecture."
+    },
+    {
+      "id": "C-046",
+      "title": "Patent Infringement Count: Patent Number Cited",
+      "verdict": "pass",
+      "reasoning": "The patent infringement count (Count V) specifically identifies U.S. Patent No. 11,234,567 and refers to it as the '567 patent."
+    },
+    {
+      "id": "C-047",
+      "title": "Patent Infringement Count: Basis for Infringement",
+      "verdict": "pass",
+      "reasoning": "The patent infringement count incorporates detailed factual allegations and specifically alleges that LumiSense 400 practices at least Claim 1 of U.S. Patent No. 11,234,567. It cites Dr. Ayers\u2019s teardown/inspection and identifies claim features allegedly present in the product, including at least 14 copper-pillar micro-bump interconnect layers, approximately 45-micrometer pitch, and a radial-array thermal-via pattern."
+    },
+    {
+      "id": "C-048",
+      "title": "Count: Unjust Enrichment in the Alternative (ISSUE_007)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes Count VII titled \u201cUNJUST ENRICHMENT (ALTERNATIVE)\u201d and expressly pleads it pursuant to Federal Rule of Civil Procedure 8(d), only to the extent no enforceable contract or statutory remedy governs the benefit at issue. This satisfies the requirement that unjust enrichment be pleaded in the alternative."
+    },
+    {
+      "id": "C-049",
+      "title": "Count: Conversion (ISSUE_008)",
+      "verdict": "fail",
+      "reasoning": "The counterclaim alleges unauthorized downloading and commercial exploitation of SensorCore files in other counts, but it does not assert a separate count for conversion."
+    },
+    {
+      "id": "C-050",
+      "title": "TUTSA Preemption Addressed (ISSUE_012)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim expressly addresses TUTSA preemption/displacement in the unjust enrichment count, pleading it in the alternative and stating it is asserted only to the extent it is not displaced by TUTSA or other law. It also avoids duplicative recovery and frames contract claims separately."
+    },
+    {
+      "id": "C-051",
+      "title": "Prayer: Compensatory Damages \u2014 Wasted Development Costs ($3.4M)",
+      "verdict": "pass",
+      "reasoning": "The output expressly requests compensatory damages including wasted development costs. Paragraphs 31, 32, and 40 identify approximately $3.4 million in wasted development/resource costs, and Prayer A includes damages for \u201cwasted development costs\u201d within the compensatory damages request."
+    },
+    {
+      "id": "C-052",
+      "title": "Prayer: Compensatory Damages \u2014 Lost Northfield Opportunity ($8.7M)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim expressly alleges an $8.7 million lost Northfield Aerospace Solutions contract opportunity in the damages allegations and includes the Northfield opportunity in the Prayer for Relief as part of compensatory damages."
+    },
+    {
+      "id": "C-053",
+      "title": "Prayer: Compensatory Damages \u2014 IP Misappropriation / Reasonable Royalty ($5.7M)",
+      "verdict": "pass",
+      "reasoning": "The output expressly alleges reasonable-royalty damages for unauthorized use/misappropriation of SensorCore of approximately $5.7 million through June 30, 2024 in paragraphs 30 and 47, and the prayer seeks compensatory damages including reasonable royalty damages within the approximately $17.8 million total."
+    },
+    {
+      "id": "C-054",
+      "title": "Prayer: Compensatory Damages \u2014 Total Approximately $18M",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief quantifies compensatory damages as \u201ccurrently estimated at approximately $17.8 million,\u201d based on $3.4M wasted development costs, $8.7M Northfield opportunity, and $5.7M reasonable royalty. Those components sum to $17.8M, which is approximately $18M and close to the $18,087,500 figure, with the difference attributable to the separately treated $287,500 in expert/investigation fees."
+    },
+    {
+      "id": "C-055",
+      "title": "Prayer: Injunctive Relief (ISSUE_009)",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests preliminary and permanent injunctive relief enjoining Lumenara from manufacturing, using, offering for sale, or selling the LumiSense 400 to the extent it embodies Vantage's SensorCore trade secrets or practices the patent."
+    },
+    {
+      "id": "C-056",
+      "title": "Injunctive Relief: Irreparable Harm Alleged (ISSUE_009)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim requests injunctive relief and alleges ongoing unauthorized use, manufacture, marketing, and sale of LumiSense 400, continued trade-secret misappropriation, continuing patent infringement, loss of control over Vantage\u2019s competitive advantage, and lost competitive position/value. These allegations provide a basis for irreparable or continuing harm supporting injunctive relief, even though the phrase \u201cirreparable harm\u201d is not used expressly."
+    },
+    {
+      "id": "C-057",
+      "title": "Prayer: Exemplary/Punitive Damages (ISSUE_010)",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests exemplary damages for willful and malicious misappropriation and fraud, and the fraudulent inducement count cites Texas Civil Practice & Remedies Code \u00a7 41.003. This satisfies the criterion."
+    },
+    {
+      "id": "C-058",
+      "title": "Prayer: Enhanced DTSA Damages (ISSUE_010)",
+      "verdict": "pass",
+      "reasoning": "The DTSA count expressly seeks exemplary damages up to twice the damages awarded for willful and malicious misappropriation under 18 U.S.C. \u00a7 1836(b)(3)(C), and the prayer also requests exemplary damages under the DTSA up to statutory limits."
+    },
+    {
+      "id": "C-059",
+      "title": "Prayer: Attorney's Fees Under DTSA (ISSUE_011)",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests reasonable attorneys' fees and cites the DTSA fee-shifting provision, 18 U.S.C. \u00a7 1836(b)(3)(D). The DTSA count also requests attorneys' fees for willful and malicious misappropriation."
+    },
+    {
+      "id": "C-060",
+      "title": "Prayer: Attorney's Fees Under Texas Law (ISSUE_011)",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests reasonable attorneys' fees under Tex. Civ. Prac. & Rem. Code \u00a7 38.001, which is the Texas statutory basis for fees on breach of contract claims, and also cites other Texas fee provisions."
+    },
+    {
+      "id": "C-061",
+      "title": "Prayer: Pre- and/or Post-Judgment Interest",
+      "verdict": "pass",
+      "reasoning": "The Prayer for Relief expressly requests \u201cPrejudgment and post-judgment interest as allowed by law.\u201d"
+    },
+    {
+      "id": "C-062",
+      "title": "Distractor: Correctly Treats SensorCore\u2122 as Background IP, Not Foreground IP (DISTRACTOR_002)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim repeatedly and correctly characterizes SensorCore\u2122 designs and related technology as Vantage Background IP and Vantage\u2019s sole property, expressly distinguishing it from Foreground IP and stating that Foreground IP excludes Background IP. It does not suggest SensorCore\u2122 is jointly owned or Foreground IP."
+    },
+    {
+      "id": "C-063",
+      "title": "Wasted Development Costs Accurately Stated ($3.4M)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim repeatedly states Vantage's wasted development/resource costs as approximately $3.4 million, including in the factual allegations, Count I damages, and prayer for relief. This matches the required figure."
+    },
+    {
+      "id": "C-064",
+      "title": "Reasonable Royalty Damages Accurately Stated ($5.7M)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim repeatedly states reasonable-royalty damages of approximately $5.7 million based on $14.2 million in LumiSense 400 revenue, including in the factual allegations, DTSA count, and prayer for relief."
+    },
+    {
+      "id": "C-065",
+      "title": "Expert/Investigation Costs Stated ($287,500)",
+      "verdict": "pass",
+      "reasoning": "The counterclaim expressly states that Dr. Langford's schedule includes \"$287,500 in expert and investigation fees\" and discusses recovery of that amount as costs/fees, satisfying the required quantified expert/investigation costs."
+    },
+    {
+      "id": "C-066",
+      "title": "Factual Background: Bellingham-DeLuca Emails Pre-Date JDA Execution",
+      "verdict": "pass",
+      "reasoning": "The counterclaim explicitly states that the JDA was executed on June 1, 2022, identifies the Bellingham-DeLuca emails as dated May 15 and May 16, 2022, and expressly says these communications preceded the June 1 JDA, supporting pre-signing fraudulent intent."
+    },
+    {
+      "id": "C-067",
+      "title": "DTSA Count References Willful/Malicious Conduct",
+      "verdict": "pass",
+      "reasoning": "The DTSA count expressly alleges that the evidence supports a finding of \u201cwillful and malicious misappropriation\u201d and seeks exemplary damages and attorneys\u2019 fees for willful and malicious misappropriation under 18 U.S.C. \u00a7 1836(b)(3)(C)-(D)."
+    },
+    {
+      "id": "C-068",
+      "title": "Factual Background: CES Announcement and Commercial Launch Dates",
+      "verdict": "pass",
+      "reasoning": "The factual allegations expressly state that Lumenara publicly announced LumiSense 400 at CES on January 8, 2024 and commercially launched it on March 1, 2024."
+    },
+    {
+      "id": "C-069",
+      "title": "Rule 9(b) Compliance: Fraudulent Inducement Pleads Named Individuals",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count specifically names Martin DeLuca as the authorized CEO who made the written JDA representation and also references Craig Bellingham and DeLuca's May 2022 communications directing or evidencing the concealed plan and misrepresentations."
+    },
+    {
+      "id": "C-070",
+      "title": "Rule 9(b) Compliance: Fraudulent Inducement Pleads Approximate Dates",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count identifies the alleged misrepresentation as being made in the written JDA executed on June 1, 2022, and also provides May 15 and May 16, 2022 dates for related internal communications evidencing the fraudulent plan."
+    },
+    {
+      "id": "C-071",
+      "title": "Rule 9(b) Compliance: Fraudulent Inducement Pleads Substance of Misrepresentation",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count specifically identifies the alleged misrepresentations in JDA \u00a7 9.3: that Lumenara entered in good faith, intended to perform and devote resources, had no plan to use the collaboration for any purpose other than the Project, and had no arrangement undermining the collaboration. It also alleges why those statements were false based on contemporaneous internal emails. Thus, the substance of the misrepresentation is described."
+    },
+    {
+      "id": "C-072",
+      "title": "Rule 9(b) Compliance: Fraudulent Inducement Pleads Resulting Harm",
+      "verdict": "pass",
+      "reasoning": "The fraudulent inducement count expressly alleges resulting harm: Vantage relied by executing the JDA, uploading its SensorCore files, and committing approximately $3.4 million in resources, and alleges injuries including exposure and commercial exploitation of proprietary technology, loss of competitive control, development-cost injury, and other actual damages."
+    },
+    {
+      "id": "C-073",
+      "title": "Demand for Jury Trial",
+      "verdict": "pass",
+      "reasoning": "The counterclaim includes a separate section titled \"JURY DEMAND\" stating that Vantage demands a trial by jury on all issues so triable."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:34:04.082139+00:00",
+  "cost": {
+    "input_tokens": 947004,
+    "output_tokens": 25584,
+    "wall_clock_seconds": 181.29
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 8,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "lumenara-complaint.docx",
+      "bellingham-deluca-emails.eml",
+      "portal-access-logs.xlsx",
+      "langford-damages-report.docx",
+      "ayers-expert-report.docx",
+      "counterclaim-strategy-memo.docx",
+      "joint-development-agreement.docx",
+      "mutual-nda.docx",
+      "/workspace/output/vantage-counterclaim.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

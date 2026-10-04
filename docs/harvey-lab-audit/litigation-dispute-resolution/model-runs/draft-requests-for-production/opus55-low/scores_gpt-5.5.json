@@ -1,0 +1,334 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "48/50 criteria passed.  Missed 2 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 50,
+  "n_passed": 48,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption identifies Northern District of Ohio",
+      "verdict": "pass",
+      "reasoning": "The caption at the top states 'IN THE UNITED STATES DISTRICT COURT' and 'FOR THE NORTHERN DISTRICT OF OHIO,' which correctly identifies the court as the United States District Court for the Northern District of Ohio."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption includes correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption includes the case number exactly as required: Case No. 1:24-cv-01837-JRK."
+    },
+    {
+      "id": "C-003",
+      "title": "Caption identifies correct parties",
+      "verdict": "pass",
+      "reasoning": "The caption lists Blackthorn Manufacturing, Inc. as Plaintiff/Counterclaim Defendant and Ridgeline Distribution Partners, LLC as Defendant/Counterclaim Plaintiff, with the correct party names and designations."
+    },
+    {
+      "id": "C-004",
+      "title": "Document titled as First Set of Requests for Production",
+      "verdict": "pass",
+      "reasoning": "The caption/title states \u201cPLAINTIFF BLACKTHORN MANUFACTURING, INC.'S FIRST SET OF REQUESTS FOR PRODUCTION OF DOCUMENTS AND THINGS TO DEFENDANT RIDGELINE DISTRIBUTION PARTNERS, LLC,\u201d which clearly identifies it as Plaintiff\u2019s first set of RFPs directed to Defendant Ridgeline."
+    },
+    {
+      "id": "C-005",
+      "title": "Introductory language citing Fed. R. Civ. P. 34",
+      "verdict": "pass",
+      "reasoning": "The document includes introductory language stating the requests are made pursuant to Rules 26 and 34 of the Federal Rules of Civil Procedure, and it references Fed. R. Civ. P. 34 multiple times thereafter."
+    },
+    {
+      "id": "C-006",
+      "title": "Definitions section included",
+      "verdict": "pass",
+      "reasoning": "The output includes a dedicated **DEFINITIONS** section with numerous defined key terms, including Ridgeline/You/Your, Blackthorn, EDA, Southwest Territory, Competing Products, Blackthorn Confidential Information, ValvePrime, Partner Portal, Communication, Document, Person, and others."
+    },
+    {
+      "id": "C-007",
+      "title": "Instructions section included",
+      "verdict": "pass",
+      "reasoning": "The document includes a clearly labeled 'INSTRUCTIONS' section with general instructions on possession/custody/control, custodians and date ranges, form of production, organization, objections, privilege logs, lost or destroyed documents, tangible things, confidentiality, and continuing obligation to supplement."
+    },
+    {
+      "id": "C-008",
+      "title": "Total requests do not exceed 40 including discrete subparts",
+      "verdict": "pass",
+      "reasoning": "The document contains 34 individually numbered Requests for Production. Only one request (No. 18) uses explicit numbered subparts that seek distinct categories of things/devices, which would add at most one additional counted request, bringing the total to approximately 35. Other lists appear to be descriptions or examples within a single request rather than separately numbered/lettered independent subparts. The total does not exceed 40."
+    },
+    {
+      "id": "C-009",
+      "title": "ESI custodians specified \u2014 Thomas Calloway identified",
+      "verdict": "pass",
+      "reasoning": "The document expressly defines \u201cPriority Custodians\u201d to include Thomas Calloway, identified as Managing Member, and multiple requests list \u201cPriority Custodians\u201d or Thomas Calloway as custodians/sources for production."
+    },
+    {
+      "id": "C-010",
+      "title": "ESI custodians specified \u2014 Victor Escobar identified",
+      "verdict": "pass",
+      "reasoning": "The document expressly identifies Victor Escobar as Ridgeline's Southwest Regional Sales Manager and includes him in the defined 'Priority Custodians' as well as naming him in multiple specific custodian/source lists for ESI requests."
+    },
+    {
+      "id": "C-011",
+      "title": "ESI custodians specified \u2014 Jason Meacham identified",
+      "verdict": "pass",
+      "reasoning": "The document expressly identifies Jason Meacham as Ridgeline's IT Administrator in the definition of \"Priority Custodians\" and also includes him within \"IT Custodians\" and specific ESI-related requests."
+    },
+    {
+      "id": "C-012",
+      "title": "ESI custodians \u2014 Amanda Briggs communications addressed",
+      "verdict": "pass",
+      "reasoning": "The document expressly addresses Amanda Briggs by defining \u201cBriggs Custodial Files,\u201d identifying her as a former Ridgeline account executive, repeatedly listing those files as custodial sources for communications/documents, and including a dedicated request for Amanda Briggs records."
+    },
+    {
+      "id": "C-013",
+      "title": "Date range specified for ESI \u2014 begins no later than January 1, 2022",
+      "verdict": "pass",
+      "reasoning": "The requests include specified date ranges for ESI/document productions, with many beginning January 1, 2022 and several beginning January 1, 2018 or earlier/no limitation. This captures pre-breach planning before the alleged July 2022 diversion scheme."
+    },
+    {
+      "id": "C-014",
+      "title": "Date range extends through the present or near-present",
+      "verdict": "pass",
+      "reasoning": "The requests consistently use date ranges extending \u201cto the present,\u201d through the request date, or otherwise include 2024; none of the operative date ranges end before 2024."
+    },
+    {
+      "id": "C-015",
+      "title": "Trade secret \u2014 requests for documents showing Ridgeline's treatment of ValvePrime/pricing data as confidential",
+      "verdict": "pass",
+      "reasoning": "The requests include multiple targeted requests, especially Request Nos. 19, 20, and 22, seeking documents about Ridgeline\u2019s security controls, access restrictions, credentialed access, NDAs, training, and internal characterization of ValvePrime and Blackthorn pricing data as confidential or proprietary."
+    },
+    {
+      "id": "C-016",
+      "title": "Trade secret \u2014 requests for data security measures under EDA \u00a76.3",
+      "verdict": "pass",
+      "reasoning": "The document includes multiple requests targeting Ridgeline's data security measures and access controls for Blackthorn Confidential Information, including Request No. 15 seeking access logs required by EDA \u00a76.3 and Request No. 19 seeking data security policies, procedures, and technical controls maintained under EDA \u00a76.3."
+    },
+    {
+      "id": "C-017",
+      "title": "Trade secret \u2014 requests for access logs from Blackthorn partner portal",
+      "verdict": "pass",
+      "reasoning": "The document specifically requests access logs for the Blackthorn Partner Portal in Request No. 14 and logs for systems where Blackthorn Confidential Information was stored in Request No. 15."
+    },
+    {
+      "id": "C-018",
+      "title": "Trade secret \u2014 requests targeting ValvePrime algorithm and source code",
+      "verdict": "pass",
+      "reasoning": "The requests specifically target ValvePrime materials: Request No. 13 seeks all Downloaded Materials and all documents containing, reproducing, summarizing, or derived from ValvePrime, ValvePrime v3.2 source code, and Blackthorn customer pricing tier/historical pricing data in Ridgeline's possession, custody, or control."
+    },
+    {
+      "id": "C-019",
+      "title": "Trade secret \u2014 documents re independent economic value or general availability",
+      "verdict": "pass",
+      "reasoning": "The requests include multiple provisions addressing trade-secret status. Request No. 22 seeks documents reflecting Ridgeline\u2019s understanding or treatment of ValvePrime and Blackthorn pricing data as confidential, proprietary, or valuable. Request No. 23 seeks documents supporting contentions that ValvePrime and pricing data are generally known or readily ascertainable, or that similar functionality is commercially available. Request No. 24 seeks documents concerning independent knowledge, independent development, or ready ascertainability by proper means. These directly address secrecy, general availability, and economic value/proprietary nature."
+    },
+    {
+      "id": "C-020",
+      "title": "Internal communications \u2014 Escobar and Apex's Grennon",
+      "verdict": "pass",
+      "reasoning": "Request No. 3 specifically seeks all communications between any Ridgeline employee and any Apex representative, expressly including Mark Grennon, concerning Blackthorn, Blackthorn Products, Blackthorn pricing, Southwest Territory customers, and the marketing/sale/pricing/supply of competing products in the Southwest Territory. The listed custodians include Priority Custodians, which are defined to include Victor Escobar."
+    },
+    {
+      "id": "C-021",
+      "title": "Internal communications \u2014 among Calloway, Escobar, Meacham re diversion",
+      "verdict": "pass",
+      "reasoning": "The requests specifically target internal Ridgeline communications and documents among Priority Custodians, defined to include Thomas Calloway, Victor Escobar, and Jason Meacham, as well as other Ridgeline personnel. Requests Nos. 5\u20138 seek internal communications concerning Apex/competing products, steering or selling to Southwest customers, Calloway\u2019s approval, and use/transmission of Blackthorn pricing information."
+    },
+    {
+      "id": "C-022",
+      "title": "Apex relationship \u2014 formal agreements, supply contracts, POs, invoices",
+      "verdict": "pass",
+      "reasoning": "Request for Production No. 2 specifically seeks documents concerning the Ridgeline\u2013Apex relationship, including distribution, supply, reseller, dealer agreements, purchase orders, invoices, and related payment records."
+    },
+    {
+      "id": "C-023",
+      "title": "Apex relationship \u2014 informal arrangements, commissions, referral fees, kickbacks",
+      "verdict": "pass",
+      "reasoning": "The requests expressly go beyond formal agreements. Request No. 2 seeks documents concerning any formal or informal, written or oral relationship or understanding between Ridgeline and Apex, including referral fees, commissions, rebates, or other consideration. Request No. 4 also targets payments, gifts, commissions, bonuses, equity interests, employment offers, or other things of value from Apex to Ridgeline personnel."
+    },
+    {
+      "id": "C-024",
+      "title": "Preservation \u2014 litigation hold notices requested",
+      "verdict": "pass",
+      "reasoning": "The document expressly includes Request for Production No. 32 seeking each litigation hold or preservation notice issued by or on behalf of Ridgeline concerning Blackthorn, the EDA, or the subject matter of the action, including implementation communications."
+    },
+    {
+      "id": "C-025",
+      "title": "Preservation \u2014 document retention and destruction policies requested",
+      "verdict": "pass",
+      "reasoning": "The requests expressly include a Document Retention and Preservation section. Request No. 31 seeks Ridgeline\u2019s document and ESI retention, deletion, and destruction policies and schedules, and Request No. 33 seeks documents reflecting deletion, destruction, loss, overwriting, wiping, reimaging, reassignment, or disposal of relevant documents/accounts/devices. This satisfies the preservation criterion."
+    },
+    {
+      "id": "C-026",
+      "title": "Preservation \u2014 communications regarding preservation obligations",
+      "verdict": "pass",
+      "reasoning": "Request No. 32 expressly seeks litigation holds or preservation notices concerning the action, documents showing recipients/scope/modifications, any suspension of automatic deletion, and non-privileged communications concerning implementation of such holds. Requests Nos. 31 and 33 also address retention/destruction policies and deletion/disposal records. This satisfies the preservation-communications criterion."
+    },
+    {
+      "id": "C-027",
+      "title": "Counterclaim \u2014 Ridgeline's internal analyses of Blackthorn pricing competitiveness",
+      "verdict": "pass",
+      "reasoning": "The document includes multiple requests targeting Ridgeline's counterclaim and Blackthorn pricing competitiveness. Request No. 25 specifically seeks documents supporting the allegation that Blackthorn's pricing was approximately 15\u201322% above prevailing market rates, including price comparisons, market studies, industry analyses, and calculations. Request No. 27 also seeks internal Ridgeline communications and documents concerning the competitiveness of Blackthorn's pricing."
+    },
+    {
+      "id": "C-028",
+      "title": "Counterclaim \u2014 market analyses comparing Blackthorn and Apex pricing",
+      "verdict": "pass",
+      "reasoning": "The output includes Request No. 25 seeking documents supporting allegations that Blackthorn's pricing was above market rates, specifically including price comparisons, competitor price lists or quotations, market studies, industry analyses, and calculations. This directly targets comparative pricing analyses involving Blackthorn and competitors such as Apex."
+    },
+    {
+      "id": "C-029",
+      "title": "Counterclaim \u2014 customer communications about pricing complaints",
+      "verdict": "pass",
+      "reasoning": "The document includes RFP No. 26 seeking documents reflecting customer complaints, objections, or statements concerning the price of Blackthorn Products, including customers declining or ceasing purchases because of price. It also includes RFP No. 9 seeking Ridgeline-customer communications discussing Apex/competing products as alternatives and Blackthorn pricing in that context."
+    },
+    {
+      "id": "C-030",
+      "title": "Financial records \u2014 Apex product revenue in Southwest Territory by quarter",
+      "verdict": "pass",
+      "reasoning": "Request for Production No. 10 seeks documents and data for each sale of Apex products or other Competing Products to customers in the Southwest Territory, including invoice date, net sales revenue, COGS, and gross margin, in a form permitting aggregation by customer, state, and calendar quarter. This directly satisfies the requirement for Apex-related revenue financial records with quarterly granularity."
+    },
+    {
+      "id": "C-031",
+      "title": "Financial records \u2014 revenue broken down by customer account",
+      "verdict": "pass",
+      "reasoning": "The requests include financial records/data showing sales revenue at the customer level for Southwest Territory customers, including Request No. 10 for each sale of Apex/competing products with customer name and net sales revenue in a form permitting aggregation by customer, and Request No. 11 for Blackthorn product sales by customer. This satisfies the requirement for customer-level revenue breakdown."
+    },
+    {
+      "id": "C-032",
+      "title": "Financial records \u2014 Blackthorn product purchases by Ridgeline",
+      "verdict": "fail",
+      "reasoning": "The requests include financial data for Ridgeline's sales of Blackthorn Products to customers (RFP No. 11) and documents concerning the Minimum Purchase Obligation, but they do not specifically request records of Ridgeline's purchases of Blackthorn products from Blackthorn sufficient to verify compliance with the $28 million annual minimum purchase obligation under EDA Section 4.2."
+    },
+    {
+      "id": "C-033",
+      "title": "ESI form of production \u2014 native format requested for metadata-sensitive documents",
+      "verdict": "pass",
+      "reasoning": "The requests expressly address ESI form of production and require native format with metadata intact for metadata-sensitive categories, including Downloaded Materials, ValvePrime/source code files, logs, file transfers, spreadsheets, email, and messages."
+    },
+    {
+      "id": "C-034",
+      "title": "ESI form of production \u2014 metadata preservation explicitly addressed",
+      "verdict": "pass",
+      "reasoning": "The document explicitly addresses ESI form of production and metadata preservation, including requests for native production with all system and application metadata intact, specific metadata fields such as timestamps, file paths, custodians, authors, and hash values, and states that metadata is probative evidence in the trade secret action."
+    },
+    {
+      "id": "C-035",
+      "title": "USB drive and physical/electronic evidence request",
+      "verdict": "pass",
+      "reasoning": "The document specifically requests USB/removable storage evidence and forensic imaging. Request No. 18 seeks inspection and forensic imaging of every USB drive/removable storage device used by Jason Meacham or Victor Escobar, expressly including the USB drive described in the Complaint, and their laptops/workstations. Request No. 17 also seeks logs/artifacts reflecting USB connections and file transfers."
+    },
+    {
+      "id": "C-036",
+      "title": "Customer communications \u2014 re transition from Blackthorn to Apex products",
+      "verdict": "pass",
+      "reasoning": "Request No. 9 specifically seeks communications between Ridgeline and Southwest Territory customers, including the Diverted Accounts, that recommend, quote, propose, or compare Apex products as an alternative or replacement for Blackthorn Products. This directly targets customer-facing communications about switching/steering from Blackthorn to Apex."
+    },
+    {
+      "id": "C-037",
+      "title": "Request for the September 15, 2022 downloaded files specifically",
+      "verdict": "pass",
+      "reasoning": "The document specifically defines \u201cDownloaded Materials\u201d as the fourteen files totaling approximately 2.3 GB downloaded from the Partner Portal on or about September 15, 2022 using Jason Meacham\u2019s credentials, including copies, excerpts, summaries, analyses, compilations, or derivatives. Request for Production No. 13 expressly requests all Downloaded Materials and related derivative documents, satisfying the criterion."
+    },
+    {
+      "id": "C-038",
+      "title": "Reference to Stipulated Protective Order",
+      "verdict": "pass",
+      "reasoning": "The document expressly references the Stipulated Protective Order entered August 5, 2024 in the introductory language and repeatedly in the instructions, including a confidentiality instruction stating that Ridgeline may designate produced materials under the Protective Order."
+    },
+    {
+      "id": "C-039",
+      "title": "Southwest Territory defined or referenced correctly",
+      "verdict": "pass",
+      "reasoning": "The document expressly defines \u201cSouthwest Territory\u201d by reference to the EDA and lists Texas, Louisiana, Oklahoma, New Mexico, and Colorado, matching the criterion."
+    },
+    {
+      "id": "C-040",
+      "title": "Requests are topically particularized rather than unlimited demands",
+      "verdict": "pass",
+      "reasoning": "Each numbered request is tied to specific subjects or document categories and also includes date ranges and/or specified custodians/sources. There are not three or more unlimited 'all documents' demands lacking topical, custodian, or temporal limitations."
+    },
+    {
+      "id": "C-041",
+      "title": "Correct party names used consistently",
+      "verdict": "pass",
+      "reasoning": "The document consistently identifies Blackthorn Manufacturing, Inc. as Plaintiff/Counterclaim Defendant and Ridgeline Distribution Partners, LLC as Defendant/Counterclaim Plaintiff, and uses the short names \u201cBlackthorn\u201d and \u201cRidgeline\u201d consistently without confusing party designations."
+    },
+    {
+      "id": "C-042",
+      "title": "Response deadline of 30 days stated or referenced",
+      "verdict": "pass",
+      "reasoning": "The document expressly requests that Ridgeline respond in writing within thirty (30) days of service, citing Fed. R. Civ. P. 34(b)(2)(A)."
+    },
+    {
+      "id": "C-043",
+      "title": "Requests target the EDA itself and related amendments",
+      "verdict": "fail",
+      "reasoning": "The requests define the EDA and repeatedly reference its provisions, but there is no RFP specifically seeking the Exclusive Distribution Agreement itself or any amendments, modifications, renewals, side agreements, or related contractual documents between Blackthorn and Ridgeline. The only request mentioning side letters/agreements concerns Ridgeline\u2019s relationship with Apex, not Blackthorn-Ridgeline contractual documents."
+    },
+    {
+      "id": "C-044",
+      "title": "Requests cover breach of exclusivity covenant (Apex competing products)",
+      "verdict": "pass",
+      "reasoning": "The requests explicitly seek documents concerning Ridgeline's relationship with Apex and its marketing, distribution, sale, and promotion of Apex or other competing products in the Southwest Territory, including RFP Nos. 2, 5, 6, 9, and 10. These are directly relevant to the alleged breach of the exclusivity covenant."
+    },
+    {
+      "id": "C-045",
+      "title": "Requests cover breach of minimum purchase obligation",
+      "verdict": "pass",
+      "reasoning": "The requests expressly address the minimum purchase obligation: Request No. 27 seeks documents concerning Ridgeline's ability or willingness to meet the Minimum Purchase Obligation under EDA \u00a7 4.2, Request No. 29 seeks documents concerning the Shortfall Notice and cure of the shortfall, and Request No. 11 seeks sales data for Blackthorn Products relevant to purchase volumes."
+    },
+    {
+      "id": "C-046",
+      "title": "Requests cover breach of confidentiality obligations",
+      "verdict": "pass",
+      "reasoning": "The requests include multiple items directly targeting Ridgeline's handling of Blackthorn Confidential Information and compliance with EDA confidentiality/security obligations, such as Requests 13, 15, 19, 20, 21, and 22 seeking downloaded confidential materials, access logs, security controls, authorized access lists, approvals for copying/downloading, and confidentiality training/NDAs."
+    },
+    {
+      "id": "C-047",
+      "title": "Requests cover trade secret misappropriation (federal DTSA and/or state Ohio UTSA)",
+      "verdict": "pass",
+      "reasoning": "The requests expressly seek documents relevant to trade secret misappropriation, including acquisition and access to the Downloaded Materials and ValvePrime source code/pricing data, access logs, USB transfers, communications about the download, and transmission or use of Blackthorn pricing information with Apex or customers."
+    },
+    {
+      "id": "C-048",
+      "title": "Request for audit-related documents under EDA \u00a79.4",
+      "verdict": "pass",
+      "reasoning": "The output expressly defines the \u201cAudit Request\u201d as Blackthorn\u2019s October 2023 written notice exercising audit rights under EDA \u00a7 9.4 and includes Request No. 30 seeking all internal Ridgeline communications and documents concerning the Audit Request, including decisions about whether or how to respond or make books and records available to Blackthorn. This directly targets audit-related documents and Ridgeline\u2019s response/non-response."
+    },
+    {
+      "id": "C-049",
+      "title": "Requests reference or define the Exclusive Distribution Agreement",
+      "verdict": "pass",
+      "reasoning": "The output explicitly defines the \"EDA\" as the Exclusive Distribution Agreement between Blackthorn and Ridgeline dated and effective January 1, 2018, and references it throughout the definitions, instructions, and multiple requests."
+    },
+    {
+      "id": "C-050",
+      "title": "Judge Kesselman's Standing Order ESI requirements acknowledged",
+      "verdict": "pass",
+      "reasoning": "The draft expressly references the Court's Standing Order and includes an instruction requiring each ESI request to identify custodians and date ranges. The individual requests then specify date ranges and custodians/sources with reasonable specificity, including named custodians, custodian groups, and non-custodial data sources."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-requests-for-production/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-requests-for-production",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:33:12.743844+00:00",
+  "cost": {
+    "input_tokens": 12,
+    "output_tokens": 24191,
+    "wall_clock_seconds": 231.93
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 7,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "complaint-blackthorn-v-ridgeline.docx",
+      "case-management-order.docx",
+      "partner-strategy-memo.docx",
+      "answer-and-counterclaim.docx",
+      "internal-investigation-memo.docx",
+      "stipulated-protective-order.docx",
+      "exclusive-distribution-agreement.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

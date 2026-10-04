@@ -1,0 +1,427 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "54/64 criteria passed.  Missed 10 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 64,
+  "n_passed": 54,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Timeline includes EDA execution date of March 15, 2020",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a clear entry for March 15, 2020 stating 'The parties execute the EDA. Harborview receives exclusive distribution rights in OR/WA/ID/MT...' This correctly identifies the date and the event as the execution of the Exclusive Distribution Agreement between the two parties."
+    },
+    {
+      "id": "C-002",
+      "title": "Timeline includes Year 1 performance ($4.3M vs $4.0M minimum)",
+      "verdict": "pass",
+      "reasoning": "The timeline explicitly includes a row for 'Mar. 15, 2020\u2013Mar. 14, 2021' (Year 1) stating 'Harborview purchases approximately $4.3M against a $4.0M minimum (reported by both sides and expert materials).' This matches the criterion's requirement of referencing Year 1 performance with $4.3M actual vs. $4.0M minimum."
+    },
+    {
+      "id": "C-003",
+      "title": "Timeline includes Year 2 performance ($6.1M vs $5.5M minimum)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a dedicated entry for 'Mar. 15, 2021--Mar. 14, 2022' (Year 2) that explicitly states 'Harborview purchases approximately $6.1M against a $5.5M minimum, about 42% above Year 1.' This matches the criterion's requirement of referencing Year 2 performance with $6.1M against a $5.5M minimum."
+    },
+    {
+      "id": "C-004",
+      "title": "Timeline includes June 8, 2022 Holcomb-to-Yee email (Cascade trial run)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'June 8--10, 2022' that references Holcomb proposing a two-pallet Cascade 'trial run,' asking Yee to 'keep it quiet,' and noting Greenleaf will ship directly to Cascade. This covers the June 8, 2022 Holcomb-to-Yee email about the Cascade trial run with the instruction to keep it quiet. The criterion is satisfied."
+    },
+    {
+      "id": "C-005",
+      "title": "Timeline includes August 22, 2022 Holcomb-to-Stanton email (Cascade outperforming)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Aug. 22--23, 2022' that explicitly references Holcomb telling Stanton that Cascade is moving product faster than Harborview in Portland, recommending increasing Cascade allocation and 'phasing Harborview out.' This matches the criterion requiring an entry for August 22, 2022 referencing the Holcomb-to-Stanton email about Cascade outperforming Harborview and suggesting transitioning."
+    },
+    {
+      "id": "C-006",
+      "title": "Timeline includes September 14, 2022 Stanton-to-Fong email (tighten QA)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Sept. 14--19, 2022' that explicitly references Stanton directing Fong to 'tighten up QA on the Harborview batches,' with the record citing 'Stanton--Fong email thread, Sept. 14--15.' This satisfies the criterion requiring an entry for September 14, 2022 referencing the Stanton-to-Fong email directing tighter QA on Harborview batches."
+    },
+    {
+      "id": "C-007",
+      "title": "Timeline includes October 3, 2022 Fong-to-Stanton email (selective QA admission)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Oct. 3, 2022' that references Fong's email reporting enhanced screening of lots H-2209 through H-2215, four lots rejected, approximately $187,000 in product value, and that applying the same criteria to Cascade lots would have flagged at least two, but Cascade was not screened under that protocol. This matches all the required elements of the criterion."
+    },
+    {
+      "id": "C-008",
+      "title": "Timeline includes December 1, 2022 Holcomb-to-Stanton email (cover story)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a December 1, 2022 entry that explicitly references Holcomb telling Beckett 'supply chain issues' and the email to Stanton, with Bates GRN-004230--004231 cited. This matches the criterion exactly."
+    },
+    {
+      "id": "C-009",
+      "title": "Timeline includes December 15, 2022 non-renewal notice deadline",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Dec. 14 / 15, 2022' that explicitly references the 90-day non-renewal notice deadline. The entry states: 'The EDA requires non-renewal notice at least 90 days before March 14, 2023. Holcomb's Dec. 1 email calls Dec. 15 the deadline and asks whether to send notice; the produced record and Chakrabarti report identify no notice by the deadline.' This clearly references December 15, 2022 as the non-renewal notice deadline to prevent auto-renewal."
+    },
+    {
+      "id": "C-010",
+      "title": "Timeline includes January 3, 2023 Stanton-to-Ivers email (termination strategy)",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a January 3, 2023 entry that references the Stanton email to outside counsel (identified as 'Ivers') discussing moving on termination and using minimums as the basis, citing GL-PROD-007834. The entry matches the criterion's requirements: correct date, correct parties (Stanton to Ivers/outside counsel), and correct subject matter (termination strategy using minimum purchase shortfall)."
+    },
+    {
+      "id": "C-011",
+      "title": "Timeline includes January 10, 2023 Notice of Material Breach",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a dedicated entry for January 10, 2023 stating: 'Greenleaf sends a Notice of Material Breach, stating Year 3 purchases were $4.27M as of that date, $2.73M below the $7.0M minimum; it demands cure within 30 days and requests a plan or purchases. More than two months remained in the defined Year 3.' This matches all required elements: correct date, correct party (Greenleaf), correct basis (Year 3 minimum purchase shortfall), and correct cure demand (30 days)."
+    },
+    {
+      "id": "C-012",
+      "title": "Timeline includes February 15, 2023 Notice of Termination",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Feb. 13--15, 2023' that explicitly states: 'On Feb. 15 Greenleaf sends a termination notice, claiming $5.6M cumulative purchases and a $1.4M shortfall; it makes termination effective March 17.' This matches the criterion requiring an entry for February 15, 2023 for Greenleaf's Notice of Termination effective March 17, 2023."
+    },
+    {
+      "id": "C-013",
+      "title": "Timeline includes February 22, 2023 Harborview breach response",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a dedicated entry dated 'Feb. 22, 2023' describing Harborview's counsel response disputing the breach and termination, asserting the Year 3 period was incomplete and that Greenleaf caused the shortfall through Cascade diversion and QA rejections, and demanding cessation/accounting. This matches the criterion exactly."
+    },
+    {
+      "id": "C-014",
+      "title": "Timeline includes February 28, 2024 Complaint filing with case information",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Feb. 28, 2024' in Section II (Litigation, Discovery & Court-Ordered Calendar) that states 'Harborview files Complaint and jury demand' with record citation 'Complaint, filed Feb. 28, 2024 (Dkt. 1).' The case caption at the top also identifies the court as 'U.S. District Court, District of Oregon \u2022 Portland Division \u2022 No. 3:24-cv-00613-MRH.' All required elements are present."
+    },
+    {
+      "id": "C-015",
+      "title": "Timeline identifies Breach of Contract cause of action in Complaint",
+      "verdict": "pass",
+      "reasoning": "The timeline entry for the Complaint (Feb. 28, 2024) states: 'It pleads four claims and seeks at least $8.2M, fees/costs, interest, and punitive damages. Allegations include diversion, selective QA, a supply-chain cover story, premature notice/termination, and auto-renewal.' The Executive Snapshot also states: 'Harborview pleads breach of contract (exclusivity and termination), breach of the implied covenant, fraud/intentional misrepresentation, and tortious interference.' While the complaint entry itself doesn't list the specific causes of action by name, the document clearly identifies breach of contract as one of the causes of action in the Complaint in the Executive Snapshot section. The timeline entry for the Complaint also references the SJ note about matching 'each element to specific exhibit/testimony' and mentions 'contract damage limitations,' and the overall document makes clear breach of contract is a claim in the Complaint. The Executive Snapshot explicitly identifies breach of contract as one of Harborview's claims in the Complaint."
+    },
+    {
+      "id": "C-016",
+      "title": "Timeline identifies Breach of Implied Covenant cause of action in Complaint",
+      "verdict": "fail",
+      "reasoning": "In the Executive Snapshot section, the agent lists the claims: 'Harborview pleads breach of contract (exclusivity and termination), breach of the implied covenant, fraud/intentional misrepresentation, and tortious interference.' Additionally, in the litigation timeline entry for Feb. 28, 2024 (the Complaint filing), the agent states: 'It pleads four claims and seeks at least $8.2M, fees/costs, interest, and punitive damages. Allegations include diversion, selective QA, a supply-chain cover story, premature notice/termination, and auto-renewal.' However, the Feb. 28, 2024 timeline entry does not explicitly list 'breach of the implied covenant of good faith and fair dealing' as one of the four causes of action. The entry only generically says 'four claims' without naming them. The criterion requires the timeline entry for the Complaint to identify Breach of Implied Covenant as one of the causes of action. Since the Complaint entry itself does not name this cause of action, the criterion is not satisfied."
+    },
+    {
+      "id": "C-017",
+      "title": "Timeline identifies Fraud cause of action in Complaint",
+      "verdict": "pass",
+      "reasoning": "In Section II (Litigation, Discovery & Court-Ordered Calendar), the entry for February 28, 2024 (when Harborview filed the Complaint) states: 'It pleads four claims and seeks at least $8.2M, fees/costs, interest, and punitive damages. Allegations include diversion, selective QA, a supply-chain cover story, premature notice/termination, and auto-renewal.' This entry does not explicitly list 'fraud' or 'intentional misrepresentation' as one of the causes of action in the Complaint. However, in the Executive Snapshot, the agent does state: 'Claims / counterclaim: Harborview pleads breach of contract (exclusivity and termination), breach of the implied covenant, fraud/intentional misrepresentation, and tortious interference.' The criterion asks specifically whether 'the timeline entry for the Complaint identifies Fraud (or Intentional Misrepresentation) as one of the causes of action.' The Executive Snapshot does identify fraud/intentional misrepresentation as a claim, and the Feb. 28 Complaint entry in Section II references 'four claims' but does not enumerate them explicitly. The Executive Snapshot is part of the timeline document and does identify fraud as a cause of action in the Complaint. Given that the document as a whole clearly identifies fraud/intentional misrepresentation as one of Harborview's claims in the Complaint, this satisfies the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "Timeline identifies Tortious Interference cause of action in Complaint",
+      "verdict": "fail",
+      "reasoning": "In the timeline entry for February 28, 2024 (when Harborview files the Complaint), the agent states: 'It pleads four claims and seeks at least $8.2M, fees/costs, interest, and punitive damages. Allegations include diversion, selective QA, a supply-chain cover story, premature notice/termination, and auto-renewal.' The four claims are not individually named in that entry. However, in the Executive Snapshot, the agent does mention 'tortious interference' as one of the claims: 'Harborview pleads breach of contract (exclusivity and termination), breach of the implied covenant, fraud/intentional misrepresentation, and tortious interference.' The criterion asks specifically whether the timeline entry for the Complaint identifies Tortious Interference. The Feb. 28, 2024 timeline entry does not explicitly list the causes of action by name, including Tortious Interference. The mention of tortious interference appears in the Executive Snapshot, not in the Complaint timeline entry itself. That said, the criterion says 'the timeline entry for the Complaint identifies Tortious Interference' - the Feb 28 entry does not list it. However, looking more carefully, the Executive Snapshot is part of the overall timeline document and references the complaint's claims including tortious interference. The Feb 28 entry says 'four claims' without naming them. Given the criterion's specific focus on the Complaint timeline entry, and that entry does not name tortious interference, this could be a FAIL. But the Executive Snapshot does identify it. I'll consider whether the Executive Snapshot counts as part of the 'timeline entry for the Complaint.' It's a separate section. The Feb 28 entry itself does not name tortious interference. However, the document as a whole clearly identifies it. The criterion is specifically about the timeline entry for the Complaint. The Feb 28 entry does not list tortious interference by name. FAIL."
+    },
+    {
+      "id": "C-019",
+      "title": "Timeline includes April 15, 2024 Answer and Counterclaim",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated April 15, 2024 for Greenleaf's Answer and Counterclaim. The entry states: 'Greenleaf files Answer and Counterclaim. It admits EDA, territory, minimums, rates, Cascade shipments generally, and QA rejection totals as pleaded; disputes exclusivity scope/materiality, bad faith, fraud, causation, and damages; seeks $1.2M for the Year 3 shortfall.' This correctly identifies the date and the $1.2M counterclaim based on the Year 3 minimum purchase shortfall."
+    },
+    {
+      "id": "C-020",
+      "title": "Timeline includes June 3, 2024 Scheduling Order",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'May 21--June 3, 2024' in Section II (Litigation, Discovery & Court-Ordered Calendar) that explicitly references the Rule 16 scheduling order entered June 3, 2024. The record citation states 'Scheduling Order, June 3, 2024; Dkt. 18 (Joint Report).' This satisfies the criterion."
+    },
+    {
+      "id": "C-021",
+      "title": "Scheduling Order entry references key deadlines",
+      "verdict": "pass",
+      "reasoning": "The agent's output references all three key deadlines: discovery cutoff January 15, 2025 (Section II entry for Jan. 15, 2025: 'Fact discovery and expert depositions cutoff'), dispositive motion deadline March 1, 2025 (Section II entry for Mar. 1, 2025: 'Summary judgment / partial summary judgment motions due'), and trial June 16, 2025 (Section II entry for Apr. 15--June 16, 2025: 'jury trial starts June 16'). At least two of the three required deadlines are clearly referenced, satisfying the criterion."
+    },
+    {
+      "id": "C-022",
+      "title": "Timeline includes September 30, 2024 document production",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated September 30, 2024 stating 'Greenleaf completes production of approximately 12,400 documents, including the Holcomb/Stanton/Fong emails, QA spreadsheet, and (as described in deposition summaries) Jan. 3 Stanton\u2013Ivers email.' This matches the criterion exactly."
+    },
+    {
+      "id": "C-023",
+      "title": "Timeline includes October 18, 2024 Holcomb deposition",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Oct. 18, 2024' for the Holcomb deposition, stating 'Holcomb deposition (summary prepared by Greenleaf counsel). Summary reports admissions about $1.9M Cascade shipments in Oregon, non-disclosure, \"supply chain\" explanation without concrete examples, notice before year-end, and no identified non-renewal.' This matches the criterion exactly."
+    },
+    {
+      "id": "C-024",
+      "title": "Timeline includes November 5, 2024 Fong deposition",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes an entry dated 'Nov. 5, 2024' in Section II (Litigation, Discovery & Court-Ordered Calendar) for the Fong deposition, describing it as 'Fong deposition (summary prepared by Greenleaf counsel)' with details about Stanton-directed Harborview-only enhanced screening and other findings. The date and subject match the criterion exactly."
+    },
+    {
+      "id": "C-025",
+      "title": "Timeline includes November 22, 2024 Beckett deposition",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes an entry dated November 22, 2024 for the Beckett deposition in Section II (Litigation, Discovery & Court-Ordered Calendar). The entry states: 'Beckett deposition is identified by Chakrabarti as reviewed. No Beckett summary/transcript was supplied in the packet.' The date matches and the entry is present."
+    },
+    {
+      "id": "C-026",
+      "title": "Timeline includes December 10, 2024 expert reports exchange",
+      "verdict": "pass",
+      "reasoning": "The timeline includes an entry dated 'Dec. 10, 2024' in Section II (Litigation, Discovery & Court-Ordered Calendar) that states: 'Defendant expert deadline; Dr. Buckley report dated Dec. 10. Chakrabarti report is also dated Dec. 10.' This correctly identifies December 10, 2024 as the date for both expert reports from Dr. Buckley and Dr. Chakrabarti."
+    },
+    {
+      "id": "C-027",
+      "title": "Events are in strict chronological order",
+      "verdict": "fail",
+      "reasoning": "Looking at Section I (Merits Timeline), the events proceed in this order: March 15, 2020 \u2192 Mar. 15, 2020\u2013Mar. 14, 2021 \u2192 Mar. 15, 2021\u2013Mar. 14, 2022 \u2192 Mar. 15, 2022 \u2192 June 8\u201310, 2022 \u2192 June 22, 2022/June\u2013Aug. 2022 \u2192 Aug. 22\u201323, 2022 \u2192 Sept. 6, 2022 \u2192 Sept. 14\u201319, 2022 \u2192 Sept. 15\u201319, 2022 \u2192 Sept. 2022\u2013Feb. 2023 \u2192 Oct. 3, 2022 \u2192 Sept.\u2013Nov. 2022 \u2192 Nov. 22\u2013Dec. 2022 \u2192 Dec. 1, 2022 \u2192 Dec. 14/15, 2022 \u2192 Jan. 3, 2023 \u2192 Jan. 8\u201324, 2023 \u2192 Jan. 10, 2023 \u2192 Jan. 10\u2013Feb. 9, 2023 \u2192 Feb. 13\u201315, 2023 \u2192 Feb. 22, 2023 \u2192 Mar. 14, 2023 \u2192 Mar. 15, 2023 \u2192 Mar. 17, 2023 \u2192 June 2022\u2013Feb. 2023 (aggregate). There are several ordering issues: (1) 'Sept. 2022\u2013Feb. 2023' appears before 'Oct. 3, 2022' and 'Sept.\u2013Nov. 2022', which are subsets of that range but placed after it \u2014 this is a sequencing anomaly. (2) 'Oct. 3, 2022' appears after 'Sept. 2022\u2013Feb. 2023' and 'Sept. 15\u201319, 2022', which is acceptable for Oct. 3, but 'Sept.\u2013Nov. 2022' comes after 'Oct. 3, 2022' \u2014 a range starting in September placed after an October date. (3) The aggregate entry 'June 2022\u2013Feb. 2023' is placed at the very end after March 2023 dates, which is out of chronological order since it covers a period ending in February 2023. These represent events out of strict chronological sequence in the main timeline section."
+    },
+    {
+      "id": "C-028",
+      "title": "Timeline entries include source document references",
+      "verdict": "pass",
+      "reasoning": "Examining the timeline entries in Sections I and II, virtually every entry includes a 'Record:' field citing specific source documents (e.g., EDA sections, email chains with Bates numbers, deposition summaries, expert reports, QA logs, notices, pleadings, scheduling orders). Counting the entries: Section I has approximately 20 dated entries and Section II has approximately 16 dated entries. Every single one of these entries contains a 'Record:' citation to one or more source documents from the 15-document set. This is well above the 80% threshold required to pass."
+    },
+    {
+      "id": "C-029",
+      "title": "Timeline entries identify parties or individuals involved",
+      "verdict": "pass",
+      "reasoning": "Reviewing the timeline entries in Section I (Merits Timeline) and Section II (Litigation, Discovery & Court-Ordered Calendar), I need to assess whether at least 80% of entries identify by name the parties or individuals involved.\n\nSection I entries and named individuals:\n1. March 15, 2020 - parties (Harborview, Greenleaf) referenced via EDA\n2. Mar 2020-Mar 2021 - Harborview, Chakrabarti, Holcomb referenced\n3. Mar 2021-Mar 2022 - Harborview, Chakrabarti, Holcomb referenced\n4. Mar 15, 2022 - no specific individuals named\n5. June 8-10, 2022 - Holcomb, Yee named\n6. June 22/June-Aug 2022 - Holcomb, Yee, Stanton named\n7. Aug 22-23, 2022 - Holcomb, Stanton named\n8. Sept 6, 2022 - Holcomb, Cascade named\n9. Sept 14-19, 2022 - Stanton, Fong named\n10. Sept 15-19, 2022 - Fong named\n11. Sept 2022-Feb 2023 - Buckley named\n12. Oct 3, 2022 - Fong named\n13. Sept-Nov 2022 - Holcomb, Stanton named\n14. Nov 22-Dec 2022 - Harborview named\n15. Dec 1, 2022 - Holcomb, Stanton, Beckett named\n16. Dec 14/15, 2022 - Holcomb named\n17. Jan 3, 2023 - Stanton named\n18. Jan 8-24, 2023 - Fong named\n19. Jan 10, 2023 - Greenleaf named\n20. Jan 10-Feb 9, 2023 - Greenleaf named\n21. Feb 13-15, 2023 - Greenleaf named\n22. Feb 22, 2023 - Harborview named\n23. Mar 14, 2023 - Harborview, Chakrabarti named\n24. Mar 15, 2023 - no specific individuals named\n25. Mar 17, 2023 - Greenleaf named\n26. June 2022-Feb 2023 aggregate - Chakrabarti, Holcomb named\n\nSection II entries:\n1. Feb 28, 2024 - Harborview named\n2. Mar 2024 - Holcomb named\n3. Apr 15, 2024 - Greenleaf named\n4. May 21-June 3, 2024 - Cascade, Nolan Yee named\n5. June 17/24, 2024 - Stanton, Holcomb, Fong, Yee named\n6. Aug 1, 2024 - Cascade named\n7. Aug 2024 - Chakrabarti named\n8. Sept 30, 2024 - Greenleaf, Holcomb, Stanton, Fong named\n9. Oct 18, 2024 - Holcomb named\n10. Nov 5, 2024 - Fong, Stanton named\n11. Nov 22, 2024 - Beckett, Chakrabarti named\n12. Dec 1, 2024 - no specific individuals named (just 'plaintiff expert')\n13. Dec 10, 2024 - Buckley, Chakrabarti named\n14. Dec 20, 2024 - no specific individuals named\n15. Jan 15, 2025 - Stanton, Yee, Fong named\n16. Feb 1, 2025 - Buckley, Chakrabarti named\n17. Mar 1, 2025 - no specific individuals named\n18. Apr 15-June 16, 2025 - no specific individuals named\n\nTotal entries: approximately 44 entries. Entries without named individuals: Mar 15 2022 (entry 4), Mar 15 2023 (entry 24), Dec 1 2024, Dec 20 2024, Mar 1 2025, Apr 15-June 16 2025. That's about 6 entries without named individuals out of ~44 total. That's roughly 86% with named individuals, which exceeds the 80% threshold.\n\nThe vast majority of entries clearly name specific individuals (Holcomb, Stanton, Fong, Yee, Beckett, Chakrabarti, Buckley) or parties (Harborview, Greenleaf, Cascade). The few entries that don't name individuals are mostly procedural deadline entries. The criterion is satisfied."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_001: Identifies breach notice was premature (Year 3 not yet complete)",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly identifies that Greenleaf's January 10, 2023 breach notice was issued while more than two months remained in the defined Year 3 period (which ran through March 14, 2023). The timeline entry for January 10, 2023 states: 'More than two months remained in the defined Year 3' and the SJ annotation notes 'the EDA measures a full Purchase Year and says a notice before an actual breach has no force.' This is further reinforced in the Issue Map under 'Year 3 notice, termination & Greenleaf counterclaim' and in the Executive Snapshot. The output clearly identifies the timing problem making the notice arguably premature."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_001: Notes termination may be invalid due to premature breach notice",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly connects the premature January 10, 2023 breach notice to the potential invalidity of the February 15, 2023 termination in multiple places. In the merits timeline entry for January 10, 2023, the SJ note states: 'Strong partial-SJ issue under \u00a75.3/\u00a79.2: the EDA measures a full Purchase Year and says a notice before an actual breach has no force.' The February 13-15, 2023 entry notes the termination 'predates year-end' and that the March 17 effective date 'falls after automatic renewal if no timely non-renewal.' The Issue Map section on 'Year 3 notice, termination & Greenleaf counterclaim' explicitly states that '\u00a79.2 requires actual uncured breach and says premature termination notice has no force. Jan. 10 notice was before Mar. 14 year-end; termination effective Mar. 17.' The Bottom Line section also references 'the contract's full-year purchase measurement/express \u00a79.2 prerequisites' as a clean motion issue. The output clearly and repeatedly connects the premature breach notice to the conclusion that the subsequent termination may be legally defective."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_001: Correctly identifies this issue favors plaintiff (Harborview)",
+      "verdict": "pass",
+      "reasoning": "The agent's output clearly identifies the premature breach notice and potentially invalid termination as favoring Harborview (plaintiff). In the merits timeline for January 10, 2023, the SJ note states: 'Strong partial-SJ issue under \u00a75.3/\u00a79.2: the EDA measures a full Purchase Year and says a notice before an actual breach has no force.' The Issue Map section on 'Year 3 notice, termination & Greenleaf counterclaim' identifies this as a candidate argument for Harborview, noting the January 10 notice was before the March 14 year-end and that the termination effective date of March 17 falls after automatic renewal. The Bottom Line section also identifies 'the contract's full-year purchase measurement/express \u00a79.2 prerequisites' as among the cleanest potential motion issues. Throughout, the output frames these contract provisions as supporting Harborview's position and undermining Greenleaf's termination, clearly indicating this issue favors the plaintiff."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_002: Identifies selective/discriminatory QA enforcement against Harborview",
+      "verdict": "pass",
+      "reasoning": "The agent's output clearly identifies the selective/discriminatory QA enforcement pattern. In the September 14-19, 2022 entry, it describes Stanton directing Fong to 'tighten up QA on the Harborview batches,' with Fong asking whether enhanced methods should apply to all channels and Stanton saying to keep it targeted to Harborview. The October 3, 2022 entry explicitly states that Fong reported 'applying the same criteria to Cascade lots would have flagged at least two, but Cascade was not screened under that protocol.' The Issue Map section on 'Quality screening / implied covenant' also summarizes this pattern. The output satisfies the criterion fully."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_002: Notes 14 vs. 2 rejection disparity as evidence of bad faith",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly references the 14 vs. 2 rejection disparity multiple times. In Section I (Sept. 2022\u2013Feb. 2023 row), it states 'QA documents/reporting describe 14 Harborview rejection notices valued at about $1.4M and two non-Harborview notices.' In Section III (Issue Map), under 'Quality screening / implied covenant,' it references the '14/2 contrast.' In Section IV (Critical Record Conflicts), Priority 2 explicitly states 'QA spreadsheet summary: 34 Harborview lots, 18 non-Harborview lots; 14/34 (41.2%) and 2/18 (11.1%)' and notes Buckley's statistical analysis. The Nov. 5 Fong deposition entry also references the '14/2 contrast.' This disparity is consistently framed as evidence supporting Harborview's claims of selective/targeted QA screening, which directly supports the fraud/bad faith theory."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_002: Identifies this as supporting Harborview's fraud/bad faith claims",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly connects the selective QA enforcement to Harborview's fraud/bad faith claims in multiple places. In the Sept. 14-19, 2022 entry, it notes 'Direct evidence of destination-specific treatment' and references EDA quality provisions. In the Issue Map (Section III), under 'Quality screening / implied covenant,' it directly ties Stanton's directive and Fong's admissions to the implied covenant claim. Under 'Fraud / intentional misrepresentation,' it connects the targeted QA emails as supporting 'concealment/intent.' The Aug. 22-23 entry notes the evidence is 'Highly probative of intent, concealment, and coordination between distribution and QA.' The output clearly identifies selective QA enforcement as problematic for Greenleaf's defense and supporting Harborview's fraud and bad faith claims."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_003: Identifies causation loop \u2014 diversion + rejections caused shortfall",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly identifies the causation loop between Greenleaf's conduct and Harborview's Year 3 shortfall. In the aggregate row covering June 2022\u2013Feb. 2023, the timeline states: 'The experts/pleadings report Cascade product worth about $1.9M ($420K, $630K, $850K) and Harborview product denied through QA worth about $1.4M; Harborview adds these to $5.8M actual purchases to posit $9.1M but-for Year 3 purchases.' The SJ annotation for that row explicitly addresses causation: 'Causation is central to defeating the counterclaim and proving lost commissions/contract damages.' The Feb. 22, 2023 entry notes Harborview 'asserts the Year 3 period is incomplete and Greenleaf caused the shortfall through Cascade diversion and QA rejections.' The Issue Map section on 'Year 3 notice, termination & Greenleaf counterclaim' references 'withheld/diverted supply' and 'cure feasibility.' The record-building checklist explicitly states: 'quantify declined, unfilled, delayed and fulfilled Harborview orders; tie diverted/rejected product to capacity and dates.' The output clearly identifies that Greenleaf's diversion (~$1.9M to Cascade) and QA rejections (~$1.4M) contributed to the Year 3 shortfall of $1.2M below the $7.0M minimum."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_003: Notes Harborview could have met minimum absent interference",
+      "verdict": "pass",
+      "reasoning": "The agent's output does include a calculation in Section I (the aggregate row for June 2022\u2013Feb. 2023) that states: 'The experts/pleadings report Cascade product worth about $1.9M ($420K, $630K, $850K) and Harborview product denied through QA worth about $1.4M; Harborview adds these to $5.8M actual purchases to posit $9.1M but-for Year 3 purchases.' This directly presents the $9.1M but-for figure ($5.8M actual + $1.9M diverted + $1.4M rejected = $9.1M), which is above the $7.0M minimum, and the annotation notes this is central to 'defeating the counterclaim.' However, the criterion specifies the calculation as '$5.8M actual + $3.3M denied product' = ~$9.1M. The agent's version uses $1.9M + $1.4M = $3.3M of denied/diverted product, which matches the $3.3M figure, and the total of $9.1M is explicitly stated. The output does present this calculation and its implication for undermining the breach allegation, satisfying the criterion."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_003: Notes this undermines Greenleaf's counterclaim",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly discusses how Greenleaf's own actions (Cascade diversion and selective QA rejections) caused the Year 3 shortfall and how this undermines Greenleaf's counterclaim. In the Issue Map (Section III), under 'Year 3 notice, termination & Greenleaf counterclaim,' the output states: 'Greenleaf can rely on the final $1.2M shortfall and argue it was uncured. Separate the notice's prematurity from whether a matured shortfall later supported termination. Show product access, withheld/diverted supply, cure feasibility, and receipt/dates. Counterclaim damages ($408K + $792K) require independent proof and must be tested under \u00a7\u00a712.1--12.2.' Additionally, in the aggregate row of Section I, the output states: 'Causation is central to defeating the counterclaim and proving lost commissions/contract damages.' The Feb. 22 response entry also notes Harborview's causation theory that 'Greenleaf caused the shortfall through Cascade diversion and QA rejections.' The Record-Building Checklist (Section V) explicitly states: 'test whether the $1.2M counterclaim losses were actually caused by Harborview.' These passages collectively and explicitly state that the causation loop (Greenleaf's own conduct causing the shortfall) undermines Greenleaf's $1.2M counterclaim."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_004: Flags Stanton-to-Ivers email as potentially privileged",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly identifies the January 3, 2023 Stanton-to-Ivers email (GL-PROD-007834) as potentially privileged. In the Jan. 3, 2023 entry of the merits timeline, the output states: 'The message was produced as GL-PROD-007834; defense counsel later asserted privilege over its substance during Fong's deposition.' The SJ annotation further notes: 'privilege, waiver, clawback, and admissibility status must be resolved before using it in a motion. Preserve the production history, privilege log, and Rule 502(b) correspondence; do not quote it in public briefing until cleared.' This clearly flags the privilege issue with respect to the Stanton-to-Ivers email."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_004: Notes risk of inadvertent privilege waiver from production",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly discusses the Jan. 3 Stanton\u2013Ivers email (GL-PROD-007834) being produced in Greenleaf's September 30, 2024 production, notes that defense counsel later asserted privilege over its substance during Fong's deposition, and warns that 'privilege, waiver, clawback, and admissibility status must be resolved before using it in a motion.' It also instructs to 'Preserve the production history, privilege log, and Rule 502(b) correspondence; do not quote it in public briefing until cleared.' This directly addresses the inadvertent production and privilege waiver risk."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_004: References clawback possibility under FRE 502(b) or similar",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly references FRE 502(b) and clawback mechanisms in multiple places. In the Jan. 3, 2023 entry, it states: 'Preserve the production history, privilege log, and Rule 502(b) correspondence; do not quote it in public briefing until cleared.' In Section VI (Source Key), it references 'any Rule 502 clawback/protective order.' These references satisfy the criterion of mentioning the possibility of clawing back the privileged document under FRE 502(b) or similar mechanisms."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_005: Identifies Dr. Chakrabarti's 5-year projection as speculative",
+      "verdict": "fail",
+      "reasoning": "The agent's output does discuss Chakrabarti's five-year projection in multiple places. In the damages/expert admissibility row of the Issue Map (Section III), it notes 'Chakrabarti calculates $8.202M: $342K diverted sales, $252K rejected shipments, $5.8M future profits, $1.808M mitigation' and flags the need to 'establish net vs. gross bases... projection horizon, renewal probability, discount timing and double counting.' In Section IV, Priority 10 notes 'Her five-year projection covers Mar. 2023\u2013Mar. 2028' and flags the need to 'Challenge/defend discounting and lost-profit assumptions with underlying financial records.' In Section V, it says to 'map actual post-termination results and replacement sales; substantiate all mitigation expenses... clarify net wholesale/commission base, 5.5% costs, discount date, duration and overlap.' However, the criterion specifically requires identifying that the 5-year projection is speculative or unsupported *because* the EDA auto-renewed for only 1-year terms at a time with either party able to give 90 days' non-renewal notice. The agent mentions 'renewal probability' as a factor to address, but does not explicitly connect the 5-year projection's speculativeness to the EDA's 1-year auto-renewal structure with 90-day non-renewal rights. The agent does not flag that a 5-year assumption is problematic given that either party could terminate each renewal year with 90 days' notice. This specific vulnerability\u2014that the projection assumes a 5-year relationship when the contract only guaranteed 1-year renewals\u2014is not clearly identified. The mention of 'renewal probability' is too vague to satisfy the criterion's requirement of flagging this as speculative given the EDA's specific renewal structure."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_005: Notes this is a target for summary judgment or Daubert challenge",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly identifies Dr. Chakrabarti's five-year projection as a target for a Daubert/Rule 702 challenge. In Section II under the Feb. 1, 2025 entry (Daubert/Rule 702 motions due), the annotation states: 'Potential focus: Buckley's lot universe/statistics and reliance on nonmatching lot data; Chakrabarti's five-year duration, 6.5% discounting, mitigation categories, and commission-on-Cascade theory. A reliability challenge should identify the underlying factual mismatch and any failure to test alternative causes.' Additionally, in Section III's damages/expert admissibility row, the output calls for reconciling the projection horizon and renewal probability. In Section IV, Priority 10 specifically addresses the five-year projection period and notes it should be challenged/defended with underlying financial records. The output clearly identifies the speculative 5-year projection as a Daubert challenge target."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_006: Addresses statute of limitations for fraud claim",
+      "verdict": "fail",
+      "reasoning": "The agent's output mentions limitations in passing in two places: (1) in the Issue Map under 'Fraud / intentional misrepresentation,' it says 'consider limitations/discovery and Rule 9(b) defense,' and (2) under 'Contract defenses / offsets / fees,' it lists 'limitations' as one of Greenleaf's pleaded defenses. However, the output never discusses the specific Oregon statute of limitations for fraud (ORS 12.110(1)), never states the 2-year period, never analyzes whether the February 28, 2024 complaint was timely given that the fraudulent conduct occurred between June 2022 and February 2023, and never discusses the discovery rule or when Harborview knew or should have known of the fraud. The criterion requires the output to actually discuss the statute of limitations applicable to the fraud claim, including the discovery rule analysis. A bare mention of 'consider limitations/discovery' without any substantive analysis does not satisfy the criterion."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_006: Notes discovery rule may toll limitations period",
+      "verdict": "fail",
+      "reasoning": "The agent's output does not discuss the discovery rule tolling the fraud statute of limitations. While the output briefly mentions 'limitations/discovery' in the fraud section of the Issue Map (under 'Test affirmative reliance and reasonable diligence; consider limitations/discovery and Rule 9(b) defense'), this is only a passing reference to limitations as a defense concern, not an analysis of how the discovery rule may toll the statute of limitations for fraud claims. There is no discussion of when Harborview discovered or could have discovered the selective QA enforcement and Cascade diversion, no mention of the September 30, 2024 document production as a potential discovery date, and no analysis of whether the fraud claim would be timely under a discovery rule tolling theory. The criterion requires the output to discuss that the discovery rule may toll the fraud statute of limitations and that Harborview may not have discovered the misconduct until the document production or some earlier point. This analysis is absent from the output."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_007: Identifies pre-litigation spoliation risk",
+      "verdict": "fail",
+      "reasoning": "The agent's output does address spoliation concerns in Section II under the March 2024 entry, noting that 'Holcomb says Greenleaf issued litigation hold after suit was filed' and flagging the need to 'Check preservation scope and timing for Holcomb/Stanton/Fong, text messages, routing/invoice data, deleted mail, and QA source files.' It also states 'Any spoliation contention needs evidence of loss, duty, culpability, and prejudice; do not infer from delay alone.' However, the criterion specifically requires identifying the pre-litigation spoliation risk based on the gap between the relevant events (June 2022\u2013March 2023) and the lawsuit filing (February 28, 2024), noting that the duty to preserve may have arisen before the formal filing (i.e., when litigation was reasonably anticipated). The agent's output only mentions the litigation hold being issued after suit was filed, and does not identify the risk that documents may have been destroyed under routine retention policies during the approximately 9-12 month gap between the events and the filing, nor does it discuss the duty to preserve arising when litigation was reasonably anticipated (which could have been well before February 2024). The output fails to make this specific pre-litigation preservation gap argument that the criterion requires."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_007: Notes Holcomb's false 'supply chain' explanation as relevant",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the output connect Holcomb's false 'supply chain' explanation (December 1, 2022 email) to spoliation concerns or consciousness of guilt, specifically noting that if communications about the Cascade relationship were deleted, this could compound the evidentiary problem.\n\nLooking at the agent's output:\n\n1. The December 1, 2022 entry discusses Holcomb's 'supply chain issues' explanation and notes it as 'Strong fraud/knowledge evidence, corroborated in Holcomb deposition summary by inability to identify a concrete disruption.' It focuses on fraud/knowledge but does not connect it to spoliation.\n\n2. The spoliation discussion appears separately in the March 2024 entry: 'Check preservation scope and timing for Holcomb/Stanton/Fong, text messages, routing/invoice data, deleted mail, and QA source files. Any spoliation contention needs evidence of loss, duty, culpability, and prejudice; do not infer from delay alone.'\n\nThese two discussions are never connected. The output does not link the false supply chain explanation to spoliation concerns or consciousness of guilt in a way that suggests deleted communications about the Cascade relationship would compound the evidentiary problem. The criterion specifically requires this connection to be made, and it is not present in the output."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_008: Flags ambiguity in 'distribute' re: direct sales vs. third-party",
+      "verdict": "pass",
+      "reasoning": "The agent's output does address the distinction between Cascade (third-party distributor) shipments and direct-to-retailer sales by Greenleaf. In the March 15, 2020 entry, the SJ note states: 'Keep Cascade shipments (third-party distributor) analytically separate from disputed direct-to-retailer conduct.' In the Issue Map under 'Express exclusivity: Cascade,' it notes: 'Direct retailer shipments are less developed and can be excluded from the core motion.' In the record-building checklist, it says to 'identify any direct-to-retailer sales separately.' These passages collectively identify that Cascade shipments clearly violate exclusivity, while direct-to-retailer sales present a different (less developed, more ambiguous) legal question. The output thus flags the ambiguity in the scope of 'exclusive rights to distribute' as between third-party distributor use and direct sales, satisfying the criterion."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_009: Maps Holcomb emails to deposition for impeachment",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly maps Holcomb's internal emails to his deposition testimony for impeachment purposes across multiple sections. The June 8-10, 2022 'keep it quiet' email is identified and annotated with 'pair with proof of actual delivery' and authentication guidance. The August 22-23, 2022 email about 'phasing Harborview out' is flagged as 'highly probative of intent, concealment.' The December 1, 2022 'supply chain issues' email is explicitly connected to the Holcomb deposition summary, noting it is 'corroborated in Holcomb deposition summary by inability to identify a concrete disruption' and that the deposition summary 'reports admissions about $1.9M Cascade shipments in Oregon, non-disclosure, supply chain explanation without concrete examples.' The October 18, 2024 deposition entry also instructs to 'prioritize admissions and impeachment against contemporaneous emails.' The Issue Map section under 'Fraud/intentional misrepresentation' further connects the Dec. 1 email to the deposition summary. The output clearly juxtaposes the emails and deposition testimony for impeachment purposes."
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_010: Identifies EDA auto-renewed for Year 4 (missed non-renewal deadline)",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly identifies that no non-renewal notice was sent by the December 14/15, 2022 deadline (90 days before March 14, 2023), and that as a result the EDA automatically renewed for Year 4 beginning March 15, 2023 with a $7.5M minimum. This is addressed in multiple sections: the Dec. 14/15 timeline entry, the Mar. 15, 2023 entry ('Absent effective non-renewal, Year 4 begins automatically'), the Mar. 17, 2023 entry noting termination fell 'two days into the asserted Year 4 renewal,' and the SJ Issue Map under 'Auto-renewal / Year 4.'"
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_010: Notes termination occurred during renewed term, expanding damages",
+      "verdict": "fail",
+      "reasoning": "The output notes that the March 17, 2023 termination date falls two days into the asserted Year 4 renewal (see the Mar. 17, 2023 entry: 'Greenleaf's stated effective termination date---two days into the asserted Year 4 renewal'). However, the criterion requires not just noting that termination occurred during the renewed term, but also that this potentially expands Harborview's damages beyond Year 3 to include the Year 4 renewal period. The SJ note for Mar. 17 says 'Address whether termination for the Year 3 shortfall was available after the term rolled over and whether \u00a7\u00a79.2/9.3 conditions were satisfied,' which touches on validity of termination but does not explicitly discuss expanded damages into Year 4. The damages section (Issue Map row on Damages) and the Chakrabarti damages discussion mention a five-year projection (Mar. 2023\u2013Mar. 2028) and future profits, but do not explicitly connect the auto-renewal to an expansion of damages beyond Year 3 into Year 4. The Bottom Line section also does not mention this damages expansion. The output identifies the renewal and the timing issue but does not explicitly state that termination during the renewed term potentially expands damages to include the Year 4 renewal period."
+    },
+    {
+      "id": "C-052",
+      "title": "Summary section includes top 5 critical issues ranked by importance",
+      "verdict": "fail",
+      "reasoning": "The agent's output does not include a summary section that identifies and ranks the top 5 critical issues by importance. The output contains an 'Executive Snapshot,' a 'Summary-Judgment Issue Map' (Section III), and a 'Critical Record Conflicts / Verification Priorities' section (Section IV), but none of these explicitly rank the top 5 critical issues in order of importance. The Issue Map lists seven issues in a table without ranking them by importance. The Executive Snapshot provides bullet points but does not rank issues. The 'Bottom Line for Rule 56' box at the end mentions the 'cleanest potential motion issues' but does not provide a ranked list of top 5 critical issues. The criterion specifically requires a summary section with top 5 critical issues ranked by importance, which is absent from the output."
+    },
+    {
+      "id": "C-053",
+      "title": "Summary assesses Greenleaf's exposure on Breach of Contract claim",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes an extensive assessment of Greenleaf's exposure on Harborview's breach of contract (exclusivity violation) claim. In Section III (Summary-Judgment Issue Map), under 'Express exclusivity: Cascade,' the output explicitly evaluates the strength of the exclusivity breach claim, noting EDA \u00a73.1 and Greenleaf's admission of Cascade shipments, Holcomb's emails showing third-party distribution in Oregon escalating to roughly $1.9M, and characterizes it as 'potentially strong candidate for partial judgment on breach liability.' The timeline entries also detail the Cascade shipments, the 'off the books' emails, and the escalation of diversion, all tied to the exclusivity breach theory. The output also addresses risks and gaps for this claim."
+    },
+    {
+      "id": "C-054",
+      "title": "Summary assesses Greenleaf's exposure on Breach of Implied Covenant claim",
+      "verdict": "pass",
+      "reasoning": "The agent's output mentions the implied covenant claim in the Executive Snapshot ('breach of the implied covenant') and in the Issue Map section under 'Quality screening / implied covenant,' which discusses Stanton directing Harborview-specific screening, Fong's email acknowledging Cascade would have failed additional criteria, and the EDA provisions requiring scrutiny of notice, standards, and reasonable discretion. However, this is primarily framed as a QA/selective screening issue rather than a standalone assessment of Greenleaf's exposure on the implied covenant claim. The assessment is brief and embedded within the QA discussion rather than providing a dedicated analysis of the implied covenant claim's elements, strength, or Greenleaf's specific exposure. That said, the criterion asks only whether the summary 'includes an assessment' of Greenleaf's exposure on this claim\u2014not that it be comprehensive or standalone. The Issue Map does address the implied covenant claim with some substantive content about the evidentiary basis and gaps, which constitutes an assessment of exposure even if limited."
+    },
+    {
+      "id": "C-055",
+      "title": "Summary assesses Greenleaf's exposure on Fraud claim",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes an assessment of Greenleaf's exposure on the Fraud/Intentional Misrepresentation claim in multiple places. In Section III (Summary-Judgment Issue Map), there is a dedicated row for 'Fraud / intentional misrepresentation' that discusses the best SJ record/position (Holcomb's Dec. 1 email about 'supply chain issues,' contemporaneous allocation emails, targeted QA emails supporting concealment/intent) and the risks/gaps (pinpointing exact representation, proof of falsity/knowledge, reliance, limitations, Rule 9(b) defense). The Executive Snapshot also references the fraud claim. The timeline entries for Dec. 1, 2022 and Sept. 14-19, 2022 discuss evidence supporting the fraud theory. The fabricated QA rejections are specifically addressed in the selective QA screening entries and the issue map. The output clearly assesses Greenleaf's exposure on the fraud claim, including both strengths and weaknesses of that claim."
+    },
+    {
+      "id": "C-056",
+      "title": "Summary assesses Greenleaf's exposure on Tortious Interference claim",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes a dedicated row in the Summary-Judgment Issue Map (Section III) titled 'Tortious interference with downstream accounts.' This section assesses Greenleaf's exposure on the tortious interference claim, noting that the Complaint identifies retailer relationships, that Holcomb's Aug. 22 email names specific accounts (Bridgeport Market, Timberline Co-op, Riverstone) and records preferences for Cascade, and identifies the gaps and risks (need to prove specific existing/prospective relationships, actual disruption/loss, improper means/purpose, and causal connection). This constitutes an assessment of Greenleaf's exposure on the tortious interference claim related to diversion to Cascade."
+    },
+    {
+      "id": "C-057",
+      "title": "Summary includes recommended next steps before filing",
+      "verdict": "pass",
+      "reasoning": "The agent's output extensively includes recommended next steps before filing the summary judgment motion. Section V ('Focused Record-Building Checklist Before Rule 56') provides a detailed checklist of next steps organized by topic (contract/notice foundation, Cascade/exclusivity, Year 3 causation, QA foundation, fraud/reliance, damages/experts, witness and admissibility, procedural status). Additionally, throughout the timeline and issue map, each entry contains 'SJ notes' with specific recommended actions. The privilege issue (Jan. 3 Stanton-Ivers email) is explicitly flagged as needing resolution before use. The output clearly satisfies the criterion."
+    },
+    {
+      "id": "C-058",
+      "title": "Correctly identifies Cascade diversion dollar amounts",
+      "verdict": "pass",
+      "reasoning": "The agent's output references the Cascade diversion amounts as follows: June\u2013August 2022: approximately $420,000; September\u2013November 2022: approximately $630,000; and an aggregate total of approximately $1.9M ($420K + $630K + $850K). The $850K figure for December 2022\u2013February 2023 is mentioned in the aggregate section (Section I, last row): 'the experts/pleadings report Cascade product worth about $1.9M ($420K, $630K, $850K).' All three quarterly figures and the total are present and approximately correct."
+    },
+    {
+      "id": "C-059",
+      "title": "Correctly states Harborview's claimed damages breakdown",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly states in Section III (Summary-Judgment Issue Map) under 'Damages / expert admissibility': 'Chakrabarti calculates $8.202M: $342K diverted sales, $252K rejected shipments, $5.8M future profits, $1.808M mitigation.' This matches the criterion's required breakdown: lost commissions on diverted sales ($342K), lost commissions on rejected shipments ($252K), lost future profits ($5.8M), and mitigation costs ($1.808M), totaling approximately $8.2M."
+    },
+    {
+      "id": "C-060",
+      "title": "Correctly states Greenleaf counterclaim damages breakdown",
+      "verdict": "pass",
+      "reasoning": "The agent's output references Greenleaf's counterclaim of $1.2M for the Year 3 shortfall in multiple places. In the SJ Issue Map (Section III), under 'Year 3 notice, termination & Greenleaf counterclaim,' it states: 'Counterclaim asks $408K lost profit + $792K consequential lost retail placement.' This matches the criterion's required breakdown of approximately $1.2M total, broken down as $408K plus $792K in consequential damages. The output also references the $1.2M counterclaim amount in the Executive Snapshot and elsewhere."
+    },
+    {
+      "id": "C-061",
+      "title": "Correctly states Dr. Buckley's finding: 11 of 14 rejections inconsistent",
+      "verdict": "pass",
+      "reasoning": "The agent's output states in the Sept. 2022\u2013Feb. 2023 row: 'Buckley concludes 11 rejections were unjustified; three were proper.' This correctly captures Dr. Buckley's finding that 11 of the 14 QA rejections were inconsistent with proper standards and 3 were consistent/justified. The criterion is satisfied."
+    },
+    {
+      "id": "C-062",
+      "title": "Identifies Fong deposition testimony as relevant to QA issue",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly connects Lisa Fong's November 5, 2024 deposition to the QA selective enforcement issue in multiple places. In Section II (Litigation Timeline), the November 5, 2024 entry states: 'Fong deposition (summary prepared by Greenleaf counsel). Summary reports Stanton-directed Harborview-only enhanced screening, undocumented thresholds, 14/2 contrast, and her concession that Cascade lots were not screened similarly.' The SJ note instructs to cross-check her statements against emails, lot log, QA Manual, EDA Exhibit B, and Dr. Buckley's report. Additionally, in Section III (Issue Map), the QA/implied covenant row references Fong's Oct. 3 email and deposition summary as evidence of unequal screening. Section IV also references Fong deposition summary in multiple conflict/verification priorities. The output clearly and repeatedly links Fong's November 5 deposition to the QA selective enforcement issue."
+    },
+    {
+      "id": "C-063",
+      "title": "Year 3 actual purchases correctly stated as $5.8M",
+      "verdict": "pass",
+      "reasoning": "The agent's output correctly states Harborview's Year 3 actual purchases as $5.8M against the $7.0M minimum, resulting in a $1.2M shortfall. This appears in multiple places: the Executive Snapshot mentions '$5.8M actual purchases,' the Mar. 14, 2023 entry states 'final Harborview purchases were $5.8M, leaving a $1.2M shortfall,' and the Issue Map references '$5.8M actual purchases' and the '$1.2M counterclaim.' All references are consistent and correct."
+    },
+    {
+      "id": "C-064",
+      "title": "Timeline includes QA rejection period (Sept 2022 \u2013 Feb 2023) with $1.4M value",
+      "verdict": "pass",
+      "reasoning": "The timeline includes a dedicated entry for 'Sept. 2022--Feb. 2023' that explicitly states: 'QA documents/reporting describe 14 Harborview rejection notices valued at about $1.4M and two non-Harborview notices.' This directly satisfies the criterion requiring the QA rejection period (Sept 2022 \u2013 Feb 2023), the count of 14 rejection notices, and the approximately $1.4M in product value affected."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/build-litigation-case-timeline/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/build-litigation-case-timeline",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T01:22:07.219098+00:00",
+  "cost": {
+    "input_tokens": 837301,
+    "output_tokens": 30537,
+    "wall_clock_seconds": 220.1
+  },
+  "doc_coverage": {
+    "documents_read": 16,
+    "total_documents": 15,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "scheduling-order.docx",
+      "expert-report-chakrabarti.docx",
+      "harborview-breach-response.docx",
+      "notice-of-material-breach.docx",
+      "internal-emails-stanton-fong-qa.eml",
+      "expert-report-buckley.docx",
+      "notice-of-termination.docx",
+      "exclusive-distribution-agreement.docx",
+      "plaintiff-complaint.docx",
+      "defendant-answer-counterclaim.docx",
+      "deposition-summary-fong.docx",
+      "deposition-summary-holcomb.docx",
+      "internal-emails-holcomb-yee-stanton.eml",
+      "email-stanton-to-ivers.eml",
+      "qa-rejection-log.xlsx",
+      "/workspace/output/litigation-case-timeline.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

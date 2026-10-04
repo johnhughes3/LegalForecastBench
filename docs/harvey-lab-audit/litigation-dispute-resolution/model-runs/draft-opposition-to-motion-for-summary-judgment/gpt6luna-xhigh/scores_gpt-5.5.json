@@ -1,0 +1,397 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "55/59 criteria passed.  Missed 4 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 59,
+  "n_passed": 55,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Preliminary Statement section is present",
+      "verdict": "pass",
+      "reasoning": "At the beginning of the memorandum, before the Summary-Judgment Standard section, there are introductory paragraphs summarizing the key reasons summary judgment should be denied. Although not labeled \u201cPreliminary Statement\u201d or \u201cIntroduction,\u201d this is a clearly identifiable opening summary section."
+    },
+    {
+      "id": "C-002",
+      "title": "Counter-Statement of Material Facts section is present",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated Section II titled \u201cMATERIAL FACTS THAT ARE DISPUTED,\u201d with numbered factual statements and record citations adding disputed/additional material facts relevant to summary judgment."
+    },
+    {
+      "id": "C-003",
+      "title": "Legal standard for summary judgment under Fed. R. Civ. P. 56 is stated",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states the Rule 56 standard: summary judgment is proper only if the movant shows there is no genuine dispute of material fact and it is entitled to judgment as a matter of law, citing Fed. R. Civ. P. 56(a)."
+    },
+    {
+      "id": "C-004",
+      "title": "Argument responding to Defendant's Argument (A): no knowledge of FinCEN report",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses Defendant's argument that the bank did not know about Vasquez's FinCEN report. It argues that the BSA also protects internal reports, that decisionmakers knew of the April internal memorandum, and that even as to the confidential FinCEN report, evidence supports an inference that Hargrove and Caldwell believed Vasquez triggered the OCC inquiry and acted on that suspicion."
+    },
+    {
+      "id": "C-005",
+      "title": "Argument responding to Defendant's Argument (B): legitimate non-retaliatory reasons",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses the asserted legitimate non-retaliatory performance reasons by arguing they are disputed and pretextual, including discussion of the origination target, audit ratings, client complaints, PIP duration/policy deviations, comparators, timing, and the applicable burden."
+    },
+    {
+      "id": "C-006",
+      "title": "Argument responding to Defendant's Argument (C): no pretext",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses Defendant's no-pretext argument by identifying multiple alleged inconsistencies and irregularities in the Bank's stated performance reasons, including the retroactive Q2 target, conflicting internal audit findings, disputed client complaints, PIP policy deviations, comparator evidence, timing, and credibility issues. It argues these facts permit a jury to find pretext."
+    },
+    {
+      "id": "C-007",
+      "title": "Argument responding to Defendant's Argument (D): SOX standing/publicly traded company issue",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses Defendant's SOX standing/publicly traded company argument in Section III.B, arguing that SOX covers subsidiaries whose financial information is included in a publicly traded parent's consolidated financial statements and applying that to Ridgeline National Bank."
+    },
+    {
+      "id": "C-008",
+      "title": "Argument responding to Defendant's Argument (E): state law preemption",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses Defendant's state-law preemption argument in Section III.C, arguing that the Colorado public-policy claim is neither field- nor conflict-preempted and explaining why overlapping remedies do not preempt the claim."
+    },
+    {
+      "id": "C-009",
+      "title": "Conclusion requesting denial of the motion",
+      "verdict": "pass",
+      "reasoning": "The memorandum\u2019s conclusion expressly states that Plaintiff requests the Court deny Defendant\u2019s motion for summary judgment on Counts I, II, and III, and the introduction also says the motion should be denied on all three claims. This is a request for denial in its entirety."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_001: Hargrove-Caldwell email identified as key evidence of retaliatory motive",
+      "verdict": "pass",
+      "reasoning": "The memorandum prominently cites the August 1, 2023 Hargrove-Caldwell email multiple times, quoting that Vasquez was the \u201cobvious candidate,\u201d that the Bank needed to \u201cidentify the source and contain this,\u201d and Caldwell\u2019s response, \u201cLet me handle this.\u201d It uses the email as direct evidence of knowledge, source-hunting, retaliatory motive, causation, and pretext."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_001: Email defeats Defendant's argument that bank lacked knowledge",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly uses the Hargrove-Caldwell email to rebut the bank's claimed lack of knowledge of the FinCEN/OCC source, emphasizing that Hargrove identified Vasquez as the likely source, Caldwell said he would handle it, and that decisionmakers' belief or suspicion that she reported externally is sufficient to support retaliation under a perceived-whistleblower theory."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_001: 13-day gap between email and PIP is highlighted",
+      "verdict": "pass",
+      "reasoning": "The memorandum states that on August 14 Caldwell placed Vasquez on a PIP 13 days after the August 1 Hargrove-Caldwell email, and it uses that timing/proximity as evidence supporting retaliatory motive and causation."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_002: Loan file deficiency rebutted with Internal Audit report",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly argues that the PIP's cited deficiencies in the Thornburg, Westlake, and Meridian loan files are contradicted by the May 15 Q1 2023 Internal Audit report, which rated those accounts satisfactory or better and recommended no corrective action."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_002: Client complaint deficiency rebutted \u2014 Orion Gateway complaint",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that one client complaint came from Raymond Sellars, Orion Gateway's principal, and identifies Orion Gateway as the customer/entity whose suspicious activity Vasquez had reported. It uses that connection to argue the complaint's circumstances support a jury issue and pretext."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_002: Client complaint deficiency rebutted \u2014 Thornburg declaration",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly cites the Thornburg Declaration multiple times for the proposition that Jeffrey Thornburg never complained about Vasquez's responsiveness and found her responsive, contradicting the PIP's client-complaint deficiency. See Material Fact 8 and Argument section III.A.3."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_002: Origination target deficiency rebutted \u2014 $10M vs. $15M",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly rebuts the origination-target PIP deficiency by stating that the signed 2023 Business Plan set Vasquez's Q2 target at $10 million, the PIP retroactively used $15 million, and Vasquez originated $11.3 million, exceeding the real written target."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_002: Pretext framework applied to PIP deficiencies",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly invokes a burden-shifting/retaliation framework, notes McDonnell Douglas as an alternative, and uses the contradicted PIP deficiencies\u2014retroactive sales target, audit conflicts, allegedly false client complaints, and policy deviations\u2014as evidence that the bank\u2019s stated performance reasons were pretextual."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_003: PIP duration of 32 days identified as violating bank policy",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that the PIP ran only 32 days, cites Handbook \u00a7 7.4.3 / \u00a7\u00a7 7.4.2\u20137.4.6, and states the policy requires a 60-to-90-day PIP period absent documented extraordinary circumstances. It also identifies the PIP as issued on August 14. Thus the required 32-day duration, 60\u201390 day policy requirement, and Section 7.4 citation are present."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_003: Compressed PIP timeline argued as evidence of pretext",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly argues that the 32-day PIP deviated from the bank\u2019s 60-to-90-day policy without required documentation or approval, lacked required safeguards, and that the \u201cunexplained compression\u201d permits an inference of pretext/retaliatory cover story rather than a legitimate performance process."
+    },
+    {
+      "id": "C-020",
+      "title": "Chronological timeline of key events presented",
+      "verdict": "pass",
+      "reasoning": "The memorandum\u2019s disputed facts section presents a chronological sequence including April 3 internal report, May 2 internal conclusion, July 28 OCC inquiry, August 1 Hargrove email, August 14 PIP, and September 22 termination. That is at least five of the seven specified events in chronological order."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_004: Temporal proximity argued as supporting causation",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly argues that the OCC request and Hargrove's August 1 identification of Vasquez as the likely source were followed 13 days later by Caldwell issuing her first PIP, and states that this temporal sequence supports an inference that the disclosure contributed to the PIP and termination. It invokes close timing as causation evidence multiple times."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_004: 99 days between FinCEN report and termination noted",
+      "verdict": "pass",
+      "reasoning": "The memorandum states that the claim involved the \u201cJune 15 FinCEN report\u201d and separately states that \u201cVasquez was terminated September 22.\u201d These dates make the 99-day interval calculable, even though the memo does not expressly say \u201c99 days.\u201d"
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_005: Comparative treatment of Whitfield and/or Lomax cited",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly argues that two other SVPs under Caldwell, Whitfield and Lomax, received 'Needs Improvement' ratings but were not placed on PIPs, contrasting this with Vasquez\u2019s recent 'Outstanding' review and using it as evidence of selective enforcement/pretext."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_005: Whitfield's role in onboarding Orion Gateway highlighted",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states in the comparator/pretext discussion that Whitfield, another SVP, originated the Orion Gateway relationship, that Caldwell knew Whitfield was the relationship manager, and that Caldwell identified no discipline for him. This links Whitfield to the Orion Gateway entity at the center of the AML concerns and uses it to support disparate treatment of Vasquez."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_006: Carlos Medina's declaration cited as corroboration",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites Carlos Medina's declaration multiple times to corroborate Vasquez's claims, including that Medina found layering indicators and recommended immediate SARs, that he was told to \u201cstand down,\u201d and that he was terminated shortly after Vasquez."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_006: Medina's termination argued as pattern of retaliation",
+      "verdict": "pass",
+      "reasoning": "The memorandum discusses Medina\u2019s October 14 termination, the claimed restructuring, that he was the only employee removed, and that a substantially similar AML position was refilled about three weeks later. It also ties this evidence to the Bank\u2019s response to internal reporting and pretext, reinforcing the retaliation inference. Although it does not name Rachel Gunther or use the exact phrase \u201cbroader pattern of retaliation,\u201d it connects Medina\u2019s termination to a pattern/context of retaliation against Orion Gateway-related internal reporting."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_007: SOX subsidiary coverage argument made",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly argues that Defendant's SOX coverage argument is legally incorrect because \u00a7 1514A covers subsidiaries whose financial information is included in a publicly traded parent's consolidated financial statements, and it identifies Ridgeline National Bank as a wholly owned subsidiary of NASDAQ-listed Ridgeline Financial Group, Inc. Although it does not mention the ticker symbol RDFG, the required subsidiary-coverage argument is clearly made."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_007: Lawson v. FMR LLC or statutory text cited for SOX subsidiary coverage",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly cites the text of 18 U.S.C. \u00a7 1514A(a), including the subsidiary/affiliate language for consolidated financial statements, and also cites Lawson v. FMR LLC in support of SOX coverage extending beyond publicly traded entities. This satisfies the criterion."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_008: Federal preemption argument rebutted for state law claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly rebuts preemption of the Colorado public-policy wrongful termination claim, arguing there is no field or conflict preemption, that the BSA contains no textual basis for occupying the field, and that the state tort complements federal whistleblower protections by deterring retaliation and encouraging reporting. It also notes overlapping remedies are not an obstacle to federal schemes."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_008: Absence of express preemption language noted",
+      "verdict": "fail",
+      "reasoning": "The memorandum argues that the BSA lacks textual support for preemption and states generally that no federal statute/neither statute preempts the Colorado claim, but it does not specifically note or argue that SOX contains no express preemption language displacing state-law claims. The criterion requires the specific point as to both BSA and SOX."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_009: Inadequacy of internal investigation argued",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that Hargrove declared the Orion Gateway matter \u201creviewed and resolved\u201d on May 2 before Medina completed his work, that Prescott had no written analysis supporting that conclusion, and that the review was shorter than expected. It also characterizes the Bank\u2019s conduct as suppressing a compliance investigation and declining required reporting, using those facts in support of retaliatory/pretext arguments. This satisfies the criterion."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_009: Dr. Redmond's expert opinion on investigation adequacy cited",
+      "verdict": "fail",
+      "reasoning": "The memorandum cites Redmond only for identifying AML red flags and opining that the activity warranted reporting; it does not cite Dr. Redmond's expert opinion that the bank's internal investigation was facially inadequate or otherwise reference her opinion on investigation inadequacy."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_009: Sham investigation linked to retaliation inference",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses the AML investigation's inadequacy\u2014Hargrove prematurely deemed the matter resolved, Medina was told to stand down, and there was no written analysis\u2014and it even references a decision to suppress the compliance investigation. But it does not clearly use that sham or inadequate investigation as a causation/pretext argument that the Bank wanted to suppress Vasquez\u2019s concerns rather than address them and therefore terminated her in retaliation. The retaliation inference is primarily tied to source-hunting, timing, PIP irregularities, and performance pretext, not the inadequate investigation itself."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_010: Caldwell's inability to explain $15M target highlighted",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly highlights the $10M written target versus the $15M PIP target, cites Caldwell Dep. 34\u201338, states Caldwell could not identify when the increase was communicated and knew of no written amendment, and argues a jury could view the retroactive $15M target as fabricated or selectively invoked. Although it does not use the exact quoted phrases 'believed' or 'recall the specifics,' it substantively highlights Caldwell's inability to substantiate the $15M target and ties it to post hoc fabrication."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_011: Credibility determinations inappropriate at summary judgment",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly invokes the Rule 56 principle that the court must not weigh evidence, resolve conflicts, or make credibility determinations, and repeatedly argues that disputes over Caldwell/Hargrove's explanations, timing, and pretext are for the jury rather than summary judgment."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_011: Anderson v. Liberty Lobby or Reeves v. Sanderson cited",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites Anderson v. Liberty Lobby in the summary-judgment standard for the principle that the court may not weigh evidence or make credibility determinations, and also cites Reeves in connection with pretext and impermissible credibility determinations at summary judgment."
+    },
+    {
+      "id": "C-037",
+      "title": "Prima facie case for BSA retaliation (31 U.S.C. \u00a7 5328) constructed",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly constructs the BSA retaliation case: it identifies protected activity under \u00a7 5328 through Vasquez's April 3 internal AML/SAR memorandum and June 15 FinCEN report; explains that the employer knew of the internal report and at least suspected she triggered the regulatory inquiry; identifies adverse actions including the PIP and termination; and develops causation through the August 1 email, close timing, decisionmaker involvement, and pretext evidence. Thus the prima facie elements are articulated."
+    },
+    {
+      "id": "C-038",
+      "title": "Prima facie case for SOX retaliation (18 U.S.C. \u00a7 1514A) constructed",
+      "verdict": "pass",
+      "reasoning": "The memorandum articulates and applies the SOX contributing-factor framework, discusses protected disclosures/activities, employer and decisionmaker knowledge, adverse actions including PIP and termination, and causal connection through timing, source-identification evidence, and pretext. Although the SOX section emphasizes coverage and incorporates earlier factual arguments rather than listing elements in a standalone checklist, it sufficiently constructs a prima facie SOX retaliation case."
+    },
+    {
+      "id": "C-039",
+      "title": "Prima facie case for Colorado wrongful termination constructed",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses the Colorado public-policy wrongful discharge claim, cites Colorado authority, identifies the relevant elements, and applies them by arguing that BSA/AML reporting of suspicious transactions is protected by a clear public policy and that Vasquez was terminated for engaging in that reporting. This constructs the required prima facie case."
+    },
+    {
+      "id": "C-040",
+      "title": "Record citations to specific documents throughout",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes numerous record citations to specific documents by name throughout the factual and argument sections, including Vasquez 2022 Review, Caldwell Deposition, Prescott Deposition, Medina Declaration, Hargrove-Caldwell Email, PIP, 2023 Business Plan, Handbook, Internal Audit Q1 2023 Report, Thornburg Declaration, Termination Letter, Redmond Report, and Defendant's SUMF. This exceeds the requirement of at least 10 distinct document citations."
+    },
+    {
+      "id": "C-041",
+      "title": "Vasquez's exemplary performance history cited",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites Vasquez\u2019s exemplary performance history, including an 'Outstanding' review and 'positive reviews throughout eleven consecutive years,' and later uses her 'history of no formal discipline and a recent Outstanding review' to support pretext against the sudden PIP."
+    },
+    {
+      "id": "C-042",
+      "title": "Correct case name identified",
+      "verdict": "pass",
+      "reasoning": "The memorandum\u2019s caption identifies Plaintiff Elena Vasquez against Defendant Ridgeline National Bank, i.e., Vasquez v. Ridgeline National Bank."
+    },
+    {
+      "id": "C-043",
+      "title": "Correct case number identified",
+      "verdict": "pass",
+      "reasoning": "The memorandum caption identifies the civil action number as 1:23-cv-03187-RBJ, which exactly matches the required case number."
+    },
+    {
+      "id": "C-044",
+      "title": "Correct court identified",
+      "verdict": "pass",
+      "reasoning": "The memorandum caption identifies the court as 'IN THE UNITED STATES DISTRICT COURT' and 'FOR THE DISTRICT OF COLORADO,' which matches the required court."
+    },
+    {
+      "id": "C-045",
+      "title": "DISTRACTOR_002: Confidentiality of FinCEN report not treated as fatal to knowledge element",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly rejects the bank's argument that FinCEN confidentiality defeats knowledge, arguing that Hargrove and Caldwell suspected Vasquez was the regulatory source and that this belief is sufficient. It also relies on the protected internal April memo as an independent basis for knowledge."
+    },
+    {
+      "id": "C-046",
+      "title": "Burden-shifting framework (McDonnell Douglas or analogous) applied",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly articulates an analogous whistleblower burden-shifting framework: plaintiff must show protected activity was a contributing factor, after which the Bank must prove by clear and convincing evidence it would have taken the same action absent the protected activity. It also addresses the elements supporting plaintiff\u2019s initial showing and extensively analyzes the Bank\u2019s asserted performance reasons as pretext, while referencing McDonnell Douglas as an alternative framework."
+    },
+    {
+      "id": "C-047",
+      "title": "Prescott deposition testimony cited regarding Vasquez memo and investigation brevity",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites Prescott deposition testimony that the April 3 memo was \u201cthorough\u201d and also that the internal review was \u201cshorter than she expected,\u201d using those facts to support Plaintiff\u2019s retaliation/pretext arguments."
+    },
+    {
+      "id": "C-048",
+      "title": "Dr. Redmond's expert findings on Orion Gateway red flags cited",
+      "verdict": "fail",
+      "reasoning": "The memorandum references Redmond generally as identifying \u201cmultiple recognized red flags\u201d and opining the activity warranted reporting, but it does not cite the specific expert conclusion that Orion Gateway exhibited 7 of 9 recognized TBML red flags or that no reasonable compliance officer could have concluded the transactions were legitimate."
+    },
+    {
+      "id": "C-049",
+      "title": "Vasquez's internal report to Prescott on April 3, 2023 identified as protected activity",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies Vasquez's April 3, 2023 memorandum to Chief Compliance Officer Prescott as protected internal reporting under the BSA, stating that \u00a7 5328 protects information provided to the employer and calling the April 3 memo 'the paradigm of protected internal activity.'"
+    },
+    {
+      "id": "C-050",
+      "title": "Vasquez's FinCEN report on June 15, 2023 identified as protected activity",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly references Vasquez\u2019s \u201cJune 15 FinCEN report\u201d and treats the external FinCEN report as part of the protected reporting activity under the BSA, while also arguing that her internal April 3 memorandum was independently protected."
+    },
+    {
+      "id": "C-051",
+      "title": "BSA whistleblower retaliation claim addressed",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses the BSA whistleblower retaliation claim under 31 U.S.C. \u00a7 5328, including a dedicated section arguing that Ridgeline retaliated against Vasquez for protected BSA reporting, discussing internal reports to the employer, decisionmaker knowledge, causation, and the contributing-factor burden."
+    },
+    {
+      "id": "C-052",
+      "title": "SOX whistleblower retaliation claim addressed",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses the SOX whistleblower retaliation claim under 18 U.S.C. \u00a7 1514A in Section III.B, discussing corporate coverage, the parent-subsidiary language, Lawson, the contributing-factor framework, protected conduct, causation, and why summary judgment should be denied on Count II."
+    },
+    {
+      "id": "C-053",
+      "title": "Colorado wrongful termination claim addressed",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses the Colorado wrongful termination/public-policy claim in Section III.C, discusses Colorado law (Martin Marietta, Crawford), preemption arguments, and applies the facts to the claim. It also references the claim in the introduction and conclusion."
+    },
+    {
+      "id": "C-054",
+      "title": "Hargrove email quote 'identify the leak' or 'obvious candidate' reproduced",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly quotes or closely paraphrases the Hargrove email, including phrases such as \"internal leak,\" Vasquez as the \"obvious candidate,\" and Caldwell's response, \"Let me handle this.\""
+    },
+    {
+      "id": "C-055",
+      "title": "Suspicious transaction details cited to support reasonableness of reports",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes multiple specific Orion Gateway transaction details supporting objective reasonableness, including $18.7 million in 63 wires, funds from six foreign entities moving to four domestic entities after short holding periods, and indicators of layering."
+    },
+    {
+      "id": "C-056",
+      "title": "Employee Handbook Section 7.4 cited by section number",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites the Employee Handbook by section number when discussing the PIP duration policy, specifically stating that \u201cHandbook \u00a7 7.4.3 sets a 60-to-90-day period\u201d and also referencing related \u00a7 7.4 subsections."
+    },
+    {
+      "id": "C-057",
+      "title": "Caldwell's response email 'Let me handle this' cited",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly cites Caldwell's August 1 response to Hargrove, including the wording \u201cUnderstood. Let me handle this,\u201d and repeats it in multiple sections."
+    },
+    {
+      "id": "C-058",
+      "title": "Medina's position refilled by Rachel Gunther shortly after termination",
+      "verdict": "pass",
+      "reasoning": "The memorandum states that Medina was terminated in a purported restructuring and that his substantially similar AML position was refilled about three weeks later, using this as evidence undermining the restructuring rationale. Although it does not name Rachel Gunther, the quick refilling is mentioned."
+    },
+    {
+      "id": "C-059",
+      "title": "Bank's failure to file SARs cited as BSA violation",
+      "verdict": "pass",
+      "reasoning": "The memorandum discusses the Orion Gateway wires, states Vasquez recommended SAR filing and Medina recommended immediate SARs, and argues the Bank suppressed the investigation and declined required reporting. It also connects this to BSA/AML obligations to detect and report suspicious activity, even though it does not cite \u00a7 5318(g) specifically."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-opposition-to-motion-for-summary-judgment/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-opposition-to-motion-for-summary-judgment",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:00:53.926476+00:00",
+  "cost": {
+    "input_tokens": 1650994,
+    "output_tokens": 30628,
+    "wall_clock_seconds": 243.16
+  },
+  "doc_coverage": {
+    "documents_read": 16,
+    "total_documents": 15,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "defendants-msj-brief.docx",
+      "defendants-sumf.docx",
+      "vasquez-2023-business-plan.docx",
+      "medina-declaration.docx",
+      "vasquez-2022-review.docx",
+      "prescott-email-april-18.docx",
+      "prescott-deposition-excerpts.docx",
+      "redmond-expert-report.docx",
+      "vasquez-pip.docx",
+      "vasquez-termination-letter.docx",
+      "thornburg-declaration.docx",
+      "employee-handbook-section-7-4.docx",
+      "caldwell-deposition-excerpts.docx",
+      "hargrove-caldwell-emails.docx",
+      "internal-audit-q1-2023.docx",
+      "/workspace/output/opposition-memorandum.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

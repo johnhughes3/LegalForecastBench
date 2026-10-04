@@ -22,6 +22,24 @@ Full reports: [GPT-6 Sol](../tasks/assess-reasonableness-of-staffing-levels-on-l
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/assess-reasonableness-of-staffing-levels-on-litigation-invoice/gpt6luna-xhigh/README.md#c-049) | Fail | Fail | 7 / 8 |
+| [Claude Opus 5.5 (low)](../model-runs/assess-reasonableness-of-staffing-levels-on-litigation-invoice/opus55-low/README.md#c-049) | Pass | Pass | 4 / 2 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The memo does not calculate the percentage by which the attorney fee subtotal ($193,372.50) exceeds the approved budget ceiling ($165,000). It calculates the 115% ceiling ($189,750) and the excess over that ceiling ($3,622.50), and it mentions a variance over the monthly midpoint of 48.75%, but it never computes the ~17.2% overage of $193,372.50 relative to the $165,000 approved budget. The criterion requires this specific percentage calculation to be present and approximately correct.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The memo identifies the approved monthly high end of $165,000 and the billed fees of $193,372.50, but it does not calculate or state the overage percentage of approximately 17.2%. Instead, it calculates the excess over the 115% ceiling and a 48.75% variance over the midpoint, which does not satisfy the specified criterion.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** In Part IX of the memo, the agent states: 'Fees billed were $193,372.50, which is $28,372.50 (17.2%) above the $165,000 high end.' This directly calculates the percentage overage of the fee subtotal over the approved budget ceiling as 17.2%, which matches the exact figure specified in the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo explicitly states that fees billed were $193,372.50, which is $28,372.50 or 17.2% above the $165,000 high end, matching the required approximately 17% overage calculation.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -44,6 +62,24 @@ Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5
 Full reports: [GPT-6 Sol](../tasks/categorize-document-production-set-by-relevance-and-privilege/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/categorize-document-production-set-by-relevance-and-privilege/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/categorize-document-production-set-by-relevance-and-privilege/gpt6luna-xhigh/README.md#c-012) | Pass | Pass | 9 / 8 |
+| [Claude Opus 5.5 (low)](../model-runs/categorize-document-production-set-by-relevance-and-privilege/opus55-low/README.md#c-012) | Pass | Pass | 14 / 16 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** RC-24 (chandrasekaran-meeting-notes-aug28.docx) is classified in the relevance report as 'R1 — Core (partially withheld)' and in the privilege log as PL-007, where only the sections headed 'Legal Strategy — Retaliation Exposure' and 'Legal Strategy — Separation & Documentation' are withheld, while operational discussion, meeting facts, and action items are explicitly not claimed as privileged. This is a partial privilege classification, not full privilege or no privilege.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The agent identifies chandrasekaran-meeting-notes-aug28.docx as RC-24 and expressly marks it as partially withheld/partially privileged, with only legal-strategy portions redacted under PL-007 while operational facts are not withheld.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** In the relevance classification report, MPI-REV-011 (chandrasekaran-meeting-notes-aug28.docx) is classified as 'Partially privileged: Legal Strategy sections Attorney-Client/Work Product' with treatment 'Produce with redactions.' In the privilege log, Log Entry 3 for MPI-REV-011 confirms it is 'Produced with redactions,' with only the 'Legal Strategy' sections redacted while business discussion portions are produced. This clearly reflects a Partially Privileged classification, satisfying the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The August 28 Chandrasekaran meeting notes (chandrasekaran-meeting-notes-aug28.docx) are expressly classified as partially privileged, with legal-strategy sections redacted and business portions produced; the privilege log also lists them as produced with redactions.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -69,6 +105,24 @@ Full reports: [GPT-6 Sol](../tasks/compare-document-production-against-discovery
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/compare-document-production-against-discovery-requests/gpt6luna-xhigh/README.md#c-029) | Fail | Pass | 14 / 15 |
+| [Claude Opus 5.5 (low)](../model-runs/compare-document-production-against-discovery-requests/opus55-low/README.md#c-029) | Fail | Fail | 6 / 6 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The criterion requires the memorandum to note that only 5 of the 14 documents coded to RFP 27 actually relate to Pacific Corridor's volume shortfall and counterclaim damages. The agent's output states in the RFP 27 row: 'Only five entries expressly described as PC volume/damages support are identified in MLC-004056--004102.' However, it does not mention that there are 14 documents total coded to RFP 27, nor does it characterize this as '5 of 14.' The Greystone issue is noted separately (8 entries relate to Greystone), but the memo does not explicitly frame this as '5 of 14 documents coded to RFP 27 actually relate to counterclaim damages.' The criterion specifically requires noting that only 5 of the 14 documents coded to RFP 27 actually relate to Pacific Corridor's volume shortfall and counterclaim damages calculation. The agent notes 5 entries but doesn't establish the denominator of 14 or make the explicit comparison that would show the counterclaim damages support is thin in those specific terms.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The memorandum expressly states under RFP 27 that only five entries are described as Pacific Corridor volume/damages support, while other documents in the relevant counterclaim-damages grouping relate to Greystone rather than PC. It also flags the counterclaim damages support as thin/incomplete and calls for source data and corrected coding. This satisfies the criterion.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Fail.** The memorandum discusses RFP 27 and notes that MLC-003681--003820 and MLC-004056--004102 were produced as Pacific Corridor-related counterclaim documents, and that 9 documents (MLC-003980--004055) concern Greystone Distribution Partners. However, it does not specifically note that only 5 of the 14 documents coded to RFP 27 (MLC-004056 through MLC-004102) actually relate to Pacific Corridor's volume shortfall and counterclaim damages calculation. The criterion requires the memo to identify that the counterclaim damages support is thin because only 5 of 14 documents in that Bates range actually relate to the counterclaim. This specific finding is absent from the agent's output.
+- **Claude Opus 5.5 (low), GPT-5.5: Fail.** The memorandum discusses RFP 27 and notes that some documents are unrelated Greystone materials and that model inputs/consultant files are missing, but it does not state that only 5 of the 14 documents coded to RFP 27 in the MLC-004056 through MLC-004102 range actually relate to Pacific Corridor volume shortfall/counterclaim damages, nor does it make the specific point that the counterclaim damages support is thin on that basis.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -92,6 +146,24 @@ Agreement group: Both models: arguable. GPT-6 Sol: arguable; Claude Opus 5.5: ar
 Full reports: [GPT-6 Sol](../tasks/draft-case-assessment-memorandum/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-case-assessment-memorandum/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-case-assessment-memorandum/gpt6luna-xhigh/README.md#c-025) | Fail | Fail | 13 / 10 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-case-assessment-memorandum/opus55-low/README.md#c-025) | Pass | Pass | 4 / 5 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The memo discusses unjust enrichment in Section 3D, noting that 'the written agreement governs much of the relationship, which ordinarily makes quasi-contract restitution difficult for matters within its scope.' However, this is framed as a caution to Cascade (the plaintiff) about the weakness of its own unjust enrichment claim, not as a recommendation to file a motion to dismiss or any dispositive motion targeting the unjust enrichment claim. The memo advises to 'preserve it for benefits outside the contract or if the agreement is held not to govern the specific benefit.' There is no recommendation anywhere in the memo to file a motion to dismiss, motion for judgment on the pleadings, or similar dispositive motion targeting the unjust enrichment claim on the basis that an express contract governs the relationship.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The memo notes that unjust enrichment is vulnerable because the written agreement governs much of the relationship, but it recommends preserving the claim in the alternative rather than filing a motion to dismiss or similar dispositive motion targeting Count IV.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** Section 9.2 of the memo explicitly states under the Fourth Cause of Action (Unjust Enrichment): 'Move to dismiss, or at least expect it to be limited to duplicate relief.' The memo also reiterates this in Section 9.2 (Pleadings stage): 'Partial motion to dismiss / strike: ... (ii) unjust enrichment (express contract; displacement).' The memo clearly recommends filing a motion to dismiss the unjust enrichment claim on the ground that an express contract governs the relationship (and also OUTSA displacement).
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo expressly assesses Count IV unjust enrichment as low risk because a valid express contract governs the subject matter and recommends moving to dismiss it. It reiterates this in the pleadings strategy, recommending a partial motion to dismiss unjust enrichment based on the express contract and displacement.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -117,6 +189,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-conflict-check-memorandum/gpt-6-sol-aud
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-conflict-check-memorandum/gpt6luna-xhigh/README.md#c-030) | Pass | Pass | 6 / 6 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-conflict-check-memorandum/opus55-low/README.md#c-030) | Pass | Pass | 2 / 3 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The memo explicitly recommends excluding and screening Caleb Strand in multiple places. Section 2 states 'Exclude and screen Strand.' Section 4D states 'Strand should not be on the matter team' and the interim direction says 'Exclude Strand from all case communications and materials, establish a documented screen.' Section 5 item 2 lists Strand among those to be isolated and screened. The criterion is clearly satisfied.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The memo explicitly recommends excluding Caleb Strand from all case communications and materials, establishing a documented screen, and notes he should not be on the matter team.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The memo explicitly recommends removing Caleb Strand from the team and imposing a full ethical screen (Section IV.B, items 14-19, and Tier 1 condition #5). This clearly satisfies the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo explicitly identifies Caleb Strand’s sister’s TriPoint role as a high-risk conflict and recommends removing Strand from the team and imposing a full ethical screen with access restrictions and written acknowledgment.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -138,6 +228,24 @@ Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude
 Full reports: [GPT-6 Sol](../tasks/draft-conflict-check-memorandum/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-conflict-check-memorandum/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-conflict-check-memorandum/gpt6luna-xhigh/README.md#c-049) | Fail | Pass | 5 / 6 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-conflict-check-memorandum/opus55-low/README.md#c-049) | Pass | Pass | 2 / 3 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The memo explicitly notes in Section 4H that 'ConflictTracker expressly excludes annual attorney disclosures, HR/family records and board memberships from automated cross-reference; the unindexed Chow, Strand and Voss facts demonstrate that a database "no hit" is not a complete clearance.' While this identifies the problem, the criterion asks whether the memo *recommends* integrating annual disclosure questionnaires with ConflictTracker. Looking at Section 5 (Required actions), items 5 and 6 mention 'Confirm and correct the missing ConflictTracker entry' and 'update the annual disclosure record,' but these are record-correction steps for specific instances, not a systemic recommendation to integrate annual disclosures with ConflictTracker going forward. The memo does not make a forward-looking recommendation to integrate or cross-reference annual conflict-disclosure questionnaires with the ConflictTracker system as a process improvement. It only notes the gap and addresses specific missing entries, without recommending systemic integration.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The memo expressly notes that ConflictTracker does not automatically cross-reference annual disclosures and recommends verifying/correcting missing annual-disclosure entries, updating the annual disclosure/ConflictTracker records, and updating ConflictTracker after updated conflict certifications. This satisfies the requirement to recommend cross-referencing or integrating annual disclosure questionnaires with the conflicts database.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** In Part VI (Tier 3 — Process Remediation), the memo explicitly states: 'Add questionnaires, family and household ties, and board and trade-association roles to ConflictTracker's search index, or require a manual cross-check on every intake.' This directly recommends integrating annual disclosure questionnaires with the ConflictTracker system. Additionally, the memo notes throughout that the Chow and Strand disclosures were never entered into ConflictTracker despite being disclosed on annual/new-hire questionnaires, and recommends entering them immediately. The recommendation to integrate questionnaires with ConflictTracker is clearly present.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo expressly recommends process remediation to enter annual disclosure information into ConflictTracker and to add questionnaires, family/household ties, and board/trade-association roles to ConflictTracker’s search index or require manual cross-checks. This satisfies the criterion.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -162,6 +270,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-counterclaim-against-plaintiff-for-brea
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/gpt6luna-xhigh/README.md#c-045) | Pass | Pass | 3 / 2 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/opus55-low/README.md#c-045) | Pass | Pass | 6 / 6 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The agent's output includes COUNT V — PATENT INFRINGEMENT (35 U.S.C. §§ 271, 281; against Lumenara), which explicitly alleges that LumiSense 400 infringes U.S. Patent No. 11,234,567 covering the SensorCore™ architecture. The count references Dr. Ayers' expert analysis confirming the product meets each claim limitation, seeks damages under 35 U.S.C. § 284, injunctive relief under § 283, and attorneys' fees under § 285. This fully satisfies the criterion.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The counterclaim includes a separate Count V titled Patent Infringement under 35 U.S.C. §§ 271 and 281, alleging that Lumenara’s LumiSense 400 infringes U.S. Patent No. 11,234,567 covering the SensorCore™ substrate architecture.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** COUNT VII of the counterclaim is explicitly titled 'Patent Infringement: U.S. Patent No. 11,234,567 (35 U.S.C. § 271)' and alleges that the LumiSense 400 directly infringes at least claim 1 of the '567 Patent covering the SensorCore™ architecture. The count includes claim mapping, willfulness allegations, and requests for damages and injunctive relief under 35 U.S.C. §§ 283-285.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The counterclaim includes a separate Count VII titled “Patent Infringement: U.S. Patent No. 11,234,567 (35 U.S.C. § 271),” alleging that Lumenara’s LumiSense 400 directly infringes the ’567 Patent covering the SensorCore™ architecture by making, using, selling, offering to sell, and/or importing the accused product.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -184,6 +310,24 @@ Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5
 Full reports: [GPT-6 Sol](../tasks/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/gpt6luna-xhigh/README.md#c-046) | Pass | Pass | 3 / 2 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement/opus55-low/README.md#c-046) | Pass | Pass | 6 / 6 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** Count V (Patent Infringement) explicitly identifies U.S. Patent No. 11,234,567 in paragraph 59: 'Vantage owns all right, title, and interest in U.S. Patent No. 11,234,567, entitled "Multi-Layer Copper-Pillar Micro-Bump Interconnect Architecture for Integrated Optical Sensor Substrates," which issued on January 10, 2023 (the "'567 patent").' The patent number is correctly and specifically cited in the patent infringement count.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The patent infringement count (Count V) specifically identifies U.S. Patent No. 11,234,567 and refers to it as the '567 patent.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** COUNT VII (Patent Infringement) explicitly identifies 'U.S. Patent No. 11,234,567' and refers to it as 'the '567 Patent' throughout the count, including in paragraphs 101, 102, 103, 104, 105, 106, and 107.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The patent infringement count is titled “Patent Infringement: U.S. Patent No. 11,234,567 (35 U.S.C. § 271)” and repeatedly identifies the ’567 Patent as U.S. Patent No. 11,234,567.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -208,6 +352,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-defective-industrial-equipment-product-
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-defective-industrial-equipment-product-liability/gpt6luna-xhigh/README.md#c-003) | Pass | Fail | 30 / 27 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-defective-industrial-equipment-product-liability/opus55-low/README.md#c-003) | Fail | Fail | 19 / 17 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The Executive Summary (labeled 'Executive assessment') states: 'Marco Reyes was killed; Kevin Trask and Priya Anand suffered serious injuries.' This clearly mentions the death of Marco Reyes in the executive summary section.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The Executive Summary/Executive assessment does not specifically mention that Marco Reyes died. His death is mentioned later in the record/incident section, but not in the executive summary section.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Fail.** The criterion requires that the Executive Summary mentions the death of Marco Reyes. Looking at the agent's output, Section 1 ('Bottom Line') serves as the executive summary. It mentions 'Reyes killed' in the Key Facts table (Section 3), and in Section 1 (Bottom Line/Executive Summary), it does not explicitly mention Marco Reyes or his death. The Bottom Line section discusses liability, contract obstacles, HydraCore as a target, Dalton's net exposure, and urgent deadlines, but does not mention the death of Marco Reyes. The fatality is only mentioned in the Key Facts table in Section 3, not in the executive summary (Section 1/Bottom Line).
+- **Claude Opus 5.5 (low), GPT-5.5: Fail.** The executive-summary equivalent ('Bottom Line') discusses employee tort claims and exposure but does not mention Marco Reyes or his death. The fatality is mentioned later in Key Facts, not in the Executive Summary.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -230,6 +392,24 @@ Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: problematic; Claude Opus 
 Full reports: [GPT-6 Sol](../tasks/draft-defective-industrial-equipment-product-liability/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-defective-industrial-equipment-product-liability/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-defective-industrial-equipment-product-liability/gpt6luna-xhigh/README.md#c-026) | Fail | Fail | 29 / 27 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-defective-industrial-equipment-product-liability/opus55-low/README.md#c-026) | Pass | Pass | 20 / 18 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The memo references OSHA citations and penalties (including a $31,400 OSHA penalties line in the damages section), but never specifically identifies the LOTO citation under 29 CFR 1910.147(c)(4)(i) nor mentions the specific penalty amount of $18,900. The memo discusses LOTO deficiencies and citation disputes in general terms but lacks the specific regulatory citation and penalty amount required by the criterion.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The memo references OSHA LOTO deficiencies and total OSHA penalties of $31,400, but it does not identify the specific LOTO citation under 29 CFR 1910.147(c)(4)(i) or the specific $18,900 penalty.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The memo explicitly identifies the OSHA LOTO citation as 'Item 1, LOTO (1910.147(c)(4)(i), $18,900)' in Section 9, matching the specific regulation 29 CFR 1910.147(c)(4)(i) and the penalty amount of $18,900.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo specifically identifies the OSHA LOTO citation as Item 1, cites 29 CFR 1910.147(c)(4)(i), and lists the penalty as $18,900.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -254,6 +434,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-discovery-plan-memorandum/gpt-6-sol-aud
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-discovery-plan-memorandum/gpt6luna-xhigh/README.md#c-036) | Pass | Pass | 15 / 14 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-discovery-plan-memorandum/opus55-low/README.md#c-036) | Pass | Pass | 11 / 9 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** In Section II, the memo states: 'Tier collection toward Brecker, Kowalski, Fenton, Ostrowski, and Liu; preserve and assess the CEO's records (including archived mailbox) without prematurely excluding them.' This establishes a tiered prioritization, identifying Brecker, Kowalski, Fenton, Ostrowski, and Liu as higher-priority custodians for collection, while treating the CEO's records as secondary. This constitutes a priority ranking/tiering of custodians.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The memo does more than merely list custodians: it instructs counsel to “Tier collection toward Brecker, Kowalski, Fenton, Ostrowski, and Liu,” while separately identifying other custodians to add/preserve and the CEO to assess. This provides a relative prioritization/tiering for custodian collection, even if not in a formal high/medium/low table.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The memo does provide some prioritization of custodians. In Part VIII.B (Key Protocol Terms), it distinguishes between Tier 1 custodians and Tier 2 custodians, specifically noting 'Gerald Hartwell as a Tier 2 custodian with keyword filtering' while listing others (Brecker, Kowalski, Fenton, Ostrowski, Liu, etc.) as the primary/Tier 1 group. Additionally, in Part VI.C (Depositions), custodians/witnesses are ranked 1-10 by priority. These tiering and ranking systems satisfy the criterion of providing priority rankings for custodians.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo provides custodian prioritization by identifying initial Hartwell custodians and specifically designating Gerald Hartwell as a Tier 2 custodian; it also references Tier 1 custodians/QA engineers in preservation and ESI sections.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -275,6 +473,24 @@ Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude
 Full reports: [GPT-6 Sol](../tasks/draft-federal-complaint-drafting/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-federal-complaint-drafting/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-federal-complaint-drafting/gpt6luna-xhigh/README.md#c-025) | Pass | Pass | 6 / 7 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-federal-complaint-drafting/opus55-low/README.md#c-025) | Pass | Pass | 1 / 0 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The prayer for relief in section E explicitly requests 'appropriate declaratory and permanent injunctive relief to enforce the PAA's surviving non-solicitation obligations through their lawful expiration.' This directly addresses injunctive relief to enforce the non-solicitation provision and prevent Graydon from continuing to divert Fund III investor prospects to competing funds. The criterion is satisfied.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The prayer for relief expressly requests “permanent injunctive relief to enforce the PAA’s surviving non-solicitation obligations” and ties it to ongoing or imminent violations. The complaint also alleges continuing prohibited solicitation/diversion activity under the non-solicitation provision. This satisfies the criterion requiring injunctive relief to enforce the non-solicitation provision and prevent further diversion.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The complaint includes Count VI titled 'PERMANENT INJUNCTION TO ENFORCE PAA SECTION 7.4' (paragraphs 74-76) which explicitly requests injunctive relief to enforce the non-solicitation provision and prevent Defendants from diverting Fund III investors to competing funds. The prayer for relief at paragraph (g) also requests 'A permanent injunction as described in Count VI.' Count VI also reserves the right to move for preliminary relief. This clearly satisfies the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The complaint expressly includes Count VI seeking a permanent injunction to enforce PAA Section 7.4, the non-solicitation provision, and to enjoin Defendants from soliciting/diverting Fund III investors to competing funds. The prayer for relief also requests “a permanent injunction as described in Count VI.”
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -299,6 +515,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-interrogatories/gpt-6-sol-audit.md) · 
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-interrogatories/gpt6luna-xhigh/README.md#c-008) | Fail | Fail | 10 / 8 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-interrogatories/opus55-low/README.md#c-008) | Pass | Pass | 1 / 1 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The Definitions section in the agent's output contains six definitions: 'Veridian,' 'Oshiro,' 'CMT Trade Secrets,' 'CMT Materials,' 'SynapticEdge,' and 'Identify.' There is no definition of 'Document' or 'Documents' anywhere in the Definitions section. The criterion requires a definition of 'Document' or 'Documents' broad enough to encompass ESI, emails, and physical documents. Since no such definition exists in the output, the criterion is not satisfied.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The Definitions section does not define “Document” or “Documents” at all, and therefore does not expressly encompass ESI, emails, and physical documents.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** Definition 14 in the Definitions section defines 'Document' as having 'the full meaning ascribed to "documents or electronically stored information" in Fed. R. Civ. P. 34(a)(1)(A), and includes every draft and non-identical copy.' This is a broad definition that explicitly encompasses ESI by reference to Rule 34, and also covers physical documents and drafts. It clearly satisfies the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The Definitions section expressly defines “Document” to have the full meaning of “documents or electronically stored information” under Fed. R. Civ. P. 34(a)(1)(A), including drafts and non-identical copies. This is broad enough to encompass ESI, emails, and physical documents.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -321,6 +555,24 @@ Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5
 Full reports: [GPT-6 Sol](../tasks/draft-interrogatories/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-interrogatories/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-interrogatories/gpt6luna-xhigh/README.md#c-026) | Pass | Pass | 11 / 9 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-interrogatories/opus55-low/README.md#c-026) | Pass | Pass | 1 / 1 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** Interrogatory No. 9 specifically asks about the custody and disposition of the '2TB Corsair USB drive bearing serial number CX-8827491' after Oshiro began working for Veridian. Interrogatory No. 10 asks Veridian to identify all CMT Materials presently within its possession, custody, or control. Interrogatory No. 8 asks whether Oshiro or any other person provided or made available any CMT Materials to Veridian. These interrogatories collectively address both the USB drive (by serial number) and CMT files on Veridian systems, satisfying the criterion.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The interrogatories address both the USB drive and CMT materials: Interrogatory No. 9 asks about the 2TB Corsair USB drive with serial number CX-8827491 after Oshiro began working for Veridian, and Interrogatories Nos. 8, 10, and 11 ask whether CMT Materials were provided to, possessed by, reviewed, used, copied, or relied on by Veridian.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** Interrogatory No. 5 explicitly addresses both the USB Drive (defined as 'the 2TB Corsair portable external storage device bearing serial number CX-8827491') and CMT Materials on Veridian systems. It asks Veridian to identify every instance in which CMT Materials were brought onto Veridian premises, transmitted to, stored on, accessed from, or connected to any Veridian computer, server, network, cloud account, code repository, or device, and specifically asks whether the USB Drive was ever connected to any such device or system, with details on each connection by date, device, and user. This clearly satisfies the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** Interrogatory No. 5 specifically asks whether CMT Materials were brought onto, transmitted to, stored on, accessed from, or connected to Veridian systems/devices, and whether the USB Drive was ever connected to any such device or system, referencing the defined USB Drive with serial number CX-8827491.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -346,6 +598,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-litigation-discovery-responses/gpt-6-so
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-litigation-discovery-responses/gpt6luna-xhigh/README.md#c-028) | Fail | Fail | 18 / 15 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-litigation-discovery-responses/opus55-low/README.md#c-028) | Pass | Pass | 5 / 4 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The agent's output does not specifically identify RFA No. 20 as calling for a legal conclusion regarding UCC § 2-314 merchantability. While the plan mentions denying RFAs 19-23 'insofar as they ask Prismavale to concede accuracy of Greenleaf's test results, nonconformity at shipment, causation, merchantability, or damages,' it does not specifically call out RFA No. 20 as presenting a legal conclusion problem, nor does it recommend objecting on the basis that the request calls for a legal conclusion regarding UCC § 2-314. The mention of 'merchantability' is bundled with other issues and does not identify the specific legal conclusion objection basis for RFA No. 20.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The plan discusses denying RFAs 19–23 to the extent they seek concessions on merchantability, but it does not specifically identify RFA No. 20 as calling for a legal conclusion regarding UCC § 2-314 merchantability or recommend objecting on that basis.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** In Section 5.1 (RFAs), the table entry for RFA 20 states: 'Objection (the question mixes law and fact, and lumps two products together); deny.' This identifies that RFA 20 calls for a legal conclusion (mixing law and fact) and recommends objecting on that basis, which satisfies the criterion.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The plan specifically addresses RFA No. 20 and recommends an objection because it “mixes law and fact,” while also noting that Rule 36 permits application of law to fact. Although it does not expressly cite UCC § 2-314, it identifies the legal-conclusion/legal-standard issue with the merchantability request and recommends objecting on that basis.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -369,6 +639,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-motion-in-limine-to-exclude-expert-test
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence/gpt6luna-xhigh/README.md#c-009) | Pass | Pass | 6 / 4 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence/opus55-low/README.md#c-009) | Pass | Pass | 1 / 1 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The motion explicitly identifies the arithmetic discrepancy in Section III.A.4: 'the five itemized amounts in the report total $14,211,000, not the stated $14,200,000. Dr. Marchetti acknowledged the discrepancy and could not explain it at deposition.' This clearly identifies the $11,000 difference between the sum of itemized categories ($14,211,000) and the stated total ($14,200,000).
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The motion expressly states that the five itemized damages amounts total $14,211,000, not the reported $14,200,000, and notes this as a discrepancy. Although it does not spell out '$11,000,' the discrepancy is clearly identified by the stated figures.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The motion explicitly identifies the $11,000 arithmetic discrepancy. In the Factual Background section (Section II.C), the motion includes a table showing the five components summing to $14,211,000, with a note that the 'Actual sum of components' is $14,211,000 versus the 'Stated total' of $14,200,000. It further states: 'The five components sum to $14,211,000, not $14,200,000; Dr. Marchetti could not explain the $11,000 discrepancy at deposition.' This is also addressed in Section IV.E ('The Unexplained Arithmetic Error Confirms the Absence of Rigor'), which explicitly discusses the $11,000 error and cites deposition testimony where Dr. Marchetti could not explain it.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The motion expressly states that the five damages components sum to $14,211,000 rather than the stated $14,200,000, and identifies the resulting $11,000 discrepancy multiple times.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -390,6 +678,24 @@ Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude
 Full reports: [GPT-6 Sol](../tasks/draft-motion-to-dismiss-brief/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-motion-to-dismiss-brief/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-motion-to-dismiss-brief/gpt6luna-xhigh/README.md#c-037) | Fail | Fail | 29 / 30 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-motion-to-dismiss-brief/opus55-low/README.md#c-037) | Fail | Fail | 19 / 21 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The motion brief does not cite any Delaware parol evidence authority such as SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care. While the brief mentions that Delaware law governs the agreement under §12.7, it only cites Texas cases (Schlumberger, Forest Oil, Italian Cowboy Partners) for the non-reliance/integration clause arguments. No Delaware parol evidence rule cases are cited anywhere in the brief.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The brief notes that Delaware law governs the agreement but does not cite any Delaware authority on the parol evidence rule or integration clauses, such as SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Fail.** The criterion requires citation of relevant Delaware authority on the parol evidence rule and integration clauses, specifically mentioning cases like SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care. The motion cites Delaware cases including Abry Partners V, L.P. v. F & W Acquisition LLC (891 A.2d 1032, Del. Ch. 2006), Kuroda v. SPJS Holdings, L.L.C. (971 A.2d 872, Del. Ch. 2009), and VLIW Tech., LLC v. Hewlett-Packard Co. (840 A.2d 606, Del. 2003). While Abry Partners and Kuroda are cited for anti-reliance/non-reliance clauses and unjust enrichment, neither SIGA Technologies v. PharmAthene nor Eagle Industries v. DeVilbiss Health Care (the specific cases mentioned in the criterion) are cited. The criterion explicitly asks for those specific cases or similar Delaware parol evidence rule authority. The cases cited (Abry Partners, Kuroda) touch on related but distinct issues (anti-reliance clauses, unjust enrichment) rather than the parol evidence rule and integration clauses specifically. The criterion fails because the specifically named cases are not present and no Delaware authority specifically addressing the parol evidence rule and integration clauses is cited.
+- **Claude Opus 5.5 (low), GPT-5.5: Fail.** The brief cites Delaware cases such as Abry, Kuroda, and VLIW, but it does not cite Delaware parol-evidence/integration-clause authority like SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care, nor any equivalent Delaware parol evidence rule case.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -415,6 +721,24 @@ Full reports: [GPT-6 Sol](../tasks/draft-motion-to-dismiss-brief/gpt-6-sol-audit
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-motion-to-dismiss-brief/gpt6luna-xhigh/README.md#c-045) | Fail | Fail | 29 / 30 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-motion-to-dismiss-brief/opus55-low/README.md#c-045) | Fail | Fail | 19 / 21 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The brief mentions MSLSA §3.5 adjusting milestones 'day-for-day when Arcadia's failure to perform its responsibilities causes delay,' but does not specifically identify the 45-day Project Manager gap (Kevin Liu's departure) or the 75-day late API specifications as concrete examples of Arcadia's contributory delays. The criterion requires that these specific contributing failures be identified. The brief's general reference to Arcadia's failure to perform responsibilities is insufficient to satisfy the criterion's requirement for specific mention of these delays.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The brief generally notes that milestones could adjust for Arcadia-caused delays, but it does not identify the specific Arcadia contributing failures required by the criterion, such as the 45-day Project Manager gap after Kevin Liu’s departure or the 75-day late API specifications.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Fail.** The motion brief does not mention Arcadia's own contributing delays to the Go-Live delay, such as the 45-day Project Manager gap (Kevin Liu's departure) or the 75-day late API specifications. The brief discusses the Go-Live delay (September 1, 2022 target vs. January 15, 2023 actual) but does not attribute any portion of that delay to Arcadia's own failures or contributory conduct.
+- **Claude Opus 5.5 (low), GPT-5.5: Fail.** The brief mentions that Go-Live occurred later than the target date and argues generally that data migration was Arcadia’s responsibility, but it does not identify Arcadia’s own contributing delay facts, such as the 45-day Project Manager gap from Kevin Liu’s departure or the 75-day late API specifications, as causes of the Go-Live delay.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -436,6 +760,24 @@ Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude
 Full reports: [GPT-6 Sol](../tasks/draft-responses-to-interrogatories/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/draft-responses-to-interrogatories/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/draft-responses-to-interrogatories/gpt6luna-xhigh/README.md#c-028) | Pass | Pass | 3 / 2 |
+| [Claude Opus 5.5 (low)](../model-runs/draft-responses-to-interrogatories/opus55-low/README.md#c-028) | Pass | Pass | 1 / 3 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The agent's output in Interrogatory No. 14 provides a detailed table of Tri-Basin purchase figures: 2015: $9.2M, 2016: $10.1M, 2017: $10.8M, 2018: $12.4M, 2019: $13.6M, 2020: $9.7M, 2021: $15.3M, 2022: $16.8M, Jan–Aug 2023: $11.9M. These match exactly the canonical figures specified in the criterion. The figures are also referenced consistently in other interrogatory responses (e.g., Nos. 4, 17, 22). All figures are accurate and consistent with the canonical data.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The responses cite Tri-Basin purchase history figures that match the canonical data: 2015 $9.2M, 2016 $10.1M, 2017 $10.8M, 2018 $12.4M, 2019 $13.6M, 2020 $9.7M, 2021 $15.3M, 2022 $16.8M, and Jan.–Aug. 2023 $11.9M. Other references to these figures are consistent.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The agent's output in Interrogatory No. 14 provides a detailed table of Tri-Basin's annual purchases: 2015: $9,200,000; 2016: $10,100,000; 2017: $10,800,000; 2018: $12,400,000; 2019: $13,600,000; 2020: $9,700,000; 2021: $15,300,000; 2022: $16,800,000; 2023 (Jan.–Aug.): $11,900,000. These figures match exactly the canonical data provided in the criterion. The agent also invokes Rule 33(d) to refer to underlying SAP records. All figures are consistent with the canonical data.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The responses cite Tri-Basin purchase history figures in Interrogatory No. 14 that match the canonical data exactly, including 2015 $9.2M, 2016 $10.1M, 2017 $10.8M, 2018 $12.4M, 2019 $13.6M, 2020 $9.7M, 2021 $15.3M, 2022 $16.8M, and 2023 Jan–Aug $11.9M. Other cited related figures appear consistent or are provided via Rule 33(d).
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -461,6 +803,24 @@ Full reports: [GPT-6 Sol](../tasks/extract-key-obligations-from-litigation-hold-
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/gpt6luna-xhigh/README.md#c-002) | Fail | Fail | 12 / 12 |
+| [Claude Opus 5.5 (low)](../model-runs/extract-key-obligations-from-litigation-hold-and-document-preservation-notice/opus55-low/README.md#c-002) | Pass | Fail | 3 / 2 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The memo acknowledges the two different time periods (January 1, 2017 for financial records and January 1, 2019 as the general relevant period) in Section 3.3, but it treats them as complementary rather than conflicting, simply stating to 'preserve earlier-period archives and backups with the same rigor.' The memo does not recommend seeking clarification from DOJ about this date discrepancy. It only recommends seeking DOJ clarification for the Exhibit B category count discrepancy (36 vs. 34 categories) and for the deadline receipt date. There is no recommendation to seek DOJ clarification specifically about the conflicting financial records date ranges (2017 vs. 2019).
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The memo identifies both the general Jan. 1, 2019 relevant period and an extended Jan. 1, 2017 financial-records period, but it treats the 2017 period as controlling/extended rather than flagging a conflict and recommending DOJ clarification regarding the date discrepancy for financial records.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The memo addresses the financial records date discrepancy in multiple places. In Section VI (Reconciling the Notice's Category Numbering), it identifies the ¶47 cross-reference issue and recommends: 'Also consider preserving 2017–2018 Velcara pre-launch marketing materials (Area 7 in Exhibit B) until DOJ clarifies in writing.' In Section XI (Points to Clarify With DOJ), item 18 explicitly lists 'The 36 vs. 34 categories, and whether HCP communications (¶¶23–24) are the two unnumbered categories. The ¶47 reference to "Area 7"' as a point to raise with DOJ in writing before March 13. The memo thus recommends seeking written clarification from DOJ regarding the ¶47 numbering discrepancy, which relates to the financial records date range conflict.
+- **Claude Opus 5.5 (low), GPT-5.5: Fail.** The memo identifies the general relevant period as Jan. 1, 2019 and financial records as Jan. 1, 2017, and it recommends preserving the broader financial period. It also recommends asking DOJ to clarify ¶47’s Area 7/category inconsistency, but it does not specifically recommend DOJ clarification of a conflicting Jan. 1, 2017 vs. Jan. 1, 2019 date range for financial records.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -483,6 +843,24 @@ Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5
 Full reports: [GPT-6 Sol](../tasks/identify-excessive-or-duplicative-research-charges-in-litigation-invoice/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/identify-excessive-or-duplicative-research-charges-in-litigation-invoice/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/identify-excessive-or-duplicative-research-charges-in-litigation-invoice/gpt6luna-xhigh/README.md#c-013) | Pass | Pass | 12 / 10 |
+| [Claude Opus 5.5 (low)](../model-runs/identify-excessive-or-duplicative-research-charges-in-litigation-invoice/opus55-low/README.md#c-013) | Pass | Pass | 13 / 9 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The memo explicitly identifies in Section 2.2 that Wendt (July 1, 3.2h and July 5, 4.0h) and Takahashi both researched the MTCA contractor-liability framework during July 1-2, citing Section 6.4 as the basis for the duplicative research prohibition. The memo recommends a $3,060.00 credit for this overlap and instructs to retain the most junior qualified researcher's work. This directly satisfies the criterion of identifying overlapping MTCA liability/contractor liability research billed by both Takahashi and Wendt.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The memo explicitly identifies overlapping MTCA contractor-liability research by Wendt on July 1 and July 5 and Takahashi on July 1–2, references summary-judgment-related overlap, and invokes Section 6.4’s duplicative research rule to recommend retaining only the junior qualified researcher’s work.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** The memo explicitly identifies in Section 3.2 that both Takahashi and Wendt billed for overlapping MTCA contractor liability/SJ standards research, with Takahashi L1 and L6 allowed as the most junior qualified researcher, while Wendt L2 ($1,360.00) and L15 ($1,700.00) are disallowed under §6.4. The memo also references Hargrove L24 as duplicating MTCA preemption/contractor defense research by Takahashi. This clearly identifies the duplicative MTCA research across multiple timekeepers including Takahashi and Wendt, citing Section 6.4.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The memo expressly identifies overlapping MTCA contractor liability / summary judgment research by Kenji Takahashi and Tyler Wendt in July 2024, allows Takahashi L1/L6 as the most junior researcher, disallows Wendt L2/L15, and cites Guidelines §6.4 on duplicative research.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -508,6 +886,24 @@ Full reports: [GPT-6 Sol](../tasks/identify-issues-in-matter-budget-proposal/gpt
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/identify-issues-in-matter-budget-proposal/gpt6luna-xhigh/README.md#c-029) | Pass | Pass | 5 / 5 |
+| [Claude Opus 5.5 (low)](../model-runs/identify-issues-in-matter-budget-proposal/opus55-low/README.md#c-029) | Pass | Pass | 2 / 2 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The agent's output uses a three-tier severity scale: Critical, High, and Medium. The fee budget reconciliation discrepancy ($116,050 difference between phase-based fees and staffing-table fees) is listed in the 'Priority findings at a glance' table under the 'Critical' severity level, which is the highest tier in the scale used. This satisfies the criterion that the issue be assigned Critical or High severity.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The output identifies the $116,050 fee reconciliation discrepancy and labels the issue 'Critical' in the priority findings table, satisfying the requirement that it be rated Critical or High.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** Issue C-1 in the agent's output explicitly addresses the $116,050 fee reconciliation discrepancy between the phase table ($1,708,950) and the staffing table ($1,825,000). It is assigned a severity of 'High' in the issue summary table, which is the second-highest tier in the two-tier severity scale used (High and Medium, with High being the top tier). This satisfies the criterion requiring the discrepancy to be rated Critical or High (or the highest/second-highest tier).
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The output explicitly identifies the $116,050 fee reconciliation discrepancy between the phase table and staffing/hourly totals as Issue C-1 and assigns it a High severity rating.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -532,6 +928,24 @@ Full reports: [GPT-6 Sol](../tasks/review-counterpartys-proposed-jury-instructio
 
 </details>
 
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/review-counterpartys-proposed-jury-instructions/gpt6luna-xhigh/README.md#c-020) | Fail | Fail | 9 / 6 |
+| [Claude Opus 5.5 (low)](../model-runs/review-counterpartys-proposed-jury-instructions/opus55-low/README.md#c-020) | Fail | Fail | 1 / 1 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Fail.** The memo objects to the 'independently wrongful act' element in Instruction No. 27 and states that the Court's four-element formulation does not include it, but it does not explain *why* that element is wrong as a matter of Georgia law. Specifically, it never articulates the legal distinction that the 'independently wrongful act' requirement belongs to tortious interference with business relations (a prospective economic advantage tort), not to tortious interference with an existing contract, where knowing inducement of breach is sufficient. The memo simply says 'do not add an independent-wrongful-act prerequisite' without explaining that this element applies to a different tort. The criterion requires that this legal distinction be articulated.
+- **GPT-6 Luna (xhigh), GPT-5.5: Fail.** The memo correctly states that tortious interference with an existing contract under Georgia law uses the four elements of valid contract, knowledge, intentional inducement to breach, and damages, and objects to adding an independently wrongful act requirement. However, it does not articulate the specific distinction that the independently wrongful act element belongs to the separate tort of tortious interference with business relations. The criterion requires that distinction to be explained.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Fail.** The memo's Section K (Instruction No. 27) objects to the 'independently wrongful act' element and cites the SJ Order's four-element formulation, but it does not explain that the 'independently wrongful act' requirement belongs to the distinct tort of tortious interference with business relations (as opposed to interference with an existing contract). The memo simply says the added elements 'go beyond the elements the Court identified' without articulating the legal distinction between the two torts under Georgia law. The criterion requires the memo to explain that for tortious interference with an existing contract, knowing inducement of breach is sufficient and the independently wrongful act element applies only to the separate tort of interference with business relations. This distinction is not articulated in the memo.
+- **Claude Opus 5.5 (low), GPT-5.5: Fail.** The memo correctly objects that the proposed tortious-interference-with-contract instruction improperly adds an “independently wrongful act” element and states that the Court identified only the four existing-contract elements, including knowing inducement of breach. However, it does not articulate the requested distinction that the independently wrongful act requirement belongs to the separate tort of tortious interference with business relations, not interference with an existing contract.
+
+</details>
+<!-- runs:end -->
+
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Note and source locator:**
@@ -554,6 +968,24 @@ Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5
 Full reports: [GPT-6 Sol](../tasks/review-litigation-invoice-against-outside-counsel-billing-guidelines/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/review-litigation-invoice-against-outside-counsel-billing-guidelines/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/review-litigation-invoice-against-outside-counsel-billing-guidelines/gpt6luna-xhigh/README.md#c-024) | Pass | Pass | 11 / 8 |
+| [Claude Opus 5.5 (low)](../model-runs/review-litigation-invoice-against-outside-counsel-billing-guidelines/opus55-low/README.md#c-024) | Pass | Pass | 2 / 3 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The report explicitly states in the expense table for E-011: 'Messina's $387 black car is prohibited' and includes the $387 black car in the expense adjustment snapshot as a recommended disallowance. This satisfies the criterion of recommending full disallowance of the $387 black car service.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The report explicitly identifies Messina's $387 black car charge as prohibited and recommends reducing/disallowing the full $387.00, including it in the expense adjustment snapshot.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** In Section 4.4, the report explicitly addresses E-011 (Messina black car service) and recommends a full disallowance of $387.00, citing §6.1 which states it is 'never reimbursable'. The adjustment schedule in Section 7 also includes this amount within the SF travel expenses disallowance (D-7, $7,234.00 total). The criterion is satisfied.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The report specifically identifies E-011 as “Messina black car service” billed at $387.00, marks the compliant amount as $0.00, and recommends a $387.00 reduction because it is never reimbursable. It also disallows all related SF travel expenses in the main adjustment schedule.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -578,6 +1010,24 @@ Agreement group: Both models: problematic. GPT-6 Sol: problematic; Claude Opus 5
 Full reports: [GPT-6 Sol](../tasks/review-litigation-invoice-against-outside-counsel-billing-guidelines/gpt-6-sol-audit.md) · [Claude Opus 5.5](../tasks/review-litigation-invoice-against-outside-counsel-billing-guidelines/claude-opus-5-5-audit.md).
 
 </details>
+
+<!-- runs:start -->
+<details><summary>How the model runs were graded (open after forming your own view)</summary>
+
+Native LAB grades of the published runs; the judges are AI models and can misapply a criterion. Under LAB's all-pass scoring a run scores 1 with a judge only if every criterion passes, so a Fail here with 0 other failures would by itself have zeroed that judge's score. Each run link opens the deliverables and every criterion's grades.
+
+| Run | Sonnet 4.6 | GPT-5.5 | Other criteria failed (Sonnet 4.6 / GPT-5.5) |
+|---|---|---|---|
+| [GPT-6 Luna (xhigh)](../model-runs/review-litigation-invoice-against-outside-counsel-billing-guidelines/gpt6luna-xhigh/README.md#c-042) | Pass | Pass | 11 / 8 |
+| [Claude Opus 5.5 (low)](../model-runs/review-litigation-invoice-against-outside-counsel-billing-guidelines/opus55-low/README.md#c-042) | Pass | Pass | 2 / 3 |
+
+- **GPT-6 Luna (xhigh), Sonnet 4.6: Pass.** The report states: 'Business class on the domestic Chicago–San Francisco itinerary is allowable only if scheduled flight duration was at least four hours; obtain itinerary.' This treats the business class airfare as a borderline/requires discussion issue rather than a clear mandatory reduction. It does not automatically disallow the business class fare; instead, it conditions allowability on whether the scheduled flight duration meets the 4-hour threshold and requests the itinerary to verify. This acknowledges the ambiguity (the flight duration is close to the threshold) and defers the determination pending documentation, which satisfies the criterion.
+- **GPT-6 Luna (xhigh), GPT-5.5: Pass.** The report does not treat Messina’s business-class airfare as a clear mandatory reduction or simply compliant. It flags the issue as conditional, stating that business class on the Chicago–San Francisco itinerary is allowable only if the scheduled flight duration was at least four hours and requests the itinerary, which effectively classifies it as requiring documentation/discussion given the threshold issue.
+- **Claude Opus 5.5 (low), Sonnet 4.6: Pass.** In Section 4.4, the report explicitly addresses Messina's business-class airfare (E-008, $2,847.00) and states: 'business class is allowed only if the scheduled flight is 4+ hours. ORD–SFO is typically scheduled at about 4h15m–4h45m, so it may qualify. Ask for the itinerary; if under 4 hours, reduce to the economy fare.' This clearly treats the issue as borderline/requires discussion rather than a mandatory reduction or dismissing it as compliant. The action column says 'Verify' for both the compliant amount and the reduction, confirming the ambiguity is acknowledged.
+- **Claude Opus 5.5 (low), GPT-5.5: Pass.** The report treats Messina’s $2,847 business-class airfare as a verification/discussion item, noting that business class is allowed only for scheduled flights of 4+ hours, that ORD–SFO typically may qualify, and requesting the itinerary before any reduction. It does not classify the airfare as a clear mandatory reduction or dismiss it as fully compliant.
+
+</details>
+<!-- runs:end -->
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_

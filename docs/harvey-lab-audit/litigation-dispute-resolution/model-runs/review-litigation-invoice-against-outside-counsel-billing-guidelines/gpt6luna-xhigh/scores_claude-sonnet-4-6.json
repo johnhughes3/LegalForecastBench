@@ -1,0 +1,326 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "38/49 criteria passed.  Missed 11 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 49,
+  "n_passed": 38,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Identifies Timothy Kwan as unapproved summer associate timekeeper",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies Timothy Kwan as a summer associate who is not listed in the approved-timekeeper schedule or prior-approval log, and recommends disallowing his charges in full under \u00a7\u00a73.1 and 9.1. This appears in both the executive summary and Section 5.1."
+    },
+    {
+      "id": "C-002",
+      "title": "Cites Guidelines \u00a73.1 for Kwan summer associate billing prohibition",
+      "verdict": "pass",
+      "reasoning": "The report explicitly cites Guidelines \u00a73.1 in connection with Timothy Kwan: 'Summer associate; not listed in the approved-timekeeper schedule or prior-approval log. Guidelines \u00a73.1 and engagement \u00a72 require advance written approval. Disallow in full.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-003",
+      "title": "Calculates correct disallowance for Timothy Kwan: $10,177.50",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in section 5.1: 'Timothy Kwan --- 058, 070, 078, 084, 097, 109, 116, 130: 34.5 h; $10,177.50; billed $295/h' and recommends 'Disallow in full.' The amount $10,177.50 (34.5 hours \u00d7 $295/hour) is correctly stated and full disallowance is recommended."
+    },
+    {
+      "id": "C-004",
+      "title": "Identifies Pryce-Hall Oct 22 entry as block billing",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the report specifically identifies Jonathan Pryor-Hall's October 22, 2024 time entry (7.4 hours combining drafting motion, researching standards, drafting memorandum, compiling exhibit list, and reviewing prior orders) as block billing. Looking at Section 5.4 of the agent's report, it lists block billing examples including entry 088 described as 'motion drafting, research, memorandum, exhibits and prior-order review.' This matches the description of Pryor-Hall's October 22 entry. However, the criterion specifically asks for Jonathan Pryor-Hall's October 22 entry to be identified. The report references entry 088 with the matching description but does not explicitly name it as Pryor-Hall's October 22 entry. The report does not mention the date October 22 or attribute entry 088 specifically to Pryor-Hall in the block billing section. While the description matches, the criterion requires explicit identification of this specific entry by timekeeper and/or date. The report fails to make this explicit connection."
+    },
+    {
+      "id": "C-005",
+      "title": "Applies 30% reduction to Pryce-Hall block billing: ~$1,276.50",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the report specifically apply a 30% reduction to a Pryce-Hall (Pryor-Hall) Oct 22 block-billed entry of $4,255.00 (7.4h \u00d7 $575), yielding a $1,276.50 reduction. The agent's report discusses block billing generally in \u00a75.4, listing several example entries (008, 014, 054, 061-063, 069, 088, 105, 133) and stating the 30% remedy should be applied. However, the report does not specifically identify or calculate the 30% reduction for a Pryor-Hall October 22 entry at $4,255.00 or $1,276.50. The specific entry, amount, and calculated reduction are not present in the output."
+    },
+    {
+      "id": "C-006",
+      "title": "Identifies three attorneys at Michael Torres deposition as violation",
+      "verdict": "pass",
+      "reasoning": "The criterion requires identifying three attorneys (Sandra Messina, Jonathan Pryor-Hall, and Rebecca Tanaka) at the Torres deposition as exceeding the two-attorney cap. The report in Section 5.3 identifies four attorneys at the Torres deposition (Messina, Pryor-Hall, Tanaka, and DeVries), notes the two-attorney cap under \u00a75.1, and flags Tanaka and DeVries as excess attendees. The three attorneys named in the criterion (Messina, Pryor-Hall, Tanaka) are all identified, and the violation is clearly noted. The report actually goes further by identifying a fourth attorney (DeVries). The criterion is satisfied."
+    },
+    {
+      "id": "C-007",
+      "title": "Recommends disallowance of one attorney's deposition time",
+      "verdict": "pass",
+      "reasoning": "Section 5.3 of the report explicitly addresses the Torres deposition (Oct. 15) and identifies that four attorneys billed attendance, exceeding the two-attorney cap under \u00a75.1. The report recommends disallowing Tanaka's attendance/summary ($3,060) and DeVries's remote monitoring ($1,300) as additional attorney attendance exposed to full disallowance. This clearly recommends disallowing at least one attorney's deposition time for the Torres deposition."
+    },
+    {
+      "id": "C-008",
+      "title": "Identifies Oct 28 internal conference exceeds attorney-hour cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the October 28 internal strategy meeting in Section 5.3, noting that five attorneys each billed 3.8 hours for 19 total attorney-hours, and that \u00a75.1 caps attendance at four attorneys and total time at four attorney-hours. It recommends reducing to four aggregate attorney-hours and calculates the exposure accordingly."
+    },
+    {
+      "id": "C-009",
+      "title": "Calculates reduction for Oct 28 conference overage",
+      "verdict": "pass",
+      "reasoning": "The report identifies the October 28 conference issue and notes that the four approved attendees billed 15.2 hours totaling $8,436, and that the cap is four aggregate attorney-hours. It provides an illustrative dollar reduction: 'a proportional reduction to four of 15.2 hours would reduce $8,436 by $6,216 (illustrative allocation); accept no more than four aggregate attorney-hours.' This constitutes a specific dollar reduction calculation ($6,216) for the conference overage, satisfying the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "Identifies Oct 28 conference exceeds attorney attendance cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in section 5.3 that five attorneys attended the October 28 internal strategy meeting (entries 112-116), and that \u00a75.1 caps attendance at four attorneys. It notes Kwan is the fifth attendee and addresses the headcount issue directly, stating 'accept no more than four aggregate attorney-hours' and discussing the cap on attorney attendance. The report clearly identifies both the 5-attorney attendance count and the 4-attorney cap under \u00a75.1."
+    },
+    {
+      "id": "C-011",
+      "title": "Identifies photocopying rate overcharge ($0.25 vs. $0.15)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in the E-007 printing line: '48,200 pages billed at $0.25/page; VIH cap is $0.15/page ($7,230 maximum).' This clearly identifies the photocopying rate overcharge of $0.25 vs. $0.15 per page as required by the criterion."
+    },
+    {
+      "id": "C-012",
+      "title": "Calculates correct photocopying overcharge: $4,820.00",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states: 'E-007 printing --- $12,050.00: 48,200 pages billed at $0.25/page; VIH cap is $0.15/page ($7,230 maximum)... reduce by at least $4,820 to $7,230.' This correctly calculates the overcharge as $4,820.00 (48,200 \u00d7 $0.10 = $4,820), matching the criterion exactly."
+    },
+    {
+      "id": "C-013",
+      "title": "Identifies Westlaw charges exceed $3,500 monthly cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies in the expense table (E-006) that the Westlaw charge of $4,218.60 exceeds the $3,500 monthly/matter cap by $718.60, and recommends reducing to $3,500 and disallowing $718.60 absent prior written approval. This satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "Calculates correct Westlaw overage: $718.60",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in the expense table for E-006 Westlaw: 'October legal-research charge exceeds $3,500 monthly/matter cap by $718.60' and in the expense adjustment snapshot: 'E-006 $718.60'. This correctly calculates $4,218.60 \u2212 $3,500.00 = $718.60."
+    },
+    {
+      "id": "C-015",
+      "title": "Identifies Administrative Support/Word Processing as non-reimbursable",
+      "verdict": "pass",
+      "reasoning": "The agent's report explicitly identifies the E-018 admin support charge of $2,345.00 as non-reimbursable, stating 'After-hours word processing and administrative support are expressly non-reimbursable' and recommends 'Disallow full $2,345.' This clearly satisfies the criterion, even though the report cites it as a general guideline prohibition rather than specifically citing \u00a77.1. The charge is flagged and the correct remedy is recommended."
+    },
+    {
+      "id": "C-016",
+      "title": "Identifies Technology Infrastructure Surcharge as non-reimbursable",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly identifies the technology surcharge of $4,853.74 in expense line E-019, describing it as a '2% technology-infrastructure charge' that is a 'prohibited surcharge/overhead allocation and markup,' and recommends disallowing the full $4,853.74. This clearly satisfies the criterion of identifying the Technology Infrastructure Surcharge as non-reimbursable. The specific guideline cited is slightly different (the criterion mentions \u00a77.1 while the report references general Guidelines sections), but the identification and recommended disallowance of this exact charge is present and clear."
+    },
+    {
+      "id": "C-017",
+      "title": "Identifies Document Hosting Platform (Relativity) as non-reimbursable or flags for discussion",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly addresses the $18,500.00 Relativity hosting charge in the expense table (E-017). It flags it as a borderline issue requiring discussion, noting uncertainty about whether it is an approved third-party pass-through or prohibited internal hosting/technology overhead, and recommends obtaining vendor invoices and confirming actual third-party cost and written authorization. This satisfies criterion (b) \u2014 flagging it as a borderline issue requiring discussion."
+    },
+    {
+      "id": "C-018",
+      "title": "Identifies San Francisco travel as unapproved travel outside forum",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the San Francisco trip as outside the Chicago Litigation Forum, notes that no prior written travel approval appears in the log, and flags the full $6,174 in travel fees and $7,234 in travel expenses as exposed to disallowance under \u00a79.1. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "Identifies business class airfare issue for Messina",
+      "verdict": "pass",
+      "reasoning": "The report does mention business class airfare in the San Francisco travel section: 'Business class on the domestic Chicago--San Francisco itinerary is allowable only if scheduled flight duration was at least four hours; obtain itinerary.' This flags the business class airfare issue and notes the 4-hour threshold under \u00a76.1, indicating it's a borderline case requiring verification of the flight duration. The criterion requires the report to note that the Chicago-to-San Francisco flight is approximately 4 hours and 20 minutes, making it borderline. The report doesn't specify the exact duration (4h20m) but does flag the issue and request the itinerary to confirm whether the 4-hour threshold is met, which effectively treats it as a borderline case. The business class airfare issue is flagged, even if the specific flight duration isn't stated explicitly. The criterion says FAIL only if 'the business class airfare is not flagged at all' - it is flagged here."
+    },
+    {
+      "id": "C-020",
+      "title": "Notes ambiguity of 4-hour flight threshold for business class",
+      "verdict": "fail",
+      "reasoning": "The report states: 'Business class on the domestic Chicago--San Francisco itinerary is allowable only if scheduled flight duration was at least four hours; obtain itinerary.' This acknowledges that the 4-hour threshold is the determining factor and requests the itinerary to verify the duration, implying the question is not yet resolved. However, the criterion requires the report to acknowledge that the Chicago-to-San Francisco flight is approximately 4 hours 20 minutes (just over the threshold), making it borderline. The report does not note that the flight is approximately 4 hours 20 minutes or that it is borderline/close to the threshold\u2014it simply states the rule and asks for the itinerary without acknowledging the borderline nature of this specific route. The criterion specifically requires noting the borderline nature of the ~4h20m flight relative to the 4-hour threshold."
+    },
+    {
+      "id": "C-021",
+      "title": "Identifies hotel rate exceeds $325/night cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the hotel rate issue in section 6 under E-008--015: 'Hotels: $489/night \u00d7 3 for each traveler versus $325 cap, excess $984 total.' This clearly flags that both travelers' hotel rate of $489/night exceeds the $325/night cap, with a total excess of $984. The criterion is satisfied even though the report uses 'Pryor-Hall' rather than 'Pryce-Hall' (likely a name variation in the scenario)."
+    },
+    {
+      "id": "C-022",
+      "title": "Calculates correct hotel overage: $984.00",
+      "verdict": "pass",
+      "reasoning": "The report states: 'Hotels: $489/night \u00d7 3 for each traveler versus $325 cap, excess $984 total.' This correctly calculates ($489 \u2212 $325) \u00d7 6 nights = $164 \u00d7 6 = $984.00, matching the criterion exactly."
+    },
+    {
+      "id": "C-023",
+      "title": "Identifies black car service as prohibited",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies Messina's $387 black car charge as prohibited in the San Francisco travel expenses section (E-008--015): 'Messina's $387 black car is prohibited; Pryor-Hall's $143.20 ride-share is an allowed mode.' This directly flags the charge as non-compliant with the Guidelines."
+    },
+    {
+      "id": "C-024",
+      "title": "Recommends full disallowance of black car service: $387.00",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states in the expense table for E-011: 'Messina's $387 black car is prohibited' and includes the $387 black car in the expense adjustment snapshot as a recommended disallowance. This satisfies the criterion of recommending full disallowance of the $387 black car service."
+    },
+    {
+      "id": "C-025",
+      "title": "Identifies unapproved local counsel retention (Brixton & Associates)",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies E-021 Brixton & Associates ($1,500.00) as a San Francisco local counsel retainer requiring prior approval, notes that no local-counsel approval appears in the log, and recommends disallowing the full $1,500 absent prior written approval. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-026",
+      "title": "Identifies Elaine Cho's expired contract attorney approval",
+      "verdict": "pass",
+      "reasoning": "The report clearly identifies Elaine Cho's expired approval in Section 5.1, noting that 'Approval Entry 5 and Rate Schedule authorize Phase II review only through September 30, 2024. All billed services are in October. No renewal appears in the log. Disallow all October time under \u00a7\u00a73.1 and 9.1.' It also references the displayed subtotal of 186.0 h / $36,270.00 and flags the discrepancy with the detailed lines (214.0 h / $41,730.00). The criterion is satisfied."
+    },
+    {
+      "id": "C-027",
+      "title": "Calculates correct amount at risk for Cho: $36,270.00",
+      "verdict": "fail",
+      "reasoning": "The criterion requires the report to state that $36,270.00 (186.0 hours \u00d7 $195/hour) is at risk due to Cho's expired approval. The agent's report instead states that Cho's detailed lines show 214.0 hours / $41,730.00, and notes the displayed subtotal is 186.0 hours / $36,270.00. The report disallows all October time based on the detailed lines ($41,730.00), not $36,270.00. While $36,270.00 is mentioned as the 'displayed subtotal,' the report treats $41,730.00 as the amount at risk and explicitly states the disallowance exposure is $51,907.50 (combining Kwan's $10,177.50 and Cho's $41,730.00 from detailed lines). The report does not state that $36,270.00 is the amount at risk; rather it identifies $41,730.00 as the correct figure from detailed lines. The criterion asks for $36,270.00 to be identified as the amount at risk, which the report does not do \u2014 it treats $41,730.00 as the correct at-risk amount."
+    },
+    {
+      "id": "C-028",
+      "title": "Identifies Messina Oct 3 entry as block billing",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the report specifically identifies Sandra Messina's October 3, 2024 time entry (5.8 hours combining review of expert report materials, conference with associates, and review of opposing counsel correspondence) as block billing. Looking at Section 5.4 of the agent's report, the block billing examples listed are entries 008, 014, 054, 061-063, 069, 088, 105, and 133. Entry 014 is mentioned as 'expert material review, internal conference, opposing-counsel correspondence' which sounds similar to what Messina's Oct 3 entry contains, but the report does not explicitly identify it as Messina's October 3 entry or entry number corresponding to that date. The report does not specifically call out 'Sandra Messina's October 3' entry by name, date, or a specific entry number that can be confirmed as that entry. The criterion specifically asks for the Messina Oct 3 entry to be flagged, and while entry 014 description matches, the report doesn't confirm this is Messina's entry or dated October 3. Without explicit identification of this specific entry as Messina's October 3 block billing violation, the criterion is not satisfied."
+    },
+    {
+      "id": "C-029",
+      "title": "Applies 30% reduction to Messina block billing: ~$1,557.30",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the report specifically apply the 30% reduction remedy to the Messina Oct 3 block-billed entry (entry 014, 5.8h \u00d7 $895 = $5,191.00, with a 30% reduction of $1,557.30). The agent's report discusses block billing generally in \u00a75.4 and lists entry 014 as one of the examples ('014 (expert material review, internal conference, opposing-counsel correspondence)'), but it does not calculate or state the specific 30% reduction amount of $1,557.30 for that entry. The report only provides a general instruction to 'Apply the 30% remedy to block-billed entries' without performing the specific calculation for the Messina Oct 3 entry. The criterion requires the report to actually apply the 30% reduction with the specific calculation (~$1,557.30), which is not present in the output."
+    },
+    {
+      "id": "C-030",
+      "title": "Identifies missing 75% budget threshold notification",
+      "verdict": "pass",
+      "reasoning": "Section 7 of the report explicitly states: 'The annual budget is $2,800,000; 75% is $2,100,000. The invoice's Matter Status tab reports year-to-date spend through October of $2,230,941.14 (79.7%), $130,941.14 above the 75% threshold. Section 10.1 requires written notice within five business days of the date cumulative invoiced fees and expenses reached $2.1 million... No such contemporaneous notice or revised forecast is in the approval log or transmittal materials.' This directly identifies the cumulative spend figure, the threshold, the exceedance, and the failure to provide required written notification under \u00a710.1."
+    },
+    {
+      "id": "C-031",
+      "title": "Identifies missing written explanation for invoice exceeding $350,000",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies in Section 7 that the invoice total of $487,329.14 exceeds the $350,000 monthly threshold by $137,329.14, and notes that while the transmittal identifies activity drivers, it does not provide the separate contemporaneous written explanation required by the engagement letter \u00a77 and Guidelines \u00a710.1. This is also flagged in the summary table under 'Moderate --- budget and expense substantiation.'"
+    },
+    {
+      "id": "C-032",
+      "title": "Identifies Messina meals exceeding $75/day cap",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies Messina's meal expenses of $312.40 over three days versus a $225 cap, with an excess of $87.40, in the San Francisco travel expenses section (E-008--015). This matches the criterion exactly: $312.40 over 3 days, $225 maximum allowed, $87.40 overage flagged."
+    },
+    {
+      "id": "C-033",
+      "title": "Calculates correct meal overage for Messina: $87.40",
+      "verdict": "pass",
+      "reasoning": "The report explicitly states 'Messina meals $312.40 over three days versus $225 cap, excess $87.40' in the expense deviation table for E-008--015 San Francisco travel expenses. This matches the criterion: $312.40 billed \u2212 $225.00 allowed ($75/day \u00d7 3 days) = $87.40 overage."
+    },
+    {
+      "id": "C-034",
+      "title": "Identifies travel time billed at full rate instead of 50%",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies in Section 5.2 that entries 025--026 charge Messina 4.2 hours at $895 and Pryor-Hall 4.2 hours at $575 for travel to San Francisco at 100% rates, and states that if VIH elects to allow the travel, \u00a76.1 and the engagement letter require 50% rates, with a $3,087 reduction. This directly flags the full-rate billing issue for both timekeepers' travel time entries."
+    },
+    {
+      "id": "C-035",
+      "title": "Calculates correct travel time overcharge: ~$3,087.00",
+      "verdict": "pass",
+      "reasoning": "The agent's report states in \u00a75.2: 'If VIH elects to allow the travel notwithstanding the missing approval, \u00a76.1 and the engagement letter require 50% rates: total payable would be $3,087, so reduce $3,087.' This correctly identifies the $3,087 overcharge (the difference between the full billed amount of $6,174 and the 50%-rate amount of $3,087). The underlying math is: Messina 4.2h \u00d7 $895 = $3,759 billed vs. $1,879.50 at 50%, overcharge $1,879.50; Pryor-Hall 4.2h \u00d7 $575 = $2,415 billed vs. $1,207.50 at 50%, overcharge $1,207.50; total overcharge $3,087. The report arrives at the correct $3,087 figure, satisfying the criterion."
+    },
+    {
+      "id": "C-036",
+      "title": "Identifies e-discovery vendor expense exceeding $10,000 approval threshold",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies the Forrest Data Solutions charge of $48,250.00 in expense line E-020, noting it 'exceeds $10,000 and no approval for Forrest appears' and recommends disallowing the full $48,250 absent prior written approval. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-037",
+      "title": "Provides summary table of all violations",
+      "verdict": "fail",
+      "reasoning": "The criterion requires a summary table listing individual violations with their original charged amounts, compliant/allowed amounts, and recommended adjustments/reductions. The report contains several tables: a high-level 'Summary of Deviations' table (Section 3) that lists risk areas, findings, and recommended actions, and a detailed expense table (Section 6) that lists individual expense lines with findings and recommended adjustments. However, neither table consistently provides all three required columns: original charged amount, compliant/allowed amount, AND recommended adjustment/reduction for each violation. The Section 3 summary table lacks specific dollar amounts for original charges and compliant amounts in many rows. The expense table in Section 6 comes closest but still doesn't consistently show all three columns (original amount, allowed amount, adjustment) for each line. Section 6.1 provides an 'expense adjustment snapshot' but it's a narrative paragraph, not a table. The fee deviation tables in Section 5 show some amounts but not in a unified summary format with all three required columns. The criterion specifically asks for a summary table with original charged amounts, compliant/allowed amounts, and recommended adjustments. While there are multiple tables, none fully satisfies all three requirements in a single summary table format."
+    },
+    {
+      "id": "C-038",
+      "title": "Calculates total recommended adjustment to the invoice",
+      "verdict": "fail",
+      "reasoning": "The criterion requires a total recommended adjustment figure that is the sum of all individual violation adjustments, with internally consistent arithmetic. The report provides an 'expense adjustment snapshot' of $71,175.74 (or $76,951.34 if full travel denial), but this only covers expenses. The report explicitly warns against mechanically adding fee adjustments, narrative exposure, block-billing reductions, staffing caps, and arithmetic corrections together. No single consolidated total recommended adjustment figure is provided that sums all individual violation adjustments (fees + expenses). The report intentionally avoids providing such a total, noting overlaps and double-counting risks. While the expense snapshot is internally consistent, the criterion requires a total adjustment figure covering all violations, which is absent."
+    },
+    {
+      "id": "C-039",
+      "title": "Calculates proposed revised invoice total",
+      "verdict": "fail",
+      "reasoning": "The report provides various adjustment figures and snapshots (e.g., $71,175.74 or $76,951.34 expense adjustments, fee disallowances of $51,907.50, etc.) but explicitly warns against mechanically adding them together and never presents a single proposed revised invoice total calculated as $487,329.14 minus total recommended adjustments. The report intentionally avoids providing a net revised payable amount, instead returning the invoice for correction. The criterion requires a proposed revised invoice total, which is absent."
+    },
+    {
+      "id": "C-040",
+      "title": "Notes budget concerns re: cumulative spend vs. 2024 budget",
+      "verdict": "fail",
+      "reasoning": "Section 7 of the report discusses the 2024 budget situation in detail. It notes the annual budget is $2,800,000, the 75% threshold is $2,100,000, and the YTD spend through October is $2,230,941.14 (79.7% of budget), which is $130,941.14 above the 75% threshold. The report also notes that no contemporaneous 75% threshold notice was provided. However, the criterion specifically requires discussion that 'remaining budget is insufficient for the work remaining through trial in April 2025.' The report does not mention trial in April 2025 or discuss whether the remaining budget (~$569,058.86) is insufficient for the work remaining through trial. The report only notes the threshold crossing and the missing notice, but does not address the forward-looking budget insufficiency concern relative to trial. This is a meaningful omission from the criterion's requirements."
+    },
+    {
+      "id": "C-041",
+      "title": "Categorizes violations by severity levels",
+      "verdict": "pass",
+      "reasoning": "The report uses a severity categorization system in its summary table (Section 3) with labels: 'Critical,' 'High,' and 'Moderate' \u2014 three distinct severity levels. Critical covers invoice reconciliation failures, High covers unapproved personnel, unapproved/non-reimbursable expenses, outside-forum travel, and staffing caps, and Moderate covers time-entry/LEDES compliance, invoice identifiers, and budget/expense substantiation. This constitutes at least three severity levels categorizing the violations, satisfying the criterion."
+    },
+    {
+      "id": "C-042",
+      "title": "Classifies business class airfare as borderline/requires discussion",
+      "verdict": "pass",
+      "reasoning": "The report states: 'Business class on the domestic Chicago\u2013San Francisco itinerary is allowable only if scheduled flight duration was at least four hours; obtain itinerary.' This treats the business class airfare as a borderline/requires discussion issue rather than a clear mandatory reduction. It does not automatically disallow the business class fare; instead, it conditions allowability on whether the scheduled flight duration meets the 4-hour threshold and requests the itinerary to verify. This acknowledges the ambiguity (the flight duration is close to the threshold) and defers the determination pending documentation, which satisfies the criterion."
+    },
+    {
+      "id": "C-043",
+      "title": "Recommends communication to Blackwell Stanhope identifying violations and requesting adjustments",
+      "verdict": "pass",
+      "reasoning": "The report explicitly recommends returning the invoice for correction, requiring a corrected invoice and LEDES file, and requesting specific documentation and approvals from Blackwell Stanhope. Section 8 ('Additional Documentation Required') lists numerous items to be requested from outside counsel, and the Conclusion states 'The invoice should be returned for correction rather than paid at the amount stated' and that 'VIH can determine the undisputed payable amount and issue a line-specific adjustment notice under \u00a7\u00a78.2 and 11.2.' The disposition banner at the top also states 'DISPOSITION --- RETURN FOR CORRECTION. Do not approve the stated invoice total as submitted.' Throughout the report, the recommended actions include requiring corrected submissions, obtaining approvals, and requesting documentation\u2014all of which constitute communications to Blackwell Stanhope identifying violations and requesting adjustments. This satisfies the criterion."
+    },
+    {
+      "id": "C-044",
+      "title": "Recommends requesting retroactive approval for Elaine Cho",
+      "verdict": "fail",
+      "reasoning": "The report consistently recommends disallowing all of Elaine Cho's October time due to her expired authorization, with no mention of seeking retroactive or renewed approval for her work. The report states 'Disallow all post-expiration/unapproved time under \u00a7\u00a73.1, 9.1; reconcile Cho's line totals' and 'No renewal appears in the log. Disallow all October time under \u00a7\u00a73.1 and 9.1.' There is no recommendation to seek retroactive approval or renewal for Cho's authorization, which the criterion requires for a PASS."
+    },
+    {
+      "id": "C-045",
+      "title": "Recommends demanding budget threshold notifications from counsel",
+      "verdict": "pass",
+      "reasoning": "Section 7 of the report explicitly addresses budget controls and recommends requesting the dated 75% budget-threshold notice/revised forecast and the separate written explanation required for invoices above $350,000. Section 8 (Additional Documentation Required) also lists 'The dated 75% budget-threshold notice/revised forecast and the separate written explanation/forecast required for an invoice above $350,000.' These recommendations clearly satisfy the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "Cites correct Guidelines section numbers for violations",
+      "verdict": "pass",
+      "reasoning": "The report consistently cites specific Guideline section numbers throughout. Checking coverage: unapproved timekeepers \u2192 \u00a7\u00a73.1, 9.1; block billing \u2192 \u00a74.2; staffing caps \u2192 \u00a75.1; travel \u2192 \u00a7\u00a76.1, 9.1; expenses/receipts \u2192 \u00a7\u00a76.2, 7.1, 7.2; budget/threshold \u2192 \u00a710.1; payment terms \u2192 \u00a78.1, 8.2; prohibited admin time \u2192 \u00a74.3; narrative minimum \u2192 \u00a74.1. Nearly every violation category has at least one section citation, well above 75%. Checking accuracy: block billing = \u00a74.2 \u2713; staffing caps = \u00a75.1 \u2713; travel = \u00a76.1 and \u00a79.1 \u2713; expenses/receipts = \u00a77.1 \u2713; prior approvals = \u00a79.1 \u2713; budget = \u00a710.1 \u2713; unapproved timekeepers = \u00a73.1 \u2713; narrative = \u00a74.1 \u2713; prohibited admin = \u00a74.3 \u2713. All cited sections align with the correct violation types. Both the coverage threshold (>75% of violations cited) and accuracy threshold (>75% of citations correct) are met."
+    },
+    {
+      "id": "C-047",
+      "title": "Correctly states original invoice total as $487,329.14",
+      "verdict": "pass",
+      "reasoning": "The report clearly states in multiple places that the original invoice total is $487,329.14. For example, in the Review parameters table: 'Invoice amount asserted: $487,329.14', and in Section 1: 'the invoice claims $487,329.14', and in Section 4.1 table: 'Invoice total $487,329.14'. This matches the criterion exactly."
+    },
+    {
+      "id": "C-048",
+      "title": "Identifies administrative support ($2,345.00) as non-reimbursable overhead",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies E-018 admin support ($2,345.00) as 'After-hours word processing and administrative support are expressly non-reimbursable' and recommends 'Disallow full $2,345.' This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-049",
+      "title": "Identifies technology surcharge ($4,853.74) as non-reimbursable overhead",
+      "verdict": "pass",
+      "reasoning": "The report explicitly identifies E-019 technology surcharge of $4,853.74 as a '2% technology-infrastructure charge is a prohibited surcharge/overhead allocation and markup' and recommends 'Disallow full $4,853.74.' This clearly satisfies the criterion."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/review-litigation-invoice-against-outside-counsel-billing-guidelines/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/review-litigation-invoice-against-outside-counsel-billing-guidelines",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:29:12.706187+00:00",
+  "cost": {
+    "input_tokens": 2019618,
+    "output_tokens": 42588,
+    "wall_clock_seconds": 323.75
+  },
+  "doc_coverage": {
+    "documents_read": 5,
+    "total_documents": 5,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "vih-outside-counsel-billing-guidelines-v4.2.docx",
+      "vih-prior-approval-log.docx",
+      "bs-vih-invoice-october-2024.xlsx",
+      "bs-invoice-transmittal-email.eml",
+      "blackwell-stanhope-engagement-letter.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

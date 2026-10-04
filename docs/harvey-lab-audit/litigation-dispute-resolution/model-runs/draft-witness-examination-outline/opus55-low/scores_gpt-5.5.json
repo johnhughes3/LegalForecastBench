@@ -1,0 +1,408 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "60/62 criteria passed.  Missed 2 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 62,
+  "n_passed": 60,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies severance release testimonial carve-out",
+      "verdict": "pass",
+      "reasoning": "The outline expressly identifies the Severance Agreement\u2019s Section 8(b) carve-out, including that it permits testimony compelled by legal process or provided voluntarily in civil litigation, and includes a direct-examination question specifically designed to establish that provision before the jury."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Direct exam includes questions establishing release permits testimony",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline includes a severance agreement block with specific questions about the agreement and Section 8(b), including Q121 asking whether the agreement contains a provision about testifying, with the expected answer that it permits testimony compelled by legal process or provided voluntarily in civil litigation. This directly addresses the litigation carve-out and preempts an argument that his testimony violates the release/non-disparagement provisions."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_002: Identifies prior inconsistent statement on discovery date",
+      "verdict": "pass",
+      "reasoning": "The outline expressly identifies the date inconsistency multiple times, including Cascade's attack that Elliston's deposition referenced Sept. 25 while the Sept. 28 email said he identified the discrepancy 'last week,' and the spreadsheet metadata showed Sept. 22. It also flags related timing issues regarding when MidAmerican POs were identified."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002: Direct exam proactively addresses discovery date inconsistency",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline expressly includes questions designed to clarify the discovery timeline before cross. In Chapter 3, Q28 asks when Elliston first noticed the discrepancy, with an expected answer explaining the sequence from the last full week of September, spreadsheet work around September 22, confirmation and discussion with Voss on Monday September 25, completion around September 27, and email on September 28. Q29 further anchors the September 25 conversation, and the accompanying note states this is intended to defuse the \u201cthree different dates\u201d attack."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Cross-prep anticipates defense attack on date inconsistency",
+      "verdict": "pass",
+      "reasoning": "The cross-preparation section expressly anticipates a defense attack on the date inconsistency, listing Sept. 25 deposition testimony vs. the Sept. 28 email\u2019s \u201clast week\u201d reference and Sept. 22 metadata. It also includes redirect rehabilitation questions in Part VI addressing what \u201clast week\u201d and the Monday reference meant, when the spreadsheet was started, and whether the 1,113 figure changed."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_003: Identifies USB drive data copying as credibility issue",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly identifies the November 20, 2023 personal USB copying of emails, the spreadsheet, and related SAP screenshots, notes Elliston did not have permission and was aware of Cascade's data-security policy, and expressly treats it as a credibility/impeachment issue the defense will exploit, including recommendations to front it on direct and prepare for cross."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003: Direct exam frames USB copying as whistleblower self-preservation",
+      "verdict": "pass",
+      "reasoning": "The direct examination includes a dedicated USB Drive chapter that fronts the copying. It asks about the November 20 copying, limits what was copied, acknowledges lack of permission/policy awareness, and frames the reason as concern that evidence would be suppressed or destroyed after Elliston had escalated to the CEO, CFO, and GC five days earlier with no response. The outline also explicitly notes the chronology that the Greer memo warning/direction to stop came on December 8, after the copying, and emphasizes the whistleblower-style internal escalation context. This satisfies the required self-preservation/precaution framing and timing."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Cross-prep anticipates 'stole company property' attack on USB",
+      "verdict": "pass",
+      "reasoning": "The output expressly anticipates an aggressive USB attack in cross-preparation, including defense claims of \u201ctheft,\u201d \u201cmisappropriation,\u201d violation of Cascade\u2019s data-security policy, and false severance/property certifications. It also provides objections, witness prep points, and specific redirect modules to rehabilitate Elliston regarding why he copied the files, what he copied, whether he altered anything, and the Exhibit A certification issue."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_004: Identifies pre-existing Trimble conflict as bias evidence",
+      "verdict": "pass",
+      "reasoning": "The outline expressly identifies the early 2023 commission-tier disagreement with CFO Angela Trimble, describes the relationship afterward as tense, recommends fronting the issue on direct, and anticipates defense cross arguing bias/animus\u2014that Elliston was motivated by a grudge or desire for ammunition against Trimble rather than genuine compliance concerns."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Direct exam defuses Trimble conflict with context",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline proactively addresses the Trimble commission dispute in Chapter 10, with matter-of-fact questions establishing it occurred in early 2023, involved commission tiers/projections, was normal finance/sales friction, and had nothing to do with the later shipment gap discovered in September 2023. This satisfies the criterion."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_005: Includes FRE 901(a) authentication steps for spreadsheet",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline contains a dedicated spreadsheet authentication section. It asks Elliston whether he created the spreadsheet, when and why, identifies the source data as SAP warehouse shipment logs and SAP sales reporting data, asks how the SAP data was exported/imported and whether he altered the underlying data, and asks whether the exhibit is in substantially the same condition as when created. It also expressly references authentication under FRE 901(b)(1)/901(b)(4), satisfying the FRE 901(a) foundation requirement."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Addresses electronic document authentication best practices",
+      "verdict": "pass",
+      "reasoning": "The outline specifically addresses electronic document authentication issues for the spreadsheet and related files, including native email attachments, metadata discrepancies, forensic hash/metadata report for the USB copy, version control, Cascade-produced email server records, FRE 901(b)(1) and 901(b)(4) foundations, and 902(11) certification for bank records. It does not treat the spreadsheet like a simple paper exhibit."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_006: Features late Q3 2023 royalty report as consciousness of guilt",
+      "verdict": "pass",
+      "reasoning": "The outline prominently identifies the late Q3 2023 royalty report as consciousness-of-guilt evidence, expressly noting it was due October 30 and filed November 17, and Direct Chapter 7C connects the lateness to the October 10 Voss/Trimble meeting and Karen Cho\u2019s report that Trimble instructed accounting to hold the Q3 report after Elliston\u2019s October 5 email. Although the outline prudently suggests proving the exact November 17 filing date through records or Kowalski rather than Elliston due personal-knowledge concerns, the late-report theory is clearly featured and tied to consciousness of guilt."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006: Establishes Elliston's personal knowledge of hold instruction",
+      "verdict": "pass",
+      "reasoning": "The outline directly addresses the October 10 event: it asks what Elliston personally saw regarding Voss and Trimble entering Voss\u2019s office for a closed-door meeting, why he remembers the date, and then\u2014subject to foundation\u2014asks who Karen Cho was, her role in preparing the royalty report, and whether she told Elliston that Trimble instructed accounting to hold the Q3 report. The output also flags the hearsay/personal-knowledge issue and explains that Elliston learned of the hold instruction through Cho rather than hearing Trimble directly."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_007a: Direct exam establishes Elliston's educational qualifications (MBA, Ohio State)",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline includes Chapter 1, Question 2 asking Elliston to describe his educational background, with the expected answer expressly eliciting his MBA from The Ohio State University (2003). This satisfies the criterion."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_007b: Direct exam establishes Elliston's operational responsibilities relevant to financial data",
+      "verdict": "pass",
+      "reasoning": "The direct examination specifically establishes Elliston's operational responsibilities and experience with the financial data: he oversaw 22 regional sales managers, handled sales forecasting, pipeline management, commission and royalty reporting, performed shipment-vs-sales reconciliations, and used Cascade's SAP system daily across sales reporting, purchase orders, inventory, and customer accounts. This directly rebuts the anticipated lack-of-financial-expertise argument."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_007: Cross-prep anticipates 'not a CPA' expertise attack",
+      "verdict": "pass",
+      "reasoning": "The outline expressly anticipates the defense expertise attack in Part V, Prong 4, including questions that Elliston is not a CPA/CMA/CFA, is sales rather than finance, and is not a forensic accountant. It frames the response by limiting his testimony to routine operational reconciliations and avoiding damages/expert opinions, and it includes redirect questions emphasizing his regular shipment-vs-sales reconciliation experience and that the task was operational arithmetic, not expert financial analysis. While not labeled as a formal threat-level rating, the attack is treated as a dedicated cross-examination prong with objections and prep points."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_008a: References FRE 106 rule of completeness for email chains",
+      "verdict": "pass",
+      "reasoning": "The outline expressly references FRE 106 multiple times and emphasizes offering the complete email chains, including the Greer cover email and memo, to avoid excerpting/cherry-picking."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_008b-1: Direct exam introduces Voss's September 28 response",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline expressly includes the September 28 chain and has a question asking Elliston to read Voss's response, with the expected answer: \"I'll look into it. Don't share this with anyone else for now.\""
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_008b-2: Direct exam introduces Trimble's October 6 response",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline expressly introduces the October 5\u20136 email chain and includes a question asking Elliston to read Trimble\u2019s October 6 response: \u201cThis is a finance matter and is being handled. Please focus on your sales targets.\u201d"
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_008b-3: Direct exam introduces Greer's December 8 memo",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline expressly includes a section on the November 15 escalation and the December 8 Greer memo, offering the complete chain and asking the witness to read the memo language that the matter was 'reviewed and resolved' and directing him to 'refrain from further inquiries.'"
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_009: Establishes termination pretext \u2014 sole employee terminated",
+      "verdict": "pass",
+      "reasoning": "The direct examination includes a termination section where Elliston is asked about the purported organizational restructuring and then specifically asked how many people were in sales operations and whether anyone else in the department was terminated, with the expected answer that there were 23 people and none others were terminated to his knowledge. This elicits the required sole-termination/no-other-sales-operations-employees fact."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_009: Establishes position refilled within 24 days",
+      "verdict": "fail",
+      "reasoning": "The direct examination outline does not include questions eliciting that Elliston\u2019s VP of Sales Operations position was refilled on or about February 5, 2024. Instead, it expressly notes that Hoffman\u2019s February 5 promotion should be proven through a stipulation or Cascade witness, not through Elliston. Although the 24-day replacement point appears in themes/chronology, it is not addressed in the direct examination questions as required."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Connects retaliation to consciousness of guilt narrative",
+      "verdict": "pass",
+      "reasoning": "The outline expressly frames the termination/retaliation facts as evidence of Cascade's consciousness of guilt and Elliston's credibility, not as a standalone claim. It identifies termination after escalation, the \u201crestructuring of one,\u201d Voss\u2019s statement, and severance as consciousness-of-guilt evidence, and the direct exam Chapter 11 is explicitly labeled for that purpose while cautioning not to argue retaliation as an independent wrong."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_010: Addresses Voss's 'business decision' as party-opponent admission",
+      "verdict": "pass",
+      "reasoning": "The outline expressly notes the pretrial ruling that Voss's termination statement is admissible under FRE 801(d)(2)(A), describes the required foundation (date, participants, purpose, then words), and structures the direct examination in Chapter 11 to elicit the termination meeting details and the exact statement, \u201cMarcus, this is a business decision, nothing personal.\u201d"
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Notes pretrial ruling supporting admissibility of Voss statements",
+      "verdict": "pass",
+      "reasoning": "The outline expressly references the pretrial ruling on the Voss termination statement: Plaintiff\u2019s MIL 2 was granted, the statement is admissible under Rule 801(d)(2)(A), and counsel must lay the required foundation. It also cites Order \u00a7 IV in the termination examination section and in the anticipated objections table, effectively providing the ruling counsel should invoke if an objection is raised."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_011: Identifies FRE 701 lay opinion limits for Elliston",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly identifies Elliston as a fact witness governed by FRE 602/701, warns not to elicit aggregate damages, unpaid royalties, overall financial impact, or other expert financial conclusions, and repeatedly states that dollar-value and damages calculations should be handled by the forensic accounting expert Kowalski. It also limits Elliston to Q3 factual observations, SAP data, and the permitted per-unit price."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: Direct exam limits Elliston to factual observations",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline is structured to elicit Elliston\u2019s personal observations and factual investigation: SAP shipment/sales data, the 4,217/3,104/1,113 unit gap, PO records, MidAmerican account details, user-ID information, and internal reporting. It expressly cautions counsel not to ask Elliston to calculate aggregate value, total unpaid royalties, seven-quarter diverted revenue, or overall financial impact, and limits dollar testimony to the permitted per-unit resale price. No direct questions ask him to opine on total damages figures such as $7,315,000 or $456,975."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_012: Direct exam establishes SAP user ID 'DVOSS01' linking Voss to scheme",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline expressly builds the SAP foundation: it asks about Elliston\u2019s daily use and familiarity with SAP, explains Cascade\u2019s user-ID convention and non-transferable personal logins, establishes that the MidAmerican customer master account was created on April 18, 2022 by user ID DVOSS01, and elicits that DVOSS01 was Derek Voss\u2019s personal login. This directly links Voss to creation of the MidAmerican account with adequate foundation-building questions."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012b: Foundation questions precede DVOSS01 revelation in direct exam",
+      "verdict": "fail",
+      "reasoning": "The outline lays some SAP/user-ID foundation first, but in Chapter 5 it asks \u201cDid you know Derek Voss\u2019s user ID?\u201d with expected answer \u201cDVOSS01\u201d before asking how Elliston found the MidAmerican account and before eliciting the account creation details. Because the criterion requires those MidAmerican-account foundation questions to precede the question identifying DVOSS01 as Voss\u2019s login, the sequence does not fully satisfy it."
+    },
+    {
+      "id": "C-031",
+      "title": "Direct exam uses non-leading question format",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline expressly calls for non-leading form and predominantly uses open-ended or neutral questions such as \u201cDescribe,\u201d \u201cWhat did you notice,\u201d \u201cWhat did you do next,\u201d \u201cHow did you react,\u201d and \u201cPlease read.\u201d Although it includes some yes/no questions for foundational or background points, they are not predominantly leading or suggestive in the prohibited sense."
+    },
+    {
+      "id": "C-032",
+      "title": "Direct exam includes exhibit introduction with authentication steps",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline identifies multiple specific exhibits to introduce, including the September 28 email chain, October 5\u20136 chain, November 15/December 8 Greer chain, spreadsheet, EDA, severance agreement, and sub-distributor list. It also includes foundation/authentication steps for several, especially the spreadsheet with questions about creation, source data, recognition, condition, and offer under FRE 901, as well as identity/role/context foundations for email chains and severance agreement foundation."
+    },
+    {
+      "id": "C-033",
+      "title": "Direct exam flags anticipated objections and responses",
+      "verdict": "pass",
+      "reasoning": "The outline includes multiple direct-examination notes flagging anticipated objections and proposed responses, including hearsay/foundation for email chains, FRE 701/702 limits on dollar figures, authentication for the spreadsheet, hearsay issues for Karen Cho, legal-conclusion cautions, and a dedicated Part VII table of likely objections on direct with responses/cures."
+    },
+    {
+      "id": "C-034",
+      "title": "Cross-prep identifies personal animus/termination bias attack",
+      "verdict": "pass",
+      "reasoning": "The outline expressly includes a cross-prep section on \u201cBias and animus,\u201d anticipating attacks that Elliston is angry at Voss, wants to get back at Cascade, and has issues with Trimble. It also separately addresses the termination/release bias theme and provides redirect modules to counter motive/Trimble attacks and restructuring/termination attacks, including questions about who received the first email, why Trimble was added, why he signed the severance agreement, and whether he received any restructuring explanation."
+    },
+    {
+      "id": "C-035",
+      "title": "Cross-prep identifies severance release/acceptance of restructuring attack",
+      "verdict": "pass",
+      "reasoning": "The outline expressly anticipates the defense attack that the severance release shows Elliston accepted the restructuring explanation, under Part V Prong 5 (\u201cLegitimate restructuring; release shows he accepted it\u201d). It also proposes redirect strategy in Part VI, including questions about why he signed, whether he was shown a restructuring plan, and whether others in his department lost jobs."
+    },
+    {
+      "id": "C-036",
+      "title": "Cross-prep identifies potential future benefits from Ridgeline attack",
+      "verdict": "pass",
+      "reasoning": "The output anticipates a benefits-based bias attack by asking on direct whether anyone promised Elliston \u201ca job, consulting work, any benefit,\u201d with the expected response that he received only travel expenses and no promises. It also includes witness logistics confirming no compensation or promise, and cross-prep references Ridgeline cooperation as a motive attack with responses that he is not seeking anything and has no promises. Although not framed as a separate cross-exam bullet, the required attack and response are identified."
+    },
+    {
+      "id": "C-037",
+      "title": "Cross-prep includes severity/threat assessments for each attack",
+      "verdict": "pass",
+      "reasoning": "The output includes threat/severity assessments for some anticipated attack vectors, including labeling spreadsheet authentication and severance Exhibit A issues as \u201cCRITICAL\u201d and describing the Exhibit A certification as the \u201cMost dangerous impeachment point.\u201d These relate directly to anticipated cross/impeachment risks, even though the Part V cross section does not use a systematic high/medium/low ranking."
+    },
+    {
+      "id": "C-038",
+      "title": "Cross-prep includes specific redirect examination questions",
+      "verdict": "pass",
+      "reasoning": "The output includes a dedicated \u201cRedirect Examination Modules\u201d section with specific redirect questions tied to anticipated cross-examination attacks, such as discovery date, motive/Trimble, USB/theft, Exhibit A certification, expertise, DVOSS01, release, and hotline issues."
+    },
+    {
+      "id": "C-039",
+      "title": "Cross-prep identifies documents for use on redirect",
+      "verdict": "pass",
+      "reasoning": "The output includes redirect modules and cross-prep that identify specific documents to counter defense attacks, such as the Sept. 28 email chain to address discovery-date and bias issues, the Oct. 5\u20136 chain to counter Trimble/bias attacks, the Greer memo for hotline/internal escalation issues, and the Severance Agreement/carve-out for release-related attacks."
+    },
+    {
+      "id": "C-040",
+      "title": "Part 3 includes issue flags and strategic notes section",
+      "verdict": "pass",
+      "reasoning": "The output contains a distinct 'Part III. Pre-Trial Action Items and Red Flags (Resolve Before Direct)' section that flags evidentiary, procedural, and strategic issues, including spreadsheet authentication, severance certification, hearsay problems, logistics, and references to FRE provisions and pretrial order sections. This satisfies the criterion for a Part 3 or equivalent issue flags and strategic notes section."
+    },
+    {
+      "id": "C-041",
+      "title": "Correct reference to EDA Section 7.3 anti-diversion clause",
+      "verdict": "pass",
+      "reasoning": "The outline references EDA \u00a7 7.3 multiple times in connection with unauthorized sub-distributors, Ridgeline consent, and potential contract violations/diversion concerns, including questions about sales to entities not on the authorized list and lack of written approval. This correctly treats \u00a7 7.3 as the relevant anti-diversion/unauthorized resale provision."
+    },
+    {
+      "id": "C-042",
+      "title": "Correct Q3 2023 unit gap figures: 4,217 shipped vs. 3,104 reported = 1,113 gap",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly and correctly states the Q3 2023 discrepancy as 4,217 units shipped, 3,104 reported sold to authorized customers, resulting in a 1,113-unit gap."
+    },
+    {
+      "id": "C-043",
+      "title": "Correct identification of MidAmerican Distribution Services as shell entity",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly and correctly identifies MidAmerican Distribution Services, LLC as the entity used for the suspicious/diverted purchase orders, with bill-to MidAmerican and ship-to unauthorized entities. Although it strategically cautions against having the witness label it a \u201cshell,\u201d it correctly names MidAmerican and describes its role in the diverted-sales process."
+    },
+    {
+      "id": "C-044",
+      "title": "Correct identification of Great Lakes Pipe & Valve Co. as unauthorized reseller",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly identifies Great Lakes Pipe & Valve Co. in Detroit as a ship-to entity/unauthorized sub-distributor receiving diverted product, including alongside Summit Industrial Supply."
+    },
+    {
+      "id": "C-045",
+      "title": "Correct identification of Summit Industrial Supply, Inc. as unauthorized reseller",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly identifies Summit Industrial Supply, Inc. in Milwaukee as a ship-to entity receiving product and states it was not on the authorized sub-distributor list / lacked Ridgeline approval."
+    },
+    {
+      "id": "C-046",
+      "title": "Correct date of Elliston's first email: September 28, 2023",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly identifies Elliston's first internal email to Voss as being sent on September 28, 2023, including in the chronology and direct examination sections."
+    },
+    {
+      "id": "C-047",
+      "title": "Correct date of Elliston's second email: October 5, 2023",
+      "verdict": "pass",
+      "reasoning": "The outline correctly identifies Elliston's second internal email to Voss and Trimble as sent on October 5, 2023, including in the October 5--6 email chain and chronology."
+    },
+    {
+      "id": "C-048",
+      "title": "Correct date of Elliston's third/formal escalation email: November 15, 2023",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly identifies Elliston's third/formal escalation email to Voss, Trimble, and General Counsel Nathan Greer as occurring on November 15, 2023, including in the objectives, direct examination Chapter 7D, chronology, and related references."
+    },
+    {
+      "id": "C-049",
+      "title": "Correct termination date: January 12, 2024",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly states that Elliston was terminated/left Cascade on January 12, 2024, including in the witness description, direct examination Chapter 11, and chronology."
+    },
+    {
+      "id": "C-050",
+      "title": "References minor unit discrepancy from deposition (approximately 1,100 vs. exactly 1,113)",
+      "verdict": "pass",
+      "reasoning": "The outline expressly identifies the minor discrepancy, including a reference to alleged deposition testimony at page 187 stating \u201cApproximately 1,100 units\u201d versus the repeated exact figure of 1,113, and later lists it as an anticipated prior-inconsistent-statement attack."
+    },
+    {
+      "id": "C-051",
+      "title": "Strategic note on frontloading damaging admissions on direct",
+      "verdict": "pass",
+      "reasoning": "The outline expressly adopts a strategy of proactively addressing weaknesses on direct. It recommends fronting the USB drive, commission dispute, severance/release, and potentially the Exhibit A certification, and the direct examination includes dedicated inoculation chapters for the USB drive and Trimble commission dispute, plus questions to defuse the date inconsistency and severance issues before cross."
+    },
+    {
+      "id": "C-052",
+      "title": "Direct exam background block includes MBA from Ohio State",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline includes a background section, Chapter 1, with Question 2 asking about educational background and the expected answer states: \u201cMBA, The Ohio State University (2003).\u201d"
+    },
+    {
+      "id": "C-053",
+      "title": "Direct exam background block includes VP Sales Ops role at Cascade",
+      "verdict": "pass",
+      "reasoning": "The direct examination includes background sections: Chapter 1 asks where Elliston worked before Triton and for how long, expecting Cascade from August 2018 to January 12, 2024; Chapter 2 asks his title at Cascade, expecting VP of Sales Operations. This establishes both the role and tenure."
+    },
+    {
+      "id": "C-054",
+      "title": "Direct exam background block includes current position at Triton Industrial Partners",
+      "verdict": "pass",
+      "reasoning": "The direct examination outline includes a background question asking where Elliston works today and what he does, with the expected answer identifying him as Director of Business Development at Triton Industrial Partners in Cleveland."
+    },
+    {
+      "id": "C-055",
+      "title": "References deposition page numbers for key testimony",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly references specific deposition page numbers from the Dec. 3, 2024 deposition for key testimony, including pp. 72-74 and 83 for discovery/date issues, pp. 145-152 for the USB drive, pp. 105-106 for the termination/Voss statement, pp. 120-135 for SAP and DVOSS01 testimony, pp. 189-195 for the Trimble commission dispute, and pp. 210-218/215-218 for financial expertise and reconciliation testimony."
+    },
+    {
+      "id": "C-056",
+      "title": "Correct case number reference: 2:24-cv-01847-PDR",
+      "verdict": "pass",
+      "reasoning": "The outline correctly states the case number as 2:24-cv-01847-PDR and also includes the correct case caption, Ridgeline Manufacturing, Inc. v. Cascade Supply Group, LLC."
+    },
+    {
+      "id": "C-057",
+      "title": "Output contains Part 1: Direct Examination Outline",
+      "verdict": "pass",
+      "reasoning": "The output includes a clear and detailed section titled \u201cPart IV. Direct Examination Outline,\u201d covering direct examination of Marcus Elliston with chapters, objectives, questions, expected answers, exhibits, and cautions. This is clearly equivalent to the required Part 1: Direct Examination Outline."
+    },
+    {
+      "id": "C-058",
+      "title": "Output contains Part 2: Cross-Examination Preparation",
+      "verdict": "pass",
+      "reasoning": "The output includes clearly equivalent cross-examination preparation sections: Part V, 'Anticipated Cross-Examination and Responses,' organized by expected attack areas with objections and prep points, and Part VI, 'Redirect Examination Modules.'"
+    },
+    {
+      "id": "C-059",
+      "title": "Output contains Part 3: Strategic Notes / Issue Flags",
+      "verdict": "pass",
+      "reasoning": "The output includes multiple clearly equivalent strategic/issue-flag sections, including Part III titled \u201cPre-Trial Action Items and Red Flags (Resolve Before Direct),\u201d as well as objectives/strategy, strategic decisions, evidentiary cautions, anticipated objections, and witness preparation notes addressing evidentiary, procedural, and strategic issues."
+    },
+    {
+      "id": "C-060",
+      "title": "Elliston's three emails correctly described with subject lines",
+      "verdict": "pass",
+      "reasoning": "The outline includes the correct Sept. 28 subject line, \u201cDiscrepancy in Q3 Shipment vs. Sales Data \u2014 Need to Discuss,\u201d and the correct Nov. 15 subject line, \u201cFormal Escalation \u2014 Potential Contract Violations and Reporting Irregularities.\u201d Although the Oct. 5 subject line is not clearly stated, at least two correct subject lines are referenced."
+    },
+    {
+      "id": "C-061",
+      "title": "MidAmerican SAP account creation date: April 18, 2022",
+      "verdict": "pass",
+      "reasoning": "The outline explicitly states multiple times that the MidAmerican SAP/customer account was created on April 18, 2022, including in the objectives, direct examination questions, and chronology."
+    },
+    {
+      "id": "C-062",
+      "title": "Addresses Nathan Greer December 8 memo directing Elliston to cease inquiries",
+      "verdict": "pass",
+      "reasoning": "The outline repeatedly addresses Nathan Greer\u2019s December 8, 2023 memo, including the statements that the matter was \u201creviewed and resolved\u201d and that Elliston should \u201crefrain from further inquiries.\u201d It incorporates the memo into the direct examination, chronology, themes, and cover-up/consciousness-of-guilt narrative."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-witness-examination-outline/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-witness-examination-outline",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T21:15:25.764900+00:00",
+  "cost": {
+    "input_tokens": 26,
+    "output_tokens": 34302,
+    "wall_clock_seconds": 342.12
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 8,
+    "documents_skipped": 1,
+    "documents_read_list": [
+      "pretrial-order-evidentiary-rulings.docx",
+      "elliston-deposition-excerpts.docx",
+      "cascade-trial-brief-excerpt.docx",
+      "elliston-email-chain.docx",
+      "elliston-severance-agreement.docx",
+      "q3-unit-discrepancy-spreadsheet.xlsx",
+      "forensic-accounting-summary.docx"
+    ],
+    "documents_skipped_list": [
+      "distribution-agreement.docx"
+    ]
+  }
+}

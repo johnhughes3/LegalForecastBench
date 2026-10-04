@@ -1,0 +1,511 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "51/79 criteria passed.  Missed 28 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 79,
+  "n_passed": 51,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Executive Summary identifies key parties",
+      "verdict": "pass",
+      "reasoning": "The memo includes an opening Executive assessment section functioning as an executive summary, and it identifies Dalton, Ironclad, and HydraCore as key parties."
+    },
+    {
+      "id": "C-002",
+      "title": "Executive Summary references the March 14, 2025 hydraulic press failure incident",
+      "verdict": "pass",
+      "reasoning": "The Executive assessment references the press/product failure and related defective accumulator/press design issues, and the memorandum heading also identifies the March 14, 2025 HX-9000 press failure incident."
+    },
+    {
+      "id": "C-003",
+      "title": "Executive Summary mentions death of Marco Reyes",
+      "verdict": "fail",
+      "reasoning": "The Executive Summary/Executive assessment does not specifically mention that Marco Reyes died. His death is mentioned later in the record/incident section, but not in the executive summary section."
+    },
+    {
+      "id": "C-004",
+      "title": "Executive Summary mentions injuries to Trask and Anand",
+      "verdict": "fail",
+      "reasoning": "The Executive Summary/Executive assessment does not mention Trask or Anand or their injuries; they are only discussed later in the memorandum."
+    },
+    {
+      "id": "C-005",
+      "title": "Executive Summary mentions Dalton's property/business losses",
+      "verdict": "fail",
+      "reasoning": "The Executive Summary/Executive assessment discusses liability, contract caps, consequential-damages exclusions, OSHA exposure, and deadlines, but it does not specifically reference Dalton\u2019s own property damage, equipment loss, production downtime, or business interruption losses. Those losses are addressed later, not in the Executive Summary."
+    },
+    {
+      "id": "C-006",
+      "title": "Liability Analysis discusses manufacturing defect (defective HydraCore bladder)",
+      "verdict": "pass",
+      "reasoning": "The memo includes a Liability Assessment section with a specific table entry for \u201cHydraCore \u2014 manufacturing defect,\u201d discussing the defective HC-ABL-440 accumulator bladder, testing below tensile-strength specifications, excessive plasticizer content, and related proof issues."
+    },
+    {
+      "id": "C-007",
+      "title": "Liability Analysis discusses design defect (omission of redundant pressure relief)",
+      "verdict": "pass",
+      "reasoning": "The liability analysis expressly discusses an Ironclad design defect/negligent design claim based on the lack of an independent/dedicated redundant accumulator-circuit pressure relief mechanism, noting that such relief could have allowed controlled bleed-down rather than rod ejection."
+    },
+    {
+      "id": "C-008",
+      "title": "Liability Analysis discusses failure to warn",
+      "verdict": "pass",
+      "reasoning": "The Liability Assessment expressly identifies inadequate warning and post-sale warning/recall claims, and includes a table row for Ironclad addressing warnings and post-sale response."
+    },
+    {
+      "id": "C-009",
+      "title": "Liability Analysis addresses negligence claims",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses negligence as a separate liability theory, including negligence claims against HydraCore and Ironclad, negligent design/integration by Ironclad, related negligence/warranty theories for HydraCore, and defenses involving comparative negligence/fault."
+    },
+    {
+      "id": "C-010",
+      "title": "Liability Analysis addresses breach of warranty claims",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses breach of express warranty/contract claims against Ironclad, including the 24-month parts-and-labor warranty, conformity/free-from-defects language, warranty notice, third-party component exclusion, and remedies. It also mentions preserving warranty theories generally."
+    },
+    {
+      "id": "C-011",
+      "title": "Arbitration clause identified as applying to Dalton's commercial/contract claims",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that Ironclad\u2019s terms require Michigan-law AAA arbitration in Grand Rapids for disputes arising from the PO/products and recommends that Dalton comply with the negotiation and AAA path for its affirmative claims against Ironclad, including contract/warranty/product claims."
+    },
+    {
+      "id": "C-012",
+      "title": "Arbitration clause likely unenforceable against non-signatory employees/estate",
+      "verdict": "pass",
+      "reasoning": "The memo expressly distinguishes the injured employees/estate from Dalton as non-signatories, states their claims are separate, notes they did not sign the purchase order, and warns not to assume the arbitration clause binds the family or injured workers. This addresses enforceability of the clause as to the non-signatory employees/estate rather than treating it as equally binding on all parties."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_001: Ohio public policy on arbitration of wrongful death/tort claims",
+      "verdict": "fail",
+      "reasoning": "The memo notes that the arbitration clause purports to cover tort/strict-liability claims and says to preserve generic 'public policy' and non-signatory objections, including as to personal injury claimants. However, it does not actually discuss Ohio public policy disfavoring or limiting arbitration of wrongful-death/personal-injury tort claims, nor does it analyze FAA preemption in that context. The references are too general to satisfy the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "Limitation of liability cap at $1,287,500 purchase price analyzed",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly discusses Ironclad's contractual limitation of liability capping aggregate liability at the $1,287,500 purchase price, including in the executive assessment, contract/procedural defenses table, damages section, and action plan, and analyzes enforceability/application issues."
+    },
+    {
+      "id": "C-015",
+      "title": "Consequential damages exclusion analyzed",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses Ironclad's contractual exclusion of consequential damages multiple times, including in the executive assessment, the contract/procedural defenses table, and damages analysis. It identifies excluded categories such as lost profits, business interruption, production downtime, and other commercial consequential losses, and recommends contesting enforceability/application."
+    },
+    {
+      "id": "C-016",
+      "title": "Liability cap likely unenforceable for personal injury/wrongful death tort claims",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the liability cap and consequential-damages exclusion and says their application to personal injury, wrongful death, non-signatories, gross negligence, and public policy/unconscionability should be contested. However, it does not conclude that the cap/exclusion are likely unenforceable as applied to personal injury and wrongful-death tort claims; instead it treats enforceability as a material risk/uncertain issue. Therefore it does not satisfy the specific criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_002: Reference to UCC \u00a7 2-719(3) or equivalent on personal injury limitations",
+      "verdict": "fail",
+      "reasoning": "The memo notes that liability caps and consequential-damages exclusions should be contested as to personal injury, gross negligence, nonparties, etc., and mentions unconscionability/public policy generally. However, it does not cite UCC \u00a7 2-719(3), Ohio R.C. \u00a7 2307.72 et seq., the Ohio Products Liability Act, or any equivalent statutory/common-law authority for the prima facie unconscionability of limiting consequential damages for personal injury. Therefore it does not satisfy the criterion."
+    },
+    {
+      "id": "C-018",
+      "title": "Dual causation: HydraCore bladder manufacturing defect identified as proximate cause",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the HydraCore HC-ABL-440 accumulator bladder defect, including abnormally low tensile strength and excess plasticizer, as initiating the rupture and as part of the dual-cause/proximate-cause theory for the incident."
+    },
+    {
+      "id": "C-019",
+      "title": "Dual causation: Ironclad's design omission of redundant pressure relief as contributing cause",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Ironclad's design/integration deficiency, specifically the absence of a dedicated redundant pressure-relief mechanism on the accumulator circuit, as an amplifying design defect and part of a dual-cause theory contributing to the fatal rod ejection."
+    },
+    {
+      "id": "C-020",
+      "title": "Dual causation analysis: interplay of both causal factors discussed",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly analyzes dual causation: it states the defective HydraCore bladder initiated the rupture while Ironclad\u2019s lack of a dedicated redundant accumulator relief amplified the pressure transient into the fatal piston-rod ejection. It also discusses allocation, counterfactual relief performance, and distinguishes rupture causation from injury severity."
+    },
+    {
+      "id": "C-021",
+      "title": "Fault apportionment between Ironclad and HydraCore discussed",
+      "verdict": "fail",
+      "reasoning": "The memo identifies dual causation by HydraCore and Ironclad and notes that no numerical fault allocation should be stated yet, but it does not meaningfully discuss how fault would be apportioned between those defendants under Ohio\u2019s comparative fault scheme, nor does it reference R.C. \u00a7 2315.33 or an equivalent framework."
+    },
+    {
+      "id": "C-022",
+      "title": "Ironclad's potential contribution/indemnity claim against HydraCore",
+      "verdict": "fail",
+      "reasoning": "The memo discusses claims against both Ironclad and HydraCore, allocation of fault, and Ironclad's potential indemnity claim against Dalton, but it does not mention that Ironclad may pursue contribution or indemnity against HydraCore."
+    },
+    {
+      "id": "C-023",
+      "title": "Brennan-Cutler email chain (February 3-5, 2025) identified as punitive damages evidence",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the February 3\u20135 emails involving Cutler and Brennan and explicitly connects them to punitive exposure/potential punitive damages, including stating that the emails increase punitive exposure and support a potential punitive theory."
+    },
+    {
+      "id": "C-024",
+      "title": "Ironclad had pre-incident knowledge of accumulator pressure problems in other HX-9000 units",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that Ironclad\u2019s February 2025 emails discussed multiple HX-9000 accumulator complaints, including pressure alarms, identified the Dalton unit, and reflected a decision to delay a field bulletin with no bulletin/recall before the fatal incident."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_004: Cutler's 'paper trail' language as conscious disregard evidence",
+      "verdict": "pass",
+      "reasoning": "The memo discusses punitive exposure and specifically cites the February emails, including the stated desire to avoid a \"paper trail,\" as evidence increasing punitive exposure. Although it does not quote the full \"plaintiffs' lawyers will love\" language or explicitly tie it to R.C. \u00a7 2315.21/conscious disregard in those exact words, it substantially references the paper-trail language as punitive-damages evidence in context."
+    },
+    {
+      "id": "C-026",
+      "title": "OSHA LOTO citation identified with specific violation and penalty",
+      "verdict": "fail",
+      "reasoning": "The memo references OSHA LOTO deficiencies and total OSHA penalties of $31,400, but it does not identify the specific LOTO citation under 29 CFR 1910.147(c)(4)(i) or the specific $18,900 penalty."
+    },
+    {
+      "id": "C-027",
+      "title": "OSHA machine guarding citation identified with specific violation and penalty",
+      "verdict": "fail",
+      "reasoning": "The memo references OSHA machine-guarding issues generally and lists total OSHA penalties of $31,400, but it does not identify the specific machine guarding citation under 29 CFR 1910.212(a)(1) or the $12,500 penalty."
+    },
+    {
+      "id": "C-028",
+      "title": "OSHA citations analyzed as comparative fault/contributory negligence defense for Ironclad",
+      "verdict": "pass",
+      "reasoning": "The memo expressly analyzes the OSHA citation as creating comparative-fault risk, stating that Ironclad/defendants are likely to argue Dalton\u2019s LOTO and guarding deficiencies contributed to injury severity and support comparative fault, negligent conduct, and indemnity defenses."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_005: Analysis of OSHA citations as negligence per se vs. evidence of negligence",
+      "verdict": "pass",
+      "reasoning": "The memo does more than merely list the OSHA citations as a defense risk: it states that the citation is not itself a finding of fault or negligence, while the underlying findings/evidence and any final order may still be damaging in civil litigation. Although it does not explicitly use the terms \u201cnegligence per se\u201d or provide a detailed Ohio admissibility analysis, it addresses the citations\u2019 legal/evidentiary significance sufficiently under the criterion\u2019s alternative allowance for analyzing evidentiary weight."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_005: LOTO citation relates to accumulator energy isolation",
+      "verdict": "pass",
+      "reasoning": "The memo expressly connects the OSHA/LOTO issue to the HX-9000 accumulator, noting the citation said the accumulator isolation valve lacked a lockout hasp and describing OSHA exposure over \u201caccumulator energy isolation.\u201d It also discusses Dalton\u2019s own exposure, absence of an accumulator-specific procedure, and risk from accepting the OEM configuration, which sufficiently suggests Dalton may have had an independent responsibility to ensure stored accumulator energy could be safely isolated."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_006: Workers' comp subrogation rights against third-party tortfeasors",
+      "verdict": "pass",
+      "reasoning": "The memo discusses workers\u2019 compensation liens/subrogation multiple times, including BWC benefits/subrogation for the injured workers and Reyes dependents, quantifying BWC benefits/subrogation and employer statutory subrogation interests, and coordinating statutory benefits, liens/subrogation, and employer recovery rights. Although it does not cite R.C. \u00a7 4123.931 or expressly name Ironclad/HydraCore in that sentence, it sufficiently addresses workers\u2019 comp subrogation rights in the context of third-party claims."
+    },
+    {
+      "id": "C-032",
+      "title": "Employer intentional tort risk under Ohio R.C. \u00a7 2745.01",
+      "verdict": "fail",
+      "reasoning": "The memo mentions that workers\u2019 compensation exclusivity may limit employee claims and states that the current record does not establish an employer-intentional-tort claim, but it does not identify Ohio R.C. \u00a7 2745.01, the deliberate-intent-to-injure standard, or otherwise explain the high evidentiary threshold for such a claim."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_006: Interaction between Dalton's own claims and WC subrogation liens",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly flags BWC/workers' compensation liens and subrogation as unresolved and needing coordination with claimant counsel, and specifically notes that settlement must address BWC liens, employees' separate claims, and Dalton's property/BI losses. It also calls for separate gross/recoverable/capped models and coordination without waiving Dalton's rights, which sufficiently identifies the complexity of coordinating Dalton's corporate recovery with employee recoveries and WC subrogation."
+    },
+    {
+      "id": "C-034",
+      "title": "Contractual 12-month statute of limitations identified",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies Ironclad\u2019s contractual 12-month limitation several times, including noting a 12-month claim deadline and specifying Section 15.3 requires claims to be commenced within 12 months after the March 14, 2025 event, with a March 14, 2026 deadline."
+    },
+    {
+      "id": "C-035",
+      "title": "March 14, 2026 deadline calculated for contractual limitations period",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the 12-month contractual limitation would bar claims accruing March 14, 2025 after March 14, 2026, and recommends filing AAA arbitration well before March 14, 2026."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_007: Analysis of enforceability of shortened limitations for tort vs. contract claims",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the 12-month contractual limitations provision, advises treating it as controlling for planning for Dalton\u2019s claims unless invalidated, and notes that enforceability/application to personal injury and non-signatory injured workers should be contested. However, it does not meaningfully analyze the enforceability distinction required by the criterion: it does not state or explain that the shortened period may be enforceable for commercial/contract claims but is likely unenforceable for personal injury/wrongful-death tort claims. The discussion is too general and does not provide the required tort-vs-contract limitations analysis."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_007: Flagged as critical calendar item regardless of enforceability",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly flags the March 14, 2026 contractual limitations date as a critical planning deadline, expressly says to treat it as controlling unless invalidated, warns that negotiation/tolling requests may not satisfy commencement, and recommends filing arbitration well before that date absent a signed tolling agreement."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_008: Personal jurisdiction over HydraCore under stream-of-commerce theory",
+      "verdict": "fail",
+      "reasoning": "The memo mentions that HydraCore's forum and personal-jurisdiction positions should be analyzed separately, but it does not actually analyze Ohio personal jurisdiction over HydraCore under a stream-of-commerce theory or note the specific component-supplier facts required by the criterion."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_008: Reference to J. McIntyre or post-Nicastro stream-of-commerce limitations",
+      "verdict": "fail",
+      "reasoning": "The memo does not reference J. McIntyre, Bristol-Myers Squibb, or any post-Nicastro Supreme Court limitations on stream-of-commerce jurisdiction. It only briefly notes that HydraCore\u2019s forum and personal-jurisdiction positions should be analyzed separately, without discussing minimum contacts or due process requirements for asserting jurisdiction over the component manufacturer."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_008: Reference to Ohio long-arm statute",
+      "verdict": "fail",
+      "reasoning": "The memo mentions analyzing HydraCore's forum and personal jurisdiction issues, but it does not cite or reference Ohio's long-arm statute, R.C. \u00a7 2307.382, or an equivalent long-arm statute reference."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_009: Choice-of-law clause governs contract but likely not tort claims",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the Michigan choice-of-law/arbitration clause and notes that choice-of-law issues must be analyzed claim-by-claim, but it does not conclude that Michigan law likely governs only contract/warranty claims while Ohio law likely governs tort claims such as strict liability and negligence. It instead leaves the issue unresolved and even describes the arbitration clause as covering tort and strict-liability theories."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_009: Ohio choice-of-law methodology referenced",
+      "verdict": "fail",
+      "reasoning": "The memo discusses choice-of-law issues and Michigan contractual governing-law provisions generally, but it does not identify Ohio's choice-of-law methodology or any framework such as the Restatement (Second) of Conflict of Laws, lex loci delicti, or the most-significant-relationship test."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_010: CGL employer's liability exclusion identified",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the Pinnacle Mutual CGL policy and states that its employer's-liability exclusion bars bodily injury claims by Dalton employees in the course of employment, meaning those employee claims are not covered by the CGL."
+    },
+    {
+      "id": "C-044",
+      "title": "Aggregate exposure exceeds CGL per-occurrence limit",
+      "verdict": "fail",
+      "reasoning": "The memo states the workbook aggregate total is approximately $11.8M\u2013$18.8M and separately lists the CGL per-occurrence limit as $5M, but it does not expressly identify that the aggregate exposure substantially exceeds the $5M CGL limit or discuss the resulting coverage gap."
+    },
+    {
+      "id": "C-045",
+      "title": "Umbrella policy adequacy discussed relative to aggregate exposure",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the $15M umbrella policy and separately lists aggregate damages/exposure, and it notes exclusions/limitations on umbrella availability. However, it does not actually analyze whether the $15M umbrella is adequate relative to the total estimated exposure (e.g., comparing limits to the $11.8M\u2013$18.8M aggregate range or explaining any coverage gap)."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_010: Missing first-party property/business interruption coverage flagged",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags first-party property/business interruption coverage as a critical gap, states no declarations or evidence of such coverage are in the supplied file, and recommends searching all broker binders, policies, endorsements, and related placements and tendering physical damage, extra expense, and BI claims if coverage exists."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_011: Evidence preservation \u2014 litigation hold recommendation",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly recommends issuing or refreshing a litigation hold covering electronic records such as email, texts, logs, and other records, and also directs preservation of physical evidence including the press, accumulator, bladder fragments, fluid samples, and related materials."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_011: Preservation of physical evidence (press wreckage, bladder, fluid, logs)",
+      "verdict": "pass",
+      "reasoning": "The memo specifically recommends preserving key physical/electronic evidence, including the entire press, accumulator, bladder fragments, fluid samples, control unit/drive, scene photos, and machine-control logs. This satisfies the criterion."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_011: Invite Ironclad/HydraCore to inspect or obtain OSHA records",
+      "verdict": "pass",
+      "reasoning": "The memo recommends a joint inspection protocol with Ironclad and HydraCore and states that no destructive testing, repair, disposal, or alteration should occur without advance notice and a joint-inspection protocol. This satisfies the criterion by inviting relevant parties to inspect preserved evidence to avoid spoliation issues."
+    },
+    {
+      "id": "C-050",
+      "title": "Dalton's claims distinguished from employee/estate claims",
+      "verdict": "pass",
+      "reasoning": "The memo clearly distinguishes Dalton\u2019s corporate claims from the employee/estate claims. It states that the wrongful-death and personal-injury matters belong to the individuals/estate, not Dalton, and separately identifies Dalton\u2019s direct losses as property damage, business interruption/production losses, OSHA penalties, and related corporate recovery issues. It also notes potential indemnity/contribution exposure separately."
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_012: Reyes wrongful death claim must be brought by estate administrator",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that the Reyes wrongful-death claim requires a personal representative and that one has not yet been appointed/identified, and it recommends appointing/identifying the Reyes estate personal representative. This addresses standing to bring the wrongful death claim in equivalent terms."
+    },
+    {
+      "id": "C-052",
+      "title": "ISSUE_012: Conflict of interest analysis \u2014 representing Dalton and employees",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that Whitaker & Colton's engagement is corporate-only for Dalton, that the injured employees' and Reyes estate's claims belong to them rather than Dalton, and that separate representation/conflict concerns must be addressed. It specifically recommends ensuring separate counsel for the estate, Trask, and Anand, not advising or negotiating their claims as their lawyer, while coordinating with claimant counsel on liens/subrogation and strategy-related issues."
+    },
+    {
+      "id": "C-053",
+      "title": "ISSUE_012: Engagement letter scope limited to Dalton noted",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that the engagement letter limits counsel\u2019s client to Dalton Precision Manufacturing, Inc. only, excludes individual officers/employees/agents, and repeatedly flags the need for separate representation/conflict handling for the injured employees and estate."
+    },
+    {
+      "id": "C-054",
+      "title": "Damages: Reyes wrongful death total range approximately $5.1M\u2013$9.1M",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states the Reyes wrongful death / estate estimate as $5,099,700\u2013$9,099,700, which matches the required approximately $5.1M\u2013$9.1M range."
+    },
+    {
+      "id": "C-055",
+      "title": "Damages: Trask personal injury total range approximately $4.56M\u2013$7.16M",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states the Trask personal injury estimate as $4,557,955\u2013$7,157,955, which matches the required approximate $4.56M\u2013$7.16M range."
+    },
+    {
+      "id": "C-056",
+      "title": "Damages: Anand personal injury total range approximately $453K\u2013$903K",
+      "verdict": "pass",
+      "reasoning": "The memo expressly lists Anand personal injury at $452,887\u2013$902,887, which is approximately the required $453K\u2013$903K range."
+    },
+    {
+      "id": "C-057",
+      "title": "Dalton direct losses total approximately $1.67M",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states \u201cDalton direct losses currently listed\u201d as $1,673,750, which exactly matches the criterion and is within the required range."
+    },
+    {
+      "id": "C-058",
+      "title": "Dalton direct losses broken down into at least three of five components",
+      "verdict": "pass",
+      "reasoning": "The memo identifies at least three required Dalton direct loss components, including the $974,050 lost contribution margin, $412,000 outsourcing costs, $31,400 OSHA penalties, and further breaks out the $189,000 Haas mill/equipment item and $67,300 facility repairs."
+    },
+    {
+      "id": "C-059",
+      "title": "Damages: Aggregate exposure range approximately $11.8M\u2013$18.8M",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly provides a workbook aggregate total of $11,784,292\u2013$18,834,292 and a midpoint of $15,309,292, which matches the required approximate $11.8M\u2013$18.8M range."
+    },
+    {
+      "id": "C-060",
+      "title": "Reyes lost earnings PV approximately $1.89M stated",
+      "verdict": "fail",
+      "reasoning": "The memo provides a total economic damages figure for Reyes of $2,099,700 but does not state the present value of Reyes's lost future earnings as approximately $1.89M or $1,890,000."
+    },
+    {
+      "id": "C-061",
+      "title": "Reyes lost earnings calculation assumptions stated",
+      "verdict": "fail",
+      "reasoning": "The memo states the total Reyes economic damages figure but does not mention any of the specified lost earnings PV assumptions: approximately $79,600 annual compensation, 31-year work-life expectancy, 2.5% growth, or 3.0% discount rate."
+    },
+    {
+      "id": "C-062",
+      "title": "Venue recommendation: Ohio state court or federal court with supporting analysis",
+      "verdict": "fail",
+      "reasoning": "The memo includes a venue discussion, but it recommends arbitration in Grand Rapids for Dalton\u2019s claims and only generally references Ohio courts/provisional relief. It does not make a recommendation between Montgomery County Court of Common Pleas and the U.S. District Court for the Southern District of Ohio (Dayton) with supporting analysis."
+    },
+    {
+      "id": "C-063",
+      "title": "Federal diversity jurisdiction: complete diversity correctly identified",
+      "verdict": "fail",
+      "reasoning": "The memo discusses venue, arbitration, Ohio/Michigan forums, and HydraCore separately, but it does not analyze federal diversity jurisdiction or identify the parties' citizenships showing complete diversity. Under the criterion, absence of diversity jurisdiction analysis is a fail."
+    },
+    {
+      "id": "C-064",
+      "title": "Personal jurisdiction over Ironclad in Ohio established",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Ohio as the factual forum and notes Ohio courts may be used for provisional relief, but it does not state or conclude that Ironclad is subject to personal jurisdiction in Ohio based on sales, installation technicians, or Ohio long-arm provisions. Personal jurisdiction over Ironclad in Ohio is therefore not established as required."
+    },
+    {
+      "id": "C-065",
+      "title": "Key deadline: Ohio tort/wrongful death SOL \u2014 March 14, 2027",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the contractual 12-month deadline of March 14, 2026, but does not identify the Ohio 2-year statute of limitations for products liability or wrongful death claims, nor the March 14, 2027 deadline."
+    },
+    {
+      "id": "C-066",
+      "title": "Key deadline: UCC warranty claims \u2014 December 16, 2028",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the 24-month warranty period ending December 16, 2026 and a 12-month contractual limitation expiring March 14, 2026, but it does not identify the 4-year UCC warranty statute of limitations or the December 16, 2028 deadline calculated from acceptance."
+    },
+    {
+      "id": "C-067",
+      "title": "Memo covers all 10 requested topics (threshold: no more than 1 absent)",
+      "verdict": "pass",
+      "reasoning": "The memo substantively covers all 10 requested topics: it has an executive assessment, liability analysis, defenses/exposure risks, damages, insurance, venue/jurisdiction strategy, workers' compensation discussion, representation/conflict cautions, litigation strategy/deadlines, and evidence preservation steps. Thus no more than one topic is absent."
+    },
+    {
+      "id": "C-068",
+      "title": "Bladder tensile strength finding: approximately 1,450 PSI actual vs. 2,800 PSI specification",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states that the bladder compound had a mean tensile strength of 1,450 psi versus a 2,800-psi minimum specification."
+    },
+    {
+      "id": "C-069",
+      "title": "Bladder defect: excessive plasticizer content identified",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly states the bladder had mean plasticizer content of 18.7% versus a 12.0% maximum and links the low tensile strength/high plasticizer findings to a likely compounding error."
+    },
+    {
+      "id": "C-070",
+      "title": "Design defect: absence of secondary pressure relief valve on HX-9000 accumulator",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses the HX-9000 design issue, stating there was an \u201cabsence of dedicated redundant relief on the accumulator circuit\u201d and \u201cNo independent accumulator-circuit relief,\u201d which satisfies the requirement to identify the missing secondary/redundant pressure-relief mechanism."
+    },
+    {
+      "id": "C-071",
+      "title": "Industry standards (NFPA T2.6.1-2020 and/or ISO 4413:2010) require redundant pressure relief",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the missing independent/dedicated redundant relief on the accumulator circuit and, in that same design-defect context, cites NFPA T2.6.1-2020 and ISO 4413:2010 for verification of the relevant standards language. Although cautious, it connects those industry standards to the secondary relief issue."
+    },
+    {
+      "id": "C-072",
+      "title": "Dr. Cordero's opinion that secondary relief valve would have prevented fatality",
+      "verdict": "pass",
+      "reasoning": "The memo expressly references Dr. Cordero\u2019s opinion, stating that a dedicated redundant/secondary relief valve would have produced a controlled bleed-down rather than piston rod ejection."
+    },
+    {
+      "id": "C-073",
+      "title": "Recommendation to contest Dalton's OSHA citations",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags the OSHA contest deadline as 15 working days from actual receipt and recommends filing a protective written Notice of Contest, along with requesting an informal conference and preserving proof."
+    },
+    {
+      "id": "C-074",
+      "title": "Memo contains at least 5 distinct actionable recommendations",
+      "verdict": "pass",
+      "reasoning": "The memo contains far more than 5 distinct actionable recommendations, including filing/protecting an OSHA contest deadline, preserving evidence and litigation holds, confirming insurance notices and policies, serving a formal Ironclad dispute notice and starting executive negotiations, requesting joint inspection protocols, coordinating separate counsel for employees/estate, rebuilding damages, and filing AAA arbitration before the contractual deadline."
+    },
+    {
+      "id": "C-075",
+      "title": "Punitive damages claim viability analyzed under Ohio law",
+      "verdict": "fail",
+      "reasoning": "The memo discusses punitive exposure against Ironclad based on the February emails and notes that the evidence is not dispositive, but it does not analyze Ohio punitive damages viability using the required legal threshold, such as malice, conscious disregard, or R.C. \u00a7 2315.21. It only references unspecified statutory standards in passing."
+    },
+    {
+      "id": "C-076",
+      "title": "CGL 'your product' exclusion identified or discussed",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Dalton's CGL coverage and the employer's-liability exclusion, but it does not mention or discuss the CGL 'your product' exclusion as a coverage factor."
+    },
+    {
+      "id": "C-077",
+      "title": "Umbrella policy details: $15M excess over $5M primary, follow-form",
+      "verdict": "pass",
+      "reasoning": "The memo discusses the Great Plains excess/umbrella policy, identifies a $15M each occurrence/aggregate limit, states that it is follow-form, and places it in relation to the Pinnacle $5M CGL primary limits."
+    },
+    {
+      "id": "C-078",
+      "title": "Recommendation to coordinate with or refer employees to independent counsel",
+      "verdict": "pass",
+      "reasoning": "The memo expressly recommends ensuring separate counsel for the Reyes estate, Trask, and Anand, notes the firm represents only Dalton, and discusses coordination with claimant counsel on liens/subrogation. This satisfies the requirement to recommend referral/independent counsel or coordination."
+    },
+    {
+      "id": "C-079",
+      "title": "HydraCore identified as a necessary defendant",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly identifies HydraCore Components, LLC as a target/potential defendant, specifically as manufacturer of the defective HC-ABL-440 accumulator bladder, discusses claims against HydraCore, discovery from HydraCore, insurance demands, and whether HydraCore should be included in arbitration or pursued separately."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-defective-industrial-equipment-product-liability/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-defective-industrial-equipment-product-liability",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:40:21.415249+00:00",
+  "cost": {
+    "input_tokens": 1124753,
+    "output_tokens": 22902,
+    "wall_clock_seconds": 185.86
+  },
+  "doc_coverage": {
+    "documents_read": 10,
+    "total_documents": 9,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "engagement-letter.docx",
+      "forensic-report.docx",
+      "insurance-dec-pages.docx",
+      "ironclad-standard-terms.docx",
+      "osha-citations.docx",
+      "ironclad-emails.eml",
+      "purchase-order.docx",
+      "incident-report.docx",
+      "damages-summary.xlsx",
+      "/workspace/output/case-assessment-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

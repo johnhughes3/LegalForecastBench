@@ -1,0 +1,316 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "41/46 criteria passed.  Missed 5 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 46,
+  "n_passed": 41,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies lease period discrepancy in reliance damages",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly addresses the lease period discrepancy. In Stipulated Fact 28, it states: 'Of the Total Rent, approximately $770,833.35 represents the fifteen months of rent from March 2023 through May 2024, the period remaining after termination of the EDA.' In Section 3, Issue 12, it distinguishes between the full $2,325,000 in reliance expenditures and the 'unrecouped post-termination portion' of $1,245,833.35 ($770,833.35 in post-termination rent plus $475,000 in equipment). In Section 5, Issue D, it again references both the full and post-termination figures. The output clearly distinguishes between the portion of the lease used during contract performance and the remaining unusable portion, satisfying the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_002: Addresses duplicative damages theory (expectation vs. reliance)",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly addresses the tension between expectation damages (lost profits) and reliance damages in multiple places. Section 5, Issue D is entirely devoted to 'Relationship between expectation damages (Count I) and reliance damages (Count II); prevention of double recovery.' The agent acknowledges that 'Ridgeline recognizes that it may not recover twice for the same loss' and proposes a special verdict form to allow the Court to mold the judgment. The agent also allocates reliance damages primarily to Count II (fraudulent inducement) rather than Count I (breach of contract), and notes that 'To the extent any reliance expenditure would have been recouped from the gross profit Ridgeline recovers on Count I, the Court should reduce the Count II award by the overlap only.' Additionally, Issue 13 in Section 3 addresses whether reliance losses would have been recouped from full performance, and the agent notes that Defendant's expert 'cannot identify any actual double-counting.' The output clearly recognizes the tension and reconciles the theories by allocating reliance damages to the fraud claim while preserving expectation damages for the contract claim, with a proposed mechanism to prevent duplicative recovery."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_003a: Addresses statute of limitations defense on fraud claim with 2-year period",
+      "verdict": "pass",
+      "reasoning": "The output extensively addresses the statute of limitations defense on the fraud claim. In Section 3, Issue 8, it discusses the two-year limitations period of 42 Pa. C.S. \u00a7 5524(7), the discovery rule, and when Ridgeline knew or should have known of the fraud. In Section 5, Issue H, it provides a full legal analysis of the limitations defense, citing 42 Pa. C.S. \u00a7 5524(7), Fine v. Checcio, and Cochran v. GAF Corp. The output also notes that the complaint was filed March 10, 2023, and addresses the timing of the misrepresentations (October 2020\u2013February 2021), arguing that even on Corbin Supply's best theory (Year 1 shortfall February 28, 2022 or cure notice March 15, 2022), Count II was asserted within two years. The output clearly identifies the 2-year period, the relevant statute, and the timing issues."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_003b: Invokes discovery rule for fraud statute of limitations",
+      "verdict": "pass",
+      "reasoning": "The output explicitly invokes the discovery rule in multiple places. In Section 3, Issue 8, it states: 'When Ridgeline knew or should have known of the fraud is a question of fact under the discovery rule. Fine v. Checcio, 870 A.2d 850, 858--59 (Pa. 2005).' In Section 5, Issue H, it states: 'The discovery rule tolls the limitations period until the plaintiff knows, or through reasonable diligence should know, that it has been injured and by whose conduct.' The output clearly and repeatedly invokes the discovery rule in connection with the statute of limitations defense on the fraud claim."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_003: Explains why discovery rule saves fraud claim",
+      "verdict": "pass",
+      "reasoning": "The output addresses the discovery rule in Section 3, Issue 8 and Section 5, Issue H. In Issue 8, it explains that Ridgeline did not know and could not have discovered the falsity of the representations until Corbin Supply produced its internal CRM data, warehouse records, sales roster, and the Findlay Memo in November and December 2023. It also explains that the Year 1 shortfall was consistent with ordinary start-up problems, that Corbin Supply's response to the cure notice cited general supply-chain challenges without disclosing the true infrastructure figures, and that the facts showing falsity were in Corbin Supply's exclusive possession. In Issue H, it further notes that even on Corbin Supply's best theory\u2014that the Year 1 shortfall (February 28, 2022) or the cure notice (March 15, 2022) put Ridgeline on inquiry notice\u2014Count II was asserted well within two years of either date (the complaint was filed March 10, 2023). The output thus explains both when Ridgeline actually discovered the fraud (late 2023 document production) and why it could not have discovered it earlier, satisfying the criterion's requirement to explain when Ridgeline actually discovered or should have discovered the fraud."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_004: Motion in limine to exclude force majeure defense evidence",
+      "verdict": "pass",
+      "reasoning": "Section 10, Plaintiff's MIL No. 2 explicitly moves to preclude evidence and argument supporting a force majeure defense. It cites EDA \u00a7 12.1's requirement of written notice within 30 days of a force majeure event and the contractual provision that failure to give such notice 'shall constitute a waiver of the right to claim relief.' It also notes that Corbin Supply admits it gave no notice (Corbin Dep. 92:1--97:15) and that the Court found the record 'devoid of any evidence' of compliance. This satisfies the criterion."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_005: Argues Findlay memo is not excludable under FRE 407",
+      "verdict": "fail",
+      "reasoning": "The agent's output addresses the Findlay Memo's admissibility in Section 10 (Motions in Limine) and in Section 5 (Issue K), but only argues that it is admissible as a party-opponent statement and business record under FRE 801(d)(2)(D) and 803(6). The output does not address or oppose any FRE 407 (subsequent remedial measures) argument by Corbin Supply regarding the Findlay Memo. The criterion requires the output to specifically oppose a motion to exclude the Findlay Memo under FRE 407 by arguing that the memo predates the contract and any breach, making it outside FRE 407's scope. This argument is entirely absent from the output."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_006: Acknowledges trade usage exception weakness in parol evidence motion",
+      "verdict": "fail",
+      "reasoning": "The criterion requires that the output, in connection with a motion in limine to exclude Gerald Voss's industry custom testimony under the parol evidence rule, acknowledge the weakness that trade usage/industry custom evidence is generally admissible even with an integration clause. The agent's output contains no mention of Gerald Voss anywhere, and no motion in limine addressing trade usage or industry custom testimony under the parol evidence rule. The output's MIL No. 4 addresses the parol evidence rule only in the context of pre-contract representations being incorporated into the EDA itself, not in connection with any trade usage exception or a witness named Voss. Since the specific scenario described in the criterion (motion to exclude Voss's industry custom testimony with acknowledgment of the trade usage exception weakness) is entirely absent from the output, the criterion is not satisfied."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_007: Defends Dr. Prescott's future lost profits against Daubert challenge",
+      "verdict": "pass",
+      "reasoning": "The output addresses the anticipated Daubert challenge to Dr. Prescott's future lost-profit opinions in Section 10.B (Plaintiff's Positions on Defendant's Anticipated Motions in Limine). It explicitly states: 'The methodology (contractual minimums, audited margin, mitigation credit) is generally accepted, and Defendant's own expert concedes it \"is an accepted approach.\" Holt Dep. 18:3--38:22. Objections to the length of the damages period go to weight, not admissibility.' Additionally, Section 5, Issue B argues that the MAPCs are fixed contractual amounts providing a non-speculative foundation, citing the Court's own observation that 'contractual minimum-purchase obligations provide a non-speculative foundation for lost-profit calculations' (SJ Op. \u00a7 IV.A.3), and that Defendant's expert concedes the MAPC methodology 'is an accepted approach.' The 34% gross margin derived from audited financials is also referenced throughout (Issues 9, 10, and the Prescott expert entry). The output thus both addresses the Daubert challenge and explains why the methodology is reliable based on contractual MAPCs and audited historical margins."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_008: David Rinaldi included on witness list",
+      "verdict": "pass",
+      "reasoning": "David Rinaldi is listed as Witness No. 2 in Section 6A (Fact Witnesses) of the plaintiff's witness list, designated as 'Will call' with a detailed summary of expected testimony."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_008: Rinaldi testimony summary covers key topics",
+      "verdict": "pass",
+      "reasoning": "The witness list entry for David Rinaldi (Witness No. 2) includes a detailed summary of expected testimony that explicitly covers: 'drafting and negotiating the EDA and the MAPC schedule with Ms. Koppel' (negotiation of EDA/MAPC terms) and 'the March 15, 2022 cure notice, Ms. Koppel's March 28, 2022 letter, and his April 3 and April 28, 2022 calls requesting a written remediation plan' (communications about the cure notice). Both required topics are clearly addressed."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_009: Addresses mitigation timing gap (6-month delay)",
+      "verdict": "pass",
+      "reasoning": "The output extensively addresses the 6-month gap between EDA termination (March 10, 2023) and Allegheny engagement (September 1, 2023). In Section 3, Issue 11, it explicitly states Ridgeline began identifying replacement candidates within weeks of termination, began formal outreach in April 2023, contacted five candidates, ran due diligence on three including on-site visits and reference checks, selected Allegheny in July 2023, negotiated the agreement, integrated logistics, trained the sales force, and began distribution September 1, 2023. It justifies the timeline as commercially reasonable, noting that 'four to nine months is typical for replacing an exclusive distributor across twelve states' and that 'careful vetting was especially prudent after Corbin Supply's misrepresentations.' This is further supported in Section 5, Issue C and Section 6 witness list entries. The output clearly acknowledges the gap and provides detailed justification for why it was reasonable."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_010a: Connects Findlay memo to Ted Corbin III's knowledge",
+      "verdict": "pass",
+      "reasoning": "The output extensively connects the Findlay memo to Ted Corbin III's knowledge. In Section 3, Issue 3, it states: (a) the memo was addressed to 'Senior Leadership' and the distribution list included Mr. Corbin III; (b) Findlay reported directly to Mr. Corbin III (Stipulated Fact 4 and Issue 3 supporting evidence); and (c) Corbin Dep. 72:8\u201386:19 is cited where Corbin III states 'I don't deny that it was sent to me' and 'I may have seen it,' and Findlay's deposition testimony that Mr. Corbin III 'said he'd seen the memo' and discussed it with Findlay in late January 2021 before the contract was signed. All three connecting factors are present."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_010b: Articulates how Findlay memo supports scienter",
+      "verdict": "pass",
+      "reasoning": "The output extensively discusses how the Findlay Memo supports scienter in Section 3, Issue 3. It explains that Mr. Corbin III personally ran negotiations, received the Findlay Memo (which documented the true, lower figures of 187 accounts, 7 warehouses, and 23 representatives), read it, and discussed it with Mr. Findlay in late January 2021 \u2014 before the EDA was signed. Despite this knowledge, he reaffirmed the inflated representations on February 12, 2021 and signed the EDA warranting those figures on March 1, 2021. The memo itself contains language acknowledging that 'external materials reference over 300' and directing that 'external negotiations should continue to reflect our full capabilities.' The output also notes the size of the discrepancies (60% overstatement of service centers, 4 of 11 warehouses false, 83% overstatement of dedicated sales force) as further evidence of knowing falsity. This directly articulates how the Findlay Memo supports the scienter element of fraudulent inducement."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_010: Identifies specific misrepresentations contradicted by internal documents",
+      "verdict": "pass",
+      "reasoning": "The output explicitly identifies all three misrepresentations with specific figures: (1) 300+ OEM service centers vs. actual 187 active accounts (Issues 1 and 2, PX-007 \u00a73.1); (2) 11 operational warehouses vs. actual 7 operational (Issues 1 and 2, PX-007 \u00a73.2); (3) 42 dedicated sales representatives vs. actual 23 (Issues 1 and 2, PX-007 \u00a73.3). All three are clearly stated with both the represented and actual figures throughout the document."
+    },
+    {
+      "id": "C-016",
+      "title": "Jurisdictional statement identifies diversity jurisdiction under 28 U.S.C. \u00a7 1332",
+      "verdict": "pass",
+      "reasoning": "Section 1 of the output is explicitly titled 'JURISDICTIONAL STATEMENT (Proposed Joint)' and states: 'The Court has subject-matter jurisdiction under 28 U.S.C. \u00a7 1332(a)(1). Complete diversity exists between the parties, and the amount in controversy exceeds $75,000, exclusive of interest and costs.' It also cites 28 U.S.C. \u00a7 1332(c)(1) for citizenship rules and references the Court's prior ruling exercising 'diversity jurisdiction pursuant to 28 U.S.C. \u00a7 1332'. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-017",
+      "title": "Jurisdictional statement identifies citizenship of both parties",
+      "verdict": "pass",
+      "reasoning": "The jurisdictional statement in Section 1 clearly identifies Ridgeline as a Pennsylvania corporation with its principal place of business in Butler, Pennsylvania, and Corbin Supply as a Delaware limited liability company with principal offices in Charlotte, North Carolina. Both citizenships are stated, establishing complete diversity."
+    },
+    {
+      "id": "C-018",
+      "title": "Jurisdictional statement identifies amount in controversy",
+      "verdict": "pass",
+      "reasoning": "Section 1 of the jurisdictional statement explicitly states: 'the amount in controversy exceeds $75,000, exclusive of interest and costs.' This directly satisfies the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "Stipulated facts section includes key stipulations",
+      "verdict": "pass",
+      "reasoning": "The stipulated facts section (Section 2) includes all 7 required stipulations: (1) EDA validly executed March 1, 2021 (Stipulated Fact 11); (2) Year 1 purchases totaled $5,120,000 (Stipulated Fact 16); (3) Year 2 purchases totaled $4,370,000 (Stipulated Fact 18); (4) Ridgeline sent cure notice March 15, 2022 (Stipulated Fact 17); (5) Corbin Supply did not cure within 60 days (Stipulated Fact 17); (6) Ridgeline terminated the EDA on March 10, 2023 (Stipulated Fact 20); (7) court granted partial summary judgment finding breach of MAPC provisions (Stipulated Facts 22 and 25). All 7 are present, exceeding the threshold of 6."
+    },
+    {
+      "id": "C-020",
+      "title": "Contested factual issues section included",
+      "verdict": "pass",
+      "reasoning": "Section 3 of the output is explicitly titled 'PLAINTIFF'S CONTESTED FACTUAL ISSUES' and contains 14 detailed issues. It covers all three required topics: (a) the nature and extent of Corbin Supply's pre-contract misrepresentations (Issues 1-2 address the specific representations made and their falsity); (b) damages amounts (Issues 9-13 address lost profits, future lost profits, reliance losses, and mitigation); and (c) whether Corbin Supply knew its representations were false (Issue 3 is specifically titled 'Corbin Supply made the representations knowingly or with reckless disregard for their truth'). All three criteria are thoroughly addressed."
+    },
+    {
+      "id": "C-021",
+      "title": "Contested legal issues section included",
+      "verdict": "pass",
+      "reasoning": "Section 5 of the output is explicitly titled 'CONTESTED LEGAL ISSUES' and contains eleven sub-issues (A through K). It addresses: (a) the proper measure and recoverability of damages in Issues A, B, D, and E; (b) fraudulent inducement elements including scienter (Issue I, J) and statute of limitations (Issue H); (c) the force majeure defense (Issue F); and (d) the failure-to-mitigate defense (Issue C). This far exceeds the minimum requirement of addressing at least two of the four listed topics."
+    },
+    {
+      "id": "C-022",
+      "title": "Witness list includes Peggy Hausman with testimony summary",
+      "verdict": "pass",
+      "reasoning": "Section 6A of the witness list includes Margaret ('Peggy') Hausman as Witness No. 1, marked 'Will call,' with a detailed testimony summary covering Ridgeline's history, pre-EDA negotiations, her receipt of and reliance on the representations (PX-002, PX-003, PX-004, PX-006), materiality of the representations to the exclusivity grant and MAPCs, the Greenville lease and equipment, the effect of shortfalls, cure notice and termination decisions, when Ridgeline learned the true facts, and the replacement-distributor search. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-023",
+      "title": "Witness list includes Ted Corbin III as adverse witness",
+      "verdict": "pass",
+      "reasoning": "Theodore 'Ted' Corbin III appears as witness #3 in Section 6A of the witness list. He is explicitly identified as a fact witness who is adverse (noted as 'adverse; Fed. R. Evid. 611(c)'). The entry includes a detailed summary of expected testimony covering his personal role in negotiations, sending pre-contract representations (PX-002, PX-003, PX-004, PX-006), the actual figures vs. represented figures, his receipt of the Findlay Memo and discussion with Findlay before signing, reaffirmation of representations on February 12, 2021, execution of EDA warranties, MAPC shortfalls, failure to submit remediation plan, absence of force majeure notice, and attribution of decline to 'market conditions.' He is designated as 'Will call.'"
+    },
+    {
+      "id": "C-024",
+      "title": "Witness list includes Marcus Findlay as adverse witness",
+      "verdict": "pass",
+      "reasoning": "Marcus Findlay is listed as witness #4 in Section 6A of the witness list. He is explicitly identified as an adverse witness under Fed. R. Evid. 611(c), with a detailed summary of expected testimony including his authorship of the January 15, 2021 Findlay Memo (PX-007), its contents regarding the actual figures (187 active accounts, 7 operational warehouses, 23 hydraulic representatives), the internal Year 1 forecast, and other relevant matters. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-025",
+      "title": "Witness list includes Dr. Elaine Prescott as expert witness",
+      "verdict": "pass",
+      "reasoning": "Section 6B of the witness list includes Dr. Elaine Prescott, Ph.D., explicitly identified as an Expert (damages) witness, with a detailed summary of her qualifications and expected testimony covering damages calculations including Year 1-2 lost profits, gross margin analysis, Years 3-5 future lost profits, mitigation credits, reliance expenditures, and rebuttal of Holt's opinions."
+    },
+    {
+      "id": "C-026",
+      "title": "Exhibit list includes key documents",
+      "verdict": "pass",
+      "reasoning": "The exhibit list in Section 8 includes: (1) PX-001 - Exclusive Distribution Agreement \u2713; (2) PX-002 (Oct. 14, 2020 email) and PX-004 (Dec. 3, 2020 letter) - pre-contract correspondence \u2713; (3) PX-007 - Findlay Memo \u2713; (4) PX-018 - Greenville shipping hub lease \u2713; (5) PX-033 - Expert Report of Dr. Elaine Prescott \u2713. All 5 key documents are present, easily satisfying the requirement of at least 4 of 5."
+    },
+    {
+      "id": "C-027",
+      "title": "Motion in limine to exclude Gerald Voss's industry custom testimony included",
+      "verdict": "fail",
+      "reasoning": "The motions in limine section (Section 10) contains five plaintiff's motions in limine (MIL Nos. 1-5) and a table of anticipated defense motions. None of these motions mention Gerald Voss or any motion to exclude industry custom testimony regarding MAPC enforcement. Gerald Voss is not referenced anywhere in the document."
+    },
+    {
+      "id": "C-028",
+      "title": "Estimated trial time section included",
+      "verdict": "pass",
+      "reasoning": "Section 11 of the agent's output is explicitly titled 'ESTIMATED TRIAL TIME' and provides a detailed breakdown of trial phases, estimating a total of 6.25\u20137.5 days excluding deliberations, which is consistent with the 7-day jury trial estimate. The section notes that 'Ridgeline believes the case can be tried within the seven trial days the Court has allotted.'"
+    },
+    {
+      "id": "C-029",
+      "title": "Settlement status section included",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes Section 12 titled 'SETTLEMENT STATUS' which addresses whether settlement discussions have occurred, whether further discussions would be productive, and consent to referral for a settlement conference."
+    },
+    {
+      "id": "C-030",
+      "title": "Correct case number and court identification",
+      "verdict": "pass",
+      "reasoning": "The document clearly states 'Civil Action No. 2:23-cv-00417-KMG' in the caption and identifies the court as 'UNITED STATES DISTRICT COURT FOR THE WESTERN DISTRICT OF PENNSYLVANIA'. Both the case number and court identification are correct and present."
+    },
+    {
+      "id": "C-031",
+      "title": "Correct party identification in case caption",
+      "verdict": "pass",
+      "reasoning": "The case caption clearly identifies RIDGELINE MANUFACTURING, INC. as Plaintiff and CORBIN SUPPLY GROUP, LLC as Defendant. The parties are correctly identified and not swapped."
+    },
+    {
+      "id": "C-032",
+      "title": "Correct total damages figure stated",
+      "verdict": "fail",
+      "reasoning": "The agent's output provides the following damages breakdown: (1) Year 1-2 lost profits: $1,363,400 (34% margin on $4,010,000 shortfall); (2) Years 3-5 net future lost profits: $7,990,000 ($10,710,000 gross minus $2,720,000 Allegheny credit); (3) Reliance expenditures: $2,325,000 ($1,850,000 lease + $475,000 equipment). These three figures sum to $1,363,400 + $7,990,000 + $2,325,000 = $11,678,400, not $14,325,000. The criterion requires the total to be $14,325,000 (or equivalent breakdown: $4,010,000 + $7,990,000 + $2,325,000). The agent uses $1,363,400 (margin-adjusted lost profits) rather than $4,010,000 (gross shortfall) for the Count I damages component. The difference is $4,010,000 - $1,363,400 = $2,646,600, which is far more than $100,000. The agent explicitly states it is using the margin-adjusted figure and not the gross shortfall as a damages measure. This results in a total that is materially different from $14,325,000 without the output identifying a corrected figure that sums to $14,325,000. The criterion would pass if the breakdown summed to $14,325,000 using $4,010,000 as the breach component, but the agent uses $1,363,400 instead. The total of $11,678,400 is off by $2,646,600, well beyond the $100,000 threshold."
+    },
+    {
+      "id": "C-033",
+      "title": "Correct Year 1 MAPC shortfall figure",
+      "verdict": "pass",
+      "reasoning": "The document states in Stipulated Fact 16: 'In Year 1, Corbin Supply purchased $5,120,000 of Ridgeline products, which was $880,000 below the $6,000,000 Year 1 MAPC.' This correctly identifies the Year 1 MAPC shortfall as $880,000. The figure is also referenced consistently elsewhere (e.g., Section 3, Issue 9: '$880,000 in Year 1')."
+    },
+    {
+      "id": "C-034",
+      "title": "Correct Year 2 MAPC shortfall figure",
+      "verdict": "pass",
+      "reasoning": "The document states in Stipulated Fact 18: 'In Year 2, Corbin Supply purchased $4,370,000 of Ridgeline products, which was $3,130,000 below the $7,500,000 Year 2 MAPC.' This correctly identifies the Year 2 MAPC shortfall as $3,130,000 ($7,500,000 - $4,370,000 = $3,130,000). The figure is also confirmed in Stipulated Fact 19 where the combined Year 1 and Year 2 shortfall is stated as $4,010,000 ($880,000 + $3,130,000 = $4,010,000), which is internally consistent."
+    },
+    {
+      "id": "C-035",
+      "title": "Correct future lost profits calculation",
+      "verdict": "pass",
+      "reasoning": "The output in Section 3, Issue 10 and Section 6 (Dr. Prescott's expert opinions) explicitly states: Years 3-5 MAPCs total $31,500,000 ($9M + $10.5M + $12M), multiplied by 34% gross margin = $10,710,000 gross lost profits, minus a $2,720,000 mitigation credit ($8,000,000 replacement sales \u00d7 34%), yielding net future lost profits of $7,990,000. This matches the criterion exactly."
+    },
+    {
+      "id": "C-036",
+      "title": "Identifies remaining claims as breach of contract and fraudulent inducement",
+      "verdict": "pass",
+      "reasoning": "The document clearly identifies both remaining claims throughout. Count I is explicitly identified as breach of contract (MAPC provisions) and Count II is explicitly identified as fraudulent inducement. This is stated in the preliminary note, in Section 3 (Issues 1-8 concern Count II fraudulent inducement; Issues 9-13 concern damages on Count I and Count II), in Section 5 (legal issues reference both counts), in Stipulated Facts 25-26 (liability on Count I established; Count II remains for jury on all elements), and throughout the contested factual and legal issues sections."
+    },
+    {
+      "id": "C-037",
+      "title": "Does not include dismissed negligent misrepresentation claim",
+      "verdict": "pass",
+      "reasoning": "The agent's output only references Count I (breach of contract) and Count II (fraudulent inducement) as live claims going to trial. There is no mention of Count III or negligent misrepresentation as a remaining claim anywhere in the document. The output consistently treats the case as a two-count matter, with liability established on Count I and Count II going to the jury on all elements."
+    },
+    {
+      "id": "C-038",
+      "title": "References partial summary judgment on breach liability",
+      "verdict": "pass",
+      "reasoning": "The output extensively references the partial summary judgment ruling. In the preliminary note, it references 'the Court granted partial summary judgment on November 15, 2024.' In Section 2 (Stipulated Facts), paragraphs 22-25 explicitly state that the Court determined as a matter of law that Corbin Supply breached the MAPC provisions, that Ridgeline properly issued its cure notice and terminated the EDA, that Ridgeline did not waive its rights, and that 'Liability on Count I is established. The jury will determine only the amount of Ridgeline's damages on Count I.' The document also references 'SJ Op.' (Summary Judgment Opinion) throughout, and Section 5 explicitly states 'Ridgeline does not ask the Court to revisit liability on Count I.' The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-039",
+      "title": "Motion in limine re materiality of MAPC breaches (law of the case)",
+      "verdict": "fail",
+      "reasoning": "The criterion requires a motion in limine or argument to preclude Corbin Supply from arguing that the MAPC shortfalls were not material breaches, based on law of the case from the summary judgment ruling. Reviewing Section 10 (Motions in Limine), Plaintiff's MIL No. 3 addresses precluding relitigation of liability on Count I and the waiver/unclean-hands defenses. It states that the Court entered judgment on liability for breach of the MAPC provisions and moves to preclude Corbin Supply from suggesting it did not breach or that the breach was excused. However, this motion focuses on the existence of breach and the waiver/unclean-hands defenses, not specifically on the materiality of the MAPC breaches as a distinct issue. The criterion specifically asks for a motion/argument to preclude arguing the shortfalls were not 'material breaches.' While MIL No. 3 broadly covers relitigating liability, it does not specifically address the materiality element of the breach as a law-of-the-case argument. The document does not contain a specific motion or argument targeting Corbin Supply's ability to argue the MAPC shortfalls were not material breaches as a distinct law-of-the-case issue."
+    },
+    {
+      "id": "C-040",
+      "title": "Correct identification of Judge Gresham",
+      "verdict": "pass",
+      "reasoning": "The caption clearly identifies 'Hon. Katherine M. Gresham, United States District Judge' and the preliminary note references 'the Court's Pretrial Order dated February 10, 2025' with the judge's name appearing in the caption as required."
+    },
+    {
+      "id": "C-041",
+      "title": "Correct trial date stated",
+      "verdict": "pass",
+      "reasoning": "The document clearly states 'JURY TRIAL: SEPTEMBER 15, 2025' in the caption and references September 15, 2025 as the trial date in Section 11 (jury selection on morning of Sept. 15, 2025; opening statements on afternoon of Sept. 15, 2025) and Section 12 (before the September 15, 2025 trial date)."
+    },
+    {
+      "id": "C-042",
+      "title": "Identifies EDA execution date correctly as March 1, 2021",
+      "verdict": "pass",
+      "reasoning": "The document repeatedly and consistently identifies the EDA execution date as March 1, 2021. For example, in the preliminary note: 'the Exclusive Distribution Agreement, Contract No. CSG-RM-2021-0301, dated and executed March 1, 2021'; in Stipulated Fact 11: 'On March 1, 2021, Ridgeline and Corbin Supply executed the Exclusive Distribution Agreement'; and in multiple other places throughout the document. The date is correctly stated as March 1, 2021."
+    },
+    {
+      "id": "C-043",
+      "title": "Correctly characterizes the 12-state southeastern territory",
+      "verdict": "pass",
+      "reasoning": "The document explicitly states in Stipulated Fact 12: 'The EDA appointed Corbin Supply as the exclusive distributor of Ridgeline's hydraulic product line in a twelve-state territory: Alabama, Arkansas, Florida, Georgia, Kentucky, Louisiana, Mississippi, North Carolina, South Carolina, Tennessee, Virginia, and West Virginia (EDA \u00a7\u00a7 1.15, 2.1).' This correctly identifies all 12 states (AL, AR, FL, GA, KY, LA, MS, NC, SC, TN, VA, WV) in the southeastern region. The document also references 'twelve-state southeastern territory' in multiple other places throughout the document."
+    },
+    {
+      "id": "C-044",
+      "title": "Mitigation credit correctly applied in damages",
+      "verdict": "pass",
+      "reasoning": "The output explicitly states in Section 3, Issue 10 and in Section 6 (Dr. Prescott's expert testimony): 'After a credit for the profit on replacement sales through Allegheny Industrial Partners ($3,200,000 per year for 2.5 years, or $8,000,000, at 34%, for a credit of $2,720,000), Ridgeline's net future lost profits are $7,990,000.' This exactly matches the criterion: 2.5 years \u00d7 $3.2M/year \u00d7 34% margin = $2,720,000 mitigation credit applied against future lost profits."
+    },
+    {
+      "id": "C-045",
+      "title": "Correctly identifies Ridgeline's gross margin as 34%",
+      "verdict": "pass",
+      "reasoning": "The agent's output consistently references Ridgeline's gross margin on distributor-channel sales as 34% throughout the document. This appears in Section 3 (Issues 9, 10), Section 5 (Issues A, B), Section 6 (Dr. Prescott's expert opinions), and elsewhere. The 34% figure is used as the basis for all lost-profit calculations without contradiction or alternative margin percentage being used."
+    },
+    {
+      "id": "C-046",
+      "title": "Addresses Holt's challenge to future lost profits period",
+      "verdict": "pass",
+      "reasoning": "The agent's output explicitly addresses Holt's argument that future damages should be limited to twelve months. In Section 3, Issue 10(c), the output states: 'Corbin Supply's expert limits future damages to twelve months ($1,972,000) and uses Corbin Supply's declining performance as the baseline. Holt Rpt. \u00a7 VII.B.' In Section 5, Issue B, the output directly frames the legal question as whether future damages must be 'limited to twelve months, or measured by Corbin Supply's pre-breach performance trend,' and argues that nothing in the EDA limits recovery to a twelve-month period and that measuring expectation damages against the breaching party's actual performance would reward the breach. The output also cites Holt's own deposition concession that the MAPC methodology 'is an accepted approach.' The criterion is clearly satisfied."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-pretrial-statement/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-pretrial-statement",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:27:51.669927+00:00",
+  "cost": {
+    "input_tokens": 42,
+    "output_tokens": 61676,
+    "wall_clock_seconds": 585.97
+  },
+  "doc_coverage": {
+    "documents_read": 13,
+    "total_documents": 11,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "pretrial-order-and-rules.docx",
+      "summary-judgment-ruling.docx",
+      "findlay-strategy-memo.docx",
+      "exclusive-distribution-agreement.docx",
+      "preliminary-witness-exhibit-list.docx",
+      "deposition-excerpts.docx",
+      "prescott-expert-report.docx",
+      "holt-expert-report.docx",
+      "shipping-hub-lease.docx",
+      "pre-contract-correspondence.docx",
+      "corbin-supply-presentation.pptx",
+      "/workspace/build/p1-01.png",
+      "/workspace/build/p2-22.png"
+    ],
+    "documents_skipped_list": []
+  }
+}

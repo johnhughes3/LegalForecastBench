@@ -1,0 +1,412 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "60/63 criteria passed.  Missed 3 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 63,
+  "n_passed": 60,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption identifies court as U.S. District Court for the District of Connecticut",
+      "verdict": "fail",
+      "reasoning": "The caption lists the parties, case number, and date, but it does not identify the court as the U.S. District Court for the District of Connecticut."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption names Pinnacle Hospitality Group, Inc. as Plaintiff",
+      "verdict": "pass",
+      "reasoning": "The caption at the top of the memorandum names \u201cPINNACLE HOSPITALITY GROUP, INC.\u201d and identifies it as \u201cPlaintiff.\u201d"
+    },
+    {
+      "id": "C-003",
+      "title": "Caption names Denise Whitaker as a Defendant",
+      "verdict": "pass",
+      "reasoning": "The caption lists \u201cDENISE WHITAKER\u201d as one of the Defendants."
+    },
+    {
+      "id": "C-004",
+      "title": "Caption names Lodestar Capital Partners LLC as a Defendant",
+      "verdict": "pass",
+      "reasoning": "The caption lists \u201cDENISE WHITAKER and LODESTAR CAPITAL PARTNERS LLC\u201d as Defendants, correctly naming Lodestar Capital Partners LLC."
+    },
+    {
+      "id": "C-005",
+      "title": "Caption includes correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption at the top of the memorandum includes the correct case number: Case No. 3:25-cv-00482-SRU."
+    },
+    {
+      "id": "C-006",
+      "title": "Preliminary Statement framing the case",
+      "verdict": "pass",
+      "reasoning": "The brief includes a clearly labeled \u201cI. PRELIMINARY STATEMENT\u201d before the facts and legal arguments. It frames the case from Pinnacle\u2019s perspective and summarizes the core allegations against Whitaker and Lodestar, including the alleged mass download, move to Lodestar, use of proprietary insights, solicitation of clients, and why each claim is well pleaded."
+    },
+    {
+      "id": "C-007",
+      "title": "Rule 12(b)(6) standard section references Twombly and Iqbal",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated \u201cIII. LEGAL STANDARD\u201d section addressing Rule 12(b)(6) and expressly cites both Ashcroft v. Iqbal and Bell Atlantic Corp. v. Twombly, including the plausibility standard."
+    },
+    {
+      "id": "C-008",
+      "title": "12(b)(6) standard articulates accept-as-true and favorable-inference principles",
+      "verdict": "pass",
+      "reasoning": "The memorandum's legal standard section expressly states that the Court accepts all well-pleaded facts as true and draws all reasonable inferences in the plaintiff's favor under Rule 12(b)(6)."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_001 \u2014 Blue-pencil/reformation doctrine under CT law",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses reformation/blue-pencil principles in Section IV.A.6, arguing that Section 8.5 and Connecticut law authorize the court to reform or modify overbroad restrictive covenants rather than dismiss them, citing Connecticut authority and explaining that the court could narrow the covenant geographically or otherwise enforce it as applied."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_001 \u2014 Express severability/reformation clause (Section 8.5)",
+      "verdict": "pass",
+      "reasoning": "The brief expressly references RCA Section 8.5 multiple times, describes it as a reformation/severability provision, quotes language authorizing the court to \u201creform or modify\u201d overbroad covenants, and argues that modification rather than dismissal is appropriate."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_001 \u2014 Citation to CT reformation case law",
+      "verdict": "pass",
+      "reasoning": "The brief includes a dedicated reformation/modification section and cites Connecticut authority, including Beit v. Beit for enforcing the reasonable portion of a divisible restrictive covenant, and discusses Deming v. Nationwide Mutual Insurance Co. in the context of reformation. This satisfies the requirement to cite Connecticut case law on reformation/blue-penciling of restrictive covenants."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_002 \u2014 Geographic scope argument: 14-state operations",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses Pinnacle's 14-state footprint as a narrowing basis. It argues that even if the nationwide territory were overbroad, the covenant could be enforced within the fourteen states where Pinnacle operates hotels, that such a narrowing would still cover the alleged conduct, and that modification rather than dismissal is appropriate."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_002 \u2014 Lodestar's New York location within scope",
+      "verdict": "pass",
+      "reasoning": "The brief expressly connects the geographic scope to the alleged conduct: it states that Whitaker joined a competitor headquartered in New York, that New York is one of Pinnacle\u2019s fourteen operating states, and that the targeted client properties were located in Pinnacle markets. It also argues that even a narrowed territory would cover the alleged violations."
+    },
+    {
+      "id": "C-014",
+      "title": "Pleading-stage standard for trade secret identification \u2014 lower specificity threshold",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses the pleading-stage specificity standard for DTSA/CUTSA trade-secret identification, stating that at the pleading stage the plaintiff need only give fair notice and distinguish the secrets from general knowledge, need not disclose the secrets themselves in a public filing, and that further granularity belongs in discovery rather than dismissal. This satisfies the lower-specificity-threshold criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Pleading-stage standard \u2014 categorical identification of trade secrets",
+      "verdict": "pass",
+      "reasoning": "The brief categorically identifies the alleged trade secrets, including RevMaxPro, the Platinum Client List, and pricing templates/strategic plans/bid models, and discusses them by name in the facts and DTSA/CUTSA argument."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_003 \u2014 Premature disclosure concern",
+      "verdict": "pass",
+      "reasoning": "The brief expressly states that a plaintiff need not disclose the trade secrets themselves in a public filing at the pleading stage and argues that any greater granularity should occur in discovery under a protective order, not on a motion to dismiss. This captures the premature public disclosure concern."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_004 \u2014 Platinum Client List contains non-public data elements",
+      "verdict": "pass",
+      "reasoning": "The brief expressly distinguishes the Platinum Client List from public client identities, describing it as a curated database containing spending profiles, travel preferences, contract renewal dates, negotiated rate structures/discount tiers, booking patterns, relationship notes, and purchasing authority. It also specifically argues that such data is not available through property records, conferences, LinkedIn, trade publications, or similar public sources."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_004 \u2014 Restricted access measures for client list",
+      "verdict": "pass",
+      "reasoning": "The brief expressly states that the Platinum Client List had read access limited to 11 of Pinnacle\u2019s 640 employees, export privileges limited to 4 employees including Whitaker, and role-based permissions on the Salesforce database reviewed quarterly, along with MFA, IP restrictions, and audit logging."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_005 \u2014 Authorized access vs. improper purpose",
+      "verdict": "pass",
+      "reasoning": "The brief expressly distinguishes Whitaker\u2019s authorized access for legitimate Pinnacle business purposes from unauthorized copying/use for personal or competitive purposes, stating that permission to view files on a corporate laptop was not permission to copy them to a personal flash drive for a competitor\u2019s business."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_005 \u2014 Timing of download (4 days before resignation)",
+      "verdict": "pass",
+      "reasoning": "The brief expressly highlights that on January 6, 2025, Whitaker downloaded approximately 14,200 files to a personal USB drive and that this occurred four days before her January 10 resignation. It uses this timing repeatedly as part of the circumstantial case for improper acquisition, misappropriation, and breach of loyalty."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_005 \u2014 Circumstantial evidence of use through client solicitation",
+      "verdict": "pass",
+      "reasoning": "The brief explicitly connects Whitaker\u2019s February 3 hiring by Lodestar with Lodestar\u2019s near-immediate, targeted solicitation of six named Pinnacle top-20 clients, all of whom Whitaker managed, and argues that the proposals\u2019 references to non-public fee structures, performance metrics, renewal timing, and client data support an inference that misappropriated trade secrets were actually used. The DTSA section further frames these facts as circumstantial evidence of use and disclosure, not mere temporal proximity."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_005 \u2014 Both acquisition and use/disclosure theories",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that DTSA misappropriation includes both acquisition by improper means and disclosure or use without consent, cites 18 U.S.C. \u00a7 1839(5), and then separately argues that the complaint pleads acquisition by improper means as well as use and disclosure through detailed circumstantial allegations."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_006 \u2014 DTSA interstate commerce nexus satisfied",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses the DTSA interstate-commerce nexus in Section IV.B.4, quotes the statutory requirement, and argues it is satisfied based on Pinnacle\u2019s management services in fourteen states, RevMaxPro\u2019s multi-state deployment, the Platinum Client List\u2019s multi-state corporate-travel relationships, and the movement of secrets from a Connecticut employer to a New York competitor."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_006 \u2014 Broad construction of DTSA commerce element",
+      "verdict": "pass",
+      "reasoning": "The brief includes a dedicated DTSA interstate-commerce section citing 18 U.S.C. \u00a7 1836(b)(1), quotes the statutory 'related to a product or service used in, or intended for use in, interstate or foreign commerce' language, and argues the element is satisfied because the alleged secrets relate to Pinnacle\u2019s interstate hotel-management services. Although it does not expressly say 'broadly construed by courts,' it argues the breadth of the 'related to' requirement and rejects a narrow limitation for internal tools."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_007 \u2014 DTSA does not preempt state trade secret claims",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses the preemption argument in Section IV.B.5, states that the DTSA does not preempt or displace state trade-secret remedies, cites 18 U.S.C. \u00a7 1838, and argues that parallel DTSA and CUTSA claims may proceed."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_008 \u2014 CT recognizes tortious interference with prospective relationships",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that Connecticut recognizes tortious interference with both contractual and prospective business relationships, cites Hi-Ho Tower/Blake and Restatement \u00a7 766B, and directly counters defendants\u2019 argument that no specific contract was identified by stating that interference with terminable and prospective relationships is actionable."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_008 \u2014 Six specific client relationships identified",
+      "verdict": "fail",
+      "reasoning": "The brief identifies all six solicited clients by name and revenue in the Statement of Facts, but the tortious interference argument itself does not cite any specific client names; it only refers generally to \u201csix clients\u201d and \u201ctwo clients worth $19.9 million.\u201d Under the criterion\u2019s fail condition requiring specific client names in the tortious interference argument, this does not satisfy the requirement."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_008 \u2014 Improper means element via trade secret misappropriation",
+      "verdict": "pass",
+      "reasoning": "The brief expressly connects trade secret misappropriation to the improper-means element of tortious interference, arguing that Lodestar selected targets and drafted proposals using misappropriated trade secrets and stating that misappropriation of trade secrets is a classic improper means."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_009 \u2014 Constructive knowledge of the RCA",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that Lodestar knew or had reason to know of Whitaker\u2019s restrictive covenants because such covenants are standard for C-suite hospitality executives and because a sophisticated firm like Lodestar either conducted due diligence or deliberately failed to do so. This satisfies the constructive-knowledge criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_009 \u2014 Press release 'proprietary insights' language as knowledge evidence",
+      "verdict": "pass",
+      "reasoning": "The brief repeatedly quotes Lodestar's press release stating Whitaker brought \u201cproprietary insights into hospitality revenue optimization\u201d and expressly uses that language to support allegations that Lodestar knew of Whitaker\u2019s restrictive covenants and/or knew she possessed Pinnacle\u2019s proprietary information, including in the factual background and arguments on trade-secret liability and tortious interference."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_009 \u2014 24-day timing gap as evidence of knowledge/willfulness",
+      "verdict": "pass",
+      "reasoning": "The brief expressly cites the 24-day interval between Whitaker's resignation and Lodestar start date as a basis for alleging Lodestar knew of her restrictive covenants, stating it shows Lodestar negotiated with her while she was still Pinnacle's CRO. It also references the '24-day turnaround' in the tortious-interference knowledge discussion."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_010 \u2014 CRO-level fiduciary duty argument",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that Whitaker\u2019s CRO role created fiduciary duties beyond an ordinary employee relationship. It cites Connecticut fiduciary-duty law, emphasizes her status as a senior executive reporting to the CEO, participation in board/executive decision-making, broad discretionary authority over revenue strategy and client relationships, and access/export rights to Pinnacle\u2019s most sensitive data. It also states this goes far beyond ordinary access or management responsibilities."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_010 \u2014 Specific facts supporting fiduciary relationship",
+      "verdict": "pass",
+      "reasoning": "The brief does not argue fiduciary duty abstractly; it cites specific factual allegations about Whitaker\u2019s role and access, including that she was CRO, reported to the CEO, sat on the executive leadership team, had authority over revenue strategy for all 47 properties, led client renewal discussions, was one of only four employees with export access to the Platinum Client List, and one of nine with access to RevMaxPro specifications."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_011 \u2014 Breach of contract itself is an injury",
+      "verdict": "pass",
+      "reasoning": "In the standing/ripeness section, the brief expressly argues that completed RCA breaches have already occurred and states: \u201cBreach of a contractual promise is also a legally cognizable injury in itself,\u201d independent of client-loss damages."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_011 \u2014 DTSA provides for threatened misappropriation",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that threatened misappropriation is actionable under the DTSA and cites 18 U.S.C. \u00a7 1836(b)(3)(A). It also invokes this provision in the ripeness section, stating that the DTSA separately authorizes relief against threatened misappropriation."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_011 \u2014 $19.9M imminent risk from two evaluating clients",
+      "verdict": "pass",
+      "reasoning": "The brief specifically identifies Northridge Resorts LLC and Coastal Haven Properties LP as clients evaluating Lodestar\u2019s proposals, states their combined annual revenue is approximately $19.9 million, and uses that imminent risk in the standing/ripeness discussion as concrete injury."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_011 \u2014 Dr. Ramachandran solicitation as ongoing harm",
+      "verdict": "pass",
+      "reasoning": "The brief expressly describes the March 15, 2025 Lodestar recruiter offer to Dr. Priya Ramachandran in the facts section, and the standing/ripeness section cites that same attempted recruitment of a key RevMaxPro architect as a completed injury/ongoing harm. It also ties the conduct to the employee non-solicitation covenant elsewhere."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_012 \u2014 Lodestar press release as quasi-admission on trade secrets",
+      "verdict": "pass",
+      "reasoning": "The brief expressly invokes Lodestar\u2019s press release statement that Whitaker brought \u201cproprietary insights\u201d in the DTSA/CUTSA argument. In Count II, it cites the statement as circumstantial support for use/disclosure and Lodestar\u2019s knowledge/liability, arguing Lodestar touted and relied on Whitaker\u2019s proprietary insights after hiring a competitor\u2019s CRO. This uses the press release language as a quasi-admission supporting trade-secret misappropriation."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_012 \u2014 Press release as evidence of improper purpose for tortious interference",
+      "verdict": "pass",
+      "reasoning": "The brief expressly connects Lodestar's press-release statement touting Whitaker's \u201cproprietary insights\u201d to the tortious interference count. In Section IV.C, it cites the \u201cproprietary insights\u201d announcement as supporting Lodestar\u2019s knowledge of the RCA/improper means, alongside allegations that Lodestar targeted Pinnacle\u2019s clients using misappropriated information. Thus the press release is not used only for trade secrets."
+    },
+    {
+      "id": "C-040",
+      "title": "Client notification emails cited as factual support",
+      "verdict": "fail",
+      "reasoning": "The brief discusses Northridge and Coastal Haven, including Lodestar proposals and the clients evaluating options, but it does not reference or cite the client notification emails from those clients as factual support in the tortious interference or standing sections. It relies on complaint paragraphs instead and never identifies the emails."
+    },
+    {
+      "id": "C-041",
+      "title": "Specific complaint paragraph citations included",
+      "verdict": "pass",
+      "reasoning": "The brief includes specific complaint paragraph citations throughout multiple argument sections, including Count I/RCA (e.g., Compl. \u00b6\u00b6 161-164), Count II/DTSA-CUTSA (e.g., Compl. \u00b6\u00b6 41-47, 97, 119-121), Count III/tortious interference (e.g., Compl. \u00b6\u00b6 180-184), Count IV/fiduciary duty (e.g., Compl. \u00b6\u00b6 82-83, 187), and standing/ripeness (e.g., Compl. \u00b6\u00b6 86-87, 122-128). This exceeds the requirement of citations in at least three different argument sections."
+    },
+    {
+      "id": "C-042",
+      "title": "Separate argument section for non-compete breach (Count I)",
+      "verdict": "pass",
+      "reasoning": "The brief includes a distinct Argument section headed \u201cA. Count I States a Claim for Breach of the RCA,\u201d with multiple subsections specifically addressing the non-compete issues, including reasonableness, territory, duration, competing business, and modification. This is an identifiable separate section addressing the non-compete breach count."
+    },
+    {
+      "id": "C-043",
+      "title": "Separate argument section for DTSA/CUTSA trade secrets (Count II)",
+      "verdict": "pass",
+      "reasoning": "The brief includes a distinct argument section headed \u201cB. Count II States Claims Under the DTSA and CUTSA,\u201d with multiple subsections addressing trade secret identification, protectability, misappropriation, interstate commerce, and preemption."
+    },
+    {
+      "id": "C-044",
+      "title": "Separate argument section for tortious interference (Count III)",
+      "verdict": "pass",
+      "reasoning": "The brief includes a distinct subsection titled \u201cC. Count III States a Claim for Tortious Interference,\u201d which separately addresses the tortious interference count."
+    },
+    {
+      "id": "C-045",
+      "title": "Separate argument section for breach of fiduciary duty (Count IV)",
+      "verdict": "pass",
+      "reasoning": "The brief includes a distinct argument subsection titled \u201cD. Count IV States a Claim for Breach of Fiduciary Duty,\u201d which separately addresses the fiduciary duty count under its own heading."
+    },
+    {
+      "id": "C-046",
+      "title": "Separate argument section for standing/ripeness",
+      "verdict": "pass",
+      "reasoning": "The brief includes a separate argument subsection with its own heading: \u201cE. Pinnacle Has Standing, and Its Claims Are Ripe,\u201d which directly addresses standing and ripeness."
+    },
+    {
+      "id": "C-047",
+      "title": "Connecticut law applied to state-law claims",
+      "verdict": "pass",
+      "reasoning": "The brief applies Connecticut law to the state-law claims: it cites Connecticut cases for non-compete enforceability (Scott, Weiss, New England Overall, Beit), CUTSA statutes (Conn. Gen. Stat. \u00a7 35-50 et seq. and \u00a7 35-52), Connecticut tortious interference law (Hi-Ho Tower, Blake), and Connecticut fiduciary-duty standards (Hi-Ho Tower, Dunham). Although it briefly references Delaware law defensively, it does not apply another state\u2019s law in place of Connecticut law."
+    },
+    {
+      "id": "C-048",
+      "title": "Federal law applied to DTSA claim",
+      "verdict": "pass",
+      "reasoning": "The trade secrets argument expressly addresses DTSA claims and cites DTSA provisions, including 18 U.S.C. \u00a7 1836(b)(1), \u00a7 1836(b)(3)(A), \u00a7 1838, and \u00a7 1839."
+    },
+    {
+      "id": "C-049",
+      "title": "RevMaxPro development cost cited",
+      "verdict": "pass",
+      "reasoning": "The brief expressly references RevMaxPro's approximately $3.8 million development cost multiple times, including in the statement of facts and trade-secret particularity argument, using it to support the algorithm's proprietary value."
+    },
+    {
+      "id": "C-050",
+      "title": "Confidentiality watermark cited as reasonable protective measure",
+      "verdict": "pass",
+      "reasoning": "The brief expressly states that the materials carried the 'PINNACLE CONFIDENTIAL \u2014 RESTRICTED' watermark and later cites watermarking among Pinnacle's secrecy/protective measures supporting trade-secret status."
+    },
+    {
+      "id": "C-051",
+      "title": "Annual confidentiality acknowledgments cited as reasonable protective measure",
+      "verdict": "pass",
+      "reasoning": "The brief expressly references Whitaker\u2019s annual confidentiality acknowledgments, including that she signed them from 2020 through 2024, and cites them among the secrecy/protective measures supporting trade-secret protection."
+    },
+    {
+      "id": "C-052",
+      "title": "Non-compete consideration argument: initial employment",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses consideration for the RCA/non-compete, stating that initial employment, access to confidential information, and specialized training supported the restrictive covenants."
+    },
+    {
+      "id": "C-053",
+      "title": "Conclusion requesting denial of motion in its entirety",
+      "verdict": "pass",
+      "reasoning": "The memorandum\u2019s conclusion expressly states that Pinnacle requests the Court \u201cdeny Defendants\u2019 Joint Motion to Dismiss in its entirety,\u201d with an alternative request for leave to amend. This satisfies the criterion requiring a prayer for denial of the motion as to all counts."
+    },
+    {
+      "id": "C-054",
+      "title": "$41.3M total annual revenue from six solicited clients",
+      "verdict": "pass",
+      "reasoning": "The brief includes a table of the six solicited clients with annual revenue amounts and a bold total of $41.3M, satisfying the criterion."
+    },
+    {
+      "id": "C-055",
+      "title": "Non-solicitation of clients argument (Section 4.2)",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses the client non-solicitation covenant in RCA \u00a7 4.2, states that Count I alleges breach of that covenant, argues it is limited to clients with whom Whitaker had Material Contact, and asserts the Complaint pleads that Lodestar/Whitaker solicited six such Pinnacle clients. This satisfies the criterion."
+    },
+    {
+      "id": "C-056",
+      "title": "Non-solicitation of employees argument (Section 4.3)",
+      "verdict": "pass",
+      "reasoning": "The brief addresses the employee non-solicitation covenant by identifying RCA \u00a7 4.3 as one of the breached provisions supporting Count I. It also specifically alleges that a Lodestar recruiter contacted/offered a position to Dr. Priya Ramachandran, a Pinnacle VP and key RevMaxPro architect, under the section on targeted solicitation of clients and personnel. Although the connection is not elaborated at length, the brief links the \u00a7 4.3 breach theory with the Ramachandran recruitment allegations sufficiently to satisfy the criterion."
+    },
+    {
+      "id": "C-057",
+      "title": "Forensics report used to support trade secrets claim",
+      "verdict": "pass",
+      "reasoning": "The brief repeatedly references Exhibit B/the Meridian Digital Forensics report and relies on its findings, including the January 6 USB download of approximately 14,200 files, the personal drive, file categories such as RevMaxPro specs and Platinum Client List, lack of authorization, and download anomalies, to support the trade secret misappropriation allegations."
+    },
+    {
+      "id": "C-058",
+      "title": "Lodestar proposal language from client emails cited",
+      "verdict": "pass",
+      "reasoning": "The brief expressly cites Lodestar's client proposal language, including \u201calternative management structure\u201d proposals and \u201ctailored management solutions based on deep understanding of your portfolio,\u201d and uses that language to support both trade secret use and tortious interference arguments."
+    },
+    {
+      "id": "C-059",
+      "title": "Correctly identifies Whitaker's RCA execution date",
+      "verdict": "pass",
+      "reasoning": "The brief states that Whitaker joined Pinnacle on March 4, 2019 and signed the RCA that day, correctly identifying the execution date as March 4, 2019."
+    },
+    {
+      "id": "C-060",
+      "title": "Choice of law (Connecticut) for the RCA referenced",
+      "verdict": "pass",
+      "reasoning": "The brief does not cite RCA Section 8.2 specifically, but it repeatedly applies and invokes Connecticut law in the RCA/restrictive-covenant analysis, including stating that restrictive covenants are assessed under Connecticut law and that Connecticut law authorizes modification. This sufficiently identifies Connecticut law as governing the RCA for the criterion."
+    },
+    {
+      "id": "C-061",
+      "title": "Competing Business definition addressed",
+      "verdict": "pass",
+      "reasoning": "The brief directly addresses the Section 1.3 \u201cCompeting Business\u201d issue in Argument A.5. It quotes/paraphrases the definition, argues Lodestar\u2019s hospitality vertical falls within hotel management, revenue optimization, and hospitality asset management, relies on the complaint and Defendants\u2019 press release, and responds to overbreadth hypotheticals by arguing they are irrelevant or subject to modification rather than dismissal."
+    },
+    {
+      "id": "C-062",
+      "title": "Article III standing \u2014 injury-in-fact analysis",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses Article III standing and injury-in-fact in Section IV.E, citing Lujan/Clapper and arguing completed injuries from the RCA breaches, actual/threatened misappropriation and loss of control over trade secrets, employee solicitation, forensic costs, and imminent risk to $19.9 million in revenue from clients evaluating Lodestar proposals."
+    },
+    {
+      "id": "C-063",
+      "title": "24-month duration addressed as reasonable",
+      "verdict": "pass",
+      "reasoning": "The brief directly addresses the 24-month duration challenge in Section IV.A.4, arguing it is reasonable for a C-suite executive with access to multi-year strategic plans, long-term client relationships, pending bids, and current client data, and also notes elsewhere that overbroad covenants can be modified/reformed if necessary."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T21:02:42.894398+00:00",
+  "cost": {
+    "input_tokens": 16,
+    "output_tokens": 31767,
+    "wall_clock_seconds": 301.13
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 7,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "defendants-mtd-memorandum.docx",
+      "verified-complaint.docx",
+      "restrictive-covenant-agreement.docx",
+      "forensics-report-summary.docx",
+      "litigation-strategy-memo.docx",
+      "lodestar-press-release.docx",
+      "client-notification-emails.eml"
+    ],
+    "documents_skipped_list": []
+  }
+}

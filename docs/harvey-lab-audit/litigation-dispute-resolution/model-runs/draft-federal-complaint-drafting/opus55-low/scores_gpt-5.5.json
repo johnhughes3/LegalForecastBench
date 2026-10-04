@@ -1,0 +1,336 @@
+{
+  "score": 1.0,
+  "max_score": 1.0,
+  "summary": "50/50 criteria passed.  ALL-PASS.",
+  "all_pass": true,
+  "n_criteria": 50,
+  "n_passed": 50,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: LLC citizenship alleged via member citizenship, not state of formation",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly states that Westlake is a Delaware LLC but correctly explains that an LLC\u2019s citizenship is determined by the citizenship of all its members. It identifies Marcus J. Harwell and Elena Rosario-Vega as Westlake\u2019s members and alleges they are domiciled in/citizens of Texas, concluding Westlake is a Texas citizen rather than relying on Delaware formation."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Complaint cites or reflects Carden v. Arkoma LLC citizenship rule",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly states that, for diversity jurisdiction, an LLC is a citizen of every state of which each of its members is a citizen, and the issues memo further explains that LLC citizenship is not based on state of organization or principal place of business but on each member's citizenship traced through every layer. This satisfies the criterion even though it cites Harvey rather than Carden."
+    },
+    {
+      "id": "C-003",
+      "title": "Diversity jurisdiction: Graydon citizenship properly alleged",
+      "verdict": "pass",
+      "reasoning": "The complaint alleges that Graydon Strategic Advisors Inc. is a New York corporation with its principal place of business in New York, New York, and states that Graydon is a citizen of New York."
+    },
+    {
+      "id": "C-004",
+      "title": "Diversity jurisdiction: Amount in controversy exceeds $75,000",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly alleges in paragraph 9 that the amount in controversy exceeds $75,000, exclusive of interest and costs, and notes that the milestone payments alone total $750,000. It also pleads additional multimillion-dollar damages, clearly exceeding the jurisdictional threshold."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Forum selection clause cited for venue and personal jurisdiction",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly cites PAA Section 12.2 in the personal-jurisdiction allegations, stating Graydon submitted to exclusive jurisdiction in state or federal courts in Dallas County, Texas, and also invokes the clause for Trevor Graydon and GCS. It also cites Section 12.2 in the venue allegations as an agreed basis for venue in Dallas County."
+    },
+    {
+      "id": "C-006",
+      "title": "Venue: Northern District of Texas alleged under 28 U.S.C. \u00a7 1391",
+      "verdict": "pass",
+      "reasoning": "The complaint is captioned for the Northern District of Texas, Dallas Division, and expressly alleges venue is proper in that District and Division under 28 U.S.C. \u00a7 1391(b)(2) because substantial events occurred in Dallas County. It also alleges venue is proper by agreement under the PAA forum-selection clause."
+    },
+    {
+      "id": "C-007",
+      "title": "Personal jurisdiction: Minimum contacts alleged in addition to forum selection clause",
+      "verdict": "pass",
+      "reasoning": "The complaint alleges personal jurisdiction over Graydon based on the PAA forum-selection clause and also independently alleges Texas minimum contacts, including contracting with a Dallas-based client, sending personnel to Dallas for meetings, delivering reports/certifications to Dallas, and accepting payments from Westlake\u2019s Dallas accounts."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Fiduciary duty claim grounded in PAA Section 8.1 express acknowledgment",
+      "verdict": "pass",
+      "reasoning": "The breach of fiduciary duty count expressly references PAA \u00a7 8.1 and alleges that Graydon acknowledged it acted in a fiduciary capacity. It also identifies duties of loyalty, candor, full disclosure/good faith-type obligations in its role as Westlake\u2019s placement agent/agent for soliciting commitments."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: Fiduciary duty claim also alleges common law agency-based fiduciary relationship",
+      "verdict": "pass",
+      "reasoning": "Count II expressly alleges that Graydon owed fiduciary duties not only under PAA \u00a7 8.1 but also because, as Westlake\u2019s agent for soliciting capital commitments, it owed common-law agency fiduciary duties of loyalty, candor, full disclosure, and refraining from self-dealing. The factual allegations also state these duties are in addition to common-law agency duties. This satisfies the criterion."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Complaint addresses Graydon Capital Solutions as related entity",
+      "verdict": "pass",
+      "reasoning": "The complaint names Graydon Capital Solutions LLC as an additional defendant and asserts legal theories against it, including knowing participation in breach of fiduciary duty, unjust enrichment/disgorgement, and injunctive relief. It also alleges GCS is Trevor Graydon\u2019s wholly owned/controlled affiliate, shares Graydon\u2019s address/personnel/network, and acted through Graydon personnel, directly addressing the separate-entity defense."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Issues memo flags separate-entity defense and recommends strategy",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags Graydon/GCS's likely \u201cseparate entity\u201d defense, noting that GCS signed nothing with Westlake and that Graydon may argue \u00a7 7.4 does not reach affiliates. It discusses strategies including affiliate language under the PAA, attribution/agency through Trevor Graydon, closely related non-signatory theory, and alter ego/veil-piercing considerations, while explaining why veil piercing is not pleaded initially but may be added after discovery."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Fraud claim states who, what, when, where, how per Rule 9(b)",
+      "verdict": "pass",
+      "reasoning": "The complaint pleads fraud with Rule 9(b)-level detail. It identifies who prepared/approved the reports (Nathaniel Pruitt prepared and signed; Trevor Graydon approved/signed), what statements were false (specific milestone certifications, inflated claimed thresholds/pipeline figures, misstatements about GPPERS/Harborview/Northshore and conflicts), when they were made (May 8, 2023; September 9, 2023; January 9, 2024; March 8, 2024), and where/how they were communicated (monthly activity reports and milestone certifications delivered from Graydon in New York to Westlake in Dallas). The fraud count incorporates those detailed factual paragraphs and is not merely general notice pleading."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_005: Fraud count references Fed. R. Civ. P. 9(b) heightened standard",
+      "verdict": "pass",
+      "reasoning": "The complaint does not cite Fed. R. Civ. P. 9(b) by name, but the fraud count expressly states the misrepresentations are set out \u201cwith particularity\u201d and incorporates detailed allegations identifying the speakers/approvers, dates, contents of the statements, delivery to Dallas, why they were false, reliance, and resulting payments. This sufficiently shows awareness of and structures the fraud allegations to meet the who/what/when/where/how framework."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006: Economic loss rule addressed in issues memo",
+      "verdict": "pass",
+      "reasoning": "The memo expressly includes a section titled \u201cLimitations and the Economic-Loss Rule,\u201d identifies the economic-loss rule as an anticipated Rule 12(b)(6) vulnerability/defense to the fraud claim, cites Formosa Plastics, notes the contractual-performance distinction, and discusses exceptions/answers including independent fraud statements and an independent fiduciary duty."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_006: Fraud claim framed to survive economic loss rule",
+      "verdict": "pass",
+      "reasoning": "The fraud count is expressly framed as common-law fraud and fraud by nondisclosure arising from Graydon\u2019s fiduciary/agency relationship and from partial misleading disclosures, not merely contractual nonperformance. Paragraph 69 specifically alleges the fraud is independent of contractual promises and arose from the fiduciary relationship, addressing the Texas economic-loss rule."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_007: Unjust enrichment pled as alternative claim",
+      "verdict": "pass",
+      "reasoning": "Count V expressly pleads unjust enrichment/money had and received in the alternative as to Graydon, stating it applies only to the extent payments fall outside the PAA or the PAA is unenforceable, and it also notes that GCS and Trevor Graydon are not parties to the PAA and no express contract governs the Ridgecrest fees. This satisfies the alternative-pleading/express-contract limitation criterion."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_007: Unjust enrichment targets Graydon Capital Solutions' Ridgecrest fees",
+      "verdict": "pass",
+      "reasoning": "The unjust enrichment/money had and received count is directed at GCS and Trevor Graydon and states that no contract with Westlake governs the fees Ridgecrest paid for diverted investors. It seeks restitution/disgorgement and a constructive trust over the Ridgecrest introduction fees. The complaint also specifically identifies those fees as approximately $750,000, calculated as 1.5% of $50 million in diverted commitments."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_008: Discovery rule alleged for fraud statute of limitations",
+      "verdict": "pass",
+      "reasoning": "The complaint alleges that Westlake first learned facts suggesting the fraud/diversion on April 17, 2024, when Rosario-Vega spoke with Northshore\u2019s CIO at a Chicago conference, and states Westlake previously did not know or have reason to know of the Ridgecrest arrangement. It also expressly invokes the discovery rule/fraudulent concealment and alleges accrual was deferred until at least April 17, 2024."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_008: All claims within applicable statutes of limitations",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses limitations in Section 8, stating that breach of contract, fraud, and breach of fiduciary duty each have four-year Texas limitations periods, and that unjust enrichment has a two-year period but is still timely for an August 2024 filing. It also notes pleading the discovery rule and fraudulent concealment with an April 17, 2024 discovery date. Thus it confirms/analyzes timeliness of the relevant claims."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_009: Issues memo flags speculative damages risk for carried interest",
+      "verdict": "pass",
+      "reasoning": "The memo flags the $7.5M carried-interest claim as risky: it identifies math/methodology problems, notes the projection uses an 18.5% net IRR in a potentially circular way, says the $7.5M discount has no stated method, avoids pleading a dollar figure, and recommends retaining a testifying damages expert. Although it does not expressly use the word \u201cDaubert,\u201d it sufficiently flags the speculative/methodology vulnerability and recommends expert support."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_009: Complaint includes non-speculative damages theories",
+      "verdict": "pass",
+      "reasoning": "The complaint includes concrete damages categories beyond carried interest: $750,000 in milestone payments, lost management fees of up to $5,000,000 based on $50 million \u00d7 2.0% \u00d7 five years, retainer disgorgement of not less than $280,000, and consequential costs estimated at $1,200,000. The milestone and lost management fee figures both appear expressly."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_010: Trevor Graydon named as individual defendant",
+      "verdict": "pass",
+      "reasoning": "The complaint names Trevor Graydon individually in the caption and party allegations, and asserts claims against him personally based on his alleged role as CEO, sole member/manager of GCS, signer/approver of reports and certifications, executor/orchestrator of the Ridgecrest relationship, and participant in the diversion/fraud scheme."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_010: Personal liability theory articulated for Trevor Graydon",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly articulates theories for Trevor Graydon\u2019s individual liability, including knowing participation in Graydon\u2019s breach of fiduciary duty and personal liability for fraud/tortious conduct he personally reviewed, approved, signed, and participated in as a corporate officer."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_011: Non-solicitation 12-month tail provision alleged",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly references PAA Section 7.4, states that the non-solicitation restriction applies during the Term and for twelve months thereafter through July 18, 2025, alleges Graydon violated it by diverting Fund III prospects to Cascadia Fund IV, and uses the continuing restriction to support injunctive relief in Count VI."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_012: Complaint requests injunctive relief",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly includes Count VI seeking a permanent injunction to enforce PAA Section 7.4, the non-solicitation provision, and to enjoin Defendants from soliciting/diverting Fund III investors to competing funds. The prayer for relief also requests \u201ca permanent injunction as described in Count VI.\u201d"
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_012: Irreparable harm alleged to support injunctive relief",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly alleges irreparable harm supporting injunctive relief, including loss of institutional investor relationships and fundraising momentum that are not readily compensable in damages, and cites the PAA provision acknowledging irreparable harm from breaches of the non-solicitation/fiduciary provisions."
+    },
+    {
+      "id": "C-027",
+      "title": "DISTRACTOR_001: Texas governing law treated as straightforward",
+      "verdict": "pass",
+      "reasoning": "The complaint straightforwardly pleads that Texas law governs under PAA \u00a7 12.1. The issues memo does not flag the Texas governing-law clause as a significant conflict-of-laws vulnerability or as potentially defeating any claim. Its only choice-of-law concern relates to a possible future veil-piercing theory involving GCS/Graydon entity law, not the PAA\u2019s Texas choice-of-law provision."
+    },
+    {
+      "id": "C-028",
+      "title": "DISTRACTOR_002: FINRA registration not treated as jurisdictional obstacle",
+      "verdict": "pass",
+      "reasoning": "The complaint mentions Graydon\u2019s FINRA registration and CRD number only as a factual detail. It does not suggest FINRA registration creates mandatory arbitration or any jurisdictional bar. The issues memo expressly treats FINRA arbitration as low risk, notes Westlake chose court under the forum clause, and states Graydon cannot compel arbitration on that basis."
+    },
+    {
+      "id": "C-029",
+      "title": "DISTRACTOR_003: Retainer payment calculation is clean",
+      "verdict": "pass",
+      "reasoning": "The complaint treats the monthly retainer as a fixed $35,000 and seeks disgorgement of at least $280,000 for November 2023 through June 2024, i.e., 8 months \u00d7 $35,000. It does not fabricate any dispute about whether retainers were timely paid or whether the retainer amounts were owed."
+    },
+    {
+      "id": "C-030",
+      "title": "DISTRACTOR_004: Fund III hard cap not treated as material issue",
+      "verdict": "pass",
+      "reasoning": "The output mentions Fund III\u2019s $225 million hard cap only once as background in the factual description of the fund\u2019s terms. It does not treat the hard cap as creating any legal issue, defense, damages complication, or limitation on the claims."
+    },
+    {
+      "id": "C-031",
+      "title": "Breach of contract count: All material breaches alleged",
+      "verdict": "pass",
+      "reasoning": "The breach-of-contract count expressly alleges breaches of the conflicts provision (\u00a7 7.2), the non-solicitation covenant (\u00a7 7.4), and the reporting obligations (\u00a7 5.2), including materially false activity reports. It does not separately label the exclusivity provision (\u00a7\u00a7 2.1\u20132.2) as a breached provision in Count I, though exclusivity is pleaded in the facts and related diversion conduct is alleged. Because at most one of the four specified theories is omitted, the output satisfies the criterion as framed."
+    },
+    {
+      "id": "C-032",
+      "title": "All three diverted investors identified with specifics",
+      "verdict": "pass",
+      "reasoning": "The complaint identifies all three diverted investors by name and gives the specified commitment amounts and timing: GPPERS $25M to Cascadia Fund IV in January 2024, Harborview $15M in December 2023, and Northshore $10M in February 2024, totaling $50M."
+    },
+    {
+      "id": "C-033",
+      "title": "Graydon-Ridgecrest Capital Introduction Agreement alleged with date",
+      "verdict": "pass",
+      "reasoning": "The complaint alleges that on August 1, 2023, Trevor Graydon executed a Capital Introduction Agreement between GCS and Ridgecrest, describes it as occurring during the exclusive engagement under the PAA, and states that neither Graydon nor Trevor Graydon disclosed the agreement to Westlake."
+    },
+    {
+      "id": "C-034",
+      "title": "Discovery narrative: April 2024 Chicago conference alleged",
+      "verdict": "pass",
+      "reasoning": "The complaint specifically alleges that on April 17, 2024, Rosario-Vega attended an institutional investor conference reception in Chicago and learned from Northshore\u2019s CIO that Northshore had committed $10 million to Cascadia Fund IV through Trevor/Graydon\u2019s team."
+    },
+    {
+      "id": "C-035",
+      "title": "Complaint includes four separate counts",
+      "verdict": "pass",
+      "reasoning": "The complaint contains separately titled counts for Breach of Contract (Count I), Breach of Fiduciary Duty (Count II), Common-Law Fraud and Fraud by Nondisclosure (Count IV), and Unjust Enrichment and Money Had and Received (Count V)."
+    },
+    {
+      "id": "C-036",
+      "title": "Complaint includes proper caption for Northern District of Texas",
+      "verdict": "pass",
+      "reasoning": "The caption states 'IN THE UNITED STATES DISTRICT COURT FOR THE NORTHERN DISTRICT OF TEXAS DALLAS DIVISION' and identifies Westlake Capital Partners LLC as Plaintiff and Graydon Strategic Advisors Inc. as a Defendant."
+    },
+    {
+      "id": "C-037",
+      "title": "Complaint includes jury demand",
+      "verdict": "pass",
+      "reasoning": "The complaint includes a jury demand in the caption (\u201cJURY TRIAL DEMANDED\u201d) and a separate section VIII stating that Westlake demands a trial by jury pursuant to Federal Rule of Civil Procedure 38."
+    },
+    {
+      "id": "C-038",
+      "title": "Complaint includes attorney signature block",
+      "verdict": "pass",
+      "reasoning": "The complaint includes a filing counsel signature block for Kendrick, Lyle & Strauss LLP identifying Catherine M. Aldridge and Jordan T. Nakamura, with the required address at 1700 Pacific Avenue, Suite 3200, Dallas, Texas 75201."
+    },
+    {
+      "id": "C-039",
+      "title": "Prayer for relief includes compensatory damages",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests \u201cActual damages, including direct and consequential damages, in an amount to be proven at trial,\u201d and separately requests recovery of the $750,000 milestone payments. This satisfies the requirement that compensatory damages be requested in the prayer for relief, even though it does not state a total figure of approximately $14,730,000."
+    },
+    {
+      "id": "C-040",
+      "title": "Prayer for relief includes disgorgement",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests disgorgement of all introduction fees and other benefits obtained by GCS and Trevor Graydon from Ridgecrest, estimated at $750,000, and also seeks recovery of the $750,000 milestone payments."
+    },
+    {
+      "id": "C-041",
+      "title": "Prayer for relief includes punitive damages",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests \u201cExemplary damages,\u201d which satisfies the requirement to request punitive or exemplary damages."
+    },
+    {
+      "id": "C-042",
+      "title": "Prayer for relief includes attorneys' fees and costs",
+      "verdict": "pass",
+      "reasoning": "The prayer for relief expressly requests \u201cReasonable attorneys' fees, expert fees, and costs\u201d in paragraph (h)."
+    },
+    {
+      "id": "C-043",
+      "title": "Factual allegations organized chronologically",
+      "verdict": "pass",
+      "reasoning": "The factual allegations are organized in a coherent chronological arc: Westlake/Fund III formation, execution and terms of the PAA, the August 2023 competing arrangement, investor diversions, false reports/certifications in date order, discovery in April 2024, demand and response in June 2024, and damages. Although the false-report subsection briefly returns to May 2023, the narrative is structured and not random."
+    },
+    {
+      "id": "C-044",
+      "title": "PAA execution date correctly alleged as January 18, 2023",
+      "verdict": "pass",
+      "reasoning": "The complaint expressly alleges that the Placement Agent Agreement was dated and executed on January 18, 2023, including in paragraphs 10 and 16."
+    },
+    {
+      "id": "C-045",
+      "title": "Demand letter and response letter referenced in factual allegations",
+      "verdict": "pass",
+      "reasoning": "The complaint\u2019s factual allegations state that Westlake, through counsel, delivered a written demand to Graydon on June 3, 2024, and that Graydon, through counsel, responded on June 18, 2024 by rejecting every demand. This satisfies the requirement to reference the demand letter and response."
+    },
+    {
+      "id": "C-046",
+      "title": "Issues memo identifies Graydon's anticipated defenses from response letter",
+      "verdict": "pass",
+      "reasoning": "The memo expressly addresses anticipated defenses from Graydon\u2019s June 18 response letter. In Section 10, it discusses the \u201cSeparate entity\u201d defense regarding GCS and Section 7.4, and separately identifies \u201cIndependent investor decisions (causation)\u201d as Graydon\u2019s strongest defense on lost fees and carry. It also references the June 18 letter elsewhere in connection with verification and causation defenses."
+    },
+    {
+      "id": "C-047",
+      "title": "Issues memo produced as separate deliverable",
+      "verdict": "pass",
+      "reasoning": "The output is a standalone filing-issues memorandum, separate from the referenced draft complaint, and it identifies jurisdictional blockers, factual inconsistencies, party-selection issues, damages risks, defenses, privilege/sealing concerns, and strategic decisions for the supervising partner."
+    },
+    {
+      "id": "C-048",
+      "title": "Milestone misrepresentation specifics: Actual vs. reported figures",
+      "verdict": "pass",
+      "reasoning": "The complaint provides specific reported-versus-actual figures for at least two milestones. For May 2023, it alleges Graydon reported $50.5M and that even under Graydon\u2019s methodology the figure should have been about $42.5M. For March 2024, it alleges Graydon reported a $152M milestone-qualifying pipeline and that without phantom prospects the figure was about $112M. Although the September milestone does not clearly allege the expected ~$87.5M actual pipeline figure, two milestones are sufficiently specified."
+    },
+    {
+      "id": "C-049",
+      "title": "Exclusivity period correctly alleged as 18 months",
+      "verdict": "pass",
+      "reasoning": "The complaint alleges that Westlake appointed Graydon as its sole and exclusive placement agent on January 18, 2023, and that the PAA term ran eighteen months through July 18, 2024."
+    },
+    {
+      "id": "C-050",
+      "title": "Complaint properly references documentary sources",
+      "verdict": "pass",
+      "reasoning": "The complaint extensively references and describes the Placement Agent Agreement, Graydon\u2019s monthly activity reports/milestone certifications, and the Graydon-Ridgecrest Capital Introduction Agreement. It does not appear to reference Millhaven investigation findings, but at least three of the four required document categories are covered."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-federal-complaint-drafting/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-federal-complaint-drafting",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:11:46.681602+00:00",
+  "cost": {
+    "input_tokens": 28,
+    "output_tokens": 44055,
+    "wall_clock_seconds": 423.77
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 8,
+    "documents_skipped": 1,
+    "documents_read_list": [
+      "client-intake-memo.docx",
+      "placement-agent-agreement.docx",
+      "millhaven-investigation-summary.docx",
+      "graydon-activity-reports.docx",
+      "graydon-ridgecrest-agreement.docx",
+      "westlake-demand-letter.docx",
+      "graydon-response-letter.docx"
+    ],
+    "documents_skipped_list": [
+      "rosario-vega-discovery-email.eml"
+    ]
+  }
+}

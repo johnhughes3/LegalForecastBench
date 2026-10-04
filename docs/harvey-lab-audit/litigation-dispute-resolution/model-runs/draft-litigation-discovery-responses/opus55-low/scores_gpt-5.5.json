@@ -1,0 +1,400 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "57/61 criteria passed.  Missed 4 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 61,
+  "n_passed": 57,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies that certain RFAs must be admitted outright",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies multiple RFAs that should be admitted outright or partially admitted, including RFAs 1, 2, 4, 5, 7, 24, and 25, and recommends admitting verifiable historical facts while denying only characterizations. This satisfies the criterion that the plan not reflexively deny all RFAs and recognize indisputably true facts such as the MSA-related facts, shipment/delivery facts, and other objective matters."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Warns of sanctions risk under FRCP 37(c)(2) for unreasonable denial",
+      "verdict": "pass",
+      "reasoning": "The output expressly warns that denying facts confirmed by Prismavale's records could lead to \u201cRule 26(g) sanctions and Rule 37(c)(2) cost-shifting,\u201d and later discusses Rule 37(c)(2) exposure for specific RFAs. This satisfies the criterion."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Formal RFA responses admit undisputed facts",
+      "verdict": "pass",
+      "reasoning": "The RFA responses expressly admit several clearly true/undisputed facts, including that Prismavale and Greenleaf entered into the MSA, the MSA term, the March 8, 2024 SB-102 shipment under PO GRN-2024-0087, and the June 14, 2024 PS-302 shipment under PO GRN-2024-0193."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_002a: Identifies that RFA No. 18 requires a nuanced response regarding mediation compliance",
+      "verdict": "pass",
+      "reasoning": "The output expressly flags RFA 18 as requiring a partial/nuanced response: admit Greenleaf complied with Section 14.3 as to SB-102 but deny as to PS-302, and discusses the related pre-suit mediation defense in detail."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002b: Identifies distinction between SB-102 and PS-302 claims in mediation notice",
+      "verdict": "pass",
+      "reasoning": "The plan expressly distinguishes SB-102 from PS-302 for the pre-suit mediation/dispute notice issue: it recommends admitting compliance only as to SB-102 and denying as to PS-302, ties that to Prismavale's Second Affirmative Defense, and proposes an RFA that the January 6 notice did not mention PS-302. This addresses the risk of a blanket admission undermining/waiving the PS-302 mediation-notice defense."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: RFA No. 18 response qualifies rather than blanket admits or denies",
+      "verdict": "pass",
+      "reasoning": "The response to RFA No. 18 is qualified: it admits compliance/mediation as to the SB-102 dispute but denies compliance as to the PS-302 claims, explaining that the dispute notice and mediation addressed only SB-102. This avoids both a blanket admission and a blanket denial."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003a: Identifies COA accuracy dilemma for RFA No. 9",
+      "verdict": "pass",
+      "reasoning": "The plan does not simply recommend a flat denial. It flags RFA 9\u201311 as sensitive COA/nonconformity admissions, states the COAs may have accurately reported release testing while causation/nonconformity is disputed, discusses CAR-2024-019 and the Line 3 cleaning-validation failure, and separately notes Thornfield\u2019s 38 ppm 1,4-dioxane result and the difficulty of explaining an increase after delivery. It also advises revisiting denials if retained samples test out of specification. Although the discussion is spread across sections rather than tied only to RFA 9, it identifies the relevant dilemma and tension."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003b: Recognizes FRCP 36(a)(4) reasonable inquiry obligation for RFA No. 9",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies Rule 36(a)(4)'s reasonable-inquiry requirement for RFA responses, warns that client/QA facts must be confirmed before denying RFAs including RFA 9\u201311, and specifically flags the COA/retained-sample issues tied to RFA 9\u201311 for verification before denial. This satisfies the requirement to recognize the reasonable inquiry obligation in connection with RFA No. 9 / COA accuracy."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_003: RFA No. 9 response addresses COA accuracy carefully",
+      "verdict": "pass",
+      "reasoning": "The response to RFA No. 9 is not a bare denial. It qualifies the denial by stating that COA No. PV-24-03142 accurately reported Prismavale's release testing at shipment, denies the lot contained 38 ppm when shipped, and explains the later Thornfield testing and chain-of-custody concerns."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Identifies RFP No. 4 as overbroad",
+      "verdict": "pass",
+      "reasoning": "The plan flags RFP No. 4 for narrowing, limiting it to QA materials applicable to the specific SB-102/PS-302 products and to Jan. 1, 2020 forward rather than Jan. 1, 2018 forward. It also states that pre-2020 and unrelated product-line materials will be withheld, thereby identifying both the temporal overbreadth and company-wide/product-scope overbreadth."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Identifies RFP No. 12 as overbroad",
+      "verdict": "pass",
+      "reasoning": "The plan expressly targets RFP No. 12 for narrowing, limiting it to specified related product codes and a shorter time period, and states it will withhold the broader \u201c10-year, all-products scope.\u201d This flags both temporal and subject-matter overbreadth and indicates an objection/narrowing approach consistent with relevance and proportionality concerns."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_004: Overbroad RFP objections reference proportionality under FRCP 26(b)(1)",
+      "verdict": "pass",
+      "reasoning": "The RFP objections include explicit proportionality references. For example, RFP No. 4 objects that the request is \u201coverbroad and not proportional under Rule 26(b)(1),\u201d and RFP No. 12 similarly objects as \u201coverbroad, unduly burdensome, and not proportional.\u201d"
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_004: Offers to produce on narrowed scope for overbroad RFPs",
+      "verdict": "pass",
+      "reasoning": "The responses to overbroad RFPs include objections plus narrowed production offers. For example, RFP No. 4 objects to company-wide quality documents but offers production limited to Jan. 1, 2020 onward and to SOPs/audits applicable to SB-102, PS-302, Production Line 3, the PS-302 suite, and the Houston facility. RFP No. 12 similarly narrows recall communications by product codes and time period."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_005: Recognizes Ferris email is NOT privileged",
+      "verdict": "pass",
+      "reasoning": "The plan expressly identifies the April 25 Ferris email as a business communication between non-lawyers, states it is not privileged, and says it should be produced rather than withheld. It does not recommend withholding it on privilege grounds."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_005: RFP No. 8 response does not improperly withhold Ferris email",
+      "verdict": "pass",
+      "reasoning": "The RFP No. 8 response asserts only a standard privilege/work-product objection and expressly agrees to produce responsive non-privileged internal communications concerning the SB-102 shipment/allegations, with only privileged communications withheld and logged. It does not claim blanket privilege over pre-counsel business communications such as a Ferris-to-Breckenridge email."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_006: Denies RFA No. 22 regarding damages exceeding $10 million",
+      "verdict": "pass",
+      "reasoning": "The response to RFA No. 22 objects to the term \u201cContamination Events\u201d and then expressly states \u201cDenied,\u201d denying that Prismavale caused Greenleaf any damages."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_006: RFA No. 22 response preserves the contractual damages cap defense",
+      "verdict": "pass",
+      "reasoning": "The formal response to RFA No. 22 denies damages over $10 million and expressly states that any consequential or incidental damages are subject to the limitation in MSA \u00a7 12.4. The accompanying plan also discusses the damages-cap issue and identifies the $5,000,000 cap calculation. This preserves the contractual damages cap defense in connection with the damages-related RFA."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_007: References ESI protocol from Joint Discovery Stipulation",
+      "verdict": "pass",
+      "reasoning": "The RFP responses expressly reference the Joint Stipulation\u2019s ESI protocol, including Stipulation \u00a7 3(a), native production for structured data where practicable, and single-page TIFF with load files/metadata for email and other documents. ESI-related responses such as RFP Nos. 15, 19, and 23 also specify native formats and, for RFP 19, cite Stipulation \u00a7 3(a)."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_007: Agrees to produce ESI in native format where practicable",
+      "verdict": "pass",
+      "reasoning": "The responses expressly agree to produce ESI in native format where practicable, including spreadsheets, ERP/SAP exports, LIMS data, chromatography/environmental monitoring data, temperature-logger data, QMS exports, and certain emails in .msg format. They also reference the stipulation\u2019s form-of-production provisions rather than blanket-refusing native production."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_008: Identifies third-party document issue for RFP No. 11",
+      "verdict": "pass",
+      "reasoning": "The plan expressly identifies RFP No. 11 as involving Oakvale Freight Services, Prismavale\u2019s carrier/third-party logistics provider, including temperature-logger and carrier records. It also analyzes Rule 34 control by stating that if Prismavale\u2019s contract gives it a right to Oakvale\u2019s records, those records are within Prismavale\u2019s control and must be produced, and the RFP table says to produce Oakvale data within contractual control."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_008: RFP No. 11 response addresses what Prismavale possesses vs. third-party records",
+      "verdict": "pass",
+      "reasoning": "The RFP No. 11 response objects only as to documents held solely by third parties outside Prismavale\u2019s control, but agrees to produce shipping, chain-of-custody, temperature-logger, and Oakvale records in Prismavale\u2019s possession/custody/control, and to request additional Oakvale records it has a contractual right to obtain. It clearly distinguishes Prismavale-held records from third-party records."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_008: Notes that Oakvale shipping records support the defense",
+      "verdict": "fail",
+      "reasoning": "The plan mentions Oakvale Freight Services, temperature-logger data, and producing Oakvale records, but it frames Oakvale mainly as a potential source of transit contamination/third-party liability. It does not note that Oakvale temperature and chain-of-custody records showing proper 15\u201325\u00b0C storage conditions during transit would support Prismavale\u2019s defense that contamination did not occur during shipping, nor that producing those records is strategically beneficial for that reason."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_009: Identifies compound subparts issue in RFAs 14, 15, and 16",
+      "verdict": "pass",
+      "reasoning": "The plan expressly flags that RFAs 14, 15, and 16 contain enumerated subparts that are separate propositions, counts RFA 14 as 3, RFA 15 as 3, and RFA 16 as 4, and states that counting these subparts separately brings the total to 32 RFAs, exceeding the 30-RFA limit in the Joint Discovery Stipulation."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_009: Raises objection to compound RFAs in formal responses",
+      "verdict": "pass",
+      "reasoning": "The responses to RFA Nos. 14, 15, and 16 each expressly object that the request is compound and contains multiple separate propositions/subparts."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_009: Still substantively responds despite compound subpart objection",
+      "verdict": "pass",
+      "reasoning": "For each compound RFA Nos. 14, 15, and 16, the responses object that the request is compound but then provide substantive admissions, denials, qualifications, or inability-to-admit/deny for each subpart. None consists solely of an objection."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_010: Identifies litigation hold timing issue for RFP No. 22",
+      "verdict": "pass",
+      "reasoning": "The output expressly identifies RFP No. 22 as raising preservation/litigation hold issues, discusses when the duty to preserve arose, states it likely arose by about April 22, 2024 when contamination notice/recall/root-cause issues emerged, and in any event no later than the January 6, 2025 dispute notice. It also recommends determining when the hold actually issued and to whom."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_010: Warns against revealing preservation deficiencies",
+      "verdict": "pass",
+      "reasoning": "The output specifically flags RFP 22 as targeting litigation-hold timing and a likely Rule 37(e) spoliation inquiry, advises determining when the hold issued and to whom, and warns that any auto-delete/device/policy issues must be identified before responding. Although it does not use the exact phrase \u201cdo not inadvertently reveal deficiencies,\u201d it sufficiently cautions about the preservation-deficiency risk associated with RFP 22 responses."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_011: Identifies RFA No. 20 as calling for a legal conclusion",
+      "verdict": "pass",
+      "reasoning": "The plan specifically addresses RFA No. 20 and recommends an objection because it \u201cmixes law and fact,\u201d while also noting that Rule 36 permits application of law to fact. Although it does not expressly cite UCC \u00a7 2-314, it identifies the legal-conclusion/legal-standard issue with the merchantability request and recommends objecting on that basis."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_011: RFA No. 20 formal response objects to legal conclusion",
+      "verdict": "pass",
+      "reasoning": "RFA No. 20 expressly objects that the request \u201ccalls for a conclusion on a mixed question of law and fact\u201d under the UCC, then denies subject to the objection and bases the denial on the SB-102 and PS-302 lots conforming to contract specifications when shipped and being fit for ordinary purposes."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_012a: Identifies 14-day inspection period defense for RFA No. 12",
+      "verdict": "pass",
+      "reasoning": "The plan expressly discusses RFA Nos. 12 and 13 under a section titled \u201cSection 8.1 Rejection Window (First Affirmative Defense),\u201d explaining that Prismavale would deny them based on Section 8.1 and the timing of Greenleaf\u2019s notice. This identifies that RFA No. 12 implicates the contractual inspection/rejection-period defense, even though it does not repeat the exact phrase \u201c14-day\u201d in that section."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_012b: Notes linguistic distinction in RFA No. 12 wording vs. contractual period",
+      "verdict": "fail",
+      "reasoning": "The output discusses the Section 8.1 rejection window and mentions UCC notice within a reasonable time after discovery, but it does not specifically note the linguistic distinction between RFA No. 12\u2019s \u201creasonable time after discovery\u201d wording and the MSA\u2019s 14-day period after receipt. It also does not flag that nuance as affecting the RFA response."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_012: RFA No. 12 response preserves the 14-day inspection defense",
+      "verdict": "pass",
+      "reasoning": "The response to RFA No. 12 does not admit timely notice without qualification. It expressly denies the remainder after only admitting the approximate date of notice, and it specifically invokes MSA \u00a7 8.1\u2019s 14-day inspection/rejection period, stating Greenleaf failed to give notice within that period. This preserves the 14-day inspection defense."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_012: Acknowledges latent defect complication",
+      "verdict": "pass",
+      "reasoning": "The plan expressly acknowledges the latent-defect issue in Section 4.4, noting that the alleged defects could be detected only by GC-MS or incubation and discussing how this complicates reliance on the 14-day inspection/rejection window. It also discusses Greenleaf\u2019s incoming QC practices and whether they included GC-MS or microbial testing."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_013: Identifies RFP No. 26 as seeking privileged communications",
+      "verdict": "pass",
+      "reasoning": "The plan flags RFP 26 as involving \u201clegal communications versus billing records\u201d and, in the RFP response plan, states for RFP 26: \u201cWithhold entirely; Category B log; propose no logging after March 3, 2025,\u201d with \u201cWithholding all.\u201d This identifies RFP 26 as a privilege issue and recommends withholding/objecting on privilege grounds."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_013: RFP No. 26 formal response objects on privilege grounds",
+      "verdict": "pass",
+      "reasoning": "The response to RFP No. 26 expressly objects on attorney-client privilege and work-product grounds and states that Prismavale will not produce responsive documents, withholding all responsive communications with litigation counsel."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_013: RFP No. 26 response mentions privilege log",
+      "verdict": "pass",
+      "reasoning": "The formal response to RFP No. 26 states that all responsive communications with litigation counsel are withheld as attorney-client privileged and work product, includes a 'Withheld: Yes' statement, and expressly says the communications will be logged categorically under Stipulation \u00a7 4(a), Category B, with a proposed post-complaint logging cutoff. This satisfies the privilege log requirement."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_014: Identifies that RFP subparts may exceed the 50-request limit",
+      "verdict": "pass",
+      "reasoning": "The output expressly flags the RFP numerical-limit issue, explains that the Joint Discovery Stipulation counts distinct subparts toward the 50-request limit, provides a subpart count table, and states the total could be approximately 42\u201356 with an aggressive count exceeding 50."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_014: Raises general objection about RFP numerical limit",
+      "verdict": "pass",
+      "reasoning": "The RFP responses include a general numerical-limit objection in Preliminary Statement \u00b6 6, citing Stipulation \u00a7 2(b), objecting to the instruction on subparts, and stating that certain RFPs contain distinct-subject subparts that count toward the 50-request limit. Although it calculates the total as at least 42 rather than expressly saying the limit is exceeded, it does raise an objection regarding the RFP numerical limit and counting subparts."
+    },
+    {
+      "id": "C-039",
+      "title": "Correct case name in formal responses caption",
+      "verdict": "pass",
+      "reasoning": "The formal responses include a caption block identifying Greenleaf Organics, Inc. as Plaintiff and Prismavale Chemical Solutions, LLC as Defendant, which corresponds to the required case name Greenleaf Organics, Inc. v. Prismavale Chemical Solutions, LLC."
+    },
+    {
+      "id": "C-040",
+      "title": "Correct case number in formal responses caption",
+      "verdict": "pass",
+      "reasoning": "The formal response caption includes \u201cCivil Action No. 1:25-cv-00412-PAB-STV,\u201d which matches the required case number exactly."
+    },
+    {
+      "id": "C-041",
+      "title": "Correct court in formal responses caption",
+      "verdict": "pass",
+      "reasoning": "The formal responses include a caption stating \"IN THE UNITED STATES DISTRICT COURT FOR THE DISTRICT OF COLORADO,\" which matches the required court."
+    },
+    {
+      "id": "C-042",
+      "title": "Formal responses include general objections section",
+      "verdict": "pass",
+      "reasoning": "The draft includes sections before the specific responses that set forth objections applying across the requests, including objections to definitions and instructions, numerical limits, privilege, form of production, confidentiality, and scope/control issues. Although not titled exactly \u201cGeneral Objections,\u201d these function as a general objections section applicable to all requests."
+    },
+    {
+      "id": "C-043",
+      "title": "Formal responses include signature block",
+      "verdict": "pass",
+      "reasoning": "The formal discovery responses include signature blocks for HOLLISTER & MARSH LLP listing Sandra Kessler and Brian Aldridge (as well as Emily Tanaka), satisfying the specified requirement."
+    },
+    {
+      "id": "C-044",
+      "title": "Formal responses include certificate of service",
+      "verdict": "pass",
+      "reasoning": "The draft includes a Certificate of Service stating service by email on Jordan Stillwell and Priya Naikar of Ridgeline Carlisle LLP, identified as attorneys for Plaintiff."
+    },
+    {
+      "id": "C-045",
+      "title": "Response deadline correctly stated as June 9, 2025",
+      "verdict": "pass",
+      "reasoning": "The formal discovery responses are dated June 9, 2025, state production will begin on June 9, 2025, and the certificate of service reflects service on June 9, 2025, consistent with the May 5 service date plus 30 days and the 5-day stipulated extension."
+    },
+    {
+      "id": "C-046",
+      "title": "RFA responses cover all 25 RFAs",
+      "verdict": "pass",
+      "reasoning": "The RFA section includes individual responses labeled Request for Admission Nos. 1 through 25, with a response provided for each number."
+    },
+    {
+      "id": "C-047",
+      "title": "RFP responses cover all 30 RFPs",
+      "verdict": "pass",
+      "reasoning": "The RFP section includes individual formal responses labeled RFP No. 1 through RFP No. 30, covering all 30 requested RFPs."
+    },
+    {
+      "id": "C-048",
+      "title": "Plan covers analysis of each RFA individually",
+      "verdict": "pass",
+      "reasoning": "The output includes a dedicated RFA table covering RFAs 1 through 25, either individually or in clear groupings, with specific proposed responses such as admit, deny, partial admission, objection, qualification, or lack of knowledge after reasonable inquiry, plus notes for verification. This satisfies the requirement to address each RFA individually or in clear groupings with specific recommendations."
+    },
+    {
+      "id": "C-049",
+      "title": "Plan covers analysis of each RFP individually",
+      "verdict": "pass",
+      "reasoning": "The plan includes a dedicated RFP section with a table that addresses all 30 RFPs, sometimes individually and sometimes in clear groupings, and provides specific recommendations for each group/request such as produce in full, narrow scope, object, withhold privileged materials, or produce in native format."
+    },
+    {
+      "id": "C-050",
+      "title": "RFA responses consistent with Answer admissions",
+      "verdict": "pass",
+      "reasoning": "The RFA responses admit the core facts likely admitted in Prismavale's Answer, including the existence and terms of the MSA, the specified shipments, provision of COAs, and other non-disputed background facts. The denials are directed at disputed characterizations, causation, contamination, damages, or legal conclusions, not at the admitted facts themselves."
+    },
+    {
+      "id": "C-051",
+      "title": "Formal responses preserve affirmative defenses",
+      "verdict": "pass",
+      "reasoning": "The RFA responses preserve the identified affirmative defenses. Prismavale denies or qualifies RFAs on reasonable notice under the 14-day inspection/rejection provision, expressly invokes the damages cap, denies causation/damages in ways consistent with mitigation and comparative-fault defenses, and specifically denies mediation compliance as to PS-302 while admitting it only as to SB-102. No RFA admission clearly waives any of the five listed defenses."
+    },
+    {
+      "id": "C-052",
+      "title": "Plan identifies coordination between RFA responses and affirmative defenses",
+      "verdict": "pass",
+      "reasoning": "The plan explicitly coordinates multiple RFA responses with affirmative defenses, including RFA 18 with the Second Affirmative Defense on pre-suit mediation, RFAs 12 and 13 with the Section 8.1/14-day inspection defense, and RFAs 22 and 23 with the damages-cap/Seventh Affirmative Defense."
+    },
+    {
+      "id": "C-053",
+      "title": "Both deliverables are produced",
+      "verdict": "pass",
+      "reasoning": "The agent provided two distinct deliverables: a discovery response plan labeled discovery-response-plan.docx and a formal responses document labeled rfa-and-rfp-responses.docx containing responses and objections to RFAs and RFPs. Although the formal responses filename differs slightly from the criterion's example name, the required formal responses document is present."
+    },
+    {
+      "id": "C-054",
+      "title": "Formal responses contain both RFA and RFP sections",
+      "verdict": "pass",
+      "reasoning": "The document includes two distinct formal sections: Part One for Defendant's Responses and Objections to Plaintiff's First Set of Requests for Admission, and Part Two for Defendant's Responses and Objections to Plaintiff's First Set of Requests for Production."
+    },
+    {
+      "id": "C-055",
+      "title": "Plan distinguishes between privilege and non-privilege for internal communications",
+      "verdict": "pass",
+      "reasoning": "The plan expressly distinguishes privileged communications from non-privileged internal business communications. It identifies the April 25 Ferris-to-Breckenridge email as a non-privileged business communication between non-lawyers unless counsel was involved for legal advice, states it should be produced, and separately reserves privilege/work-product treatment for counsel-directed materials, legal communications, litigation hold notices, and mediation/coverage communications."
+    },
+    {
+      "id": "C-056",
+      "title": "RFP No. 22 response does not flatly refuse to produce litigation hold documents",
+      "verdict": "pass",
+      "reasoning": "RFP No. 22 asserts privilege/work-product objections to the litigation hold notices themselves, but it does not flatly refuse all litigation hold information. It offers to provide a written statement identifying hold dates, recipient categories, custodians preserved/collected, and preserved data sources, and offers to meet and confer on preservation questions. This is an objection paired with production/information on a narrowed basis."
+    },
+    {
+      "id": "C-057",
+      "title": "Plan flags the Ferris email as damaging but producible",
+      "verdict": "pass",
+      "reasoning": "The plan expressly identifies the April 25, 2024 Ferris email to Breckenridge as one of the \u201chot documents\u201d supporting Greenleaf\u2019s willfulness theory, states that it is a business communication between non-lawyers and not privileged absent legal advice, and says to plan for it to be produced. It also treats it as damaging and responsive in the RFP strategy."
+    },
+    {
+      "id": "C-058",
+      "title": "Accurate reference to cleaning validation failure details",
+      "verdict": "pass",
+      "reasoning": "The plan correctly references CAR-2024-019, the Line 3 cleaning-validation failure on February 28, 2024, the March 2 re-validation that passed, Raymond Ortiz\u2019s connection/signature, and the April 30 root-cause closure/completion."
+    },
+    {
+      "id": "C-059",
+      "title": "Accurate contamination specifications cited",
+      "verdict": "fail",
+      "reasoning": "The plan discusses contamination and correctly mentions 38 ppm for 1,4-dioxane and 450 CFU/g for microbial count, but it does not cite either required specification limit (10 ppm for SB-102 or 100 CFU/g for PS-302). Therefore it does not accurately reference one of the required contamination details as stated."
+    },
+    {
+      "id": "C-060",
+      "title": "References FRCP 36(a)(4) reasonable inquiry standard for RFA responses",
+      "verdict": "pass",
+      "reasoning": "The output expressly references Rule 36(a)(4) and explains that a party may claim lack of knowledge only after making a reasonable inquiry; it also uses reasonable-inquiry language in proposed RFA responses."
+    },
+    {
+      "id": "C-061",
+      "title": "FRE 502(d) clawback order referenced where appropriate",
+      "verdict": "fail",
+      "reasoning": "The responses discuss privilege logs and cite the discovery stipulation, but they never mention an FRE 502(d) clawback order or any clawback protection."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-litigation-discovery-responses/opus55-low/20260926-202411",
+  "task": "litigation-dispute-resolution/draft-litigation-discovery-responses",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-10-03T20:32:19.536710+00:00",
+  "cost": {
+    "input_tokens": 14,
+    "output_tokens": 39471,
+    "wall_clock_seconds": 367.05
+  },
+  "doc_coverage": {
+    "documents_read": 7,
+    "total_documents": 7,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "complaint.docx",
+      "answer.docx",
+      "discovery-stipulation.docx",
+      "plaintiff-rfas.docx",
+      "plaintiff-rfps.docx",
+      "precedent-discovery-responses.docx",
+      "scheduling-order.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

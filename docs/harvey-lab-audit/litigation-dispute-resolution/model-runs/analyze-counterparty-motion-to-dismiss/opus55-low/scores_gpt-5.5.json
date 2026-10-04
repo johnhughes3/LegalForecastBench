@@ -1,0 +1,238 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "30/34 criteria passed.  Missed 4 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 34,
+  "n_passed": 30,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "ISSUE_001: Identifies inconsistent application of Twombly/Iqbal vs. Rule 9(b) to fraud claim",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags that DataCore raises Rule 9(b) only in a one-sentence footnote, while otherwise relying on Twombly/Iqbal-type plausibility arguments, and it contrasts that with the required Rule 9(b) who/what/when/where/how framework by explaining that the Complaint pleads those particulars. It also notes DataCore cites no fraud authority beyond Twombly and Iqbal. This satisfies the criterion."
+    },
+    {
+      "id": "C-002",
+      "title": "ISSUE_001: Notes Complaint's fraud allegations likely satisfy Rule 9(b)",
+      "verdict": "pass",
+      "reasoning": "The memo expressly argues that the fraudulent inducement allegations satisfy Rule 9(b), identifying the who (Sousa, Baines), what (verbatim statements), when (specific January/February 2022 dates), where/how (emails from Atlanta and demonstrations), and why false (capacity limits and custom API work). It also states this satisfies Ziemba and notes DataCore raised 9(b) only minimally."
+    },
+    {
+      "id": "C-003",
+      "title": "ISSUE_001: Identifies Victor Sousa and January 10, 2022 email as supporting Rule 9(b) specificity",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly discusses Rule 9(b) under Count II and states that the Complaint pleads the \u201cwho (Sousa, Baines)\u201d and the \u201cwhen (Jan. 10...)\u201d of the alleged fraud, supporting particularity. This satisfies the criterion by referencing Victor Sousa and the January 10 date in connection with Rule 9(b) specificity."
+    },
+    {
+      "id": "C-004",
+      "title": "ISSUE_001: Identifies specific misrepresentations (payroll integration and/or concurrent record capacity) as supporting Rule 9(b)",
+      "verdict": "pass",
+      "reasoning": "The memo's Rule 9(b) analysis expressly identifies specific factual misrepresentations supporting particularity, including \u201czero custom configuration,\u201d \u201c15,000 concurrent ... records with sub-second latency,\u201d and \u201cnative integration\u201d with ADP, as well as the record-capacity ceilings and custom API work showing falsity."
+    },
+    {
+      "id": "C-005",
+      "title": "ISSUE_002: Identifies that forum selection clause should be enforced via \u00a7 1404(a) transfer, not 12(b)(3) dismissal",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies that DataCore's Rule 12(b)(3) forum-selection-clause dismissal argument uses the wrong procedural vehicle, cites Atlantic Marine, explains venue is not rendered improper by a forum-selection clause, and states enforcement should proceed through 28 U.S.C. \u00a7 1404(a) transfer instead."
+    },
+    {
+      "id": "C-006",
+      "title": "ISSUE_002: Cites Atlantic Marine as controlling authority",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly references Atlantic Marine by name, including a full citation to Atlantic Marine Construction Co. v. U.S. District Court, 571 U.S. 49 (2013), and identifies it as controlling on forum-selection clause enforcement."
+    },
+    {
+      "id": "C-007",
+      "title": "ISSUE_003: Identifies that tort claims may fall outside the forum selection clause's scope",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags a forum-selection scope counterargument under Section 14.2, discussing \u201cGUDTPA and the tort claims\u201d and noting that Pinnacle argues at least the GUDTPA claim falls outside the clause. It also repeatedly characterizes Counts II and III as based on pre-contract/extra-contractual inducement representations. Although the memo candidly assesses the argument as weak because of the broad \u201crelating to\u201d language, it does identify the issue that tort/statutory claims may fall outside the forum-selection clause\u2019s scope."
+    },
+    {
+      "id": "C-008",
+      "title": "ISSUE_003: Notes the Statement of Work Capabilities was not incorporated into the MSA",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the SOW Capabilities Document and states that Complaint \u00b6\u00b6 39 and 90 emphasize it was not incorporated into the MSA, citing Sousa\u2019s cover email that it was \u201cseparate from the formal Master Services Agreement.\u201d Although the memo is skeptical that this defeats the forum-selection clause, it does identify the non-incorporation fact required by the criterion."
+    },
+    {
+      "id": "C-009",
+      "title": "ISSUE_004: Identifies that the motion ignores specific jurisdiction analysis",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags that DataCore's personal-jurisdiction argument addresses only general jurisdiction/at-home status and fails to engage the complaint's specific-jurisdiction theory, including in the Executive Summary, risk table, and Section IV.B."
+    },
+    {
+      "id": "C-010",
+      "title": "ISSUE_004: Notes DataCore's Atlanta office with 14 employees as a jurisdictional contact",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies DataCore's permanent Atlanta office as a jurisdictional contact, including the 100 Techwood Drive NW address and 14 employees, notes that DataCore/Whitford failed to address or deny those facts, and uses them to support specific personal jurisdiction in Georgia."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_004: Notes Victor Sousa made misrepresentations from Georgia",
+      "verdict": "pass",
+      "reasoning": "The memo expressly ties personal jurisdiction to Victor Sousa\u2019s Georgia contacts: it notes Sousa was an Atlanta-based VP, made Georgia-directed pre-contract representations/misrepresentations from DataCore\u2019s Atlanta office, and signed the MSA, and it uses those facts to support specific jurisdiction and Georgia long-arm jurisdiction for tortious conduct in the forum."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_005: Identifies that integration clause does not bar fraudulent inducement claims",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that DataCore\u2019s argument based only on the MSA\u2019s merger/integration sentence is legally insufficient, stating that under Texas law a standard merger clause does not bar fraudulent inducement claims and citing Italian Cowboy. It distinguishes that from the separate non-reliance sentence, which may create a stronger defense. This satisfies the criterion."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_006: Identifies that the accrual date for the limitations period is disputed and inappropriate for 12(b)(6) resolution",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags that limitations dismissal is improper unless apparent on the face of the complaint, notes the complaint pleads an April 15, 2023 accrual date and reliance on cure commitments, and specifically states that the 'knew or should have known' trigger is a fact question because knowing of a problem is not the same as knowing of an uncured breach. This satisfies the criterion."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_006: Identifies multiple possible accrual dates undermining DataCore's August 2022 position",
+      "verdict": "pass",
+      "reasoning": "The memo identifies multiple accrual-related events beyond DataCore's August 2022 position, including the January 12, 2023 CTO/Venkatesh acknowledgment and promised patch, the April 15, 2023 failed patch as the pleaded accrual date, and continuing/monthly breaches after March 2023. These directly undermine treating August 2022 as the sole accrual date."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_006: Notes the latency issue was discovered progressively, not in August 2022",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the one-year limitations issue and separately references an August 2022 ADP failure and later performance/patch issues, but it does not clearly state that the latency/concurrent-records problem was discovered progressively in November 2022 or later, nor does it expressly identify DataCore's limitations argument as conflating the August ADP integration issue with the later latency issue. The required distinction is not made with the specificity the criterion demands."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_007: Identifies potential unconscionability challenge to the one-year contractual limitations period",
+      "verdict": "fail",
+      "reasoning": "The memo discusses Section 9.4 extensively, including Texas Civil Practice & Remedies Code \u00a7 16.070 voiding limitations periods under two years, continuing breach, and equitable estoppel/tolling based on DataCore\u2019s promised patch. However, it does not identify a potential unconscionability challenge to the one-year contractual limitations period, nor does it frame the shortened period as unreasonable relative to Georgia\u2019s six-year or Texas\u2019s four-year statutes of limitations. The concealment/minimization facts are used for estoppel, not unconscionability or unreasonableness."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_008: Identifies that GUDTPA claim is independently viable alongside contract claims",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies DataCore\u2019s duplication/economic-loss attack on Count IV as weak, explains that the GUDTPA claim is a Georgia statutory claim based on pre-contract deceptive conduct, and distinguishes it from common-law economic-loss principles by stating that statutory duties exist independently of the contract. Although it also flags separate vulnerabilities such as lack of damages remedy and injunctive standing, it satisfies the criterion by recognizing the GUDTPA claim\u2019s independent viability alongside contract claims."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_009: Identifies that limitation of liability is conflated with failure to state a claim",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the analytical error: it states that Sections 11.1/11.2 are \u201cnot a basis for dismissal,\u201d that \u201ca limitation on the amount of recovery does not negate the damages element,\u201d and that the caps affect case value rather than whether Count I survives Rule 12(b)(6). It also notes in the risk table that a damages cap is not a failure-of-element argument."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_010: Identifies that waiver defense is premature at 12(b)(6) stage",
+      "verdict": "pass",
+      "reasoning": "The memo expressly flags DataCore\u2019s waiver-by-continued-performance argument as weak and inappropriate for dismissal, stating that waiver is a fact-intensive affirmative defense requiring intentional relinquishment of a known right. It also notes Pinnacle\u2019s alleged reservation of rights, reliance on DataCore\u2019s promised cure, and that continued payment could be viewed as mitigation rather than waiver."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_011: Identifies that the choice-of-law clause may not govern tort claims",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies that MSA \u00a7 14.3 uses narrower \u201carising under\u201d language and may not extend to tort/statutory claims based on pre-contract representations. It states DataCore misreads the clause as covering all claims, notes the tort claims may fall outside the contractual choice-of-law provision, and explains that under Georgia choice-of-law rules/lex loci delicti the Georgia-based misrepresentation injuries could make Georgia law govern Counts II\u2013IV."
+    },
+    {
+      "id": "C-021",
+      "title": "DISTRACTOR_003: Does not flag arbitration clause as a genuine issue",
+      "verdict": "pass",
+      "reasoning": "The memo mentions Section 14.5 only in the context of a weak forum-selection/ambiguity argument and recognizes that disputes over $50,000 may proceed in the specified courts. It does not treat the arbitration clause or $50,000 carve-out as a genuine vulnerability or substantive problem for either party."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_002 Severity: Rated as Critical or at least Significant",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly identifies the forum-selection-clause argument as using the wrong procedural vehicle under Atlantic Marine, states that Rule 12(b)(3) dismissal is unavailable and must be denied, calls the omission of Atlantic Marine \u201cstriking\u201d/\u201csignificant,\u201d and flags transfer as a high-risk alternative. This treats the procedural defect as a substantial/significant issue, not minor."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_004 Severity: Rated as Critical or at least Significant",
+      "verdict": "pass",
+      "reasoning": "The memo expressly identifies the personal-jurisdiction issue as a \u201cCore flaw,\u201d emphasizing that DataCore argued only general jurisdiction while ignoring the pleaded specific-jurisdiction theory, Atlanta office, Sousa, and Georgia-directed contacts. Although it does not use the exact labels \u201cCritical\u201d or \u201cSignificant,\u201d this is equivalent high-severity treatment and is analyzed as a central defect in the motion."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_005 Severity: Rated as Critical or at least Significant",
+      "verdict": "pass",
+      "reasoning": "The memo repeatedly treats the integration/non-reliance clause and fraud exception issue as a high-severity threat: it identifies the non-reliance sentence as one of the 'two real threats,' rates the related risk as 'Moderate to HIGH,' marks the omission as 'HIGH,' and calls it the 'principal risk' for fraudulent inducement."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_009 Severity: Rated as Critical or at least Significant",
+      "verdict": "fail",
+      "reasoning": "The memo identifies the issue and explains that liability caps are not a basis for dismissal / do not negate the damages element, but it does not rate this conflation as Critical, Significant, or with equivalent high-severity language. It treats the argument as weak rather than assigning the required severity level."
+    },
+    {
+      "id": "C-026",
+      "title": "Organization follows motion structure: 12(b)(1), 12(b)(2), 12(b)(3), 12(b)(6)",
+      "verdict": "pass",
+      "reasoning": "The memo is organized around the motion\u2019s procedural framework. It separately addresses Rule 12(b)(1) amount in controversy, Rule 12(b)(2) personal jurisdiction, Rule 12(b)(3) venue/forum-selection clause, and Rule 12(b)(6) count-by-count failure-to-state-a-claim arguments, with clear headings and grouped analysis tied to each rule."
+    },
+    {
+      "id": "C-027",
+      "title": "12(b)(6) section addresses counts separately",
+      "verdict": "pass",
+      "reasoning": "The 12(b)(6) portion is expressly organized as \u201cCount-by-Count Analysis\u201d and separately addresses \u201cCount I: Breach of Contract\u201d and \u201cCount II: Fraudulent Inducement\u201d in distinct subsections, with additional separate discussions for Counts III and IV."
+    },
+    {
+      "id": "C-028",
+      "title": "Each identified issue includes a recommended opposition argument",
+      "verdict": "pass",
+      "reasoning": "The memo identifies far more than 8 issues/weaknesses and, for many of them, gives concrete opposition arguments. Examples include: argue DataCore conceded amount in controversy; argue specific personal jurisdiction and registration-based consent; argue Atlantic Marine forecloses Rule 12(b)(3) dismissal; argue any transfer request is inadequately briefed and oppose under public-interest factors; argue Texas Civ. Prac. & Rem. Code \u00a7 16.070 voids the one-year limitation; argue damages caps affect amount not liability; argue anti-waiver clause and reservation of rights defeat waiver; argue Rule 9(b) is satisfied for fraud; argue Italian Cowboy/Forest Oil factors against the integration/non-reliance defense; argue negligent misrepresentation rests on an independent pre-contract duty; and argue the GUDTPA claim is sufficiently specific and not contract-displaced. This satisfies the requirement well above the 8-issue threshold."
+    },
+    {
+      "id": "C-029",
+      "title": "Memo flags factual disputes inappropriate for 12(b)(6) resolution",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly flags multiple DataCore arguments as requiring factual determinations inappropriate at the Rule 12(b)(6) stage, including limitations/accrual and tolling issues, the cap amount under Sections 11.1/11.2, waiver by continued performance as a fact-intensive affirmative defense, and DataCore's alternative explanations for performance failures as factual disputes. This satisfies the requirement of at least two such instances."
+    },
+    {
+      "id": "C-030",
+      "title": "Identifies cross-cutting choice-of-law issue affecting multiple counts",
+      "verdict": "pass",
+      "reasoning": "The memo expressly treats choice of law as a standalone, cross-cutting issue in Section V, analyzing whether Texas or Georgia law applies to contract, tort, and statutory claims. It explains implications for multiple counts and defenses, including limitations, fraud/merger, economic loss/negligent misrepresentation, GUDTPA, and attorney\u2019s fees, and revisits choice-of-law consequences throughout the count-by-count analysis."
+    },
+    {
+      "id": "C-031",
+      "title": "References the Venkatesh January 12, 2023 email as a key admission",
+      "verdict": "pass",
+      "reasoning": "The memo expressly discusses the Jan. 12, 2023 CTO email, identifies the Anil Venkatesh/Subramanian naming issue, and later cites the CTO\u2019s admission that the platform had \u201cperformance limitations at scale that do not meet the capabilities described during the sales process\u201d as supporting scienter/fraud and related claims."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_006: Notes the complaint was filed March 22, 2024 in relation to limitations argument",
+      "verdict": "fail",
+      "reasoning": "The memo discusses the one-year contractual limitations issue and notes that breaches on or after March 22, 2023 would be timely, with April 15, 2023 timely and August 2022 exposed. However, it does not expressly state that the Complaint was filed on March 22, 2024 in the limitations analysis, and it does not perform the required accrual-date comparison for August 2022, November 2022, January 2023, and April 2023 against the one-year period."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_010: References Pinnacle pressing DataCore for a fix while continuing to pay",
+      "verdict": "pass",
+      "reasoning": "The memo\u2019s waiver analysis expressly states that Pinnacle continued paying under a reservation of rights and in reliance on DataCore\u2019s promised cure, and further characterizes continued payment as mitigation rather than waiver. This addresses Pinnacle\u2019s simultaneous effort to obtain a remedy/await the fix while continuing performance."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_004: Notes Whitford Declaration omits Atlanta office discussion",
+      "verdict": "pass",
+      "reasoning": "The memo expressly notes that the Whitford Declaration \u201cnever mentions the Atlanta office, its 14 employees, Sousa\u2019s location,\u201d and separately identifies \u201cSilence on the Atlanta office\u201d as an issue, explaining that the jurisdictional allegations stand uncontroverted."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/opus55-low/20260926-201604",
+  "task": "litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T00:28:01.084999+00:00",
+  "cost": {
+    "input_tokens": 10,
+    "output_tokens": 37691,
+    "wall_clock_seconds": 360.46
+  },
+  "doc_coverage": {
+    "documents_read": 4,
+    "total_documents": 6,
+    "documents_skipped": 2,
+    "documents_read_list": [
+      "datacore-motion-to-dismiss.docx",
+      "pinnacle-complaint.docx",
+      "msa-pinnacle-datacore.docx",
+      "whitford-declaration.docx"
+    ],
+    "documents_skipped_list": [
+      "sousa-nance-email-chain.eml",
+      "subramanian-email-jan2023.eml"
+    ]
+  }
+}

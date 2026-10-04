@@ -1,0 +1,481 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "56/75 criteria passed.  Missed 19 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 75,
+  "n_passed": 56,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Case number correctly identified as 25-CVS-4471",
+      "verdict": "pass",
+      "reasoning": "The memorandum header clearly states 'Apex Industrial Solutions, LLC v. Greenfield Dynamics, Inc. | Mecklenburg County Superior Court | No. 25-CVS-4471', which matches the required case number exactly."
+    },
+    {
+      "id": "C-002",
+      "title": "Court identified as Superior Court of Mecklenburg County, NC",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly identifies the court as 'Mecklenburg County Superior Court' in the case caption and repeatedly references 'Mecklenburg County Superior Court' throughout the document, including in the procedural posture section and the TRO/PI hearing details. This matches the criterion of identifying the court as the Superior Court of Mecklenburg County, North Carolina."
+    },
+    {
+      "id": "C-003",
+      "title": "Judge identified as Hon. Robert L. Vanderhorst",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the judge as 'Judge Robert L. Vanderhorst' in the Executive Assessment section and again in the TRO/PI hearing row of the procedural posture table, matching the criterion of Hon. Robert L. Vanderhorst."
+    },
+    {
+      "id": "C-004",
+      "title": "Plaintiff correctly identified as Apex Industrial Solutions, LLC",
+      "verdict": "fail",
+      "reasoning": "The memorandum identifies the plaintiff as 'Apex Industrial Solutions, LLC' in the case caption ('Apex Industrial Solutions, LLC v. Greenfield Dynamics, Inc.') and throughout the document. However, the criterion requires identification as a Georgia LLC specifically. The memorandum does not identify Apex as a Georgia LLC anywhere in the text. In fact, Section 3C notes that 'Diversity cannot be assessed without Apex's members' citizenship,' and Section 8 asks about 'all members' citizenships of Apex for diversity,' suggesting the state of organization/citizenship is unknown or unconfirmed. The plaintiff is identified by name but not as a Georgia LLC."
+    },
+    {
+      "id": "C-005",
+      "title": "Defendant correctly identified as Greenfield Dynamics, Inc.",
+      "verdict": "fail",
+      "reasoning": "The memorandum clearly identifies Greenfield Dynamics, Inc. as the defendant/client throughout the document. However, the criterion requires identification as a Delaware corporation, and the memorandum does not specify Greenfield Dynamics, Inc.'s state of incorporation. The document mentions that diversity jurisdiction cannot be assessed without Apex's members' citizenship, but never states Greenfield is a Delaware corporation. Since the criterion specifically requires identification as a Delaware corporation and the memo does not include this detail, the criterion is not fully satisfied."
+    },
+    {
+      "id": "C-006",
+      "title": "Plaintiff's law firm identified as Whitlock Stein & Marsh, P.A.",
+      "verdict": "fail",
+      "reasoning": "The memorandum does not mention Whitlock Stein & Marsh, P.A. or any plaintiff's law firm name anywhere in the document."
+    },
+    {
+      "id": "C-007",
+      "title": "Plaintiff's lead attorney identified as Reginald Whitlock",
+      "verdict": "fail",
+      "reasoning": "The memorandum does not mention Reginald Whitlock anywhere. The document references Patricia Yuen (General Counsel), Marcus Ellsworth (CEO), Thomas Hargrove (VP of Sales), and other individuals, but Reginald Whitlock is not named as plaintiff's lead attorney or in any other capacity."
+    },
+    {
+      "id": "C-008",
+      "title": "Defense counsel firm identified as Harmon & Lyle LLP",
+      "verdict": "fail",
+      "reasoning": "The memorandum does not identify any defense counsel firm name. The FROM line simply states 'Litigation Counsel' with no firm name mentioned anywhere in the document. There is no reference to 'Harmon & Lyle LLP' anywhere in the output."
+    },
+    {
+      "id": "C-009",
+      "title": "Defense lead partner identified as Catherine Ng",
+      "verdict": "fail",
+      "reasoning": "The memorandum does not mention Catherine Ng anywhere. The memo is addressed to Patricia Yuen (General Counsel) and Marcus Ellsworth (CEO), and is from 'Litigation Counsel' without naming a specific lead partner. Catherine Ng is not identified anywhere in the document."
+    },
+    {
+      "id": "C-010",
+      "title": "Filing date of April 22, 2025 correctly stated",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states 'Apex filed its verified complaint and application for a temporary restraining order and preliminary injunction on April 22, 2025' in Section 1, and also references 'Complaint filed Apr. 22' in the chronology table. The filing date of April 22, 2025 is correctly stated."
+    },
+    {
+      "id": "C-011",
+      "title": "Service date of April 25, 2025 correctly stated",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states 'Service --- Apr. 25, 2025, 2:15 p.m.' in the procedural posture table and references 'the April 25 service affidavit' in the confidentiality notice, and 'service affidavit states service Apr. 25' in the chronology. The service date of April 25, 2025 is correctly and consistently stated throughout the document."
+    },
+    {
+      "id": "C-012",
+      "title": "Answer deadline correctly calculated as May 27, 2025",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states the answer deadline is May 27, 2025, and provides the correct reasoning: the 30-day period from April 25 runs to Sunday May 25, then Monday May 26 is Memorial Day, so the deadline extends to Tuesday May 27. This appears in both the procedural posture table and the action plan section."
+    },
+    {
+      "id": "C-013",
+      "title": "TRO hearing date of May 9, 2025 correctly stated",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states the TRO/PI hearing is scheduled for May 9, 2025 at 10:00 a.m. before Judge Robert L. Vanderhorst, mentioned multiple times throughout the document."
+    },
+    {
+      "id": "C-014",
+      "title": "Count I \u2014 Breach of Exclusive Distribution Agreement summarized",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly identifies Count I as 'breach of exclusive distribution agreement' in Section 4's claim-by-claim assessment table. It describes Apex's theory as invalid notices, direct sales, and failure to honor renewal, and explicitly frames this as a breach of contract claim under the Exclusive Distribution Agreement. The memo also discusses the non-renewal defense, direct sales during the Initial Term, and the contractual damages sought. This satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Count I lost profits damages stated as $7,084,000",
+      "verdict": "pass",
+      "reasoning": "The memorandum states in the damages table: 'Renewal lost profits: $16.1m annual sales \u00d7 22% \u00d7 2 years = $7.084m' and also references '$7.084m renewal lost profits' in the Count I row. This matches the criterion of $7,084,000 calculated as $16.1M \u00d7 22% \u00d7 2 years."
+    },
+    {
+      "id": "C-016",
+      "title": "Count I lost commissions damages stated as $766,800",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states '$766,800 direct-sale commissions' as part of Count I damages, and also states '18% \u00d7 $4.26m = $766,800' in the damages table. This matches the criterion exactly."
+    },
+    {
+      "id": "C-017",
+      "title": "Count II \u2014 Tortious Interference legal theory summarized",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly identifies Count II as 'tortious interference with business relationships' and describes it as related to Greenfield's direct sales to four named Territory customers, alleged undercutting, and misuse of data. This appears in Section 4 (Claim-by-claim assessment) and is referenced in the executive assessment and other sections."
+    },
+    {
+      "id": "C-018",
+      "title": "Count II \u2014 Damages stated as $6,200,000",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in the Count II row of the claim-by-claim assessment table: 'Four named customer accounts; alleged undercutting and misuse of data. $6.2m claimed NPV plus unspecified punitive damages.' $6.2m equals $6,200,000, satisfying the criterion."
+    },
+    {
+      "id": "C-019",
+      "title": "Count III \u2014 Misappropriation of Trade Secrets summarized",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly identifies Count III as a trade-secret misappropriation claim under both the GTSA (Georgia Trade Secrets Act) and DTSA (federal Defend Trade Secrets Act), references the hiring of Kelsey and Ostrowski, and identifies the alleged confidential information (customer database, price matrices/discounts, and pipeline forecasts) as the subject of misappropriation. This appears in multiple sections including the claim-by-claim assessment table and the executive summary."
+    },
+    {
+      "id": "C-020",
+      "title": "Count III damages stated as $6,800,000 total",
+      "verdict": "pass",
+      "reasoning": "The memorandum states in the claim-by-claim assessment for Count III: '$3.4m replacement cost + $3.4m exemplary damages; injunction and fees.' This equals $6.8m total, which matches the $6,800,000 criterion. The damages table also lists '$3.4m replacement cost + $3.4m exemplary' for trade-secret damages. The $6.8m figure also appears in the damages arithmetic: '$7.8508m + $6.2m + $6.8m + $1.491m = $22.3418m', confirming Count III is stated as $6,800,000 total."
+    },
+    {
+      "id": "C-021",
+      "title": "Count IV \u2014 Unjust Enrichment summarized",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly identifies Count IV as an unjust enrichment claim seeking disgorgement of Greenfield's estimated 35% profit on the $4.26m direct sales, calculating to $1,491,000. This appears in both the claim-by-claim assessment table and the damages framework section."
+    },
+    {
+      "id": "C-022",
+      "title": "Grand total damages verified as $22,341,800",
+      "verdict": "pass",
+      "reasoning": "The memorandum states the grand total as $22,341,800 (written as $22.3418m and $22.34m in various places) and verifies the arithmetic: '$7.8508m + $6.2m + $6.8m + $1.491m = $22.3418m.' However, the criterion requires verification as the sum of $7,084,000 + $766,800 + $6,200,000 + $6,800,000 + $1,491,000. The memo groups the first two items ($7,084,000 + $766,800 = $7,850,800) and presents the sum as $7.8508m, which matches. The total $22,341,800 is stated and the arithmetic is confirmed. The individual components are all present in the document (direct-sale commissions $766,800, renewal lost profits $7.084m, lost customer relationships $6.2m, trade-secret damages $3.4m + exemplary $3.4m = $6.8m, unjust enrichment $1.491m). The grand total of $22,341,800 is explicitly stated and the addition is verified in Section 5."
+    },
+    {
+      "id": "C-023",
+      "title": "Agreement effective date identified as March 1, 2019",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 2 (Key facts and chronology): 'Mar. 1, 2019 \u2014 Exclusive Distribution Agreement begins.' This correctly identifies the Distribution Agreement's effective date as March 1, 2019."
+    },
+    {
+      "id": "C-024",
+      "title": "Agreement initial term expiration identified as February 28, 2024",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states 'Five-year Initial Term ends Feb. 28, 2024' in the chronology section, and also references 'Feb. 28, 2024' as the date the Initial Term expires in multiple places throughout the document."
+    },
+    {
+      "id": "C-025",
+      "title": "Section 4.2 auto-renewal provision extracted",
+      "verdict": "fail",
+      "reasoning": "The memorandum references Section 4.2 multiple times, noting it requires notice at least 180 days before expiration, requires delivery by the CEO or General Counsel, and declares noncompliant notices void. However, the criterion specifically requires that Section 4.2 be identified as containing a 'two-year automatic renewal provision.' The memo does mention that if neither notice complied with Section 4.2, 'the Agreement automatically renewed through Feb. 28, 2026' (a two-year renewal from Feb. 28, 2024), but it attributes this automatic renewal to the agreement generally rather than specifically identifying Section 4.2 as the source of the auto-renewal provision. The memo discusses Section 4.2 primarily in the context of notice requirements and signatory requirements, not as the provision containing the auto-renewal mechanism. The auto-renewal consequence is mentioned but not tied explicitly to Section 4.2 as the auto-renewal provision itself. Given the criterion requires Section 4.2 to be identified as containing the two-year automatic renewal provision, and the memo does not make this explicit connection, this is a FAIL."
+    },
+    {
+      "id": "C-026",
+      "title": "Section 4.2 180-day advance written notice requirement extracted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the 180-day advance written notice requirement under Section 4.2 multiple times. For example, it states 'Section 4.2 requires notice at least 180 days before expiration' and discusses how Ellsworth's September 12 letter was '169 days before February 28, 2024---short of the 180-day requirement.' The requirement is clearly extracted and analyzed throughout the document."
+    },
+    {
+      "id": "C-027",
+      "title": "Non-renewal notice deadline of August 31, 2023 identified",
+      "verdict": "pass",
+      "reasoning": "The memorandum mentions August 31 multiple times. In the executive assessment it states 'Apex's August 3 warning, followed by Greenfield's silence until after the deadline, is unfavorable evidence' and in the chronology section it states 'Apex counsel objects in writing to the signatory defect and identifies an Aug. 31 deadline.' The Section 3A analysis also states 'August 31 is 181 days before February 28' and 'The complaint's Aug. 31 deadline is one day early.' The memo explicitly identifies August 31, 2023 as the notice deadline (as pleaded in the complaint), even while noting it is one day off from the mathematically correct September 1 date. The criterion asks whether August 31, 2023 is mentioned as the notice deadline, and it clearly is."
+    },
+    {
+      "id": "C-028",
+      "title": "Section 4.2 signatory requirement (CEO or General Counsel) extracted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 3A: 'Section 4.2 requires notice at least 180 days before expiration, requires the notice to be delivered by the terminating party's CEO or General Counsel, and declares a notice that fails the signatory or timing requirements void and of no force or effect.' This clearly identifies the Section 4.2 signatory requirement (CEO or General Counsel)."
+    },
+    {
+      "id": "C-029",
+      "title": "Section 5.1 minimum purchase commitments extracted",
+      "verdict": "fail",
+      "reasoning": "The memorandum references Section 5.2 (renewal minimum) and mentions the Year 2 shortfall ($7.1m purchases against a $9.2m minimum) and cumulative five-year purchases ($55.7m against $54m), but it never explicitly references Section 5.1 or lists the annual minimum purchase commitments for Years 1-5 ($8.0M, $9.2M, $10.6M, $12.2M, $14.0M). The criterion requires both the section reference and the specific year-by-year figures."
+    },
+    {
+      "id": "C-030",
+      "title": "Section 5.3 curable default and 60-day cure notice requirement extracted",
+      "verdict": "pass",
+      "reasoning": "The memorandum references Section 5.3 multiple times. In Section 3A it states: 'Section 5.3 required written notice and a 60-day cure opportunity before termination rights could be exercised; Yuen confirms none was sent.' It also notes in the chronology that 'Section 5.3 characterizes a single-year shortfall as curable and requires 60 days' written notice and an opportunity to cure.' The criterion requires mention of Section 5.3 and explanation that a single-year minimum shortfall is a curable default requiring 60 days' written notice and opportunity to cure before termination. The memo satisfies this criterion."
+    },
+    {
+      "id": "C-031",
+      "title": "Section 16.1 Georgia choice of law extracted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 3C: 'Contract: Section 16.1 selects Georgia substantive law for interpretation, validity, performance, and enforcement.' This directly identifies Section 16.1 as the choice of law provision selecting Georgia law."
+    },
+    {
+      "id": "C-032",
+      "title": "Section 16.3 Mecklenburg County forum selection extracted",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions the forum selection clause in Section 3C ('the agreement's broad forum clause selects state or federal courts in Mecklenburg County and consents to jurisdiction'), but it does not identify the specific section number as Section 16.3. The criterion requires that the memo identify 'Section 16.3 as the forum selection clause.' The memo only references 'Section 16.1' (choice of law) by number, while the forum clause is mentioned without a section number. Therefore, the criterion is not satisfied."
+    },
+    {
+      "id": "C-033",
+      "title": "Section 14.2 prevailing party fee-shifting provision extracted",
+      "verdict": "fail",
+      "reasoning": "The memorandum references 'contractual prevailing-party fees' in Count I and mentions 'Contract fees are prevailing-party reciprocal' in the damages section, but it does not specifically cite Section 14.2 as the prevailing party attorneys' fees provision. The criterion requires explicit mention of Section 14.2."
+    },
+    {
+      "id": "C-034",
+      "title": "Magnolia Foods Processing, Inc. identified as direct-sale customer",
+      "verdict": "fail",
+      "reasoning": "The memorandum refers to 'Magnolia' as one of the four named Territory customers with an invoice of $870k (Nov. 15), but it does not include the full name 'Magnolia Foods Processing, Inc.' \u2014 it only says 'Magnolia $870k (Nov. 15)'. The criterion requires that 'Magnolia Foods Processing, Inc.' be identified by that full name. Since the memo only uses 'Magnolia' without the complete company name, the criterion is not satisfied."
+    },
+    {
+      "id": "C-035",
+      "title": "Tidewater Pharmaceutical Group, LLC identified as direct-sale customer",
+      "verdict": "fail",
+      "reasoning": "The memorandum refers to 'Tidewater' as one of the four named Territory customers with invoices totaling $720k (Dec. 8) plus $480k (Jan. 22), but it does not include the full name 'Tidewater Pharmaceutical Group, LLC' \u2014 it only says 'Tidewater'. The criterion requires identification as 'Tidewater Pharmaceutical Group, LLC'. The memo uses only the shortened name 'Tidewater' without the 'Pharmaceutical Group, LLC' designation."
+    },
+    {
+      "id": "C-036",
+      "title": "Clearwater Chemical Partners, LP identified as direct-sale customer",
+      "verdict": "fail",
+      "reasoning": "The memorandum refers to 'Clearwater' as one of the four named Territory customers with an invoice of $640k (Jan. 18), but it does not identify the full name 'Clearwater Chemical Partners, LP.' The criterion specifically requires identification of 'Clearwater Chemical Partners, LP.' The memo only uses the shortened name 'Clearwater.'"
+    },
+    {
+      "id": "C-037",
+      "title": "Southeastern Bottling Co., Inc. identified as direct-sale customer",
+      "verdict": "fail",
+      "reasoning": "The memorandum refers to 'Southeastern' as one of the four named Territory customers with an invoice of $1.55m (Feb. 5), but it does not include the full name 'Southeastern Bottling Co., Inc.' \u2014 it only says 'Southeastern.' The criterion requires that 'Southeastern Bottling Co., Inc.' be identified by that specific name. Since the full company name is not present in the memo, the criterion is not satisfied."
+    },
+    {
+      "id": "C-038",
+      "title": "Total alleged direct sales stated as $4,260,000",
+      "verdict": "pass",
+      "reasoning": "The memorandum states 'Exhibit E invoices total $4.26m' and also references 'at least $4.26 million of direct sales to four named Territory customers.' The individual invoice amounts listed are: Magnolia $870k, Tidewater $720k + $480k, Clearwater $640k, Southeastern $1.55m. The sum of these is $870k + $720k + $480k + $640k + $1,550k = $4,260k = $4.26m. The criterion requires the total to be stated as $4,260,000 (sum of $870,000 + $1,200,000 + $640,000 + $1,550,000). However, the Tidewater breakdown in the memo is $720k + $480k = $1,200k, which matches the criterion's $1,200,000 for that customer. The total $4.26m = $4,260,000 is correctly stated in the memorandum. The criterion is satisfied."
+    },
+    {
+      "id": "C-039",
+      "title": "Brandon Kelsey identified as hired-away employee (former Southeast Regional Sales Manager at Apex)",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions 'Kelsey' and 'Ostrowski' multiple times as employees hired by Greenfield in February 2024, but never identifies Kelsey's former role at Apex (Southeast Regional Sales Manager). The criterion requires that Brandon Kelsey be identified as a former Apex employee with the title 'Southeast Regional Sales Manager.' The memo does not provide this identification \u2014 it only refers to 'Kelsey' without a first name and without specifying their prior role at Apex."
+    },
+    {
+      "id": "C-040",
+      "title": "Lauren Ostrowski identified as hired-away employee (former Senior Technical Account Executive at Apex)",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions 'Kelsey and Ostrowski' multiple times as employees hired by Greenfield in February 2024, but never identifies Lauren Ostrowski's former role at Apex as 'Senior Technical Account Executive.' The document simply refers to them as hired employees without specifying their previous employer or job title at Apex."
+    },
+    {
+      "id": "C-041",
+      "title": "Confidential Sales Information components described",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the alleged trade secrets in Count III: 'Customer database, price matrices/discounts, and pipeline forecasts.' This references at least three of the four components listed in the criterion: (1) proprietary customer database, (2) pricing matrices/discount structures, and (3) sales pipeline forecasts. The criterion requires at least two of these components to be identified, and the memo clearly identifies three."
+    },
+    {
+      "id": "C-042",
+      "title": "Injunctive relief: prohibition of further direct sales in Territory",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies in Section 6 that Apex seeks '(1) bar all direct Greenfield sales to any customer in the eight-state Territory during the action' as one of the four principal forms of injunctive relief. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-043",
+      "title": "Injunctive relief: return/destruction of Confidential Sales Information",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 6 that Apex seeks '(2) return or destroy Apex sales information, under neutral supervision and with sworn certification' as one of the four principal forms of injunctive relief. This clearly identifies the return/destruction of Confidential Sales Information component of the injunctive relief sought."
+    },
+    {
+      "id": "C-044",
+      "title": "Injunctive relief: prohibition on employing Kelsey/Ostrowski in Territory-related roles",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 6 that Apex seeks '(3) prohibit Greenfield from employing Kelsey and Ostrowski in Territory-related or information-access roles' as one of the four principal forms of injunctive relief. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-045",
+      "title": "Attorneys' fees claim under Section 14.2 noted",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions 'contractual prevailing-party fees' in the Count I assessment and references 'Contract fees are prevailing-party reciprocal' in the damages table, but it does not specifically cite Section 14.2 of the Distribution Agreement as the basis for the attorneys' fees claim. The criterion requires that the memo note Apex seeks attorneys' fees under Section 14.2 specifically. Since the section number is never mentioned, the criterion is not satisfied."
+    },
+    {
+      "id": "C-046",
+      "title": "Attorneys' fees claim under Georgia Trade Secrets Act noted",
+      "verdict": "pass",
+      "reasoning": "Looking through the memorandum for any mention of attorneys' fees under the Georgia Trade Secrets Act specifically. In Section 4 (Claim-by-claim assessment), under Count III, the memo mentions 'injunction and fees' as part of Apex's relief sought. In Section 5 (Damages), under 'Additional relief,' it states 'GTSA fee/exemplary relief requires statutory predicates.' This references GTSA fees but does so in the context of noting that statutory predicates are required, not explicitly noting that Apex seeks attorneys' fees under the Georgia Trade Secrets Act as a specific claim. However, the memo does reference 'GTSA fee/exemplary relief' which implicitly acknowledges that Apex seeks fees under the GTSA. The criterion asks whether the memo notes that Apex seeks attorneys' fees under the Georgia Trade Secrets Act. The memo does mention 'fees' in the Count III row and references 'GTSA fee/exemplary relief requires statutory predicates' in the damages section. This is a reference to GTSA attorneys' fees, satisfying the criterion."
+    },
+    {
+      "id": "C-047",
+      "title": "Eight-state exclusive territory identified",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 2 (Key facts and chronology): 'Greenfield grants Apex exclusive distribution rights across GA, AL, TN, SC, NC, FL, MS, and LA (as alleged).' This identifies all eight states: Georgia, Alabama, Tennessee, South Carolina, North Carolina, Florida, Mississippi, and Louisiana. The eight-state territory is also referenced multiple times throughout the document (e.g., 'eight-state Territory' in Sections 6 and 7)."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_001: Defective first notice \u2014 Hargrove not authorized signatory",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies that Thomas Hargrove (VP of Sales) sent the July 15, 2023 non-renewal notice, that Section 4.2 requires delivery by the CEO or General Counsel, and that Hargrove was not an authorized signatory, rendering the notice void. This is flagged multiple times throughout the document as a key vulnerability."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_001: Greenfield did not cure the signatory defect until September 12",
+      "verdict": "pass",
+      "reasoning": "The memorandum clearly addresses the timeline: it notes that Hargrove's July 15, 2023 notice was defective (wrong signatory), that Apex counsel objected in writing on August 3, 2023 identifying the signatory defect, and that Ellsworth's September 12, 2023 notice was the attempted cure (with the correct signer). The memo explicitly states that Greenfield did not respond before the later notice and that the September 12 letter 'expressly supersedes/replaces the July letter.' The gap between the defective notice and the cure attempt is directly addressed in both the chronology table and the contract analysis section."
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_002: Second notice was only 169 days before expiration",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in the executive assessment: 'Ellsworth's September 12 letter was 169 days before February 28, 2024---short of the 180-day requirement.' It also states 'September 12 remains 11 days late' in Section 3A. Both the 169-day calculation and the 11-day shortfall are clearly identified."
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_002: Auto-renewal through February 28, 2026 is Apex's position",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 2 (Key facts and chronology): 'If neither notice complied with Section 4.2, the Agreement automatically renewed through Feb. 28, 2026. On current text, this is Apex's strong position.' This directly addresses the criterion that the memo explains the auto-renewal consequence as Apex's position due to both defective/untimely non-renewal notices."
+    },
+    {
+      "id": "C-052",
+      "title": "Year 2 shortfall of $2.1M identified ($7.1M actual vs. $9.2M minimum)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 2 (Key facts and chronology): 'Apex purchases approximately $7.1m against a $9.2m Year 2 minimum.' This identifies both the actual purchases ($7.1M) and the minimum ($9.2M), from which the $2.1M shortfall is directly calculable. The criterion requires these figures to be mentioned, and they are present in the document."
+    },
+    {
+      "id": "C-053",
+      "title": "Greenfield's failure to send 60-day cure notice for Year 2 shortfall identified",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 3A: 'Section 5.3 required written notice and a 60-day cure opportunity before termination rights could be exercised; Yuen confirms none was sent.' This directly identifies that Greenfield never sent the required 60-day cure notice under Section 5.3 for the Year 2 shortfall."
+    },
+    {
+      "id": "C-054",
+      "title": "Waiver implication from absent cure notice discussed",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly discusses the waiver implication in Section 3A: 'The omission is likely a substantial waiver/notice problem.' It states that Greenfield failed to send the required written notice and 60-day cure opportunity under Section 5.3, and that the record reflects acceptance of later performance and cumulative purchases above the five-year total. The memo concludes that 'The Year 2 shortfall is not a persuasive present defense to the renewal' and that 'The omission is likely a substantial waiver/notice problem.' This directly addresses the waiver implication from the absent cure notice."
+    },
+    {
+      "id": "C-055",
+      "title": "ISSUE_003: Year 2 shortfall undermines Greenfield's material breach defense",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses the Year 2 shortfall defense in multiple places. In Section 3A, it states: 'Section 5.3 required written notice and a 60-day cure opportunity before termination rights could be exercised; Yuen confirms none was sent.' It further notes 'The omission is likely a substantial waiver/notice problem' and that 'The shortfall may be relevant to breach, but cannot safely be treated as automatically terminating the agreement or excusing Greenfield's direct sales.' The executive assessment also states 'The non-renewal defense is materially weak on the current documents' and in the claim-by-claim table notes 'Section 5.3 makes Year 2 shortfall a weak termination defense.' This clearly satisfies the criterion that the memo notes Greenfield never sent the cure notice and therefore cannot assert Apex was in material breach as a defense."
+    },
+    {
+      "id": "C-056",
+      "title": "ISSUE_004: Exemplary damages statutory characterization flagged",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions that 'Apex claims one times its asserted actual amount' regarding the exemplary damages cap, and notes the $3.4m exemplary figure, but it does not specifically identify that the complaint characterizes exemplary damages as 'double damages' or 'double the actual damages,' nor does it flag that this is an imprecise or misleading characterization of O.C.G.A. \u00a7 10-1-763. The memo simply notes the statutory cap exists without addressing whether the complaint used misleading language about it. The criterion requires the memo to identify the complaint's specific characterization as 'double damages' and flag it as imprecise/misleading relative to the statute. This specific statutory nuance is not addressed."
+    },
+    {
+      "id": "C-057",
+      "title": "ISSUE_005: Double recovery risk between Counts I and II",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies the double-recovery risk between Counts I and II. In Section 4 (Claim-by-claim assessment), under Count II, it states: 'The complaint's customer NPV may duplicate contract lost profits and commission damages.' In Section 5 (Damages and exposure framework), it further states: 'The same four transactions and customer relationships underlie (i) commission/lost-profit contract damages, (ii) the $6.2m customer-relationship valuation, (iii) the $1.491m Greenfield profit estimate, and potentially (iv) the trade-secret valuation. Courts generally prevent duplicative compensation for one injury.' This directly flags that Count I lost profits and Count II NPV of customer relationships overlap and create an impermissible double-recovery risk because both seek the economic value of the same lost customer relationships."
+    },
+    {
+      "id": "C-058",
+      "title": "ISSUE_006: Choice of law vs. forum selection complexity identified",
+      "verdict": "pass",
+      "reasoning": "Section 3C of the memorandum explicitly addresses choice of law, venue, and removal. It identifies that Section 16.1 selects Georgia substantive law for contract interpretation while North Carolina procedure governs in state court. It also notes that the distribution agreement's Georgia clause does not conclusively resolve independent tort choice-of-law questions, and that the tortious-interference claim may require North Carolina conflicts rules. It separately addresses the employee covenants (Exhibit F agreements), noting they select Georgia law and that a North Carolina forum may apply North Carolina public policy/restrictive-covenant standards despite the selection clause. This satisfies all elements of the criterion: GA substantive law + NC forum tension, NC procedural law applying alongside GA substantive law, and different choice-of-law analyses for trade secret/non-compete claims vs. the Distribution Agreement."
+    },
+    {
+      "id": "C-059",
+      "title": "ISSUE_007: TRO hearing precedes answer deadline \u2014 urgency flagged",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly flags that the TRO/PI hearing on May 9, 2025 occurs before the answer deadline of May 27, 2025. In the Executive Assessment, it states 'The immediate priority is the May 9, 2025 hearing' and notes to 'prepare the evidentiary record now while separately protecting the responsive-pleading and removal deadlines.' The procedural table explicitly notes 'The May 9 hearing does not, by itself, extend that deadline' and the recommended sequencing states 'prepare and oppose the May 9 injunction request first, but concurrently develop a responsive pleading and make a deliberate forum/removal decision well before May 27.' This clearly flags the timing issue and urgency created by the TRO hearing preceding the answer deadline."
+    },
+    {
+      "id": "C-060",
+      "title": "ISSUE_008: Unjust enrichment generally unavailable alongside express contract",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly addresses Count IV (unjust enrichment) in Section 4 and states: 'Pled expressly in the alternative to contract relief. If an enforceable agreement governs the same subject, an independent quasi-contract recovery may be unavailable.' This directly identifies the vulnerability that unjust enrichment is generally unavailable where an express contract covers the same subject matter. The criterion is satisfied."
+    },
+    {
+      "id": "C-061",
+      "title": "ISSUE_009: Count I lost profits calculation verified ($16.1M \u00d7 22% \u00d7 2 = $7,084,000)",
+      "verdict": "pass",
+      "reasoning": "The memorandum states in the damages table: 'Renewal lost profits: $16.1m annual sales \u00d7 22% \u00d7 2 years = $7.084m'. This explicitly recites all three components ($16.1M, 22%, 2 years) and the resulting figure ($7.084m), which matches the criterion's required calculation of $16.1M \u00d7 22% \u00d7 2 = $7,084,000. The criterion asks whether the calculation is verified with components recited, and the memo does exactly that."
+    },
+    {
+      "id": "C-062",
+      "title": "ISSUE_009: Count I lost commissions verified ($4,260,000 \u00d7 18% = $766,800)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in the damages table: 'Direct-sale commissions: 18% \u00d7 $4.26m = $766,800' and in the executive assessment: 'The most supportable current dollar component may be the alleged direct-sale commission amount ($766,800) if the 18% term is verified.' This independently verifies the calculation $4,260,000 \u00d7 18% = $766,800."
+    },
+    {
+      "id": "C-063",
+      "title": "ISSUE_009: Count IV unjust enrichment verified ($4,260,000 \u00d7 35% = $1,491,000)",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in the damages table: 'Unjust enrichment: $1.491m = 35% \u00d7 $4.26m' and in the claim-by-claim assessment: 'Disgorgement of Greenfield's estimated 35% profit on the same $4.26m direct sales: $1,491,000.' This independently verifies the calculation $4,260,000 \u00d7 35% = $1,491,000."
+    },
+    {
+      "id": "C-064",
+      "title": "ISSUE_010: Enforceability of 24-month non-competes flagged",
+      "verdict": "pass",
+      "reasoning": "The memorandum discusses the employee covenants (Exhibit F agreements) and notes that Georgia's Restrictive Covenants Act 'generally permits covenants for qualifying employees and can presume a restriction of two years or less reasonable in duration, but employee status, scope, geographic fit, consideration, and the full agreements remain material.' It also notes the noncompete's prohibition on work for a competitor 'in any capacity' across eight states is broad, and that a North Carolina forum may apply North Carolina public policy despite the selection clause. The memo flags enforceability as uncertain and relevant to injunctive relief. However, it does not specifically identify the agreements as '24-month' non-competes \u2014 it references 'two years or less' in the context of Georgia law presumptions but does not explicitly state the duration of Kelsey and Ostrowski's specific agreements. Despite this, the memo does flag enforceability under Georgia's Restrictive Covenants Act as an issue relevant to injunctive relief and the trade secret/interference claims, which satisfies the core requirement of the criterion. The criterion asks that enforceability 'depends on reasonableness under applicable law (Georgia Restrictive Covenants Act...)' be flagged, and this is done, even if the specific 24-month duration isn't called out by name."
+    },
+    {
+      "id": "C-065",
+      "title": "Chronological timeline of material events included",
+      "verdict": "pass",
+      "reasoning": "The memorandum contains a detailed chronological timeline in Section 2 ('Key facts and chronology') that includes all ten required dates: March 1, 2019 (Agreement begins); July 15, 2023 (Hargrove's non-renewal notice); August 3, 2023 (Apex counsel objects); September 12, 2023 (Ellsworth's notice); October 2023 (direct-sales campaign begins); February 2024 (Kelsey and Ostrowski hired); April 22, 2025 (complaint filed); April 25, 2025 (service); May 9, 2025 (TRO/PI hearing); and May 27, 2025 (responsive pleading deadline). All ten dates are present in the chronological table, satisfying the criterion."
+    },
+    {
+      "id": "C-066",
+      "title": "Damages analysis presented in structured format (table or breakdown)",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes Section 5 'Damages and exposure framework' which contains a structured table with columns for 'Pleading component,' 'Apex calculation,' and 'Exposure lens / immediate proof issue.' This table lists each damage component (direct-sale commissions, renewal lost profits, lost customer relationships, trade-secret damages/exemplary, unjust enrichment, and additional relief) with the calculation methodology and claimed dollar amounts. Additionally, Section 4 contains a claim-by-claim table that includes each count's pleaded amounts. These structured formats satisfy the criterion of showing damage components with calculation methodology and claimed dollar amounts in a non-prose organized format."
+    },
+    {
+      "id": "C-067",
+      "title": "Immediate action items section with TRO preparation prioritized",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a dedicated 'Immediate action plan' section (Section 7) with a detailed table of time-sensitive actions. TRO preparation is explicitly prioritized: the executive assessment opens by stating 'The immediate priority is the May 9, 2025 hearing,' and Section 7 includes a specific 'Before May 9' action item to 'Prepare declarations, documentary exhibits, response brief, proposed narrower order, bond evidence, and hearing outline.' Section 6 is entirely devoted to TRO/PI opposition strategy. The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-068",
+      "title": "Answer filing identified as an action item by May 27, 2025",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly lists in Section 7 (Immediate action plan) under 'By May 27': 'File an answer or appropriate Rule 12 motion; separately decide and, if chosen, file removal within the statutory deadline.' This clearly identifies filing the answer by May 27, 2025 as an action item."
+    },
+    {
+      "id": "C-069",
+      "title": "Client GC admissions from email extracted",
+      "verdict": "pass",
+      "reasoning": "The memorandum references Patricia Yuen's email multiple times. It notes that 'Yuen reports Hargrove acted without her review or Ellsworth's approval' regarding the July 15 notice, and that 'Yuen reports Greenfield hired Kelsey and Ostrowski' in February 2024. It also references 'Yuen confirms none was sent' regarding the Section 5.3 cure notice for the Year 2 shortfall. However, the criterion specifically asks whether the memo references the admission that the second letter was 'rushed out' and that the Year 2 shortfall was 'never formally addressed' \u2014 these specific phrasings are not present. The memo does reference Yuen's email regarding Hargrove sending the July notice without her review, which satisfies part of the criterion. The Year 2 shortfall is discussed but the specific admission that it was 'never formally addressed' (as a direct quote or paraphrase from Yuen's email) is not explicitly attributed to Yuen's email \u2014 instead it's framed as a legal analysis point. The 'rushed out' admission about the second letter is not mentioned at all. That said, the criterion says 'such as' these examples, indicating they are illustrative rather than exhaustive. The memo does reference candid admissions from Yuen's email (Hargrove acting without her review/approval, the direct sales initiative). This satisfies the criterion's core requirement of referencing candid admissions from the client email."
+    },
+    {
+      "id": "C-070",
+      "title": "24-month non-compete/non-solicitation agreements of Kelsey and Ostrowski noted",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses Kelsey and Ostrowski's employment agreements and restrictive covenants in several places, but it never specifies the duration of those agreements as 24 months. It references 'Exhibit F agreements,' 'employee covenants,' 'noncompete,' and 'restrictive covenants,' and notes that Georgia's Restrictive Covenants Act 'can presume a restriction of two years or less reasonable in duration,' but this is a general legal statement, not an identification that Kelsey and Ostrowski specifically had 24-month agreements. The criterion requires the memo to identify that each had 24-month post-employment non-competition and non-solicitation agreements. The memo fails to state this specific duration for these specific employees."
+    },
+    {
+      "id": "C-071",
+      "title": "Apex's alleged renewal period identified as through February 28, 2026",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states 'If neither notice complied with Section 4.2, the Agreement automatically renewed through Feb. 28, 2026.' This directly identifies the alleged renewal period end date as February 28, 2026, which is two years after the initial expiration of February 28, 2024."
+    },
+    {
+      "id": "C-072",
+      "title": "Apex's 22% gross margin on Greenfield products noted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states '22% gross margin' in multiple places, including in the damages section: '$16.1m annual sales \u00d7 22% \u00d7 2 years = $7.084m' and 'Apex's claimed $7.084m in future lost profits assumes $16.1m annual sales at a 22% gross margin for both renewal years.'"
+    },
+    {
+      "id": "C-073",
+      "title": "Apex's 18% commission rate on Territory sales noted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly mentions the 18% commission rate multiple times, including in the executive assessment ('the alleged 18% compensation term'), in the damages framework ('18% \u00d7 $4.26m = $766,800'), and in the claim-by-claim assessment. The rate is clearly identified as applying to Territory sales."
+    },
+    {
+      "id": "C-074",
+      "title": "Greenfield's alleged 35% margin on direct sales noted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in the unjust enrichment row: 'Disgorgement of Greenfield's estimated 35% profit on the same $4.26m direct sales: $1,491,000.' It also repeats this in the damages table: '$1.491m = 35% \u00d7 $4.26m'. The 35% margin figure is clearly identified."
+    },
+    {
+      "id": "C-075",
+      "title": "Kelsey/Ostrowski employment agreements governed by Georgia law noted",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states in Section 3C: 'both Exhibit F agreements separately select Georgia law; each employee is identified as a Georgia resident when signing.' This clearly notes that the employment agreements of Kelsey and Ostrowski are governed by Georgia law, satisfying the criterion."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/extract-key-terms-from-counterparty-complaint/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/extract-key-terms-from-counterparty-complaint",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T02:12:58.244029+00:00",
+  "cost": {
+    "input_tokens": 364931,
+    "output_tokens": 22470,
+    "wall_clock_seconds": 155.58
+  },
+  "doc_coverage": {
+    "documents_read": 4,
+    "total_documents": 3,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "apex-v-greenfield-complaint.docx",
+      "service-confirmation.docx",
+      "client-initial-email.eml",
+      "/workspace/output/litigation-summary-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

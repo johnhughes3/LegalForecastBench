@@ -1,0 +1,402 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "56/61 criteria passed.  Missed 5 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 61,
+  "n_passed": 56,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Litigation hold notice document is produced",
+      "verdict": "pass",
+      "reasoning": "The agent produced a detailed, clearly labeled litigation hold notice document titled 'LITIGATION HOLD NOTICE' for Kessler et al. v. Vantage Medical Devices, Inc. The document is comprehensive and identifiable as a litigation hold notice."
+    },
+    {
+      "id": "C-002",
+      "title": "Preservation action memo document is produced",
+      "verdict": "pass",
+      "reasoning": "The agent produced a detailed 'PRESERVATION ACTION MEMORANDUM' (preservation-action-memo.docx) addressed to Priya Chandrasekaran, General Counsel, Vantage Medical Devices, Inc., from outside counsel Natalie R. Prichard. This is a standalone document separate from any hold notice, containing executive summary, directives, scope, custodian lists, system-by-system plans, action register, and budget information. It clearly satisfies the criterion of a separate cover memo/preservation action memo addressed to or for the General Counsel."
+    },
+    {
+      "id": "C-003",
+      "title": "Hold notice identifies correct case name",
+      "verdict": "pass",
+      "reasoning": "The litigation hold notice clearly identifies the matter as 'Dorothy M. Kessler and Raymond A. Dufresne, individually and on behalf of all others similarly situated v. Vantage Medical Devices, Inc.' and uses the short form 'Kessler et al. v. Vantage Medical Devices, Inc.' multiple times throughout the document, including in the header, the matter field, and the acknowledgment section."
+    },
+    {
+      "id": "C-004",
+      "title": "Hold notice identifies correct case number",
+      "verdict": "pass",
+      "reasoning": "The litigation hold notice clearly identifies Case No. 1:25-cv-04387-RLM in multiple places, including the header table and the acknowledgment section."
+    },
+    {
+      "id": "C-005",
+      "title": "Hold notice identifies correct court",
+      "verdict": "pass",
+      "reasoning": "The litigation hold notice clearly identifies the court as 'United States District Court, Southern District of Indiana, Indianapolis Division' in the header table under COURT/CASE. This satisfies the criterion of identifying the correct court as the Southern District of Indiana."
+    },
+    {
+      "id": "C-006",
+      "title": "Hold notice states it is issued by General Counsel Priya Chandrasekaran",
+      "verdict": "pass",
+      "reasoning": "The notice clearly states in the header table: 'ISSUED BY: Priya Chandrasekaran, General Counsel, on behalf of Vantage Medical Devices, Inc.' This satisfies the criterion that the hold notice is issued by General Counsel Priya Chandrasekaran, identified by name and title."
+    },
+    {
+      "id": "C-007",
+      "title": "Hold notice identifies the ProFlex KR-3000 as the product at issue",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly identifies the 'ProFlex KR-3000 Total Knee Replacement System' as the product at issue in multiple places throughout the document, including in Section 1 ('Vantage was served on May 28, 2025 with a putative class action concerning the ProFlex KR-3000 Total Knee Replacement System') and throughout Sections 2, 3, 4, and 5."
+    },
+    {
+      "id": "C-008",
+      "title": "Hold notice explains the legal obligation to preserve documents",
+      "verdict": "fail",
+      "reasoning": "The notice explains in Section 1 that 'Because litigation is pending, Vantage must preserve potentially relevant evidence.' It also states the duty continues until written release. However, the criterion specifically requires that the notice explain that failure to preserve may result in sanctions or adverse consequences. Reviewing the entire document, I do not find any explicit mention of sanctions, spoliation consequences, adverse inference instructions, or other adverse consequences for failing to comply with the preservation duty. The notice tells employees what to do and not to do, but never warns them of the legal consequences (sanctions, adverse inference, etc.) for non-compliance. This is a key element of the criterion that is missing."
+    },
+    {
+      "id": "C-009",
+      "title": "Hold notice defines preservation period starting January 1, 2017",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly states in Section 2: 'Preserve all documents and information, from January 1, 2017 through the present and on a continuing, forward-looking basis...' The acknowledgment form also confirms this date: 'I understand that I must preserve potentially relevant information from January 1, 2017 through the present and going forward.' The preservation period start date of January 1, 2017 is clearly and correctly specified."
+    },
+    {
+      "id": "C-010",
+      "title": "Hold notice defines preservation period extending through the present",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly states in Section 2 that custodians must preserve information 'from January 1, 2017 through the present and on a continuing, forward-looking basis.' Section 9 and the acknowledgment form also confirm the duty continues 'until written release by the General Counsel.' The preservation period is open-ended and ongoing, not fixed to a past date."
+    },
+    {
+      "id": "C-011",
+      "title": "Hold notice lists key custodians by name (threshold)",
+      "verdict": "fail",
+      "reasoning": "Checking the notice for the 10 named custodians: (1) Dr. Wei-Lin Huang - not mentioned; (2) Sandra K. Petrosian - mentioned in Section 7; (3) Thomas/Tom Braddock - not mentioned; (4) Michelle Torrence - not mentioned; (5) James Kowalski - not mentioned; (6) Dr. Anita Suresh - not mentioned; (7) Brian Callahan - not mentioned; (8) Gerald Morrissey - not mentioned; (9) Priya Chandrasekaran - mentioned as General Counsel; (10) Marcus Tilden - mentioned as Director of IT. Only 3 of the 10 custodians are identified by name (Petrosian, Chandrasekaran, Tilden). The threshold requires at least 8 of 10. This fails the criterion."
+    },
+    {
+      "id": "C-012",
+      "title": "Hold notice specifies email as a data type to preserve",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly mentions email multiple times as a data type to preserve. In Section 3, it lists 'Microsoft 365: Exchange email and archives, calendars, Teams chats/channels, SharePoint, OneDrive, shared mailboxes, and attachments.' In Section 2, it lists 'email' among communications to preserve. The acknowledgment form also includes a checkbox for 'M365 email / Teams / SharePoint / OneDrive / calendar'. Email is clearly and explicitly covered."
+    },
+    {
+      "id": "C-013",
+      "title": "Hold notice specifies text messages and messaging apps",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly mentions text/iMessage/SMS, WhatsApp, Signal, and VantagePulse in multiple sections (Section 2, Section 3, Section 4, Section 5), clearly covering text messages and third-party messaging apps as data to be preserved."
+    },
+    {
+      "id": "C-014",
+      "title": "Hold notice covers Veeva Vault documents",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly mentions Veeva Vault in Section 3 ('Veeva Vault QMS and Submissions: all relevant controlled records, including drafts, prior/superseded versions, audit trails, electronic signatures, relationships, and lifecycle metadata') and also references it in Section 4 regarding auto-purge and Veeva draft purge, and in the acknowledgment checklist ('SAP / Veeva Vault / Salesforce / VantagePulse'). This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-015",
+      "title": "Hold notice covers SAP / ERP data",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly identifies SAP ECC 6.0 and SAP S/4HANA in Section 3 (Sources and formats covered), specifying that KR-3000 manufacturing, quality, supplier, inspection, change-history/audit, financial, and linked records within those systems must be preserved. SAP/ERP data is clearly within scope."
+    },
+    {
+      "id": "C-016",
+      "title": "Hold notice covers Salesforce CRM data",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly mentions Salesforce in Section 3 (Sources and formats covered): 'Salesforce and associated exports/attachments; VantagePulse cloud and on-device data...' and in Section 2 under sales/marketing/training: 'CRM records; complaint escalations; surgeon/hospital interactions.' The acknowledgment form also lists 'SAP / Veeva Vault / Salesforce / VantagePulse' as a checkbox option. Salesforce/CRM data is clearly within scope."
+    },
+    {
+      "id": "C-017",
+      "title": "Hold notice covers VantagePulse app data",
+      "verdict": "pass",
+      "reasoning": "VantagePulse is explicitly mentioned multiple times throughout the notice. It appears in Section 2 (communications), Section 3 (sources and formats covered, with specific mention of 'VantagePulse cloud and on-device data, including locally stored messages, photographs, notes, feedback, and offline activity'), Section 4 (instructions not to uninstall VantagePulse), and Section 5 (field sales representatives section, with specific instructions to preserve VantagePulse content including offline/local data). The acknowledgment form also includes a checkbox for 'SAP / Veeva Vault / Salesforce / VantagePulse'. The notice clearly and comprehensively covers VantagePulse app data."
+    },
+    {
+      "id": "C-018",
+      "title": "Hold notice covers R&D files including CAD/engineering data",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly identifies 'CAD/SolidWorks files; FEA models; design reviews and change orders' under product design and development, and also references the R&D shared drive path '\\\\VNTG-ENG01\\RnD\\KR3000' and 'SolidWorks PDM' as covered sources. Engineering notebooks are also mentioned. All required R&D engineering file types are clearly within scope."
+    },
+    {
+      "id": "C-019",
+      "title": "Hold notice covers paper/hard copy documents",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly includes paper documents in multiple places. Section 2 mentions 'paper files/notebooks' and 'paper originals.' Section 3 lists 'paper files/notebooks' under sources covered. Section 4 instructs to 'Keep physical records and notebooks secure.' The acknowledgment form includes a checkbox for 'Paper records, notebooks, notes, photographs, or other physical material.' Paper/hard-copy documents are clearly within scope."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_001: SAP migration addressed with halt/carve-out instruction",
+      "verdict": "fail",
+      "reasoning": "The notice mentions SAP ECC 6.0 and SAP S/4HANA in Section 3 as systems covered by preservation, and in Section 4 it instructs that 'SAP migration/archive/decommissioning' must not affect covered information. However, the criterion specifically requires that the notice address the SAP ECC 6.0 to S/4HANA migration beginning June 16, 2025, and instruct that relevant legacy data must be fully preserved before migration proceeds or that the migration must be halted/paused. The notice does not mention the specific June 16, 2025 migration date, does not identify it as an imminent risk requiring a halt or carve-out, and does not specifically call out the manufacturing batch records and supplier quality records from 2017-2022 in the context of the SAP migration. The general instruction not to let 'SAP migration/archive/decommissioning' affect covered information is present but lacks the specificity required by the criterion regarding the known upcoming migration event and the need to halt or carve out relevant legacy data before it proceeds."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_001: SAP legacy decommissioning by July 15 flagged",
+      "verdict": "pass",
+      "reasoning": "The preservation-action-memo.docx explicitly mentions the July 15 deadline in multiple places. In the Executive Summary: 'SAP ECC 6.0 migration begins June 16 with legacy archival/decommissioning planned by July 15.' In the Action Register table: 'Before July 1 / July 15 - Hold KR-3000 paper files out of Iron Mountain transfer pending inventory. No SAP legacy decommissioning July 15 absent verified preservation and written GC approval.' This clearly identifies the July 15 SAP decommissioning as a data risk and action item requiring GC approval before proceeding."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_002: Email auto-purge on June 30 addressed with suspension",
+      "verdict": "fail",
+      "reasoning": "The notice does not specifically mention the quarterly email auto-purge scheduled for June 30, 2025, nor does it instruct that this specific auto-purge must be suspended or disabled. While the notice contains general language about suspending auto-purges and routine deletion processes (e.g., 'Do not permit an auto-purge... mailbox or Teams deletion... to affect covered information'), it never specifically identifies the June 30, 2025 quarterly email auto-purge or the specific risk of destroying emails older than 3 years (pre-June 30, 2022). The criterion requires specific mention of this scheduled event and a specific instruction to suspend/disable it."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_002: Retention policy VNT-POL-007 referenced",
+      "verdict": "pass",
+      "reasoning": "The preservation-action-memo.docx references 'Document Retention and Destruction Policy VNT-POL-007, Rev. 3' in the 'Source materials reviewed' section at the end of the document. This satisfies the criterion of referencing the policy by number (VNT-POL-007) in connection with the need to override normal retention schedules, as the memo is explicitly about overriding normal retention/destruction procedures during the litigation hold."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_003: Sandra Petrosian's departure flagged as urgent",
+      "verdict": "pass",
+      "reasoning": "Both documents explicitly identify Sandra K. Petrosian's departure (effective June 20, 2025) as an urgent preservation issue. The litigation hold notice has an entire dedicated section (Section 7) titled 'Special instructions for departing custodian Sandra K. Petrosian' that flags her June 20 departure, suspends routine offboarding, and requires forensic imaging by June 13. The preservation action memo lists her as a 'Critical' custodian, notes her departure date, and includes specific deadlines for imaging her devices before she leaves."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_003: Forensic imaging of Petrosian's devices before departure",
+      "verdict": "pass",
+      "reasoning": "The litigation hold notice (Section 7) explicitly states: 'Forensic imaging must be completed by June 13, 2025, before departure; coordinate with HR, IT, and Legal.' The preservation action memo (Section 4, custodian table) states 'Critical: Veeva QMS; complaints, CAPAs, MDRs, Q3 2022 analysis; M365, laptop, H: drive, QA shares, SAP QM; preserve before departure.' The action register also specifies 'Complete Petrosian laptop/portable-media forensic imaging (preferred one-week buffer); preserve home/QA drives' by June 13. Both documents clearly instruct forensic imaging/preservation of Petrosian's devices before her June 20 departure."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_004: Mobile device refresh/wipe halted",
+      "verdict": "pass",
+      "reasoning": "Section 5 of the notice explicitly addresses the scheduled replacement of 30 company-issued iPhones beginning June 23, 2025, and states that 'The June 23 refresh and wipe is suspended for affected devices.' It also instructs all 85 representatives to preserve data and that Legal will coordinate targeted collection, prioritizing the 30 at-risk phones. This directly satisfies the criterion."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_004: WhatsApp and third-party app data on mobile devices",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly mentions WhatsApp multiple times in the context of field sales representatives' mobile devices. Section 5 specifically states 'Preserve KR-3000-related text/iMessage/SMS, WhatsApp messages and media, VantagePulse content...' and Section 4 mentions 'Do not uninstall VantagePulse, WhatsApp, or other messaging apps.' WhatsApp and third-party messaging app data on mobile devices are clearly within scope."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_005: Ashford Precision Components preservation addressed",
+      "verdict": "pass",
+      "reasoning": "Both documents explicitly address Ashford Precision Components. The litigation hold notice (Section 2) instructs preservation of 'Ashford Precision Components records and communications' and (Section 4) directs custodians to 'Route questions about Ashford, VantagePulse, vendors, or any outside system to Legal.' The preservation action memo (Section 1, item 5) provides Ashford's full address, contact person, email, and instructs sending a formal preservation demand by June 6 via email and certified mail, invoking Quality Agreement QA-2017-0044, and escalating to subpoena/Rule 45 if noncooperation. Section 4 also includes Ashford in the system-by-system preservation plan. Both documents clearly identify Ashford as a third party requiring preservation and recommend/instruct that a preservation demand be sent."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_005: Legal basis for control over third-party records",
+      "verdict": "pass",
+      "reasoning": "The preservation action memo explicitly references Quality Agreement QA-2017-0044 as the contractual basis for Vantage's rights over Ashford's records, stating 'invoke and review Quality Agreement QA-2017-0044 access/retention rights' and 'Exercise Quality Agreement QA-2017-0044 rights; escalate to subpoena/Rule 45 if noncooperation.' This provides both a contractual basis (quality agreement giving Vantage access/retention rights over Ashford records) and a legal basis (Rule 45 subpoena as fallback), which explains why third-party contract manufacturer records must be preserved and how Vantage can exercise control over them. The system-by-system table also notes preserving 'native-format preservation' of Ashford records and confirms written hold. This satisfies the criterion."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_006: Privilege considerations for GC's files addressed",
+      "verdict": "pass",
+      "reasoning": "The preservation action memo explicitly addresses privilege considerations for the General Counsel's files in multiple places. Section 6 states: 'For the General Counsel's own files, apply preservation holds but use an outside-counsel supervised, segregated collection/review environment. Designate a privilege coordinator; screen before substantive review or production; maintain privilege log protocol. Seek a Federal Rule of Evidence 502(d) order/clawback protection at the Rule 26(f) or scheduling conference. Privileged materials must not be disclosed to IT, vendor reviewers, insurers, or opposing counsel beyond need-to-know instructions without Legal review.' Section 3 also flags GC Chandrasekaran as 'Executive/privilege-sensitive' with collection to be 'segregated and privilege screened.' The hold notice itself (Section 8) instructs recipients to preserve privileged communications but not forward or disclose them, and notes Legal will handle privilege-sensitive collection separately. Both documents clearly address privilege considerations for the GC's files."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_006: Preservation without waiver of privilege",
+      "verdict": "pass",
+      "reasoning": "Section 8 of the notice explicitly addresses privilege handling. It instructs custodians to preserve potentially relevant communications with Legal and outside counsel, legal advice, and attorney work product, and not to delete them. It also instructs that these materials should not be forwarded, disclosed, or placed in a general business review or production folder, and that Legal will handle privilege-sensitive collection and review separately. This satisfies the criterion: privileged materials must be preserved (not destroyed) and will be subject to privilege review before any production."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_007: Proportionality or tiered approach for 85 mobile devices",
+      "verdict": "pass",
+      "reasoning": "Both documents explicitly address proportionality and tiering for the 85 field sales representative devices. The litigation hold notice (Section 5) distinguishes between the 30 at-risk phones scheduled for wipe on June 23 (which are suspended and prioritized for collection) and the remaining 55 representatives (who must preserve but will be subject to targeted collection based on relevant surgeon, complaint, and territory information). The preservation action memo (Section 4, iPhones row) further specifies prioritizing the 30 imminent-wipe devices first, then targeting 15-20 of the remaining 55 based on Ohio/Florida named-plaintiff surgeon coverage, complaint geography, and CRM interaction volume. The action register also reflects this tiered approach with different deadlines for the 30 vs. the remaining 55. This clearly satisfies the proportionality/tiered approach criterion."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_008: Personal devices / BYOD preservation addressed",
+      "verdict": "pass",
+      "reasoning": "The hold notice explicitly addresses personal devices and BYOD in multiple sections. Section 3 states that personal phones, email, messaging applications, and cloud storage must be preserved 'to the extent used for Vantage business or containing potentially relevant Vantage information,' listing specific apps like Gmail, iCloud, Google Drive, Dropbox, WhatsApp, Signal, and iMessage/SMS. Section 6 is entirely dedicated to 'Personal devices and accounts' and instructs custodians to preserve work-related information on personal devices and identify those devices/accounts in their acknowledgment. The acknowledgment form also includes a checkbox for 'Personal device, personal email, messaging app, or personal cloud used for Vantage business.' This comprehensively satisfies the criterion."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_008: Dr. Suresh's potential personal device use flagged",
+      "verdict": "pass",
+      "reasoning": "The preservation action memo explicitly flags Dr. Anita Suresh under the custodians section with the note 'immediate targeted BYOD inquiry (personal iPhone/Gmail/messaging use flagged),' directly identifying her potential personal device/account use as a specific concern. This satisfies the criterion."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_009: Backup tapes / disaster recovery archives addressed",
+      "verdict": "pass",
+      "reasoning": "The preservation action memorandum explicitly addresses backup/DR tapes in Section 4 (System-by-system preservation plan) with a dedicated row for 'Backup / DR tapes' instructing to suspend rotation/overwrite/destruction, segregate/label, preserve Commvault catalogs, inventories, dates, locations and logs, and not restore absent a demonstrated source gap. Section 6 also reiterates not restoring backup tapes at this stage but preserving tape media and catalogs as a secondary safeguard. The litigation hold notice itself also references backup-tape overwrite in Section 4 ('do not permit an auto-purge... or backup-tape overwrite to affect covered information'). Both documents clearly address backup tapes and disaster recovery archives as sources that must not be destroyed or overwritten during the hold period."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_009: Reasonable accessibility of backup tapes discussed",
+      "verdict": "pass",
+      "reasoning": "The preservation action memo explicitly addresses backup tape accessibility and burden considerations. In Section 4 (System-by-system preservation plan), under 'Backup / DR tapes,' it states: 'Do not restore absent a demonstrated source gap; document accessibility/cost.' In Section 6 (Preservation, collection, and privilege safeguards), it states: 'Do not restore backup tapes at this stage. Preserve tape media and catalogs as a secondary safeguard. Assess accessibility and restore only if source-level collection identifies a gap or discovery supports restoration; document the burden and unique data value.' This clearly addresses the concept of deferring restoration decisions and acknowledges accessibility/burden considerations, satisfying the criterion."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_010: Acknowledgment requirement included in hold notice",
+      "verdict": "pass",
+      "reasoning": "The hold notice includes a detailed 'LITIGATION HOLD ACKNOWLEDGMENT' section at the end with signature lines, checkboxes confirming receipt and understanding, fields for name/title/department/date, and explicit instructions to return the signed form to the General Counsel's Office by June 9, 2025. This clearly satisfies the requirement for a formal acknowledgment mechanism."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_010: Periodic reminders or compliance monitoring mentioned",
+      "verdict": "pass",
+      "reasoning": "The litigation hold notice explicitly states 'Vantage Legal will issue periodic reminders and may conduct compliance checks' in Section 9. The preservation action memo also references 'Aug. 1; quarterly thereafter - First reminder and compliance audit; quarterly reminders, questionnaire updates, interviews and hold log maintenance' in the action register. Both documents clearly address periodic reminders and ongoing compliance monitoring."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_011: Veeva Vault audit trail and version preservation",
+      "verdict": "pass",
+      "reasoning": "Both documents address Veeva Vault preservation with specificity beyond generic 'preserve Veeva documents' language. The litigation hold notice (Section 3) explicitly states to preserve 'all relevant controlled records, including drafts, prior/superseded versions, audit trails, electronic signatures, relationships, and lifecycle metadata.' The preservation action memo (Section 4) instructs to 'Suspend KR-3000 obsolescence, archival, and 180-day abandoned-draft purge under validated change control. Preserve all versions, audit trails, e-signatures, relationships and user permissions using Vault API/Loader or Veeva Professional Services---not PDFs alone.' These instructions clearly address audit trails, version history, metadata, and document lifecycle workflows (obsolescence, archival, draft purge suspension), satisfying the criterion."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_011: Veeva document lifecycle suspension instruction",
+      "verdict": "pass",
+      "reasoning": "The preservation-action-memo.docx explicitly instructs to 'Suspend KR-3000 obsolescence, archival, and 180-day abandoned-draft purge under validated change control' in the Veeva Vault QMS/Submissions row of the system-by-system preservation plan (Section 4). Additionally, Section 1 directive 2 states to 'suspend Teams chat/monthly purge, voicemail auto-deletion where relevant, and Veeva abandoned-draft purge.' The litigation hold notice also references preserving Veeva Vault records. These instructions clearly direct QA/Regulatory teams to suspend document lifecycle workflows within Veeva Vault for KR-3000-related records."
+    },
+    {
+      "id": "C-041",
+      "title": "Memo identifies Petrosian imaging before June 20 as critical action",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies Sandra K. Petrosian as a 'Critical' custodian with a note to 'preserve before departure.' It includes a specific action item: 'Complete Petrosian laptop/portable-media forensic imaging (preferred one-week buffer); preserve home/QA drives' with a deadline of 'By June 13.' Additionally, Section 1 Directive 4 states: 'Suspend Petrosian's ordinary offboarding... Complete forensic imaging of her laptop and portable media by June 13.' This clearly identifies forensic imaging of Petrosian's data before her June 20 departure as a critical time-sensitive action."
+    },
+    {
+      "id": "C-042",
+      "title": "Memo identifies SAP migration halt/preservation before June 16",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the SAP ECC 6.0 migration beginning June 16 as a critical time-sensitive risk. In Section 1 (Directive 3), it states: 'Freeze KR-3000 SAP changes before the migration touches relevant data' and sets a target of 'June 14 at latest' for completing a validated export or forensic snapshot. The action register also lists 'By June 14; before relevant migration activity' as a deadline to 'Complete and validate KR-3000 SAP ECC image/export.' The executive summary also flags the SAP migration as one of the most immediate risks. This clearly satisfies the criterion."
+    },
+    {
+      "id": "C-043",
+      "title": "Memo identifies mobile device wipe halt before June 23",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies halting mobile device wipes before June 23 as a critical action. In Section 1 (Decisions and directives for immediate action), it states: 'Halt all 30 scheduled phone refresh/wipes; target imaging before June 20 (preferably June 18) and in all events before any wipe.' The action register also includes a June 16-18 target (no later than June 20) for imaging the 30 at-risk iPhones, and a June 23 entry stating 'Keep refresh suspended for any device not fully imaged and verified; no factory reset or recycler transfer without written Legal authorization.' This clearly identifies halting mobile device wipes before the June 23 scheduled refresh."
+    },
+    {
+      "id": "C-044",
+      "title": "Memo identifies email purge suspension before June 30",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly identifies the June 30 M365 email auto-purge as a critical risk in the Executive Summary ('M365 email auto-purge runs June 30') and includes multiple directives to suspend it: in Section 1 ('disable the M365 three-year email purge'), in the Action Register ('Ensure June 30 purge cannot run'), and in Section 6. The memo clearly identifies suspending the June 30 email auto-purge as a critical action."
+    },
+    {
+      "id": "C-045",
+      "title": "Memo correctly sequences urgent actions by deadline",
+      "verdict": "pass",
+      "reasoning": "The memo's action register (Section 5) lists deadlines in chronological order: June 2 (hold notice), June 3 (M365/Teams purges), June 6 (Ashford demand, SAP freeze), June 9 (acknowledgments), June 13 (Petrosian imaging), June 14 (SAP ECC export before June 16 migration), June 16-18/20 (iPhone imaging before June 20 Petrosian departure), June 20 (Petrosian departure), June 23+ (device refresh suspension), June 27-30 (M365 purge verification), June 30 (remaining phones), July 1/15 (paper records/SAP decommissioning), August 1 (quarterly reminders). The SAP migration deadline (June 14-16) and Petrosian departure (June 20) are both listed before the mobile device wipe (June 23) and email purge (June 30). The sequencing is logically chronological and reflects the actual urgency of each deadline."
+    },
+    {
+      "id": "C-046",
+      "title": "Memo addresses Ashford third-party coordination",
+      "verdict": "pass",
+      "reasoning": "The memo extensively addresses Ashford Precision Components as a third-party coordination issue. In Section 1 (Directive 5), it explicitly states to send Ashford Precision Components, Inc. a formal preservation demand no later than June 6, provides their address and contact information, references the Quality Agreement QA-2017-0044, and requests written confirmation. Ashford is also mentioned in the scope section, the custodian section (James Kowalski's focus includes Ashford relationship), the system-by-system preservation plan (with a dedicated row for Ashford), and the action register with a June 6 deadline for the preservation demand."
+    },
+    {
+      "id": "C-047",
+      "title": "Memo addresses coordination with e-discovery vendor Corestone",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly mentions Corestone Analytics multiple times throughout the document, including in the action register (June 6 entry: 'Book Corestone'), in the system-by-system preservation plan (referencing Corestone as owner for SAP, R&D share, and iPhone collection), in Section 7 (budget section recommending 'authorizing Corestone Analytics to scope and schedule immediate work'), and in Section 8 (directing to convene a preservation meeting with 'Corestone Analytics'). The criterion requires mention of Corestone Analytics for forensic collection, imaging, or processing, which is clearly satisfied."
+    },
+    {
+      "id": "C-048",
+      "title": "Memo recommends next steps for hold compliance",
+      "verdict": "pass",
+      "reasoning": "The memo includes multiple specific next steps for ongoing hold compliance. Section 5 (Action Register) includes 'Aug. 1; quarterly thereafter: First reminder and compliance audit; quarterly reminders, questionnaire updates, interviews and hold log maintenance.' Section 6 states 'Require all recipients to acknowledge receipt...Keep an auditable log of notices, reminders, system holds, migrations, exports, chain of custody, exceptions, and remedial steps. Conduct interviews and verification rather than treating a notice as sufficient by itself.' Section 1 also mentions requiring acknowledgment by June 9 and preserving returned forms. These clearly satisfy the criterion."
+    },
+    {
+      "id": "C-049",
+      "title": "Hold notice includes consequences of non-compliance",
+      "verdict": "fail",
+      "reasoning": "I reviewed the entire litigation hold notice carefully, looking for any mention of consequences for non-compliance, such as sanctions, adverse inference instructions, disciplinary action, or other penalties. The notice is comprehensive and covers many aspects of preservation obligations, but it does not include any language about what happens if a custodian fails to comply. There is no mention of court-imposed sanctions, adverse inference jury instructions, spoliation consequences, or internal disciplinary measures (termination, HR action, etc.). The notice only states obligations and instructions, not consequences for failing to follow them."
+    },
+    {
+      "id": "C-050",
+      "title": "Hold notice provides contact information for questions",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly provides contact information in Section 9: Priya Chandrasekaran, General Counsel, reachable by replying to the notice email or at extension 4200, and Marcus Tilden, Director of IT, at 260-555-0184. The acknowledgment return section also lists 260-555-4200. Multiple contact persons and methods are clearly provided."
+    },
+    {
+      "id": "C-051",
+      "title": "Hold notice instructs custodians not to delete/destroy documents",
+      "verdict": "pass",
+      "reasoning": "The notice contains extensive and explicit instructions prohibiting custodians from deleting, destroying, altering, or overwriting documents. Section 4 is titled 'Immediate instructions --- do not delete, alter, or destroy' and contains multiple specific prohibitions including stopping 'manual deletion, editing, overwriting, shredding, disposal, or alteration of covered information,' not deleting messages, not emptying trash/recycle folders, not purging drafts, etc. Section 5 also instructs field sales reps not to delete conversations. The acknowledgment form also includes a checkbox confirming the custodian has stopped 'routine or manual deletion, alteration, disposal, wipe, or retention process that could affect covered information.' The criterion is clearly satisfied."
+    },
+    {
+      "id": "C-052",
+      "title": "Hold notice instructs suspension of routine destruction policies",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly states in multiple places that routine retention schedules and destruction policies are suspended. Section 4 states 'Do not use normal retention or offboarding procedures to delete or archive covered information.' The notice also contains a highlighted box stating 'This hold remains in effect unless and until you receive written notice from the General Counsel that it has been lifted. Normal retention schedules do not apply to covered material while the hold is active.' Additionally, the acknowledgment form includes a checkbox confirming the recipient has stopped 'any routine or manual deletion, alteration, disposal, wipe, or retention process that could affect covered information.' These provisions clearly satisfy the criterion."
+    },
+    {
+      "id": "C-053",
+      "title": "Correct date of complaint service: May 28, 2025",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly states in Section 1: 'Vantage was served on May 28, 2025 with a putative class action concerning the ProFlex KR-3000 Total Knee Replacement System.' This matches the criterion exactly."
+    },
+    {
+      "id": "C-054",
+      "title": "Correct product description: CoCrMo femoral component",
+      "verdict": "pass",
+      "reasoning": "The notice references 'premature wear and metal debris' in Section 1, and in Section 2 explicitly mentions 'metallurgical, materials-science, retrieval, and failure analyses,' 'CoCrMo, UHMWPE, and titanium materials,' 'surface-finish measurements,' 'metal-ion data,' and 'the Q3 2022 metallurgical analysis.' These references are consistent with design defect allegations involving premature wear, elevated cobalt/chromium ion levels, and articular surface finish issues. The product defect allegations are not materially misstated."
+    },
+    {
+      "id": "C-055",
+      "title": "Hold notice defines subject matter scope covering key categories",
+      "verdict": "pass",
+      "reasoning": "The notice clearly covers all 6 categories: (1) design and development - 'Product design and development; design history files; engineering notebooks; CAD/SolidWorks files...'; (2) testing - 'Pre-market and post-market testing, including bench and wear testing; cyclical loading...'; (3) manufacturing - 'Manufacturing and quality: batch/device-history records; production orders...'; (4) marketing/sales - 'Sales, marketing, training, and field activity: promotional claims and presentations; surgeon training; sales-force communications...'; (5) complaint handling or adverse events - 'complaints; complaint trending; CAPAs; MDRs; adverse-event assessments...'; (6) regulatory submissions or FDA communications - '510(k) submission K192847...FDA submissions and correspondence...' All 6 of the 6 required categories are present, well exceeding the threshold of 4."
+    },
+    {
+      "id": "C-056",
+      "title": "Hold notice addresses IT Department / Marcus Tilden's role",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly identifies Marcus Tilden, Director of IT, by name and phone number (260-555-0184) as the technical coordination contact. Additionally, the notice addresses IT's implementation role in multiple places: Section 5 mentions 'Legal will coordinate targeted collection, prioritizing the 30 at-risk phones' with IT involvement; Section 7 states 'IT, HR, and Legal will coordinate collection and account continuity' and 'Forensic imaging must be completed by June 13, 2025'; Section 9 directs recipients to 'contact Marcus Tilden, Director of IT, at 260-555-0184' for technical coordination. The notice also addresses IT-relevant actions like suspending device refreshes/wipes, halting migrations, and preserving backup systems throughout the document."
+    },
+    {
+      "id": "C-057",
+      "title": "Hold notice mentions the 510(k) clearance or FDA regulatory filings",
+      "verdict": "pass",
+      "reasoning": "The notice explicitly mentions '510(k) submission K192847 and ProFlex KR-2500 predicate materials; FDA submissions and correspondence' under the regulatory and quality-system records section, clearly identifying FDA regulatory filings as within the scope of preservation."
+    },
+    {
+      "id": "C-058",
+      "title": "Hold notice addresses CAPA records and MDR reports",
+      "verdict": "pass",
+      "reasoning": "Section 2 of the notice explicitly mentions both 'CAPAs' and 'MDRs' under the regulatory and quality-system records bullet: 'complaints; complaint trending; CAPAs; MDRs; adverse-event assessments; audits; field safety, recall, correction/removal, or other corrective-action evaluations.' Both CAPA records and MDR reports are clearly identified as within scope of preservation."
+    },
+    {
+      "id": "C-059",
+      "title": "Hold notice addresses field sales representative communications",
+      "verdict": "pass",
+      "reasoning": "Section 5 is explicitly dedicated to 'Additional instructions for field sales representatives and mobile-device users,' addressing all 85 field sales representatives. It covers preservation of KR-3000-related communications including text/iMessage/SMS, WhatsApp, VantagePulse content, call logs, voicemail, photographs/videos, notes, and 'surgeon or hospital communications on company and personal devices/accounts.' The notice also suspends the June 23 device refresh for affected representatives and outlines coordination for collection. Section 2 also references sales-force communications, CRM records, complaint escalations, and surgeon/hospital interactions. The criterion is fully satisfied."
+    },
+    {
+      "id": "C-060",
+      "title": "Memo addresses coordination with outside counsel Calloway Prichard Weeks",
+      "verdict": "pass",
+      "reasoning": "The memo explicitly mentions Natalie R. Prichard, Partner, Calloway Prichard Weeks LLP as the author (FROM field), and references coordination with outside counsel multiple times throughout the document, including in Section 5 (Action Register) where 'Prichard / Legal' is listed as accountable for multiple actions, and in Section 8 where it states to convene a preservation meeting with 'outside counsel' and lists 'Prichard' as a participant in the June 3-4 meeting."
+    },
+    {
+      "id": "C-061",
+      "title": "Hold notice date is approximately June 2, 2025",
+      "verdict": "pass",
+      "reasoning": "The notice header shows 'DATE: May 30, 2025 (prepared for distribution June 2, 2025)'. The distribution date is June 2, 2025, which exactly matches the criterion. The document was prepared May 30 but explicitly states it is for distribution June 2, 2025, which is the operative date for the hold notice."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-litigation-hold-notice-for-new-product-liability-matter/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-litigation-hold-notice-for-new-product-liability-matter",
+  "judge_model": "claude-sonnet-4-6",
+  "scored_at": "2026-09-27T01:45:42.930112+00:00",
+  "cost": {
+    "input_tokens": 1239894,
+    "output_tokens": 22334,
+    "wall_clock_seconds": 167.15
+  },
+  "doc_coverage": {
+    "documents_read": 9,
+    "total_documents": 7,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "petrosian-resignation-notice.eml",
+      "it-migration-memo.eml",
+      "outside-counsel-case-assessment.docx",
+      "custodian-data-inventory.xlsx",
+      "class-action-complaint.docx",
+      "it-systems-summary.docx",
+      "retention-policy-vnt-pol-007.docx",
+      "/workspace/output/litigation-hold-notice.docx",
+      "/workspace/output/preservation-action-memo.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

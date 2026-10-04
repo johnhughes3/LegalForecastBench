@@ -23,6 +23,7 @@ from harvey_dual_audit_core import (
     as_list,
     dump,
 )
+from harvey_model_runs import CONDITIONS, RUNS_DIR, SHORT, run_grades
 
 
 def crit_link(record: Json, crit: str) -> str:
@@ -231,10 +232,23 @@ def render_task_section(record: Json, rows: list[Json], task_dir: Path) -> None:
         + ".",
         "",
     ]
+    task = str(record["task"])
+    if (RUNS_DIR / task).is_dir():
+        section += [
+            "Model runs: "
+            + " · ".join(
+                f"[{label}](../../model-runs/{task}/{slug}/README.md)"
+                for slug, label, *_ in CONDITIONS
+            )
+            + ". The Runs column gives each run's native verdicts (P pass, F fail) "
+            "from Sonnet 4.6 / GPT-5.5 and links to the judges' reasoning.",
+            "",
+        ]
     if flagged:
         section += [
-            "| Criterion | GPT-6 Sol | Claude Opus 5.5 | Opus blind pass | Agreement |",
-            "|---|---|---|---|---|",
+            "| Criterion | GPT-6 Sol | Claude Opus 5.5 | Opus blind pass | Agreement "
+            "| Runs |",
+            "|---|---|---|---|---|---|",
         ]
         labels = dict(BUCKETS)
         for r in flagged:
@@ -250,6 +264,7 @@ def render_task_section(record: Json, rows: list[Json], task_dir: Path) -> None:
                     status_word(r["claude_opus_5_5"]),
                     status_word(r["claude_opus_5_5_blind"]),
                     agreement,
+                    run_grades(task, str(r["criterion"]), "../../"),
                 )
             )
         section.append("")
@@ -422,12 +437,23 @@ LINK_NAMES = {
 }
 
 
+def index_label(path: Path) -> str:
+    rel = path.relative_to(AUDIT_DIR)
+    if rel.parts[0] == "model-runs" and len(rel.parts) > 3:
+        short = SHORT.get(rel.parts[2], rel.parts[2])
+        return f"{short} run" if path.name == "README.md" else f"{short}: {path.stem}"
+    return LINK_NAMES.get(path.name, path.stem)
+
+
 def render_docs_index() -> None:
     """Rewrite the audit file index in docs/README.md from the files on disk."""
     groups: dict[str, list[Path]] = {}
     for md in sorted(AUDIT_DIR.rglob("*.md")):
         rel = md.relative_to(AUDIT_DIR)
-        groups.setdefault(rel.parent.as_posix(), []).append(md)
+        # One line per task for its model runs, rather than one per run folder.
+        nested = rel.parts[0] == "model-runs" and len(rel.parts) > 2
+        key = "/".join(rel.parts[:2]) if nested else ""
+        groups.setdefault(key or rel.parent.as_posix(), []).append(md)
     order = sorted(groups, key=lambda g: (g != ".", g.startswith("tasks/"), g))
     lines = ["", INDEX_OPEN, ""]
     for group in order:
@@ -437,8 +463,7 @@ def render_docs_index() -> None:
             key=lambda p: (rank.index(p.name) if p.name in rank else len(rank), p.name),
         )
         links = " · ".join(
-            f"[{LINK_NAMES.get(p.name, p.stem)}]"
-            f"({p.relative_to(DOCS_INDEX.parent).as_posix()})"
+            f"[{index_label(p)}]({p.relative_to(DOCS_INDEX.parent).as_posix()})"
             for p in files
         )
         label = "Audit overview" if group == "." else group

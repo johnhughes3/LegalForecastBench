@@ -1,0 +1,355 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "49/53 criteria passed.  Missed 4 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 53,
+  "n_passed": 49,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Caption identifies correct court",
+      "verdict": "pass",
+      "reasoning": "The caption expressly states \u201cUNITED STATES DISTRICT COURT\u201d and \u201cDISTRICT OF MASSACHUSETTS,\u201d which correctly identifies the United States District Court for the District of Massachusetts."
+    },
+    {
+      "id": "C-002",
+      "title": "Caption identifies correct case number",
+      "verdict": "pass",
+      "reasoning": "The caption includes \u201cCivil Action No. 1:25-cv-00482-DJC,\u201d which matches the required case number."
+    },
+    {
+      "id": "C-003",
+      "title": "Caption identifies correct party names",
+      "verdict": "pass",
+      "reasoning": "The caption correctly identifies Greenfield Botanical Sciences, Inc. as Plaintiff and Dr. Elena Vasquez and Canopy Ridge Therapeutics, LLC as Defendants."
+    },
+    {
+      "id": "C-004",
+      "title": "Document includes a conclusion with prayer for relief",
+      "verdict": "pass",
+      "reasoning": "The memorandum includes a clearly labeled CONCLUSION section that asks the Court to grant the motion and enter a tailored preliminary injunction. It also specifies the relief sought, including protection of identified trade secrets, neutral forensic examination and sequestration, and enforcement of restrictive covenants. The preceding requested-order section provides additional detailed prayer for relief."
+    },
+    {
+      "id": "C-005",
+      "title": "Addresses likelihood of success on the merits",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states the preliminary injunction standard including likelihood of success and devotes Argument Section I to analyzing why Greenfield is likely to succeed on its trade-secret, misappropriation, non-compete, non-solicitation, and confidentiality claims."
+    },
+    {
+      "id": "C-006",
+      "title": "Addresses irreparable harm factor",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly identifies irreparable harm as part of the preliminary injunction standard and includes a dedicated section analyzing why Greenfield faces imminent, irreparable injury absent an injunction."
+    },
+    {
+      "id": "C-007",
+      "title": "Addresses balance of hardships/equities factor",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly includes the balance of hardships/equities in the governing standard and provides a dedicated section titled \u201cIII. The balance of hardships favors narrowly tailored protection,\u201d analyzing Greenfield\u2019s harms, Defendants\u2019 burdens, tailoring of relief, Dr. Vasquez\u2019s work interests, and Canopy Ridge\u2019s lack of legitimate hardship in using trade secrets."
+    },
+    {
+      "id": "C-008",
+      "title": "Addresses public interest factor",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly identifies public interest as one of the preliminary injunction factors and includes a dedicated section analyzing why the requested injunction serves the public interest, including protection of trade secrets, lawful competition, employee mobility, and workforce stability."
+    },
+    {
+      "id": "C-009",
+      "title": "Identifies MNAA applicability",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly discusses the Massachusetts Noncompetition Agreement Act, Mass. Gen. Laws ch. 149, \u00a7 24L, including its applicability to Dr. Vasquez's non-compete, duration limits, exceptions for electronic taking, garden leave, reasonableness, and potential reformation."
+    },
+    {
+      "id": "C-010",
+      "title": "Notes the agreement was entered into on or after October 1, 2018",
+      "verdict": "fail",
+      "reasoning": "The memorandum states that the MNAA applies to post-October 1, 2018 noncompetition agreements and discusses a 2022 amendment, but it does not state that the employment agreement itself was entered into on or after October 1, 2018\u2014specifically March 11, 2019\u2014or clearly connect that date to MNAA applicability."
+    },
+    {
+      "id": "C-011",
+      "title": "ISSUE_001: Addresses the 12-month general limitation on non-competes",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that the MNAA generally limits noncompetition agreements to twelve months and discusses the contractual twenty-four-month restriction as exceeding that general limit unless the statutory exception for fiduciary breach or unlawful taking applies."
+    },
+    {
+      "id": "C-012",
+      "title": "ISSUE_001: Argues 24-month period enforceable via fiduciary duty exception",
+      "verdict": "pass",
+      "reasoning": "The memorandum directly addresses the 24-month MNAA issue, explaining that \u00a7 24L permits up to 24 months where the employee breached fiduciary duty or unlawfully took property, and argues the electronic-taking exception applies. It also expressly requests enforcement for the maximum lawful period, including the statutory 12-month period, if the court finds the 24-month duration unavailable. Thus it satisfies the criterion\u2019s alternative basis."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_001: Addresses garden leave as MNAA consideration requirement",
+      "verdict": "fail",
+      "reasoning": "The memorandum mentions the garden-leave installment amount and says Greenfield tendered it, but it does not expressly connect the garden leave provision to the MNAA\u2019s independent consideration/garden leave requirement for enforceability of the non-compete. It discusses the non-compete as supported by the amendment, promotion, salary increase, and continued employment, rather than arguing that Section 7.3 satisfies the MNAA consideration requirement."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_002: Identifies the 14,200 files / 3.8 GB USB download as misappropriation",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly cites the forensic evidence that Dr. Vasquez transferred approximately 14,200 files totaling 3.8 GB to an unregistered personal USB device between December 1 and December 12, 2024. In the trade-secret argument section, it characterizes those transfers as unauthorized improper acquisition and a substantial threat of continued use or disclosure, supporting misappropriation under the DTSA and MTSA."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_002: Identifies specific categories of trade secrets taken",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically identifies all five listed categories of confidential information: the GBS-4400 formulation database/records, unpublished Phase II clinical data, proprietary SFE extraction parameter sets, supplier identities/lists with negotiated pricing terms, and the five-year R&D roadmap."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_002: Argues information qualifies as trade secrets \u2014 independent economic value",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states the DTSA/MTSA requirement that trade secrets derive independent economic value from not being generally known or readily ascertainable, and applies that element using facts including Greenfield\u2019s $47.3 million R&D investment, $85 million portfolio valuation, $52 million GBS-4400 valuation, projected revenue, and time advantage."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_002: Argues Greenfield took reasonable measures to maintain secrecy",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses reasonable secrecy measures as a trade secret element, citing confidentiality agreements, role-based restricted access, encryption, multifactor authentication, confidentiality markings, physical access controls, policies prohibiting personal-device transfers, employment agreement obligations, and forensic confirmation of these controls."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_002: References Canopy Ridge press release language as circumstantial evidence",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly cites the February 24 Canopy Ridge press release, including its references to an Andean-plant anti-inflammatory and \u201cnext-generation supercritical extraction,\u201d and expressly uses that language as circumstantial evidence supporting an inference of threatened or ongoing use of Greenfield\u2019s misappropriated trade secrets when combined with the forensic evidence and timing."
+    },
+    {
+      "id": "C-019",
+      "title": "Asserts trade secret misappropriation claim under DTSA",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly asserts and analyzes a trade secret misappropriation claim under the federal DTSA, citing 18 U.S.C. \u00a7\u00a7 1836 and 1839, discussing DTSA definitions of trade secrets and misappropriation, and requesting DTSA injunctive relief."
+    },
+    {
+      "id": "C-020",
+      "title": "Asserts trade secret misappropriation claim under Massachusetts Trade Secrets Act",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly addresses the Massachusetts Trade Secrets Act multiple times, citing Mass. Gen. Laws ch. 93, \u00a7 42, explaining that it authorizes injunctive relief for actual or threatened misappropriation, and analyzing likelihood of success under the MTSA alongside the DTSA."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_003: Does not assert a statutory presumption of irreparable harm under DTSA",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that the DTSA contains no automatic presumption of irreparable harm and that Greenfield does not rely on one. It argues irreparable harm based on factual evidence such as unauthorized copying, continued possession risk, competitive overlap, and potential loss of secrecy."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_003: Argues irreparable harm based on loss of trade secret protection",
+      "verdict": "pass",
+      "reasoning": "The memorandum\u2019s irreparable harm section expressly argues that trade secret disclosure causes irreparable harm because secrecy and exclusivity cannot be restored once a competitor learns the information, competitive head-start advantages are difficult to trace or quantify, and money damages cannot fully remedy the loss of secrecy."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_003: Argues money damages are inadequate",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly argues in the irreparable harm section that monetary damages are inadequate, citing loss of secrecy, erosion of competitive head start/first-mover advantage, difficulty tracing or quantifying use of trade secrets in future development decisions, and the speculative/incomplete nature of the $95 million estimate. It states that a money judgment cannot recover lost secrecy or reconstruct the counterfactual development path."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_003: Uses specific financial facts to support irreparable harm",
+      "verdict": "pass",
+      "reasoning": "The irreparable harm section specifically cites the $95 million estimated revenue loss and explains it as tied to reducing Greenfield's first-mover advantage from about three years to less than one year. The memorandum also elsewhere cites $220 million projected revenue and $52 million/$85 million trade secret valuations to support the magnitude of harm."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_004: Addresses garden leave payment in balance of hardships",
+      "verdict": "pass",
+      "reasoning": "The memorandum addresses garden leave in the balance-of-hardships section, noting that Greenfield tendered the agreed garden-leave payment in connection with the non-compete. Elsewhere it specifies the amount as $13,541.67/month, equal to 50% of Dr. Vasquez\u2019s $325,000 salary. This discussion is used as part of the hardship/equities analysis supporting enforcement of the restriction."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_004: Addresses Dr. Vasquez's return of the garden leave payment",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that Greenfield tendered the required garden-leave installment, Dr. Vasquez returned it, and argues that return does not eliminate the restriction because Greenfield may continue tendering or escrow rejected payments. This addresses the significance of the returned payment, even though it does not specify the February 1 and February 5 dates."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_005: Identifies Dr. Vasquez's solicitation of Dr. Lisa Chow",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically states that on February 20, 2025 Dr. Vasquez emailed Dr. Lisa Chow at a personal address, offered her a Canopy Ridge position with compensation at least 40% above Greenfield's, and treats this as a direct breach of the non-solicitation covenant."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_005: Uses solicitation as evidence of willingness to violate obligations",
+      "verdict": "pass",
+      "reasoning": "The memorandum does more than identify the Dr. Chow solicitation as a standalone breach. In the Preliminary Statement, it expressly states that the solicitation, combined with Dr. Vasquez\u2019s repeated conduct, shows that \u201cvoluntary compliance [is] an inadequate safeguard,\u201d thereby using the solicitation as evidence of unwillingness to honor obligations and supporting the need for injunctive relief."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_005: Seeks injunctive relief enforcing the non-solicitation covenant",
+      "verdict": "pass",
+      "reasoning": "The memorandum specifically requests injunctive enforcement of Agreement \u00a7 7.2, asking the Court to prohibit Dr. Vasquez from soliciting, recruiting, or hiring Greenfield employees or contractors, including Dr. Chow, during the contractual period."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_006: Requests enforcement of non-compete against working at Canopy Ridge",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly requests enforcement of the non-compete as applied to Dr. Vasquez's current competing work at Canopy Ridge and seeks to prohibit her from directing, conducting, or providing services on CRT-7100 or overlapping programs using Greenfield's secrets."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_006: Requests return or sequestration of misappropriated materials",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly requests relief requiring Defendants to \u201cpreserve, identify, and sequester all copies\u201d of Greenfield materials on personal devices, USB drives, accounts, and Canopy Ridge systems, and also seeks a neutral forensic examiner to identify and secure those materials. This satisfies the requirement to request return, destruction, or sequestration of misappropriated materials."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_006: Requests forensic inspection of devices/systems",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly requests a neutral, independent forensic examiner to inspect relevant devices, storage, accounts, and systems, including Dr. Vasquez\u2019s personal USB/personal devices and Canopy Ridge systems, to identify and secure Greenfield materials."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_006: Relief is narrowly tailored \u2014 does not seek overbroad ban on all employment",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly disclaims any blanket employment ban and requests relief limited to use/disclosure/retention of identified Greenfield trade secrets, neutral forensic sequestration, work on CRT-7100 or overlapping programs to the extent they use or depend on Greenfield secrets, and enforcement of specific contractual non-compete/non-solicitation restrictions subject to narrowing. It repeatedly emphasizes preserving lawful independent research and Dr. Vasquez's ability to work in unrelated areas."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_007: Argues public interest in enforcing contracts and protecting trade secrets",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly argues in the public-interest section that the public has a strong interest in enforcing the DTSA and MTSA, protecting confidential research information and trade secrets, and ensuring competition through independent innovation rather than appropriation. It also argues for enforcing reasonable contractual non-solicitation obligations protecting workforce stability."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_007: Acknowledges competing interest in employee mobility",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly acknowledges the competing interest in employee mobility and freedom to work, including statements that the public benefits from employee mobility and that the Court should take seriously Dr. Vasquez's interest in working in her field, while arguing those interests are outweighed by trade-secret concerns."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_008: Addresses or accounts for DTSA whistleblower notice deficiency",
+      "verdict": "pass",
+      "reasoning": "The memorandum seeks preliminary injunctive relief and does not request DTSA exemplary damages or attorneys' fees. Although it does not discuss the DTSA whistleblower immunity notice issue, the criterion is satisfied because the output avoids requesting the remedies that would be limited by any notice deficiency."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_009: Establishes subject matter jurisdiction",
+      "verdict": "fail",
+      "reasoning": "The memorandum discusses DTSA and Massachusetts trade-secret/non-compete claims on the merits, but it does not address subject matter jurisdiction or cite federal question jurisdiction, supplemental jurisdiction under 28 U.S.C. \u00a7 1367, or diversity jurisdiction."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_010: Argues compressed timeline as evidence of pre-resignation negotiations",
+      "verdict": "fail",
+      "reasoning": "The memorandum repeatedly notes the 38-day gap and uses it to support an inference of threatened use/misappropriation and competitive overlap. It also mentions pre-departure Canopy website visits. But it does not argue that the compressed January 17-to-February 24 timeline is circumstantial evidence that Dr. Vasquez was negotiating with Canopy Ridge while still employed, including before or during the December 1\u201312 downloads."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_010: Argues compressed timeline shows acceleration from trade secrets",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly connects Canopy Ridge\u2019s compressed timeline and simultaneous announcement of Dr. Vasquez as CSO with CRT-7100\u2014an Andean-plant anti-inflammatory using supercritical extraction and an \u201caccelerated\u201d pipeline\u2014to the forensic evidence that she copied Greenfield\u2019s trade secrets. It argues this combination supports an inference of use or threatened use of misappropriated secrets, rather than mere independent development, and expressly addresses Defendants\u2019 independent-development assertion."
+    },
+    {
+      "id": "C-040",
+      "title": "Anticipates and rebuts the defense that the non-compete is overbroad",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly anticipates challenges to the non-compete\u2019s enforceability and breadth. It argues the 24-month period is permitted under the MNAA due to electronic taking, addresses reasonableness of the 100-mile restriction as applied to Canopy Ridge, emphasizes tailoring to overlapping R&D work, and requests reformation/blue-penciling if any scope is deemed overbroad. This satisfies the criterion."
+    },
+    {
+      "id": "C-041",
+      "title": "Anticipates and rebuts the independent development defense",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly anticipates Defendants' assertion that CRT-7100 was independently developed and rebuts it with circumstantial evidence including the forensic copying, pre-resignation Canopy Ridge activity, close subject-matter overlap, compressed timeline, Dr. Vasquez's CSO role, and the rapid pipeline announcement. It also proposes neutral forensic examination to test any independent-development claim."
+    },
+    {
+      "id": "C-042",
+      "title": "Anticipates and rebuts the defense that 24-month restriction is unreasonable",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly anticipates the defense that the 24-month non-compete is unreasonable or per se invalid, invokes the MNAA exception allowing up to 24 months where the employee unlawfully took property electronically, argues the facts support that exception, discusses reasonableness and narrowing/reformation, and offers a 12-month fallback if the court rejects the 24-month term."
+    },
+    {
+      "id": "C-043",
+      "title": "Anticipates and rebuts defense that no actual use of trade secrets occurred",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly anticipates Defendants\u2019 position that CRT-7100 was independently developed and that there is no proof of actual use. It rebuts that argument with circumstantial evidence including the mass file downloads, confidential email forwarding, deletion artifacts, Canopy Ridge website activity, Dr. Vasquez\u2019s new CSO role, the closely overlapping Andean-plant/SFE program, and the accelerated timeline. It also frames the relief around threatened use rather than requiring direct proof of actual use."
+    },
+    {
+      "id": "C-044",
+      "title": "Addresses breach of non-compete as a likelihood-of-success claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum addresses likelihood of success on the non-compete claim in the likelihood-of-success section. It argues the 24-month restriction is enforceable under the MNAA electronic-taking exception, discusses Dr. Vasquez\u2019s current competing work at Canopy Ridge, notes Canopy Ridge is an immediate competitor located about eight miles from Greenfield and within the 100-mile restriction, and ties the facts to enforcement of the non-compete. The timeline also shows she joined Canopy Ridge shortly after leaving, within the restricted period."
+    },
+    {
+      "id": "C-045",
+      "title": "Addresses breach of confidentiality covenant as a likelihood-of-success claim",
+      "verdict": "pass",
+      "reasoning": "The memorandum addresses the confidentiality covenant within the likelihood-of-success section. It states that Dr. Vasquez agreed under Employment Agreement \u00a7\u00a7 8.1\u20138.2 not to use or disclose Greenfield\u2019s secrets, cites the unauthorized copying of thousands of confidential files to a personal device, and later notes the confidentiality covenant independently prohibits use or disclosure of identified confidential information. This satisfies the criterion."
+    },
+    {
+      "id": "C-046",
+      "title": "References the $47.3 million R&D investment",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly states that Greenfield invested approximately $47.3 million in R&D since 2016, satisfying the requirement to reference the approximately $47 million R&D investment."
+    },
+    {
+      "id": "C-047",
+      "title": "References GBS-4400 as the lead compound in Phase II trials",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that Greenfield's lead candidate, GBS-4400, is in Phase II FDA trials, satisfying the requirement to identify GBS-4400 as the lead compound/candidate currently in Phase II clinical trials."
+    },
+    {
+      "id": "C-048",
+      "title": "References the Linden Valuation Group trade secret valuation",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly references an independent valuation by Linden Valuation Group, stating the trade-secret portfolio was valued at $85 million and GBS-4400-related secrets at $52 million, with citations to the Linden Valuation Group Report."
+    },
+    {
+      "id": "C-049",
+      "title": "References CRT-7100 as Canopy Ridge's competing compound",
+      "verdict": "pass",
+      "reasoning": "The memorandum repeatedly identifies CRT-7100 as Canopy Ridge's competing Andean-plant anti-inflammatory program/compound, including in the preliminary statement and relevant facts section."
+    },
+    {
+      "id": "C-050",
+      "title": "References the January 28, 2025 cease-and-desist letter",
+      "verdict": "pass",
+      "reasoning": "The memorandum expressly references Greenfield's January 28 cease-and-desist letter demanding return/destruction and covenant compliance, and states that Dr. Vasquez acknowledged receipt but did not provide a substantive response or return materials."
+    },
+    {
+      "id": "C-051",
+      "title": "Cites applicable case law in support of arguments",
+      "verdict": "pass",
+      "reasoning": "The memorandum cites well over three case law authorities in support of its legal arguments, including Winter, Ross-Simons, Voice of the Arab World, Jet Spray, Boulanger, Automile, and Corporate Technologies across the PI standard, trade secret, restrictive covenant, and irreparable harm arguments."
+    },
+    {
+      "id": "C-052",
+      "title": "References Dr. Vasquez's role and unique access to trade secrets",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that Dr. Vasquez was Greenfield's Vice President of Research, led GBS-4400 development, and had access to the company's most sensitive R&D information. It also links that access and her subsequent CSO role at a competitor to the risk of threatened use and harm."
+    },
+    {
+      "id": "C-053",
+      "title": "References the timing of file downloads relative to resignation",
+      "verdict": "pass",
+      "reasoning": "The memorandum explicitly states that Dr. Vasquez copied approximately 14,200 files during the twelve days before she resigned, and in the facts section specifies the transfers occurred from December 1 through December 12, 2024, with her resignation on December 12, 2024. This highlights the temporal connection to her impending departure."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-motion-for-preliminary-injunction/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-motion-for-preliminary-injunction",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T01:51:00.617874+00:00",
+  "cost": {
+    "input_tokens": 2061074,
+    "output_tokens": 30370,
+    "wall_clock_seconds": 244.26
+  },
+  "doc_coverage": {
+    "documents_read": 10,
+    "total_documents": 9,
+    "documents_skipped": 0,
+    "documents_read_list": [
+      "verified-complaint.docx",
+      "employment-agreement.docx",
+      "greenfield-declaration.docx",
+      "chow-declaration.docx",
+      "forensic-it-report.docx",
+      "valuation-summary-report.docx",
+      "canopy-ridge-press-release.docx",
+      "cease-and-desist-letter.docx",
+      "defense-counsel-letter.docx",
+      "/workspace/output/memorandum-in-support-of-pi-motion.docx"
+    ],
+    "documents_skipped_list": []
+  }
+}

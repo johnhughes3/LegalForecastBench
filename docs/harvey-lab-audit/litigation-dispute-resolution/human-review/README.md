@@ -85,7 +85,11 @@ The tally also reports Defective counts by agreement bucket and the AI-reasoning
 - **The bound covers sampling uncertainty, not reviewer error.** One reviewer, who is also the project author, applies this protocol. An independent second lawyer re-deciding some or all of the 25 items would make the result stronger, and any such review will be reported alongside it.
 - **The scope is this audit.** The result says nothing directly about other Harvey LAB practice areas, about how the defects change model scores or rankings, or about real versus fictional litigation records.
 
+## Note added October 4, 2026: model-run grades
+
+After the review began, each worksheet item gained a collapsed block showing how the two published model runs (GPT-6 Luna at xhigh and Claude Opus 5.5 at low) were graded on that criterion by LAB's native judges, with the judges' reasoning and links to the deliverables in [`model-runs/`](../model-runs/README.md). The verdict definitions, sample, and decision rule above are unchanged. The run grades show whether actual responses were passed or failed and why; they are AI judgments that can misapply a criterion, and they do not replace the reviewer's judgment of whether a competent response would be misgraded. A criterion can be defective even if neither run tripped it.
+
 ## Files
 
 - [`sample.json`](sample.json): the seed, population size, and the 25 drawn criteria with their AI statuses.
-- [`worksheet.md`](worksheet.md): one entry per sampled criterion, with the criterion text from the pinned rubric, source links, the AI findings collapsed, and blank verdict fields.
+- [`worksheet.md`](worksheet.md): one entry per sampled criterion, with the criterion text from the pinned rubric, source links, the AI findings and model-run grades collapsed, and the verdict fields.

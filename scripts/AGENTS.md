@@ -11,7 +11,13 @@ from a checkout but do not belong in the installed `legalforecast` CLI.
   uv run python scripts/build_harvey_dual_audit.py render
   ```
 
-- `harvey_review_sample.py`: draws the seeded random sample of AI-flagged Harvey LAB litigation criteria for human review and tallies the reviewer's verdicts against the pre-committed decision rule in `docs/harvey-lab-audit/litigation-dispute-resolution/human-review/README.md`. `draw` refuses to overwrite a worksheet that may hold verdicts; `tally` needs no network.
+- `harvey_model_runs.py`: copies the GPT-6 Luna and Claude Opus 5.5 Harvey LAB litigation runs (deliverables, both native judges' score files) from the extracted private experiment archive into `docs/harvey-lab-audit/litigation-dispute-resolution/model-runs/`, renders DOCX/XLSX deliverables to Markdown (needs `pandoc`), and writes a page per run with every criterion's verdicts and judge reasoning. After importing, rerun `build_harvey_dual_audit.py render` (task-page Runs column) and `harvey_review_sample.py runs` (worksheet run grades).
+
+  ```bash
+  uv run python scripts/harvey_model_runs.py import --results /path/to/archive/results
+  ```
+
+- `harvey_review_sample.py`: draws the seeded random sample of AI-flagged Harvey LAB litigation criteria for human review and tallies the reviewer's verdicts against the pre-committed decision rule in `docs/harvey-lab-audit/litigation-dispute-resolution/human-review/README.md`. `draw` refuses to overwrite a worksheet that may hold verdicts; `runs` refreshes each item's model-run grades without touching verdicts; `tally` needs no network.
 
   ```bash
   uv run python scripts/harvey_review_sample.py tally

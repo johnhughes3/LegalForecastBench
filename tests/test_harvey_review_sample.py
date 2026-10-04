@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 
@@ -92,3 +94,44 @@ def test_worksheet_item_round_trips_through_parser() -> None:
             "_(Correct / Partly correct / Wrong)_",
         )
     ]
+
+
+runs = _load("harvey_model_runs")
+
+
+def test_published_runs_cover_every_task_and_criterion() -> None:
+    tasks = sorted(p.name for p in (ROOT / sampler.AUDIT_DIR / "tasks").iterdir())
+    for task in tasks:
+        total = sampler.load(
+            ROOT / sampler.AUDIT_DIR / "tasks" / task / "claude-opus-5-5-audit.json"
+        )["criteria_total"]
+        for slug, *_ in runs.CONDITIONS:
+            folder = ROOT / runs.run_dir(task, slug)
+            assert (folder / "README.md").exists()
+            assert any((folder / "output").iterdir())
+            for judge, _label in runs.JUDGES:
+                score = sampler.load(folder / f"scores_{judge}.json")
+                assert len(runs.results_by_criterion(score)) == total
+
+
+def test_run_grades_match_the_archived_judgments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Sonnet passed Luna on C-003 by quoting the facts section; GPT-5.5 failed it.
+    monkeypatch.chdir(ROOT)
+    task = "draft-defective-industrial-equipment-product-liability"
+    assert runs.run_grades(task, "C-003", "../../").startswith("Luna [P/F](")
+    assert "Opus [F/F](" in runs.run_grades(task, "C-003", "../../")
+
+
+def test_runs_block_is_idempotent_and_keeps_verdicts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(ROOT)
+    text = (sampler.REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8")
+    once = sampler.add_runs(text.replace("- **Verdict:** _(", "- **Verdict:** X_(", 1))
+    assert sampler.add_runs(once) == once
+    parsed = sampler.parse_worksheet(once)
+    assert len(parsed) == sampler.SAMPLE_SIZE
+    assert parsed[0][2].startswith("X_(")
+    assert once.count(sampler.RUNS_START) == sampler.SAMPLE_SIZE

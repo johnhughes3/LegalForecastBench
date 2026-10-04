@@ -1,0 +1,589 @@
+{
+  "score": 0.0,
+  "max_score": 1.0,
+  "summary": "58/89 criteria passed.  Missed 31 \u2014 task FAIL.",
+  "all_pass": false,
+  "n_criteria": 89,
+  "n_passed": 58,
+  "criteria_results": [
+    {
+      "id": "C-001",
+      "title": "Motion to dismiss brief produced",
+      "verdict": "pass",
+      "reasoning": "The agent produced a substantive motion to dismiss brief titled \u201cDefendant Meridian Cloud Solutions, Inc.'s Motion to Dismiss First Amended Complaint Under Rule 12(b)(6), or Alternatively Rule 12(c),\u201d along with a proposed order and cover memo. This satisfies the criterion requiring a motion to dismiss brief as a deliverable."
+    },
+    {
+      "id": "C-002",
+      "title": "Proposed order produced",
+      "verdict": "pass",
+      "reasoning": "The agent's output includes a separate deliverable labeled \u201cproposed-order.docx\u201d containing a proposed order on the motion to dismiss."
+    },
+    {
+      "id": "C-003",
+      "title": "Cover memorandum produced",
+      "verdict": "pass",
+      "reasoning": "The agent included a distinct deliverable labeled \u201ccover-memo.docx,\u201d formatted as an internal privileged memorandum to the partner/senior associate with recommendations and analysis. This satisfies the requirement to produce a cover memorandum to the partner."
+    },
+    {
+      "id": "C-004",
+      "title": "Motion brief \u2014 caption identifies court as W.D. Tex. Austin Division",
+      "verdict": "pass",
+      "reasoning": "The caption at the top identifies the court as \u201cUNITED STATES DISTRICT COURT,\u201d \u201cWESTERN DISTRICT OF TEXAS,\u201d and \u201cAUSTIN DIVISION,\u201d satisfying the required W.D. Tex. Austin Division identification."
+    },
+    {
+      "id": "C-005",
+      "title": "Motion brief \u2014 caption identifies parties correctly",
+      "verdict": "pass",
+      "reasoning": "The motion brief caption correctly lists Arcadia Health Systems, LLC as Plaintiff and Meridian Cloud Solutions, Inc. as Defendant."
+    },
+    {
+      "id": "C-006",
+      "title": "Motion brief \u2014 caption includes correct case number",
+      "verdict": "pass",
+      "reasoning": "The motion brief caption includes the civil action number stated as \u201c1:23-cv-00847-CMA,\u201d which matches the required case number exactly."
+    },
+    {
+      "id": "C-007",
+      "title": "Motion brief \u2014 table of contents included",
+      "verdict": "fail",
+      "reasoning": "The motion brief contains section headings but does not include a separate table of contents listing the major sections/headings."
+    },
+    {
+      "id": "C-008",
+      "title": "Motion brief \u2014 table of authorities included",
+      "verdict": "fail",
+      "reasoning": "The motion brief cites cases, statutes, and rules, but it does not include a separate table of authorities listing those authorities."
+    },
+    {
+      "id": "C-009",
+      "title": "Motion brief \u2014 cites Bell Atlantic Corp. v. Twombly",
+      "verdict": "pass",
+      "reasoning": "The motion brief cites Bell Atlantic Corp. v. Twombly, 550 U.S. 544 (2007) in Section I, the legal standard/procedural posture section, stating the pleading standard and citing Twombly, 550 U.S. 544, 555, 570 (2007)."
+    },
+    {
+      "id": "C-010",
+      "title": "Motion brief \u2014 cites Ashcroft v. Iqbal",
+      "verdict": "pass",
+      "reasoning": "The motion brief cites Ashcroft v. Iqbal, 556 U.S. 662, 678--79 (2009) in Section I, the legal standard/procedural posture section, alongside Twombly."
+    },
+    {
+      "id": "C-011",
+      "title": "Motion brief \u2014 argument section organized by count",
+      "verdict": "pass",
+      "reasoning": "The argument section addresses each of the five counts: Count I breach of contract, Count II fraud, Count III negligent misrepresentation, Count IV unjust enrichment, and Count V DTPA. Each is identified in headings or clearly delineated subsections, even though fraud and negligent misrepresentation are grouped under one main heading with separate analysis."
+    },
+    {
+      "id": "C-012",
+      "title": "Motion brief \u2014 conclusion/prayer for relief",
+      "verdict": "fail",
+      "reasoning": "The brief includes a conclusion/prayer, but it does not request dismissal of all five counts with prejudice. It requests dismissal of Counts II through V, only partial dismissal/narrowing of Count I, and even requests dismissal without prejudice where amendment could cure defects."
+    },
+    {
+      "id": "C-013",
+      "title": "ISSUE_001 \u2014 Diversity jurisdiction defect identified in cover memo",
+      "verdict": "pass",
+      "reasoning": "The cover memo explicitly identifies a subject-matter jurisdiction defect based on LLC citizenship tracing. It states that Arcadia\u2019s citizenship must be traced through all members, including Apex Medical Ventures, LP and its partners, identifies a Delaware corporate partner, and explains that this Delaware citizenship overlaps with Meridian\u2019s Delaware citizenship, defeating complete diversity. It also notes the Notice of Removal incorrectly treated Arcadia as merely a Texas citizen rather than tracing all LLC members."
+    },
+    {
+      "id": "C-014",
+      "title": "ISSUE_001 \u2014 Jurisdiction defect placed in cover memo, not MTD brief",
+      "verdict": "fail",
+      "reasoning": "The cover memo does flag the lack of complete diversity in detail. However, the motion to dismiss brief also raises the jurisdiction defect as a substantive formal argument, including an introductory threshold discussion, a dedicated Section II arguing complete diversity is absent, and a request that the Court remand under \u00a7 1447(c). The criterion required routing the jurisdictional challenge to the cover memo and not presenting it as a formal MTD argument."
+    },
+    {
+      "id": "C-015",
+      "title": "ISSUE_001 \u2014 Cover memo recommends course of action on jurisdiction",
+      "verdict": "pass",
+      "reasoning": "The cover memo not only identifies the diversity jurisdiction defect but expressly recommends a course of action: do not file the merits motion yet, verify the citizenship chain, file a jurisdictional notice/motion to remand or request that the Court determine jurisdiction sua sponte before any merits ruling, and prioritize remand if diversity is absent."
+    },
+    {
+      "id": "C-016",
+      "title": "ISSUE_001 \u2014 Correctly traces Arcadia's citizenship through LLC members",
+      "verdict": "pass",
+      "reasoning": "The memo expressly states that an LLC takes the citizenship of every member and criticizes the removal notice for using formation/principal office instead of tracing all members. It also discusses tracing through an LP member and its partners. Although it appears to introduce unsupported member names, it satisfies the specified criterion by addressing the need to trace Arcadia\u2019s citizenship through its LLC membership structure."
+    },
+    {
+      "id": "C-017",
+      "title": "ISSUE_001 \u2014 Notes Notice of Removal failed to properly analyze citizenship",
+      "verdict": "pass",
+      "reasoning": "The cover memo explicitly states that the Notice of Removal incorrectly alleged Arcadia was a Texas citizen based on its formation/principal office and failed to apply the rule that an LLC\u2019s citizenship is determined by every member, including tracing through Apex LP. This directly notes the removal-paper citizenship-analysis deficiency."
+    },
+    {
+      "id": "C-018",
+      "title": "ISSUE_002 \u2014 Fraud claim (Count II) challenged under Rule 9(b)",
+      "verdict": "pass",
+      "reasoning": "The brief expressly challenges the fraud count under Rule 9(b), citing the heightened pleading standard and explaining that the FAC fails to plead the statement, speaker, time, place, and why the statements were false or misleading. It applies this standard specifically to the fraud allegations in Count II."
+    },
+    {
+      "id": "C-019",
+      "title": "ISSUE_002 \u2014 Identifies FAC's failure to name specific individuals",
+      "verdict": "pass",
+      "reasoning": "The brief expressly raises a Rule 9(b) deficiency by stating that the FAC attributes most statements to an undifferentiated \u201csales team,\u201d rather than identifying specific speakers, in its fraud pleading discussion."
+    },
+    {
+      "id": "C-020",
+      "title": "ISSUE_002 \u2014 Argues FAC fails to plead scienter with factual support",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that the fraud count fails to plead facts supporting scienter, stating that allegations Meridian 'knew or should have known' and acted 'recklessly' are conclusory, that information-and-belief assertions lack factual basis for contemporaneous knowledge, and that later defects/delay/commission incentives do not plausibly show the statements were knowingly or recklessly false when made."
+    },
+    {
+      "id": "C-021",
+      "title": "ISSUE_002 \u2014 Cites relevant Fifth Circuit Rule 9(b) authority",
+      "verdict": "pass",
+      "reasoning": "The brief cites Fifth Circuit cases applying Rule 9(b) to fraud claims, including Benchmark Electronics v. J.M. Huber Corp. and Dorsey v. Portfolio Equities, in its fraud pleading argument."
+    },
+    {
+      "id": "C-022",
+      "title": "ISSUE_003 \u2014 Economic loss rule argued against tort claims",
+      "verdict": "fail",
+      "reasoning": "The brief does not argue that the economic loss rule bars the fraud or negligent-misrepresentation claims. It expressly states that the Court should not treat Texas's economic-loss rule as a categorical bar to fraudulent inducement and that Meridian's argument rests instead on non-reliance and pleading defects. Therefore, the required ground for dismissal is not raised."
+    },
+    {
+      "id": "C-023",
+      "title": "ISSUE_003 \u2014 Economic loss rule argued under Delaware law",
+      "verdict": "fail",
+      "reasoning": "The brief does not analyze the economic loss rule under Delaware law or cite Delaware authorities such as Brasby v. Morris Dynamics or Kuhn Construction. It instead discusses Texas law and expressly avoids a categorical Texas economic-loss-rule argument for fraudulent inducement."
+    },
+    {
+      "id": "C-024",
+      "title": "ISSUE_003 \u2014 Economic loss rule argued under Texas law",
+      "verdict": "fail",
+      "reasoning": "The brief only briefly mentions Texas's economic-loss rule to say it should not be treated as a categorical bar to fraudulent inducement, citing Formosa, and then expressly bases the argument on non-reliance and pleading defects instead. It does not meaningfully analyze or argue the economic loss rule under Texas law or cite authorities such as Sharyland or Chapman."
+    },
+    {
+      "id": "C-025",
+      "title": "ISSUE_004 \u2014 DTPA consumer standing challenged under \u00a7 17.49(f)",
+      "verdict": "pass",
+      "reasoning": "The brief expressly raises Texas Business & Commerce Code \u00a7 17.49(f), argues the DTPA claim is barred because the transaction exceeded $500,000, and seeks dismissal of the DTPA count on that basis. Although it disputes rather than relies on a $25 million asset threshold, the \u00a7 17.49(f) exemption is clearly raised and applied to Arcadia\u2019s DTPA claim."
+    },
+    {
+      "id": "C-026",
+      "title": "ISSUE_004 \u2014 Transaction value exceeds $500,000 threshold",
+      "verdict": "pass",
+      "reasoning": "The brief expressly states that the DTPA claim fails under Texas Business and Commerce Code \u00a7 17.49(f) because the transaction exceeds the $500,000 threshold, identifying a $14.7 million base contract plus $2.35 million in Change Orders, totaling far above the statutory threshold."
+    },
+    {
+      "id": "C-027",
+      "title": "ISSUE_004 \u2014 Exploits FAC/$30M infrastructure contradiction",
+      "verdict": "fail",
+      "reasoning": "The brief mentions Arcadia\u2019s DTPA reply letter assertion that assets were $23.8 million, but only to argue that the asset threshold is irrelevant to \u00a7 17.49(f)\u2019s $500,000 consideration exemption. It does not identify or exploit the FAC\u2019s alleged $30 million infrastructure investments, nor does it point out any inconsistency between that allegation and the $23.8 million asset figure to support the DTPA argument."
+    },
+    {
+      "id": "C-028",
+      "title": "ISSUE_005 \u2014 Unjust enrichment barred by express contract",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues in Section IV that Count IV seeks equitable recovery for subject matter governed by the MSLSA, that the MSLSA/SOW/change orders govern the software license, implementation, support, training, and data-migration services, and that under Texas law unjust enrichment/quantum meruit is unavailable when a valid express contract covers the subject matter. It requests dismissal of Count IV on that basis."
+    },
+    {
+      "id": "C-029",
+      "title": "ISSUE_005 \u2014 Cites authority for express contract bar to unjust enrichment",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that unjust-enrichment/quantum-meruit recovery is unavailable when a valid express contract covers the subject matter and cites relevant authority: Fortune Production Co. v. Conoco, Inc. and Excess Underwriters at Lloyd's v. Frank's Casing Crew & Rental Tools, Inc."
+    },
+    {
+      "id": "C-030",
+      "title": "ISSUE_005 \u2014 Notes inconsistency of pleading breach of contract and unjust enrichment",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that Count IV for unjust enrichment seeks recovery for the same payments and subject matter governed by the MSLSA/SOW/Change Orders, while Arcadia also sues to enforce that express contract in Count I. It states unjust enrichment is unavailable where a valid express contract covers the same subject matter and characterizes Count IV as duplicative despite alternative pleading."
+    },
+    {
+      "id": "C-031",
+      "title": "ISSUE_006 \u2014 Contractual liability cap (Section 8.1) argued",
+      "verdict": "fail",
+      "reasoning": "The brief raises Section 8.1 and states that it caps aggregate liability based on fees paid/payable in the preceding twelve months. However, it does not argue that Arcadia's claimed damages vastly exceed that cap; instead, it says the current pleadings do not establish a single undisputed cap figure. Thus the full criterion is not satisfied."
+    },
+    {
+      "id": "C-032",
+      "title": "ISSUE_006 \u2014 Consequential damages waiver (Section 8.2) argued",
+      "verdict": "pass",
+      "reasoning": "The brief raises and argues the MSLSA Section 8.2 consequential-damages waiver, stating that Sections 8.1\u20138.3 exclude consequential damages and that Section 8.2 expressly identifies lost profits, goodwill, and intangible losses, and asks the Court to dismiss barred damages categories. Although it does not list all dollar amounts or expressly mention increased operating costs, the consequential damages waiver is clearly raised and applied to lost profits/reputational-type damages."
+    },
+    {
+      "id": "C-033",
+      "title": "ISSUE_006 \u2014 Enforceability of limitation provisions between commercially sophisticated parties",
+      "verdict": "fail",
+      "reasoning": "The brief asks the Court to enforce the MSLSA\u2019s liability cap and consequential-damages waiver, but it does not argue that those limitation provisions are enforceable because Arcadia was represented by outside counsel/Wexford Hale or because sophisticated commercial parties negotiated them at arm\u2019s length. The sophistication/counsel discussion appears only in connection with the non-reliance clause, not the limitation provisions."
+    },
+    {
+      "id": "C-034",
+      "title": "ISSUE_007 \u2014 Deemed acceptance under Section 5.3 argued",
+      "verdict": "pass",
+      "reasoning": "The brief raises the Section 5.3 deemed-acceptance argument, stating that acceptance is deemed absent a sufficiently detailed written Nonconformity Notice within 30 days after the Deployment Notice and that this forecloses an untimely rejection/full-refund theory. It also identifies Go-Live as January 15, 2023 and the written complaint as March 8, 2023, which supports the argument that no timely notice was given within the 30-day window, even though it does not expressly name February 14 as the deadline."
+    },
+    {
+      "id": "C-035",
+      "title": "ISSUE_007 \u2014 Correctly identifies the 30-day window dates",
+      "verdict": "fail",
+      "reasoning": "The brief identifies Go-Live as January 15, 2023 and the first written complaint as March 8, 2023, but it does not identify the 30-day acceptance window end as approximately February 14, 2023 or state that March 8 was about 22 days after the window expired."
+    },
+    {
+      "id": "C-036",
+      "title": "ISSUE_008 \u2014 Integration clause / parol evidence rule argued",
+      "verdict": "fail",
+      "reasoning": "The brief discusses Section 12.1 primarily as an express non-reliance clause defeating justifiable reliance for fraud and negligent misrepresentation, and notes that it supersedes proposals and pre-contract discussions. But it does not make the required parol-evidence/integration-clause argument that pre-sale oral representations or promises cannot be used as contractual terms or to vary the written MSLSA. It also does not invoke the parol evidence rule."
+    },
+    {
+      "id": "C-037",
+      "title": "ISSUE_008 \u2014 Cites Delaware parol evidence authority",
+      "verdict": "fail",
+      "reasoning": "The brief notes that Delaware law governs the agreement but does not cite any Delaware authority on the parol evidence rule or integration clauses, such as SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care."
+    },
+    {
+      "id": "C-038",
+      "title": "ISSUE_009 \u2014 Negligent misrepresentation requires independent duty",
+      "verdict": "fail",
+      "reasoning": "The brief challenges Count III based on lack of justifiable reliance, non-reliance language, failure to identify specific false information, and damages limitations. It does not argue that Meridian owed no duty independent of the contract, nor that no such duty exists in an arm\u2019s-length transaction between sophisticated commercial parties."
+    },
+    {
+      "id": "C-039",
+      "title": "ISSUE_009 \u2014 Notes absence of fiduciary/special relationship",
+      "verdict": "fail",
+      "reasoning": "The brief describes the parties as sophisticated commercial entities, notes negotiation and counsel, and relies on a non-reliance clause, but it does not specifically note or argue the absence of a fiduciary or special relationship between Meridian and Arcadia."
+    },
+    {
+      "id": "C-040",
+      "title": "ISSUE_009 \u2014 Cites Texas negligent misrepresentation authority",
+      "verdict": "pass",
+      "reasoning": "The brief cites relevant Texas negligent misrepresentation authorities, including McCamish, Martin, Brown & Loeffler v. F.E. Appling Interests and Federal Land Bank Ass'n v. Sloane, in its discussion of Count III."
+    },
+    {
+      "id": "C-041",
+      "title": "ISSUE_010 \u2014 Causation deficiency re: Linden Park responsibility",
+      "verdict": "pass",
+      "reasoning": "The brief raises the Linden Park/third-party causation issue. It specifically cites SOW-1 \u00a7 3.2 as making Arcadia solely responsible for data extraction, transformation, loading, validation, and integrity; states Arcadia was responsible for its SI Partner; and argues CO-004 attributes data-integrity issues to Linden Park\u2019s migration scripts rather than Meridian. It seeks dismissal of contract theories imposing liability on Meridian for data corruption or migration errors attributable to Arcadia or Linden Park. Although it does not use the exact phrase \u201cproximate cause,\u201d it substantively makes the required causation/responsibility argument."
+    },
+    {
+      "id": "C-042",
+      "title": "ISSUE_010 \u2014 Notes SOW-1 Section 3.2 data migration allocation",
+      "verdict": "pass",
+      "reasoning": "The brief specifically cites SOW-1 \u00a73.2 and states that it makes Arcadia \u201csolely responsible\u201d for data extraction, transformation, loading, validation, and integrity, which satisfies the requirement to note the data migration allocation to Arcadia."
+    },
+    {
+      "id": "C-043",
+      "title": "ISSUE_010 \u2014 References CO-004 as evidence of Linden Park errors",
+      "verdict": "pass",
+      "reasoning": "The brief expressly cites CO-004 in the contract section, stating that it documented data-integrity issues arising from Linden Park\u2019s migration-script errors, not a NexusCore defect or Meridian act/omission, and uses it to argue Meridian is not liable for data migration failures."
+    },
+    {
+      "id": "C-044",
+      "title": "ISSUE_010 \u2014 Notes FAC's failure to name Linden Park",
+      "verdict": "fail",
+      "reasoning": "The brief mentions Linden Park in discussing data-migration responsibility and Change Order CO-004, but it does not highlight the specific pleading omission required by the criterion: that the FAC attributes implementation failures to \u201cMeridian and its agents\u201d while failing to acknowledge or name Linden Park Consulting as Arcadia\u2019s independently retained third-party integrator."
+    },
+    {
+      "id": "C-045",
+      "title": "ISSUE_010 \u2014 References Arcadia's own delays contributing to Go-Live delay",
+      "verdict": "fail",
+      "reasoning": "The brief generally notes that milestones could adjust for Arcadia-caused delays, but it does not identify the specific Arcadia contributing failures required by the criterion, such as the 45-day Project Manager gap after Kevin Liu\u2019s departure or the 75-day late API specifications."
+    },
+    {
+      "id": "C-046",
+      "title": "ISSUE_011 \u2014 Puffery defense raised for fraud/DTPA claims",
+      "verdict": "pass",
+      "reasoning": "The brief raises a puffery/qualified-statement defense: it argues that \u201cindustry-leading performance\u201d is generalized promotional opinion rather than measurable fact, and that the \u201c30\u201340%\u201d improvement statement was qualified as typical, variable results and not an unqualified guarantee on which reliance was plausible. Although the DTPA count is primarily attacked on the statutory high-value exemption, the puffery defense is clearly raised in the motion for the alleged misrepresentations."
+    },
+    {
+      "id": "C-047",
+      "title": "ISSUE_011 \u2014 References disclaimers in sales materials/proposal",
+      "verdict": "pass",
+      "reasoning": "The brief expressly references qualifications/disclaimers in Meridian's sales materials, proposal, and slide deck, including that the 30\u201340% metric described typical results, that actual results vary with client environment/data quality/implementation, and that the statement was not a guarantee. It uses those disclaimers to argue reliance was unjustified or implausible."
+    },
+    {
+      "id": "C-048",
+      "title": "ISSUE_011 \u2014 Cites puffery case law",
+      "verdict": "pass",
+      "reasoning": "The brief cites puffery case law: it states that \u201cIndustry-leading performance\u201d is generalized promotional opinion and cites Pizza Hut, Inc. v. Papa John's Int'l, Inc., 227 F.3d 489, 497 (5th Cir. 2000). This satisfies the criterion."
+    },
+    {
+      "id": "C-049",
+      "title": "ISSUE_012 \u2014 Choice of law addressed for contract claim",
+      "verdict": "pass",
+      "reasoning": "The brief expressly addresses choice of law for Count I, stating in the breach-of-contract section that \u201cDelaware law governs the agreement under \u00a712.7\u201d and arguing the Court should enforce the contract accordingly."
+    },
+    {
+      "id": "C-050",
+      "title": "ISSUE_012 \u2014 Addresses choice of law for tort claims",
+      "verdict": "fail",
+      "reasoning": "The brief discusses Texas law for fraud and negligent misrepresentation and notes that Delaware law governs the contract, but it does not address the choice-of-law issue for the tort claims, does not analyze whether the contractual Delaware choice-of-law clause extends to non-contractual claims, and does not argue the tort issues under both Delaware and Texas law."
+    },
+    {
+      "id": "C-051",
+      "title": "ISSUE_012 \u2014 Recognizes DTPA is necessarily Texas law",
+      "verdict": "pass",
+      "reasoning": "The brief treats Count V (DTPA) as governed by Texas law by applying the Texas Business and Commerce Code \u00a7 17.49(f) high-value-transaction exemption and Texas statutory DTPA standards. It does not argue that the DTPA claim is governed by Delaware law."
+    },
+    {
+      "id": "C-052",
+      "title": "ISSUE_012 \u2014 Arguments work under both Delaware and Texas law",
+      "verdict": "fail",
+      "reasoning": "The brief does not consistently argue in the alternative under both Delaware and Texas law. It relies on Texas law for DTPA, unjust enrichment, fraud, and negligent misrepresentation, and on Delaware law for the contract interpretation section, without demonstrating that the same dismissal results would follow if the other state\u2019s law governed. Therefore it fails the criterion."
+    },
+    {
+      "id": "C-053",
+      "title": "Motion brief \u2014 argues reliance was unreasonable",
+      "verdict": "pass",
+      "reasoning": "The brief expressly challenges Arcadia's justifiable/reasonable reliance on pre-sale representations, arguing that reliance is defeated by a negotiated non-reliance provision, superseding/integration language, disclaimers, Arcadia's sophistication, due diligence, and representation by counsel. This satisfies the criterion even though it does not specifically name Schreiber's POC trial or reference checks."
+    },
+    {
+      "id": "C-054",
+      "title": "Motion brief \u2014 references Schreiber memo to undermine reliance",
+      "verdict": "fail",
+      "reasoning": "The brief does not cite or reference Martin Schreiber's internal due diligence memo or the quoted acknowledgment about integration complexity and needing a skilled SI partner. It only generally mentions due diligence and Schreiber in the citizenship allegations."
+    },
+    {
+      "id": "C-055",
+      "title": "Motion brief \u2014 exclusive remedies clause (Section 8.3) cited",
+      "verdict": "pass",
+      "reasoning": "The motion brief expressly cites \u201cSections 8.1--8.3\u201d and states they \u201cprovide exclusive contractual remedies,\u201d and later requests enforcement of the MSLSA\u2019s \u201cexclusive-remedy\u201d provisions. This references Section 8.3 as limiting remedies under the agreement."
+    },
+    {
+      "id": "C-056",
+      "title": "Motion brief \u2014 warranty disclaimer (Section 9.4) cited",
+      "verdict": "pass",
+      "reasoning": "The brief expressly cites \u201cMSLSA \u00a7\u00a7 9.1, 9.4, 12.1\u201d and describes Section 9.4 as part of an \u201cas is/as available\u201d disclaimer paired with a limited written performance warranty, thereby referencing the warranty disclaimer as limiting claims."
+    },
+    {
+      "id": "C-057",
+      "title": "Motion brief \u2014 limited warranty scope (Section 9.1) analyzed",
+      "verdict": "pass",
+      "reasoning": "The brief discusses MSLSA Section 9.1 in the breach-of-contract section, noting the 90-day warranty period, repair/replacement remedy, and pro-rata refund after an uncured notice period, and argues that any warranty-based claim should be limited to that remedy structure."
+    },
+    {
+      "id": "C-058",
+      "title": "Motion brief \u2014 no oral modifications clause (Section 12.3) cited",
+      "verdict": "fail",
+      "reasoning": "The motion brief does not cite or reference Section 12.3 or a No Oral Modifications clause in support of the argument that pre-sale oral statements cannot modify or supplement the written agreement. It cites Section 12.1 and other provisions, but not 12.3."
+    },
+    {
+      "id": "C-059",
+      "title": "Proposed order \u2014 correct court identification",
+      "verdict": "pass",
+      "reasoning": "The proposed order heading identifies the court as the United States District Court, Western District of Texas, Austin Division, which matches the required court identification."
+    },
+    {
+      "id": "C-060",
+      "title": "Proposed order \u2014 correct case number",
+      "verdict": "pass",
+      "reasoning": "The proposed order caption includes the civil action number '1:23-cv-00847-CMA,' which matches the required correct case number."
+    },
+    {
+      "id": "C-061",
+      "title": "Proposed order \u2014 correct party names",
+      "verdict": "pass",
+      "reasoning": "The proposed order correctly identifies the parties as Arcadia Health Systems, LLC and Meridian Cloud Solutions, Inc. in the caption and throughout the order."
+    },
+    {
+      "id": "C-062",
+      "title": "Proposed order \u2014 grants dismissal of all five counts",
+      "verdict": "fail",
+      "reasoning": "The proposed order addresses all five counts, but it does not grant dismissal of the breach-of-contract count in full; it expressly denies dismissal as to remaining contract claims. Therefore it does not grant dismissal of all five counts."
+    },
+    {
+      "id": "C-063",
+      "title": "Proposed order \u2014 dismissal with prejudice",
+      "verdict": "pass",
+      "reasoning": "The proposed order expressly specifies dismissal with prejudice for the Texas DTPA claim and portions of Count I, even though other claims are dismissed without prejudice."
+    },
+    {
+      "id": "C-064",
+      "title": "Cover memo \u2014 identifies Meridian's Texas citizenship",
+      "verdict": "pass",
+      "reasoning": "The cover memo states that Meridian is incorporated in Delaware and has its principal place of business in Texas, which identifies Texas citizenship in addition to Delaware citizenship for diversity purposes."
+    },
+    {
+      "id": "C-065",
+      "title": "Cover memo \u2014 notes that subject-matter jurisdiction cannot be waived",
+      "verdict": "fail",
+      "reasoning": "The memo identifies subject-matter jurisdiction as a threshold issue and says the court may address it sua sponte, but it does not state that subject-matter jurisdiction is non-waivable or can be raised at any time. The required legal point is therefore not fully mentioned."
+    },
+    {
+      "id": "C-066",
+      "title": "Cover memo \u2014 discusses strategic implications of raising jurisdiction",
+      "verdict": "pass",
+      "reasoning": "The cover memo identifies the jurisdictional defect as a threshold issue, explains that confirming it would require remand under 28 U.S.C. \u00a7 1447(c) and prevent a federal merits ruling, recommends raising it before filing a merits motion, and notes downstream strategic consequences if remanded, including different Texas state-court procedures and potential unavailability of Rule 91a. This satisfies the requirement to discuss strategic implications of raising the defect."
+    },
+    {
+      "id": "C-067",
+      "title": "Factual accuracy \u2014 contract value stated as $14.7 million",
+      "verdict": "pass",
+      "reasoning": "The motion brief states that the FAC alleges a \"$14.7 million base contract\" and that the MSLSA confirms the \"$14.7 million base amount,\" correctly identifying the MSLSA total contract value as $14,700,000 / $14.7 million."
+    },
+    {
+      "id": "C-068",
+      "title": "Factual accuracy \u2014 change orders total $2.35 million",
+      "verdict": "pass",
+      "reasoning": "The motion brief correctly states that the Change Orders total $2.35 million, matching the required $2,350,000 total."
+    },
+    {
+      "id": "C-069",
+      "title": "Factual accuracy \u2014 total claimed damages $47.3 million",
+      "verdict": "fail",
+      "reasoning": "The motion brief does not state that Arcadia claims $47,300,000 or $47.3 million in total damages; it only references other amounts such as the $14.7 million base contract and $2.35 million in change orders. Therefore it fails the specified factual-accuracy criterion."
+    },
+    {
+      "id": "C-070",
+      "title": "Factual accuracy \u2014 MSLSA execution date March 15, 2022",
+      "verdict": "fail",
+      "reasoning": "The motion brief does not state that the MSLSA was executed on March 15, 2022. Because the criterion requires the brief to correctly state that execution date, the output does not satisfy it."
+    },
+    {
+      "id": "C-071",
+      "title": "Factual accuracy \u2014 Go-Live date January 15, 2023",
+      "verdict": "pass",
+      "reasoning": "The brief expressly states that the FAC alleges Go-Live occurred on January 15, 2023, which matches the required actual Go-Live date."
+    },
+    {
+      "id": "C-072",
+      "title": "Factual accuracy \u2014 first written complaint March 8, 2023",
+      "verdict": "pass",
+      "reasoning": "The brief states that Arcadia made a written email complaint on March 8, 2023, and treats that as the first notice/complaint for warranty purposes. The date is not materially incorrect, though the sender is not expressly named in that sentence."
+    },
+    {
+      "id": "C-073",
+      "title": "Factual accuracy \u2014 Delaware governs per Section 12.7",
+      "verdict": "pass",
+      "reasoning": "The brief correctly states that Delaware law governs the agreement under MSLSA Section 12.7, satisfying the criterion."
+    },
+    {
+      "id": "C-074",
+      "title": "Factual accuracy \u2014 Arcadia represented by counsel during negotiations",
+      "verdict": "fail",
+      "reasoning": "The brief states that Arcadia \u201cengaged outside counsel\u201d and that the parties were represented by counsel, but it does not identify the outside counsel as Wexford Hale LLP during contract negotiations."
+    },
+    {
+      "id": "C-075",
+      "title": "Factual accuracy \u2014 47 support tickets breakdown correct",
+      "verdict": "fail",
+      "reasoning": "The brief does not reference the support ticket breakdown at all\u2014no mention of 47 total tickets, 31 resolved within SLA, 12 data quality/Linden Park tickets, or 4 patched software defects\u2014so it does not satisfy the criterion requiring substantially correct figures."
+    },
+    {
+      "id": "C-076",
+      "title": "Motion brief \u2014 requests dismissal with prejudice rather than without",
+      "verdict": "pass",
+      "reasoning": "The brief expressly requests dismissal with prejudice for the DTPA count, and it does not request dismissal without prejudice across the board. Although it suggests unjust enrichment be dismissed at least without prejudice, the criterion is satisfied because the brief includes a with-prejudice dismissal request for an appropriate count rather than only seeking without-prejudice dismissal."
+    },
+    {
+      "id": "C-077",
+      "title": "Motion brief \u2014 identifies Rule 12(b)(6) as the procedural vehicle",
+      "verdict": "pass",
+      "reasoning": "The motion is explicitly titled as a motion to dismiss under Rule 12(b)(6), and the opening paragraph states Meridian moves to dismiss under Federal Rule of Civil Procedure 12(b)(6) for failure to state a claim, with Rule 12(c) only as an alternative procedural vehicle."
+    },
+    {
+      "id": "C-078",
+      "title": "Motion brief \u2014 addresses post-answer motion practice authorization",
+      "verdict": "pass",
+      "reasoning": "The brief explicitly states that Meridian moves post-answer under Rule 12(b)(6) or alternatively Rule 12(c), that Meridian preserved failure to state a claim in its Answer, and that Judge Alvarez's Standing Order permits a preserved post-answer Rule 12(b)(6) motion. It also reiterates this in the procedural posture section."
+    },
+    {
+      "id": "C-079",
+      "title": "Motion brief \u2014 argues Count I breach of contract fails with specific contractual provisions",
+      "verdict": "pass",
+      "reasoning": "The brief addresses Count I in Section VI and argues it should be narrowed based on specific contractual provisions, including SOW-1 \u00a73.2 assigning data migration responsibility to Arcadia, MSLSA \u00a7\u00a7 8.1\u20138.3 limiting liability and excluding consequential damages, and \u00a75.3 deemed acceptance. These are among the provisions identified in the criterion."
+    },
+    {
+      "id": "C-080",
+      "title": "Motion brief \u2014 argues fraud claim fails for lack of reliance",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues the fraud claim fails because Arcadia cannot plead justifiable reliance. It relies on the MSLSA\u2019s express non-reliance/integration clause, disclaimers and qualified statements, Arcadia\u2019s due diligence, and Arcadia\u2019s sophisticated commercial status with counsel."
+    },
+    {
+      "id": "C-081",
+      "title": "Motion brief \u2014 cites Fifth Circuit authority beyond Twombly/Iqbal",
+      "verdict": "pass",
+      "reasoning": "The motion brief cites multiple Fifth Circuit authorities beyond Twombly/Iqbal, including Collins v. Morgan Stanley, Harvey v. Grey Wolf Drilling, Benchmark Electronics v. J.M. Huber, Dorsey v. Portfolio Equities, and Pizza Hut v. Papa John's."
+    },
+    {
+      "id": "C-082",
+      "title": "Motion brief \u2014 references negotiation emails showing Arcadia's awareness",
+      "verdict": "fail",
+      "reasoning": "The brief mentions generally that Arcadia was represented by counsel and had an opportunity to negotiate, but it does not cite or reference the contract negotiation email chain, Exhibit D, Bates Nos. MCS-00004217 through MCS-00004248, Jonathan Breckenridge/Wexford Hale, or the attempted negotiation of the consequential damages waiver and warranty terms."
+    },
+    {
+      "id": "C-083",
+      "title": "Motion brief \u2014 DTPA arguments beyond \u00a7 17.49(f) exemption",
+      "verdict": "fail",
+      "reasoning": "The brief\u2019s DTPA-specific argument is limited to the Texas Business & Commerce Code \u00a7 17.49(f) high-value-transaction exemption. Although the brief discusses puffery, reliance, and contractual limitations in connection with fraud/negligent misrepresentation and contract claims, it does not present any additional argument for dismissing the DTPA claim itself, such as puffery under the DTPA, lack of producing cause, or duplication of the contract claim."
+    },
+    {
+      "id": "C-084",
+      "title": "Motion brief \u2014 addresses deemed acceptance impact on warranty claim",
+      "verdict": "fail",
+      "reasoning": "The brief discusses Section 5.3 deemed acceptance and the limited warranty in the same subsection, but it does not argue that deemed acceptance constitutes Arcadia\u2019s acknowledgment that the software substantially conformed to documentation or that this undermines a warranty breach claim. Instead, it states deemed acceptance forecloses untimely rejection/full-refund theories but does not erase post-acceptance warranty duties."
+    },
+    {
+      "id": "C-085",
+      "title": "Motion brief \u2014 correctly identifies all five counts by number and name",
+      "verdict": "fail",
+      "reasoning": "The brief references the counts generally, but it does not correctly identify all five by both number and name. In particular, Count I is discussed as the \u201ccontract count\u201d and \u201ccontractual obligations\u201d but is not clearly labeled as Count I (Breach of Contract), and Count II is not expressly labeled as Count II (Fraud) in the count identification. Therefore it does not satisfy the criterion."
+    },
+    {
+      "id": "C-086",
+      "title": "Motion brief \u2014 argues Count II (Fraud) should be dismissed",
+      "verdict": "pass",
+      "reasoning": "The motion brief explicitly requests dismissal of Count II/Fraud, including in the introduction, Section V addressing Counts II and III, Section V.B stating the fraud claim should be dismissed under Rule 9(b) and Twombly/Iqbal, and the conclusion requesting dismissal of Counts II through V."
+    },
+    {
+      "id": "C-087",
+      "title": "Motion brief \u2014 argues Count III (Negligent Misrepresentation) should be dismissed",
+      "verdict": "pass",
+      "reasoning": "The brief explicitly addresses Count III (Negligent Misrepresentation), arguing it fails due to lack of justifiable reliance/non-reliance provisions and insufficient separation from contract duties, and requests dismissal of Counts II through V in the conclusion."
+    },
+    {
+      "id": "C-088",
+      "title": "Motion brief \u2014 argues Count IV (Unjust Enrichment) should be dismissed",
+      "verdict": "pass",
+      "reasoning": "The brief expressly argues that Count IV for unjust enrichment/quantum meruit is barred because the MSLSA and related writings are valid express contracts governing the same subject matter, and it explicitly requests that the Court dismiss Count IV."
+    },
+    {
+      "id": "C-089",
+      "title": "Motion brief \u2014 argues Count V (DTPA) should be dismissed",
+      "verdict": "pass",
+      "reasoning": "The motion brief explicitly argues that Count V (DTPA) should be dismissed, including a dedicated section titled 'COUNT V FAILS BECAUSE THE TRANSACTION EXCEEDS THE DTPA'S HIGH-VALUE-TRANSACTION EXEMPTION' and requests dismissal based on Texas Business and Commerce Code \u00a7 17.49(f) because the transaction exceeds $500,000 and does not involve a consumer residence."
+    }
+  ],
+  "run_id": "litigation-dispute-resolution/draft-motion-to-dismiss-brief/gpt6luna-xhigh/20260926-201603",
+  "task": "litigation-dispute-resolution/draft-motion-to-dismiss-brief",
+  "judge_model": "gpt-5.5",
+  "scored_at": "2026-09-27T02:01:14.303312+00:00",
+  "cost": {
+    "input_tokens": 1781625,
+    "output_tokens": 41408,
+    "wall_clock_seconds": 308.6
+  },
+  "doc_coverage": {
+    "documents_read": 26,
+    "total_documents": 24,
+    "documents_skipped": 1,
+    "documents_read_list": [
+      "first-amended-complaint.docx",
+      "meridians-answer-to-first-amended-complaint.docx",
+      "notice-of-removal.docx",
+      "scheduling-order.docx",
+      "judge-alvarezs-standing-order-on-motion-practice.docx",
+      "key-case-law-compilation-defense-research-memo.docx",
+      "master-software-license-and-services-agreement.docx",
+      "statement-of-work-1.docx",
+      "arcadia-operating-agreement-relevant-excerpts.docx",
+      "martin-schreiber-internal-memo.docx",
+      "meridian-written-proposal.docx",
+      "meridian-project-status-report.docx",
+      "support-ticket-summary-report.docx",
+      "dr-okonkwo-email-march-8-2023.docx",
+      "arcadias-damages-report-executive-summary.docx",
+      "contract-negotiation-email-chain-excerpts.docx",
+      "change-order-co-001.docx",
+      "change-order-co-004.docx",
+      "change-order-co-002.docx",
+      "change-order-co-003.docx",
+      "meridian-sales-presentation-slides.docx",
+      "arcadias-response-to-meridians-dtpa-letter.docx",
+      "arcadias-dtpa-pre-suit-demand-letter.docx",
+      "/workspace/output/motion-to-dismiss.docx",
+      "/workspace/output/proposed-order.docx",
+      "/workspace/output/cover-memo.docx"
+    ],
+    "documents_skipped_list": [
+      "meridians-response-to-dtpa-demand.docx"
+    ]
+  }
+}
