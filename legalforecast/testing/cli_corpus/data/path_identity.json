@@ -113,6 +113,7 @@
     "tests/test_harvey_lab_output_discovery.py",
     "tests/test_harvey_lab_pinned_evaluator_seam.py",
     "tests/test_harvey_lab_projection.py",
+    "tests/test_harvey_review_sample.py",
     "tests/test_hermes_paid.py",
     "tests/test_integrated_fixture_pipeline.py",
     "tests/test_jev_workflow.py",
