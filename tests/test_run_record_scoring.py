@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
+from legalforecast.evals.model_registry import model_registry_sha256
 from legalforecast.evals.output_parser import (
     ParserStatus,
     parse_model_output,
@@ -11,6 +13,15 @@ from legalforecast.evals.output_parser import (
 from legalforecast.evals.run_record_scoring import (
     ReleaseOutcomeLabel,
     score_run_records,
+)
+from legalforecast.release import issue_synthetic_release, serialize_run_manifest
+from tests.test_locked_run_manifest_consumer import (
+    _manifest,
+    _strict_receipts,
+    _write_registry,
+)
+from tests.test_locked_run_manifest_consumer import (
+    main as cli_main,
 )
 
 
@@ -287,3 +298,130 @@ def _ambiguous_label(unit_id: str) -> ReleaseOutcomeLabel:
         primary_outcome=None,
         label_confidence=0.4,
     )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        None,
+        "original",
+        "canonical",
+        "provider",
+        "missing",
+        "non-jev",
+        "condition",
+        "invalid-count",
+    ],
+)
+def test_gateway_jev_unreported_route_scores_and_reports(
+    tmp_path: Path, mutation: str | None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    release_dir = tmp_path / "release"
+    issued = issue_synthetic_release(release_dir)
+    registry_path = _write_registry(tmp_path)
+    entry = json.loads(registry_path.read_text())[0]
+    if mutation != "non-jev":
+        entry.update(
+            provider="vercel_ai_gateway",
+            model_id="typesafe-ai/jev",
+            model_version_or_snapshot="typesafe-ai/jev",
+            max_output_tokens=1,
+            jev_input_mode="grok_summaries",
+            jev_summaries_sha256="a" * 64,
+        )
+    registry_path.write_text(json.dumps([entry]))
+    records = _strict_receipts(issued, registry_path)
+    routing = {
+        "originalModelId": "typesafe-ai/jev",
+        "canonicalSlug": "typesafe-ai/jev",
+        "resolvedProvider": "typesafe-ai",
+        "finalProvider": "typesafe-ai",
+        "modelAttemptCount": 1,
+        "totalProviderAttemptCount": 1,
+    }
+    if mutation == "original":
+        routing["originalModelId"] = "other/model"
+    elif mutation == "canonical":
+        routing["canonicalSlug"] = "other/model"
+    elif mutation == "provider":
+        routing["finalProvider"] = "other"
+    if mutation == "invalid-count":
+        routing["modelAttemptCount"] = 0
+    for record in records:
+        record["served_model_version"] = "unreported"
+        record["execution_condition"] = (
+            "jev_full_text" if mutation == "condition" else "jev_grok_summaries"
+        )
+        if mutation != "missing":
+            record["jev_provider_metadata"] = {
+                "gateway": {
+                    "routing": routing,
+                    "generationId": "generation",
+                    "gatewayCost": "0.001",
+                    "marketCost": "0.001",
+                }
+            }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_bytes(
+        serialize_run_manifest(_manifest("case-001", "case-002", "case-003"))
+    )
+    runs_path = tmp_path / "runs.jsonl"
+    runs_path.write_text("".join(json.dumps(record) + "\n" for record in records))
+    scores_path = tmp_path / "scores.json"
+    command = [
+        "score",
+        "--runs",
+        str(runs_path),
+        "--labels-release",
+        str(release_dir / "labels-release.json"),
+        "--forecast-release",
+        str(release_dir / "forecast-release.json"),
+        "--artifact-root",
+        str(release_dir),
+        "--manifest",
+        str(manifest_path),
+        "--expected-run-identity-sha256",
+        "c" * 64,
+        "--model-registry",
+        str(registry_path),
+        "--expected-model-registry-sha256",
+        model_registry_sha256(registry_path.read_bytes()),
+        "--output",
+        str(scores_path),
+    ]
+    if mutation is not None:
+        assert cli_main(command) == 2
+        error = capsys.readouterr().err
+        assert any(
+            message in error for message in ("Gateway", "served model", "Jev receipt")
+        )
+        assert not scores_path.exists()
+        return
+    assert cli_main(command) == 0
+    scores = json.loads(scores_path.read_text())
+    assert scores["identity"]["models"][0]["served_model_version"] == "unreported"
+    report_dir = tmp_path / "report"
+    assert (
+        cli_main(
+            [
+                "report",
+                "--scores",
+                str(scores_path),
+                "--output-dir",
+                str(report_dir),
+                "--manifest",
+                str(manifest_path),
+                "--forecast-release",
+                str(release_dir / "forecast-release.json"),
+                "--labels-release",
+                str(release_dir / "labels-release.json"),
+                "--artifact-root",
+                str(release_dir),
+                "--frozen-model-registry",
+                str(registry_path),
+            ]
+        )
+        == 0
+    )
+    report = json.loads((report_dir / "leaderboard.json").read_text())
+    assert report["provenance"]["models"][0]["served_model_version"] == "unreported"

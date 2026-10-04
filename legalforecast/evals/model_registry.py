@@ -525,6 +525,18 @@ class ModelRegistry:
         )
 
 
+def is_gateway_jev_summary(entry: ModelRegistryEntry) -> bool:
+    """Whether the frozen entry uses Jev's SDK route without a served snapshot."""
+
+    return (
+        entry.provider == "vercel_ai_gateway"
+        and entry.model_id == "typesafe-ai/jev"
+        and entry.model_version_or_snapshot == "typesafe-ai/jev"
+        and entry.tool_policy == "no_tools"
+        and entry.jev_input_mode in {"luna_summaries", "grok_summaries"}
+    )
+
+
 def model_registry_entry_sha256(entry: ModelRegistryEntry) -> str:
     """Hash one registry entry using its canonical serialized representation."""
 
