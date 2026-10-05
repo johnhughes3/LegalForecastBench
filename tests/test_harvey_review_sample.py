@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -129,11 +130,14 @@ def test_runs_block_is_idempotent_and_keeps_verdicts(
 ) -> None:
     monkeypatch.chdir(ROOT)
     text = (sampler.REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8")
-    once = sampler.add_runs(text.replace("- **Verdict:** _(", "- **Verdict:** X_(", 1))
+    marked = re.sub(
+        r"(?m)^- \*\*Verdict:\*\* .*$", "- **Verdict:** MARK", text, count=1
+    )
+    once = sampler.add_runs(marked)
     assert sampler.add_runs(once) == once
     parsed = sampler.parse_worksheet(once)
     assert len(parsed) == sampler.SAMPLE_SIZE
-    assert parsed[0][2].startswith("X_(")
+    assert parsed[0][2] == "MARK"
     assert once.count(sampler.RUNS_START) == sampler.SAMPLE_SIZE
 
 
@@ -171,3 +175,34 @@ def test_run_outcomes_cover_every_criterion_once(
     counts = [int(line.split("|")[2]) for line in table[1:]]
     assert sum(counts) == 2858
     assert counts[:5] == [83, 135, 127, 271, 219]
+
+
+def test_environment_verdicts_are_read_per_item() -> None:
+    text = "\n".join(
+        [
+            "## 1. A — C-001",
+            "- **Verdict:** Not defective",
+            "- **Environment:** Defective: the record is wrong.",
+            "## 2. B — C-002",
+            "- **Verdict:** Defective",
+            "- **Environment:** Correct",
+        ]
+    )
+    assert sampler.environment_verdicts(text) == {1: "Defective", 2: "Correct"}
+
+
+def test_objective_errors_come_from_defective_category_lines() -> None:
+    text = "\n".join(
+        [
+            "## 1. A — C-001",
+            "- **Verdict:** Defective",
+            "- **Category**: unambiguous objective error, rubric is incorrect.",
+            "## 2. B — C-002",
+            "- **Verdict:** Defective",
+            "- **Category**: low-quality professional judgment, rubric is incorrect.",
+            "## 3. C — C-003",
+            "- **Verdict:** Arguable",
+            "- **Category**: unambiguous objective error, rubric is incorrect.",
+        ]
+    )
+    assert sampler.objective_errors(text) == [1]

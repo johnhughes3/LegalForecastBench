@@ -374,6 +374,36 @@ def parse_worksheet(text: str) -> list[tuple[str, str, str, str]]:
     return parsed
 
 
+ENVIRONMENT_VERDICTS = ("Defective", "Arguable", "Correct")
+
+
+def environment_verdicts(text: str) -> dict[int, str]:
+    """Each item's task-environment verdict, recorded apart from the rubric verdict."""
+    out: dict[int, str] = {}
+    for item in re.split(r"(?m)^(?=## \d+\. )", text)[1:]:
+        number = re.match(r"## (\d+)\.", item)
+        found = re.search(
+            r"(?m)^- \*\*Environment:\*\* (Defective|Arguable|Correct)", item
+        )
+        if number and found:
+            out[int(number.group(1))] = found.group(1)
+    return out
+
+
+def objective_errors(text: str) -> list[int]:
+    """Items whose Category line records an unambiguous objective error."""
+    out: list[int] = []
+    for item in re.split(r"(?m)^(?=## \d+\. )", text)[1:]:
+        number = re.match(r"## (\d+)\.", item)
+        verdict = re.search(r"(?m)^- \*\*Verdict:\*\* Defective\s*$", item)
+        category = re.search(
+            r"(?mi)^- \*\*Category\*\*:\s*unambiguous objective error", item
+        )
+        if number and verdict and category:
+            out.append(int(number.group(1)))
+    return out
+
+
 def cmd_tally() -> None:
     record = load(REVIEW_DIR / "sample.json")
     pop = population(load(AUDIT_DIR / "comparison.json")["rows"])
@@ -382,7 +412,8 @@ def cmd_tally() -> None:
         (r["task"], r["criterion"]) for r in record["sample"]
     ]:
         sys.exit("sample.json no longer matches the seeded draw from comparison.json.")
-    items = parse_worksheet((REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8"))
+    text = (REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8")
+    items = parse_worksheet(text)
     if [(t, c) for t, c, _, _ in items] != [
         (r["task"], r["criterion"]) for r in sample
     ]:
@@ -399,6 +430,32 @@ def cmd_tally() -> None:
         if key in by_bucket:
             got = by_bucket[key]
             print(f"  {label}: {got['Defective']} defective of {sum(got.values())}")
+    env = environment_verdicts(text)
+    if env:
+        print("  Rubric verdict x task environment:")
+        print("    " + " | ".join(["Rubric \\ Environment", *ENVIRONMENT_VERDICTS]))
+        for verdict in VERDICTS:
+            cells = [
+                sum(
+                    1
+                    for i, (_, _, v, _) in enumerate(items, 1)
+                    if v == verdict and env.get(i) == e
+                )
+                for e in ENVIRONMENT_VERDICTS
+            ]
+            print("    " + " | ".join([verdict, *map(str, cells)]))
+        bad_tasks = {
+            r["task"] for i, r in enumerate(sample, 1) if env.get(i) == "Defective"
+        }
+        tasks = {r["task"] for r in sample}
+        print(f"  Task environments defective: {len(bad_tasks)} of {len(tasks)}")
+    objective = objective_errors(text)
+    if objective:
+        floor = lower_bound(len(pop), len(items), len(objective))
+        print(
+            f"  Unambiguous objective errors: {len(objective)} {objective}; "
+            f"one-sided 95% lower bound {floor}"
+        )
     reasoning = Counter(r for _, _, _, r in items if r in AI_REASONING)
     print("  AI reasoning: " + ", ".join(f"{k} {reasoning[k]}" for k in AI_REASONING))
     if pending:
