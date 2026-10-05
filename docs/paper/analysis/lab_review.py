@@ -140,15 +140,8 @@ def items(worksheet: str) -> list[dict[str, Any]]:
 
 
 def clean_note(lines: list[str]) -> tuple[str, list[str]]:
-    """Drop the field label and the reviewer's leading verdict code from the note."""
+    """Split the note into its opening paragraph and its bullets, minus the label."""
     first = lines[0].removeprefix("- **Note and source locator:**").strip()
-    first = re.sub(
-        r"^(JOHN HUGHES:\s*)?(Defective|Arguable|Arguably|Not defective)\b[^.]*?"
-        r"\b(?:AI|agent) is [^.]*\.\s*(JOHN HUGHES:\s*)?",
-        "",
-        first,
-        flags=re.I,
-    )
     bullets = [ln.removeprefix("- ").strip() for ln in lines[1:]]
     return first.strip(), bullets
 
