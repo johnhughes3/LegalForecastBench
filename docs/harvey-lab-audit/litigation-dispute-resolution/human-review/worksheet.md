@@ -12,6 +12,7 @@ Seeded draw of 25 criteria; see the [review protocol](README.md) before starting
 
 <details><summary>AI findings (open after forming your own view)</summary>
 
+
 Agreement group: Both flagged, different strength (one problematic, one arguable). GPT-6 Sol: problematic; Claude Opus 5.5: arguable (blind pass: problematic).
 
 - **GPT-6 Sol:** F1: Mandatory figures follow inconsistent invoice summaries without allowing reconciliation to line entries. (confirmed)
@@ -47,7 +48,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** JOHN HUGHES: Defective / AI is correct. The rubric is testing the AI on a specific percentage calculation from an invoice, but the document in the environment is internally inconsistent so the desired calculation yields different results depending on which number from the document you treat as authoritative. Specifically, a detailed list of time entries shows a higher dollar amount for the bill than the summary page, which literally does not add up to the sum of the detailed entries. If forced to choose here, I likely would assume that the summary tabulation is wrong (not the detailed entries) but that would result in the wrong answer as the rubric is graded against the (seemingly erroneous) summary tabulation.
 
 ## 2. Categorize Document Production Set by Relevance and Privilege — Privilege Log and Relevance Classification Report — C-012
 
@@ -58,6 +59,7 @@ Raw files:
 > PASS if DOC_012 (chandrasekaran-meeting-notes-aug28.docx, Chandrasekaran's handwritten meeting notes from August 28, 2023) is classified as Partially Privileged. FAIL if classified as fully Privileged or Not Privileged.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: arguable).
 
@@ -93,7 +95,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:**  Defective / AI is Correct. JOHN HUGHES: Although on first glance I agreed with Harvey’s answer key on this one, after reviewing it more closely, the agents are raising a subtle and perceptive point. The documents are handwritten lawyer notes from a fictitious meeting discussing problems with the R&D Department. The meeting starts with discussion of various operational issues then proceeds to a discussion of “retaliation” exposure for the contemplated firing of an employee. My initial read was that the notes were highly unrealistic because, if you just read the headers of each section, it’s very clearly trying to suggest that there was a discussion of non-legal business issues followed by an explicit discussion of legal advice (the retaliation issue). The rubric wants agents to state that the document is partially but not fully privileged, distinguishing between the discussion of operational problems and the retaliation issue. However, I think the subtle point the agents picked up on is that these issues are in fact deeply intertwined. The discussion of operational problems at the R&D department is the reason why the company wants to fire the head of R&D. The practical problem that they have is that the head of R&D is also a whistleblower who has alleged that the company is violating environmental regulations, so any attempt to fire the underperforming department head would likely trigger a lawsuit for whistleblower retaliation. This is a very strange example and not what one would expect on multiple levels; a competent general counsel would not create a document like this. But if you take the hypothetical seriously, then Sol is correct that the discussion of operational problems is really intertwined with the legal advice. As a practical matter, I suspect most teams would simply make this entire document as privileged, rather than redacting a portion of it, as the rubric proposes.
 
 ## 3. Compare Document Production Against Discovery Requests — Discovery Gap Analysis Memorandum — C-029
 
@@ -104,6 +106,7 @@ Raw files:
 > PASS if the memorandum notes that only 5 of the 14 documents coded to RFP 27 (MLC-004056 through MLC-004102) actually relate to Pacific Corridor's volume shortfall and the counterclaim damages calculation, meaning the counterclaim damages support is thin. FAIL if this is not noted.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: problematic. GPT-6 Sol: problematic; Claude Opus 5.5: problematic (blind pass: problematic).
 
@@ -140,7 +143,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: This task requires models to make the point that “only” five documents in the bundle “actually relate to Pacific Corridor's volume shortfall and the counterclaim damages calculation, meaning the counterclaim damages support is thin.” This rubric is flawed on multiple levels. The most basic is that it overlooks MLC-003781, a sixth document that plainly relates to the volume shortfall, so the count is objectively wrong (and the agents pointed to several other examples, at least some of which also seem to fit within the stated criteria). More fundamentally, this rubric is someone’s argumentative charaterization of the documents and probably would not hold up under adversarial testing; for example, there is case law that the term “relate to” is fairly broad and flexible, so quite plausibly a number of other documents would apply. And the premise underlying this rubric–that “only” five documents is such “thin” evidence that it must be called out–is wrong. Even one document could constitute conclusive proof of damages (the general rule is that damages only need to be reasonably estimated; courts do not require great precision); to my mind, this is actually quite a lot of evidence at the fact stage compared to what one would normally see. So this is not a persuaive point at all, let alone one that’s so persuasive and important that the model should be “dinged” for failing to include it.
 
 ## 4. Draft Case Assessment Memorandum — Litigation Risk Analysis for Distribution Agreement Dispute — C-025
 
@@ -151,6 +154,7 @@ Raw files:
 > PASS if the memo recommends filing a motion to dismiss (or motion for judgment on the pleadings, or similar dispositive motion) targeting the unjust enrichment claim (Count IV) on the ground that an express contract governs the parties' relationship. FAIL if no such motion recommendation is made regarding the unjust enrichment claim.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: arguable. GPT-6 Sol: arguable; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -187,7 +191,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The environment involves a hypothetical litigation where, according to the answer key, the model is meant to conclude that the plaintiff has a strong breach of contract claim. (See id: C-0006.) The prompt isntructs models to review case documents and “prepare a comprehensive case assessment memo,” and models are dinged on this rubric if they do not “recommend[] filing a motion to dismiss” on the unjust enrichment claim, which is expressly pled in the alternative to the (strong) breach of contract claim. The rubric is wrong because a model could quite intelligently conclude that a motion to dismiss that claim is nto a good idea: The defendants’ exposure for unjust enrichment is no greater than the breach of contract damages exposure, and the factual underpinnings of both claims are the same so a successful motion would not reduce the scope of discovery. Filing a dispositive motion is costly and, on these facts, there seems to be no benefit to doing so.
 
 ## 5. Draft Conflict Check Memorandum for Litigation Engagement Clearance — C-030
 
@@ -198,6 +202,7 @@ Raw files:
 > PASS if the memo recommends that Caleb Strand be screened from the engagement or removed from the proposed staffing. FAIL if no such recommendation is made.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: arguable. GPT-6 Sol: arguable; Claude Opus 5.5: arguable (blind pass: not flagged).
 
@@ -234,7 +239,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric requires the model to recommend that an associate who shares an apartmetn with his sister (who works on a case at an opposing firm) be screened from the matter. Screening is generally used in certain specific situations where required by the professional conduct rules, but no rule requires screening in this scenario. Although I agree that a prudent memo would flag the fact that a junior team member is sharing an apartment with another junior from the opposing side, there are a variety of ways the situation could be handled prudently.
 
 ## 6. Draft Conflict Check Memorandum for Litigation Engagement Clearance — C-049
 
@@ -245,6 +250,7 @@ Raw files:
 > PASS if the memo recommends that annual conflict-disclosure questionnaires be cross-referenced with or integrated into the ConflictTracker system. FAIL if no recommendation about integrating disclosure questionnaires with the conflicts database is made.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -279,7 +285,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The assignment in the prompt is to draft a “conflict check memorandum for the proposed engagement.” The rubric requires that the memo contain suggested firm-wide process improvements (mmeo must “recommend[] that annual conflict-disclosure questionnaires be cross-referenced with or integrated into the ConflictTracker system”). That’s simply not the assignment, and there’s many reasons why it’s undesirable to jam brroad process suggestions into a conflicts memo for one specific case.
 
 ## 7. Draft Counterclaim Against Plaintiff for Breach of Joint Development Agreement — C-045
 
@@ -290,6 +296,7 @@ Raw files:
 > PASS if the counterclaim includes a separate count for patent infringement under 35 U.S.C. § 271, alleging that the LumiSense 400 infringes U.S. Patent No. 11,234,567 covering the SensorCore™ architecture. FAIL if no patent infringement counterclaim is asserted.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -325,7 +332,9 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Arguable / AI is partly correct. JOHN HUGHES: This one boils down to a product decision around how an AI agent should interact with a lawyer in the face of limited information; Harvey is entitled to make that decision for its product, so the rubric should be treated as accurate even though the AI agent raises legitimate concerns about the task.
+- The task is to draft a counterclaim based on a handful of documents (including an expert report, some emails, and a counterclaim strategy memo that another lawyer prepared). The rubric dings the AI if the courtclaims do not include “a separate count for patent infringement under 35 U.S.C. § 271, alleging that the LumiSense 400 infringes U.S. Patent No. 11,234,567.” While there is context that suggests that such a claim could be an issue worth exploring here, GPT-6-Sol correctly pointed out that there’s insufficient information in the environment to determine whether the contemplated claim is in fact legally viable. Among other things, the environment does not even contain the patent allegedly infringed, so the agent is to some extent being asked to hallucinate a view of the patent. Although Sol did not make this point, there are some ethical rules at play; Federal Rule of Civil Procedure 11 specifically requires lawyers to conduct a reasonable inquiry before filing a pleading, so a lawyer could not ethically file a counterclaim without reviewing the underlying patent.
+- That said, there are some trade offs involved in deciding the correct behavior by an agent in this situation, which Harvey is entitled to resolve in favor of wanting the counterclaim included here. One view would be that the agent should avoid hallucinations at all cost and should not simply generate legal claims without being specifically prompted to do so or given documents that establish that such claims have an adequate factual basis under Rule 11.On the other hand, Harvey might prefer for the product to be more agentic and automated and to simply “get the job done” by assuming that there is some adequate factual basis for the assertions being drafted–and to leave it to the lawyer effectively to verify them separately. The prompt here asks the agent to evaluate “other theories,” so a defensible approach might be for the agent to draft the counterclaim but flag in brackets that it requires verification, which appears permissible under the rubric. 
 
 ## 8. Draft Counterclaim Against Plaintiff for Breach of Joint Development Agreement — C-046
 
@@ -336,6 +345,7 @@ Raw files:
 > PASS if the patent infringement count specifically identifies U.S. Patent No. 11,234,567. FAIL if the patent number is omitted or incorrect in the patent infringement count.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -371,7 +381,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Arguably / AI is partly correct. JOHN HUGHES: Same issue as prior rubric.
 
 ## 9. Draft Case Assessment Memorandum for Defective Industrial Equipment Product Liability Claim — C-003
 
@@ -382,6 +392,7 @@ Raw files:
 > PASS if the Executive Summary mentions the death of Marco Reyes. FAIL if the fatality is not mentioned in the Executive Summary.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -417,7 +428,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The case involved a (fictitious) safety incident at a manufacturing plant that killed one employee and seriously injured two others. The rubric requires the fact that one employee died be discussed specifically in the “executive summary.” When we tested Opus 5.5 and GPT-6-Luna on this benchmark, both were failed on this rubric by at least one grader; they discussed the death in several places in their memo, especially the factual background section, but the executive summary consisted of an overview of the legal analysis that did not restate the fact of the death. The criterion effectiveyl fails perfectly competent memos that make a valid decision to discuss the facts after the executive summary. Moreover, the agents’ organizational approach is more conventional and appropriate for the audience. The case file shows that the company CEO was the one who retained counsel to advise on this incident is the same person who delivered news of the (fictitious) tragic death to the decedent’s widow and surviving family members. The fact that the intended recipients of the memo are well aware of the death, and presumably are hoping that this document will help them understand their legal exposure, means it is more appropriate to do what the agents did and focus on the legal issues rather than using the executive summary to remind the company’s management about a death that they’re plainly well aware of.
 
 ## 10. Draft Case Assessment Memorandum for Defective Industrial Equipment Product Liability Claim — C-026
 
@@ -428,6 +439,7 @@ Raw files:
 > PASS if the memo identifies the OSHA serious citation for LOTO deficiency under 29 CFR 1910.147(c)(4)(i) with a penalty of $18,900. FAIL if this specific citation, regulation, or penalty amount is not referenced.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: problematic; Claude Opus 5.5: not flagged (blind pass: arguable).
 
@@ -463,7 +475,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Arguable / AI is correct. JOHN HUGHES: This is a defective environment, but the specific rubric being tested is accurate as written. The AI agents are essentialy pointing out that this task makes no sense because it contained a purported OSHA citation from Ohio’s Division of Safety & Hygiene. But Ohio is a state that does not have an OSHA-approved State Plan, so Ohio regulators do not have jurisdiction to issue OSHA citations (and mistakenly enforcing federal law they don’t have jurisdiction to enforce is not the kind of mistake that state regulators make; they would be quite focused on potential violations of their own state-level regulations). Given this, the agents are right that the environment is incoherent. However, the rubric itself is not wrong because it simply wants a memo to address the purported citation, so an agent could write the memo while noticing that the task is obviously a fictitious evaluation.
 
 ## 11. Draft Discovery Plan Memorandum for Breach of Contract and Fraud Defense — C-036
 
@@ -474,6 +486,7 @@ Raw files:
 > PASS if the memo provides priority rankings or tiers for custodians (e.g., high/medium/low priority, or Tier 1/Tier 2, or similar prioritization). FAIL if custodians are listed without any indication of relative priority.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -509,7 +522,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Not defective / AI is partly correct. JOHN HUGHES: The AI agent is right that the rubric is really enforcing a stylistic choice, but the choice here is well-grounded in convention and an appropriate expectation for quality work product. The case file contains a court order where the judge encouraged the parties to discuss whether phased discovery would be appropriate at the Rule 26(f) conference, and the rubric requires that the agent’s discovery plan include some kind of prioritization or phasing of custodians, which is a common expectation in these cases.
 
 ## 12. Draft Federal Complaint for Breach of Contract and Fiduciary Duty — Placement Agent Dispute — C-025
 
@@ -520,6 +533,7 @@ Raw files:
 > PASS if the prayer for relief includes a request for preliminary and/or permanent injunctive relief — specifically to enforce the non-solicitation provision and prevent Graydon from continuing to divert Fund III investor prospects to competing funds. FAIL if no injunctive relief is requested.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -554,7 +568,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Not defective / agent is wrong. JOHN HUGHES: The case stratgy memo specifically describe an interest in seeking injunctive relief. While it’s true that the intake memo flags the topic for discussion, the correct approach is to include the proposed prayer for relief in the draft, so the case team can see how it reads and discuss any downsides. As a practical matter, there’s unlikely to be much downside to including this prayed for relief in the complaint, although whether it’s worth the cost of actually pursuing a preliminary injunction on this is debatable, so the rubric’s approach makes sense.
 
 ## 13. Draft First Set of Interrogatories to Defendant Veridian Health Systems in Trade Secret Misappropriation Case — C-008
 
@@ -565,6 +579,7 @@ Raw files:
 > PASS if the Definitions section includes a definition of 'Document' or 'Documents' that is broad enough to encompass electronically stored information (ESI), emails, and physical documents. FAIL if there is no definition of 'Document' or it is so narrow as to exclude electronic records.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -600,7 +615,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is Partily Correct. JOHN HUGHES: Both the rubric/environment, and the agent’s audit of it, are wrong in this case. The rubric wants agents to supply a definition of “document” in discovery requests that includes electronically stored information (ESI). But many courts, including the Western District of Texas (where this case is purportedly filed), supply a specific definition that appliels to all discovery requests and thus makes it optional for parties to define the term. See Local Rule CV-26, available at https://www.txwd.uscourts.gov/court-information/lcr-civil-rules/ (“The term ‘document’ means any document or electronically stored information as described in Federal Rule of Civil Procedure 34(a). A draft of a nonidentical copy is a separate document within the meaning of this term.”). The definition does include ESI, so it is possible to create rules-compliant work product that passes this rubric. But the rubric fails rules-compliant work product. For example, Luna was failed for not including a definition of the term “Document” but that’s actually what the local rules encourage in this Court. The rubric also could pass noncompliant definitions. So the rubric is simultaneously over and under broad and does not correspond to the governing legal principles in this area.
 
 ## 14. Draft First Set of Interrogatories to Defendant Veridian Health Systems in Trade Secret Misappropriation Case — C-026
 
@@ -611,6 +626,7 @@ Raw files:
 > PASS if at least one interrogatory asks whether Oshiro's USB drive (referencing serial number CX-8827491 or otherwise describing the external storage device) was ever connected to, accessed from, or present on any Veridian system, device, or network, or asks whether any CMT files or materials were ever possessed, accessed, viewed, or copied by Veridian or its employees. FAIL if no interrogatory addresses the USB drive or CMT files on Veridian systems.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -646,7 +662,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Not defective / AI is wrong. JOHN HUGHES: This one does not really belong on the list, as GPT-6-Sol was complaining about a different rubric (C-048) which it argues is inconsistent with this one. It does not identify any issue in this rubric, standing alone, so this counts as an instance where Sol added something to the “flagged” list that does not belong.
 
 ## 15. Draft Discovery Responses and Objections to RFAs and RFPs in Breach of Supply Agreement Litigation — C-028
 
@@ -657,6 +673,7 @@ Raw files:
 > PASS if the plan identifies that RFA No. 20 (asking Prismavale to admit the products were 'not merchantable as defined by the Uniform Commercial Code') calls for a legal conclusion regarding UCC § 2-314 merchantability and recommends objecting on that basis. FAIL if the plan does not identify the legal conclusion problem with RFA No. 20.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both flagged, different strength (one problematic, one arguable). GPT-6 Sol: problematic; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -693,7 +710,10 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric/environment is defective on three levels. Plaintiff served a request for admission on the defendant that says, “Admit that the SB-102 and PS-302 products shipped by Prismavale to Greenleaf were not merchantable as defined by the Uniform Commercial Code.” The prompt asks the agent to “prepare a discovery strategy memo and formal RFA/RFP responses.” The rubric requires “the plan” (i.e., the strategy memo) to recommend objecting to the request on the grounds that it calls for a legal conclusion.
+- First, the proposed objection is not well-supported as a matter of law. The rules make clear that requests for admission can call for application of law to facts, and while it is common practice for lawyers to object that a request calls for a legal conclusion, such objections are also routinely overruled. Here, the request is asking for an admission that specific goods were not “merchantable as defined by the Uniform Commercial Code,” a straightforward request for an application of law to specific facts. (A legal conclusion objection would have more force if the admission asked the responding party to affirm an abstract proposition of law, untethered to the facts of the case, but that is not the situation here.) Additionally, this is the sort of request where there’s no reason you would want to object or avoid providing a sustantive error; the stronger response would be to simply deny the request. It is not necessarily wrong to include language that objects to the extent that the request calls for a “legal conclusion” but then provides a substantive response anyway, but that’s not obviously better that simply providing a substantive response without the objection.
+- Second, the rubric is again testing a question of placement. The task requires both a memo and draft responses, and the rubric specifically wants this point made in the plan. In our tests, Luna included the “legal conclusion” objections in the draft responses (and then proceeded to provide a substantive answer), an acceptable approach. But Luna did not discuss the “legal conclusion” objection in the strategy memo, and the graders judged that a failure under the rubric’s criteria, which specifically requires the issue to be raised in the plan. The ‘’legal conclusion” objection here, if it is to be included at all, is really a minor belt-and-suspenders point and does not need to be addressed in a strategy memo. The rubric is effectively requiring verbosity and duplication that is in many ways undesirable.
+- Third, this environment is defective because several of the docx files are corrupt and do not open in Word. Agents were able to recover the text but there are some QC issues with the files in this task.
 
 ## 16. Draft Motion in Limine to Exclude Expert Testimony and Prejudicial Evidence in Commercial Breach of Contract Case — C-009
 
@@ -704,6 +724,7 @@ Raw files:
 > PASS if the motion identifies that the sum of Marchetti's five itemized damages categories totals $14,211,000, but her report states total damages as $14,200,000, creating an $11,000 discrepancy. FAIL if this arithmetic error is not identified.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -739,7 +760,8 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The damages expert includes a summary table in her report listing various items of damages, which collectively add up to $14,211,000; the Total Damages line lists the total as $14,200,000. Opposing counsel questioned the expert about it at her deposition, and the expert calls it “a rounding discrepancy.” In the fictitious documents, this is presented as a kind of “gotcha” moment in the deposition and the expert seems flustered by the question about rounding. An internal strategy memo highlights the issue as a ground for seeking to exclude the expert’s testimony under *Daubert*.
+- While the evaluation is technically accurate and internally consistent, the hypothetical as proposed is extremely silly, and making this a substantive part of one’s motion to exclude an expert under *Daubert* is more likely to annoy the judge than persuade them. It is indeed somewhat peculiar for an expert to include a table of numbers where the total line is rounded off in this manner. But the most one can do with that in a real lawsuit is drop a footnote clarifying the exact sum of damages. The fact that the expert rounded one figure in a table is obviously irrelevant to the issue of whether the expert’s methodology is sufficiently reliable under *Daubert* to be admissible at trial, and many judges would react negatively to a lawyer raising a trivial complaint over rounding in a motion.
 
 ## 17. Draft Rule 12(b)(6) Motion to Dismiss Brief — Commercial Software Licensing Dispute — C-037
 
@@ -750,6 +772,7 @@ Raw files:
 > PASS if the motion brief cites relevant Delaware authority on the parol evidence rule and integration clauses, such as SIGA Technologies v. PharmAthene or Eagle Industries v. DeVilbiss Health Care. FAIL if no Delaware parol evidence authority is cited.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -784,7 +807,10 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric here involves a legal error, and the task environment contains hallucinations about case law. This one is extremely defective for multiple reasons:
+- First, the rubric is demanding case law on the wrong legal doctrine. The parol evidence rule and the integration clause relate to the question of whether a party can introduce evidence outside the four corners of the contract to establish what the contract between the parties actually was. The issue here is different: the plaintiff claims the defendant’s sales team lied to them before the contract was signed (a fraud in the inducement claim); the contract contains a provision where both sides agree they have not relied upon any representations made by the other side except those contained in the contract; and the issue is whether the plaintiff can reasonably allege that they relied on their counterparty’s pre-signing representations despite their agreement that they did not do so.
+- Second, the cases in the environment appear to contain multiple hallucations. The rubric wants the agent to cite SIGA v. PharmAthene, but Opus noted that case does not address integration or parol evidence. The task environment contains a legal research memo that cites *SIGA Technologies, Inc. v. PharmAthene, Inc.*, 67 A.3d 330 (Del. 2013), and claims that it states (at page 344), "an integration clause is the clearest declaration that the parties intend the writing to be the complete and final expression of their agreement." The quoted language does not appear in the cited case. Page 344 of that case addresses the duty to negotiation in good faith, not integration clauses. Similarly, the memo cites *Eagle Industries, Inc. v. DeVilbiss Health Care, Inc.*, 702 A.2d 1228 (Del. 1997) and says: “The Delaware Supreme Court held that ‘a party to a contract cannot promise, in a clear integration clause of a negotiated agreement, that it is not relying on promises or representations made by the other party outside of the agreement, and then assert a claim for fraud based on those very representations.’ *Id.* at 1232. ” The quoted language does not appear in the cited case.
+- The rubric resulted in models that cited more accurate authority being failed by the grader, so this rubric is actively harmful.
 
 ## 18. Draft Rule 12(b)(6) Motion to Dismiss Brief — Commercial Software Licensing Dispute — C-045
 
@@ -795,6 +821,7 @@ Raw files:
 > PASS if the motion brief identifies Arcadia's own contributing failures, including the 45-day Project Manager gap (Kevin Liu's departure) and/or the 75-day late API specifications, as causes of the Go-Live delay. FAIL if Arcadia's own contributory delays are not mentioned.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: arguable. GPT-6 Sol: arguable; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -831,7 +858,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric makes a rookie mistake, demanding that the agent argue a factual dispute on a motion to dismiss, where the court is required to assume the plaintiff’s allegations are true and cannot consider factual dispute. The 45-day and 75-day delays complained of come from the defendant’s internal report, which the plaintiff’s complaint disputes. Moreover, courts generally cannot resolve messy fact disputes over “causation” on a motion to dismiss.
 
 ## 19. Draft Verified Responses and Objections to Plaintiff's First Set of Interrogatories in Commercial Breach of Contract and Fraud Action — C-028
 
@@ -842,6 +869,7 @@ Raw files:
 > PASS if any purchase history figures cited in the responses are consistent with the canonical data: 2015: $9.2M; 2016: $10.1M; 2017: $10.8M; 2018: $12.4M; 2019: $13.6M; 2020: $9.7M; 2021: $15.3M; 2022: $16.8M; 2023 (Jan–Aug): $11.9M. Minor rounding differences are acceptable. Also PASS if the response invokes Rule 33(d) rather than citing specific figures. FAIL if specific purchase figures are cited but are materially incorrect.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by Claude Opus 5.5 only. GPT-6 Sol: not flagged; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -876,7 +904,9 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is partly correct. JOHN HUGHES: There are two issues:
+- First, the interrogatory asks for contract year dates (the contract year runs from January 15 through January 14 of the following year), but the canonical data referred to in the rubric is calendar year data, so the rubrics numers are not correct. The corect value cannot be discerned from the environment. 
+- Second, the data that is provided has some internal inconsistentcies. For example, an “annual summary” tab lists 2020 purchases at $9.7 million, but. the monthly detail for the same year adds up to $8,549,400. The units sold do not match up between those two sheets for 2021, 2022, 2023, and series 3 of 2020. One of the monthly rows does not add up (gross $1,210,000 + credits −$17,400 = $1,192,600, but the net shown is $1,192,500). The annual summary minimums do not add up. So a response that relied on the line items would get graded as a failure.
 
 ## 20. Extract Key Obligations from Litigation Hold and Document Preservation Notice — Obligation Summary Memorandum — C-002
 
@@ -887,6 +917,7 @@ Raw files:
 > PASS if the memo recommends seeking clarification from the DOJ regarding the conflicting date ranges (Jan 1, 2017 vs. Jan 1, 2019) for financial records. FAIL if no recommendation to seek clarification is made.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: problematic. GPT-6 Sol: problematic; Claude Opus 5.5: problematic (blind pass: problematic).
 
@@ -923,7 +954,8 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The task involves a document presentation notice from federal criminal authorities that defines the relevant period (for which the recipient must preserve documents) as January 1, 2019, through March 3, 2025 “unless otherwise specified herein.” For one specific category of documents, the notice states that, “Notwithstanding the Relevant Period defined in Paragraph 12 of this Notice, Ridgeline shall preserve [certain kinds of] records . . . from January 1, 2017 to the present date. ” The rubric suggests that the agent should seek clarification of the “conflicting” date ranges but there is no conflict. The notice quite clearly imposed a longer period for one specific category of documents, while all the other categories are subject to a shorter period. This is a fairly common request.
+- All the models were failed on this criterion, but the criterion makes no sense.
 
 ## 21. Identify Excessive or Duplicative Research Charges in Litigation Invoice — C-013
 
@@ -934,6 +966,7 @@ Raw files:
 > PASS if the memo identifies that multiple attorneys (Kenji Takahashi and Tyler Wendt) billed for overlapping MTCA liability/contractor liability/summary judgment research during July 2024, citing Section 6.4 (Duplicative Research Prohibition). FAIL if the MTCA duplication across timekeepers is not identified.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: not flagged).
 
@@ -969,7 +1002,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Not defective / AI is partly correct. JOHN HUGHES: While Sol is right that the facts here are insufficient to establish that the client’s billing guidelines were violated, for purposes of the task (a client-side memo identifying changes to dispute). it seems reasonable to flag that multiple attorneys were doing research into closely related issues. The task requested a memo “a memo identifying all non-compliant or excessive charges with recommended adjustments,” so flagging potential violations (even if they were not clearly proven from the face of the time entries) is a standard approach a client would take here.
 
 ## 22. Identify Issues in Litigation Matter Budget Proposal — C-029
 
@@ -980,6 +1013,7 @@ Raw files:
 > PASS if the fee total reconciliation discrepancy ($116,050 difference between phase-based and staffing-model totals) is assigned a severity of Critical or High (or the highest or second-highest tier in whatever severity scale is used). FAIL if it is assigned a lower severity level or no severity level.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both flagged, different strength (one problematic, one arguable). GPT-6 Sol: problematic; Claude Opus 5.5: arguable (blind pass: arguable).
 
@@ -1016,7 +1050,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Arguable / AI is correct. JOHN HUGHES: The prompt requested “a categorized issue memorandum” but didn’t specify what the categories should be. The rubric fails the model if it does not break issues into severity levels or it does not assign a critical or high severity level to a specific issue. While it appears that models often do volunteer this kind of severity assessment, it’s not requested by the prompt and competent work product could decline to include it.
 
 ## 23. Review Counterparty's Proposed Jury Instructions — Issue Memorandum for Trade Secrets Trial — C-020
 
@@ -1027,6 +1061,7 @@ Raw files:
 > PASS if the memo explains that under Georgia law, tortious interference with an existing contract does not require a separately/independently wrongful act — the knowing inducement of the breach is sufficient — and that the 'independently wrongful act' element applies to the distinct tort of tortious interference with business relations. FAIL if this legal distinction is not articulated.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: problematic. GPT-6 Sol: problematic; Claude Opus 5.5: problematic (blind pass: problematic).
 
@@ -1063,7 +1098,9 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: Multiple issues:
+- First, this is a clear legal error. Georgia applies the same elements to interference with contractual and business relations. The rubric says the opposite of what Georgia law is. *Disaster Services, Inc. v. ERC P'ship*, 228 Ga. App. 739, 740–41 (1997) (“Tortious interference claims, whether asserting interference with contractual relations, business relations, or potential business relations, share certain common essential elements: (1) improper action or wrongful conduct by the defendant without privilege; (2) the defendant acted purposely and with malice with the intent to injure; (3) the defendant induced a breach of contractual obligations or caused a party or third parties to discontinue or fail to enter into an anticipated business relationship with the plaintiff; and (4) the defendant's tortious conduct proximately caused damage to the plaintiff.”). 
+- Second, the fictional summary judgment order (from which the rubric’s legal position seems to be taken) appears to contain several hallucations. For example, the order paraphrases the third and fourth element described in *Disaster Services* approximately correctly, but the first two elements are erroneously listed as “(1) the existence of a valid contract between the plaintiff and a third party; (2) the defendant's knowledge of the contract.” The fictional order also cites *Valdosta Livestock, Inc. v. Furst*, 342 Ga. App. 25, 28 (2017), which is not found in any legal databases.
 
 ## 24. Review Litigation Invoice Against Outside Counsel Billing Guidelines — Compliance Deviation Report — C-024
 
@@ -1074,6 +1111,7 @@ Raw files:
 > PASS if the report recommends disallowing the full $387.00 for black car service (or reducing it to a reasonable taxi/ride-share equivalent). FAIL if no disallowance or reduction is recommended.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Flagged by GPT-6 Sol only. GPT-6 Sol: arguable; Claude Opus 5.5: not flagged (blind pass: arguable).
 
@@ -1109,7 +1147,7 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Not defective / AI is wrong. JOHN HUGHES: The billing guidelines state that “Reimbursable ground transportation is limited to ride-share … or taxi” and “Limousine services and black car services are not reimbursable under any circumstances.” Sol’s critique of the rubric is that the policy requires disallowing black car reimbursement, not reducing the reimbursement amount to what a taxi or ride share would have cost. The rubric’s interpretation (that either disallowing the expense entirely or capping reimbursement at the amount a taxi would have cost) seems reasonable and closer to the likely real-world application of a policy like this.
 
 ## 25. Review Litigation Invoice Against Outside Counsel Billing Guidelines — Compliance Deviation Report — C-042
 
@@ -1120,6 +1158,7 @@ Raw files:
 > PASS if the report classifies the business class airfare issue (Messina's $2,847.00 flight) as a borderline or 'requires discussion' issue rather than a clear-cut mandatory reduction, given the 4-hour-20-minute flight duration and the 4-hour threshold. FAIL if it is classified as a clear mandatory reduction without acknowledging the ambiguity, OR if it is entirely dismissed as compliant.
 
 <details><summary>AI findings (open after forming your own view)</summary>
+
 
 Agreement group: Both models: problematic. GPT-6 Sol: problematic; Claude Opus 5.5: problematic (blind pass: problematic).
 
@@ -1156,4 +1195,4 @@ Raw files:
 
 - **Verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Note and source locator:**
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric’s analysis is wrong. The travel policy included in the environment states, “For domestic flights with a scheduled duration of four (4) hours or more, business class may be booked without prior approval.”  Scheduled commercial service between Chicago O’Hare (ORD) and San Francisco (SFO) exceeds 4 hours in both directions on all carriers, so there is no basis for suggesting the use of business class by the lawyer “requires discussion” under the client’s policy.
