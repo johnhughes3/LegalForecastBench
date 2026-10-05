@@ -200,7 +200,7 @@ Raw files:
 - **Verdict:** Defective
 - **AI reasoning:** Correct
 - **Note and source locator:** Defective / AI is correct. JOHN HUGHES: A different rubric on this task concludes that plaintiff has a strong breach of contract claim. (See id: C-006.) The prompt instructs models to review case documents and “prepare a comprehensive case assessment memo,” and models are dinged on this rubric if they do not “recommend[] filing a motion to dismiss” on the unjust enrichment claim, which is expressly pled in the alternative to the (strong) breach of contract claim.
-- The rubric is wrong because a careful litigator could reasonably conclude that a motion to dismiss that claim is not a good idea: The defendants’ exposure for unjust enrichment is no greater than the breach of contract damages exposure, and the factual underpinnings of both claims are the same so a successful motion would not reduce the scope of discovery. Filing a dispositive motion is costly and, on these facts, there seems to be no benefit to doing so. So the required recommendation would fail many thoughtful analyses that could discuss the pros and cons and recommend against filing such a motion.
+- The rubric is wrong because a careful litigator could reasonably conclude that a motion to dismiss that claim is not a good idea: Count IV is pleaded in the alternative (Complaint ¶127) and seeks restitution of “no less than $22,521,312.50” (¶135), which is exactly the Count I contract damages ($17,721,312.50, ¶94) plus the Count III trade-secret damages ($4,800,000, ¶120). Counts I and III would survive the motion and double recovery is barred, so dismissing Count IV would not reduce the defendant’s net exposure; and the factual underpinnings of both claims are the same so a successful motion would not reduce the scope of discovery. Filing a dispositive motion is costly and, on these facts, there seems to be no benefit to doing so. So the required recommendation would fail many thoughtful analyses that could discuss the pros and cons and recommend against filing such a motion.
 - **Category**: low-quality professional judgment, rubric is incorrect.
 
 ## 5. Draft Conflict Check Memorandum for Litigation Engagement Clearance — C-030
@@ -249,8 +249,8 @@ Raw files:
 
 - **Verdict:** Defective
 - **AI reasoning:** Correct
-- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric requires the model to recommend that an associate who shares an apartment with his sister (who works on a case at an opposing firm) be screened from the matter. Screening is generally used in certain specific situations where required by the professional conduct rules, but no rule requires screening in this scenario.
-- I agree that a prudent memo would flag the fact that a junior team member is sharing an apartment with another junior from the opposing side, but that is covered by other rubrics (C-026 through C-029). This rubric specifically fails the work product (and results in a 0 for all work on this task) even if the model recommended, say, obtaining the client’s informed consent, which would be perfectly permissible and appropriate here.
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric requires the model to recommend that an associate who shares an apartment with his sister (an in-house IP paralegal at TriPoint, the adverse party) be screened from the matter. Screening is generally used in certain specific situations where required by the professional conduct rules, but no rule requires screening in this scenario.
+- I agree that a prudent memo would flag the fact that a junior team member is sharing an apartment with an employee of the adverse party, but that is covered by other rubrics (C-026 through C-029). This rubric specifically fails the work product (and results in a 0 for all work on this task) even if the model recommended, say, obtaining the client’s informed consent, which would be perfectly permissible and appropriate here.
 - **Category**: low-quality professional judgment, rubric is incorrect.
 
 ## 6. Draft Conflict Check Memorandum for Litigation Engagement Clearance — C-049
@@ -487,11 +487,12 @@ Raw files:
 </details>
 <!-- runs:end -->
 
-- **Verdict:** Defective
+- **Verdict:** Not defective
 - **AI reasoning:** Correct
-- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: Although the specific rubric being tested does not fail work product incorrectly, the environment is defective in an unintended way. The environment contains an OSHA citation from Ohio’s Division of Safety & Hygiene. But Ohio does not have an OSHA-approved State Plan, so only federal regulators  have jurisdiction to issue OSHA citations against this company. The environment does not test that so it is not being presented as a “mistake” by one’s adversary that the agents should pick up on.
+- **Note and source locator:** Not defective (criterion); defective environment / AI is correct. JOHN HUGHES: Although the specific rubric being tested does not fail work product incorrectly, the environment is defective in an unintended way. The environment contains an OSHA citation from Ohio’s Division of Safety & Hygiene. But Ohio does not have an OSHA-approved State Plan, so only federal regulators  have jurisdiction to issue OSHA citations against this company. The environment does not test that so it is not being presented as a “mistake” by one’s adversary that the agents should pick up on.
 - The rubric itself is not wrong because it simply wants a memo to address the purported citation, so an agent could write the memo while noticing that the task is obviously a fictitious evaluation with an incoherent environment.
 - **Category**: defective environment, but rubric does not fail correct work product.
+- **Environment defect:** Yes (tallied separately). The record is objectively wrong: Ohio's Division of Safety & Hygiene cannot issue OSHA citations to this private employer. The criterion itself does not misgrade work.
 
 ## 11. Draft Discovery Plan Memorandum for Breach of Contract and Fraud Defense — C-036
 
@@ -584,7 +585,7 @@ Raw files:
 
 - **Verdict:** Not defective
 - **AI reasoning:** Wrong
-- **Note and source locator:** Not defective / agent is wrong. JOHN HUGHES: The case strategy memo specifically describes an interest in seeking injunctive relief. While it’s true that the intake memo flags the topic for discussion, the correct approach is to include the proposed prayer for relief in the draft, so the case team can see how it reads and discuss any downsides. As a practical matter, there’s unlikely to be much downside to including this prayer for relief in the complaint. (Whether it’s worth the cost of actually pursuing a preliminary injunction on this is debatable, so the rubric’s approach makes sense.)
+- **Note and source locator:** Not defective / agent is wrong. JOHN HUGHES: The client intake memo specifically describes an interest in seeking injunctive relief (“We may also wish to seek preliminary and permanent injunctive relief to enforce the twelve-month non-solicitation tail”), and the client’s demand letter threatens it. While it’s true that the intake memo flags the topic for discussion, the correct approach is to include the proposed prayer for relief in the draft, so the case team can see how it reads and discuss any downsides. As a practical matter, there’s unlikely to be much downside to including this prayer for relief in the complaint. (Whether it’s worth the cost of actually pursuing a preliminary injunction on this is debatable, so the rubric’s approach makes sense.)
 
 ## 13. Draft First Set of Interrogatories to Defendant Veridian Health Systems in Trade Secret Misappropriation Case — C-008
 
@@ -783,9 +784,10 @@ Raw files:
 - **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The damages expert includes a summary table in her report listing various items of damages, which collectively add up to $14,211,000; the Total Damages line lists the total as $14,200,000. Opposing counsel questioned the expert about it at her deposition, and the expert calls it “a rounding discrepancy.” An internal strategy memo highlights the issue as a ground for seeking to exclude the expert’s testimony under *Daubert*, arguing “the arithmetic error supports a cumulative argument that the report was prepared without the rigor required of expert testimony in federal court.”
 - This task is poorly specified, and the recommended strategy of going to the judge with this reflects sufficiently poor judgment that this task is properly graded defective:
 - First, the task environment repeatedly states that this is an “arithmetic error.” That is false. The expert has rounded the total in the table to the nearest $100,000. While that is somewhat unorthodox in an expert report (particularly since it is written out as $14,200,000 not $14.2 million), numbers often are rounded in court filings so the judge is unlikely to agree that this is an error.
-- Second, even if there were an error (which there is not), that is generally not a basis for excluding the expert’s testimony under *Daubert*. At most one could move to exclude the erroneous version and ask for more accurate testimony, but that does nothing to help the hypothetical client here; it just raises their damages exposure by the $11,200 that the expert was willing to round off.
+- Second, even if there were an error (which there is not), that is generally not a basis for excluding the expert’s testimony under *Daubert*. At most one could move to exclude the erroneous version and ask for more accurate testimony, but that does nothing to help the hypothetical client here; it just raises their damages exposure by the $11,000 that the expert was willing to round off.
 - Third, the proposed framing of the argument comes very close to a breach of decorum and carries a real risk of drawing a rebuke from the judge. The strategy memo wants the motion to argue the expert’s 30 prior engagements were “in state courts and arbitrations that do not impose the same methodological gatekeeping requirements” as federal courts. While some state courts use the *Frye* standard instead of *Daubert*, many federal judges would take offense at the suggestion that state courts do not observe adequate methodological rigor. Many busy judges could be annoyed at spending time on an argument that literally just amounts to a rounding error.
-- **Category**: low-quality professional judgment, rubric is incorrect.
+- **Category**: low-quality professional judgment, rubric is incorrect (a judgment call, not an objective error); also a defective environment.
+- **Environment defect:** Yes (tallied separately). The task directs advocacy outside professional norms (an $11,000 rounding point offered as a *Daubert* ground), so it rewards agents for arguments a careful litigator would not make.
 
 ## 17. Draft Rule 12(b)(6) Motion to Dismiss Brief — Commercial Software Licensing Dispute — C-037
 
@@ -931,8 +933,8 @@ Raw files:
 - **Verdict:** Defective
 - **AI reasoning:** Partly correct
 - **Note and source locator:** Defective / AI is partly correct. JOHN HUGHES: There are two issues:
-- First, the interrogatory asks for contract year dates (the contract year runs from January 15 through January 14 of the following year), but the canonical data referred to in the rubric is calendar year data, so the rubric's numbers are not correct. The correct value cannot be discerned from the environment. 
-- Second, the data that is provided has some internal inconsistencies. For example, an “annual summary” tab lists 2020 purchases at $9.7 million, but the monthly detail for the same year adds up to $8,549,400. The units sold do not match up between those two sheets for 2021, 2022, 2023, and series 3 of 2020. One of the monthly rows does not add up (gross $1,210,000 + credits −$17,400 = $1,192,600, but the net shown is $1,192,500). The annual summary minimums do not add up. In the Product Line Breakdown, line-item net revenue never sums to the subtotal. So a response that relied on the line items would get graded as a failure.
+- First, the interrogatory asks for contract year dates (the contract year runs from January 15 through January 14 of the following year), but the canonical data referred to in the rubric is calendar year data, so the rubric's numbers are not correct. The correct value cannot be discerned from the environment: the monthly data cannot be split at January 15, and nothing in the record supports assuming purchases are spread evenly within January (seasonal variation would make that unlikely). 
+- Second, the data that is provided has some internal inconsistencies. For example, an “annual summary” tab lists 2020 purchases at $9.7 million, but the monthly detail lists 2020 three times, with totals of $8,700,000, $8,549,400 and $9,700,000. The units sold do not match up between those two sheets for 2021, 2022, 2023, and series 3 of 2020. One of the monthly rows does not add up (gross $1,210,000 + credits −$17,400 = $1,192,600, but the net shown is $1,192,500). The annual summary minimums do not add up. In the Product Line Breakdown, line-item net revenue never sums to the subtotal. So a response that relied on the line items would get graded as a failure.
 - **Category**: defective environment, rubric is incorrect.
 
 ## 20. Extract Key Obligations from Litigation Hold and Document Preservation Notice — Obligation Summary Memorandum — C-002

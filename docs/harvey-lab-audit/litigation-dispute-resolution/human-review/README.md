@@ -89,6 +89,15 @@ The tally also reports Defective counts by agreement bucket and the AI-reasoning
 
 After the review began, each worksheet item gained a collapsed block showing how the two published model runs (GPT-6 Luna at xhigh and Claude Opus 5.5 at low) were graded on that criterion by LAB's native judges, with the judges' reasoning and links to the deliverables in [`model-runs/`](../model-runs/README.md). The verdict definitions, sample, and decision rule above are unchanged. The run grades show whether actual responses were passed or failed and why; they are AI judgments that can misapply a criterion, and they do not replace the reviewer's judgment of whether a competent response would be misgraded. A criterion can be defective even if neither run tripped it.
 
+## Note added October 5, 2026: how two situations were decided
+
+During the review the reviewer applied the definitions above in two recurring situations. They are stated here so readers can apply them too.
+
+- **Criteria that require one of several permissible approaches.** A criterion may prefer one approach. It is Defective when its FAIL branch rejects an approach a careful litigator would adopt on this record, for example withholding an entire document that the criterion requires to be partially produced. Requiring one permissible option is not by itself a defect; rejecting a correct one is.
+- **Defects in the environment.** An unplanted error in the supplied record (conflicting figures, arithmetic that does not add up, fabricated or misdescribed authority) makes a criterion Defective when it changes what a competent response can get right, so that the expected answer is contradicted or unsupported by the record. When the record is objectively wrong but the criterion still grades correctly, the verdict is Not defective and the item carries a separate "Environment defect" flag. Environment defects are tallied separately and do not enter the decision rule above.
+
+Verdicts were finalized after an AI stress test and consistency review, which argued both for and against each call. Those reviews did not change the definitions or the decision rule.
+
 ## Files
 
 - [`sample.json`](sample.json): the seed, population size, and the 25 drawn criteria with their AI statuses.
