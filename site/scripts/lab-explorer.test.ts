@@ -116,7 +116,7 @@ test("the LAB explorer works end to end in a browser", async () => {
 		assert.deepEqual(detailRequests, []);
 		await page.goto(`${base}/lab/tasks/${TASK}/#c-049`);
 		const row = page.locator("#c-049");
-		await row.getByText("Reviewer's determination").waitFor();
+		await row.getByText("Reviewer's verdicts and analysis").waitFor();
 		await row.getByText("Rubric criterion").waitFor();
 		await row.getByText("Fail", { exact: false }).first().waitFor();
 		assert.equal(detailRequests.length, 1);
@@ -127,6 +127,15 @@ test("the LAB explorer works end to end in a browser", async () => {
 		// Task-page filters hide rows and a deep link to a hidden row clears them.
 		await page.getByRole("button", { name: /^Hand-audited/ }).click();
 		await page.getByText(/Showing \d+ of \d+ criteria/).waitFor();
+		assert.equal(
+			(await page.locator("[data-crit]:not([hidden])").count()) > 0,
+			true,
+		);
+		// Search matches ids and titles, not the grade labels printed on every row.
+		await page.goto(`${base}/lab/tasks/${TASK}/?q=opus`);
+		await page.getByText(/Showing 0 of \d+ criteria/).waitFor();
+		// A malformed hash must not break the page.
+		await page.goto(`${base}/lab/tasks/${TASK}/#%E0%A4%A`);
 		assert.equal(
 			(await page.locator("[data-crit]:not([hidden])").count()) > 0,
 			true,

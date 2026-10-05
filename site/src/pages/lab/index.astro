@@ -32,7 +32,7 @@ const criterionOf = (task: string, id: string) =>
 		<p class="eyebrow">Harvey LAB explorer</p>
 		<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">A litigator's review of {lab.review.length} Harvey LAB criteria</h1>
 		<p class="mt-5 text-lg text-ink-2">
-			Harvey's Legal Agent Benchmark (LAB) grades AI work product against expert-written rubrics. Two AI models audited all 52 of its litigation tasks and flagged {lab.flaggedTotal} of 2,858 rubric criteria as problematic or arguable. To test those AI flags, {AUTHOR.name}, a litigator, drew a seeded random sample of {lab.review.length} flagged criteria and judged each one himself, forming his own view before he opened the AI findings, as the review protocol required.
+			Harvey's Legal Agent Benchmark (LAB) grades AI work product against expert-written rubrics. Two AI models audited all 52 of its litigation tasks and flagged {lab.flaggedTotal} of 2,858 rubric criteria as problematic or arguable. To test those AI flags, {AUTHOR.name}, a litigator, reviewed a seeded random sample of {lab.review.length} flagged criteria and recorded his own verdict and analysis for each.
 		</p>
 		<div class="mt-6 flex flex-wrap items-center gap-3">
 			<a href={labReviewPath(1)} class="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg hover:opacity-90">Start the walk-through: item 1 of {lab.review.length}</a>
@@ -43,7 +43,7 @@ const criterionOf = (task: string, id: string) =>
 	<section aria-labelledby="results" class="mt-14">
 		<h2 id="results" class="font-serif text-2xl font-semibold tracking-tight">What the reviewer found</h2>
 		<p class="mt-2 max-w-3xl text-sm text-ink-2">
-			These are the reviewer's own verdicts. <strong class="text-ink">Defective</strong> means the criterion, applied as written to the task as given, would grade a competent response wrong. <strong class="text-ink">Arguable</strong> means reasonable litigators could disagree. Only Defective verdicts count toward the protocol's decision rule, which was fixed before the review: see the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>protocol</a> for the table that turns a defective count into a confidence bound. A sample of {summary.total} gives a wide interval.
+			These are the reviewer's verdicts and analysis. <strong class="text-ink">Defective</strong> means the criterion, applied as written to the task as given, would grade a competent response wrong. <strong class="text-ink">Arguable</strong> means reasonable litigators could disagree. Only Defective verdicts count toward the protocol's decision rule: see the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>protocol</a> for the table that turns a defective count into a confidence bound. A sample of {summary.total} gives a wide interval.
 		</p>
 		<dl class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 			{RUBRIC_VERDICTS.filter((verdict) => summary.verdicts[verdict].length > 0).map((verdict) => (
@@ -159,6 +159,6 @@ const criterionOf = (task: string, id: string) =>
 
 	<section aria-labelledby="about" class="mt-14 max-w-3xl text-sm leading-relaxed text-ink-2">
 		<h2 id="about" class="font-serif text-2xl font-semibold tracking-tight text-ink">Where this comes from</h2>
-		<p class="mt-3">The sample was drawn from the {lab.flaggedTotal} criteria that either AI auditor (GPT-6 Sol or Claude Opus 5.5) finally flagged, using a fixed random seed and a protocol committed before the review began. Nothing here is a verified error rate for Harvey LAB as a whole: the AI audits are leads, and the reviewer's {summary.total} verdicts are the only human checks. Harvey LAB, its tasks and its rubrics belong to Harvey AI and are reproduced under its MIT license; Harvey is not affiliated with this project. See the <a class="text-accent" href={AUDIT_README_URL}>audit overview</a> for provenance of every model involved.</p>
+		<p class="mt-3">The sample was drawn from the {lab.flaggedTotal} criteria that either AI auditor (GPT-6 Sol or Claude Opus 5.5) finally flagged, using a fixed random seed (the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>review protocol</a> describes the draw). Nothing here is a verified error rate for Harvey LAB as a whole: the AI audits are leads, and the reviewer's {summary.total} verdicts are the only human checks. Harvey LAB, its tasks and its rubrics belong to Harvey AI and are reproduced under its MIT license; Harvey is not affiliated with this project. See the <a class="text-accent" href={AUDIT_README_URL}>audit overview</a> for provenance of every model involved.</p>
 	</section>
 </LabShell>

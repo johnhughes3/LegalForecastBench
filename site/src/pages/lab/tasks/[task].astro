@@ -131,7 +131,7 @@ const reviewedCount = task.criteria.filter((c) => c.review !== null).length;
 							<div class="lab-body">
 								{review && (
 									<div class="rounded-xl border-2 border-accent p-4">
-										<p class="text-sm font-semibold text-ink">Reviewer's determination <span class="font-normal text-ink-3">(human, not AI)</span></p>
+										<p class="text-sm font-semibold text-ink">Reviewer's verdicts and analysis <span class="font-normal text-ink-3">(John Hughes)</span></p>
 										<p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-2">
 											<ReviewBadge verdict={review.verdict} />
 											<span>Environment: <strong class="text-ink">{review.environment}</strong></span>
@@ -142,7 +142,7 @@ const reviewedCount = task.criteria.filter((c) => c.review !== null).length;
 										<p class="mt-2 text-sm"><a class="text-accent" href={labReviewPath(review.number)}>Read the full note in the walk-through (item {review.number} of {lab.review.length}) →</a></p>
 									</div>
 								)}
-								<div data-body><p class="text-ink-3">Loading…</p></div>
+								<div data-body></div>
 							</div>
 						</details>
 					</li>

@@ -60,7 +60,7 @@ function rowHtml(index: LabIndex, row: IndexRow): string {
 	const verdict = (bit: number): Verdict =>
 		(fails >> bit) & 1 ? "fail" : "pass";
 	const reviewed = reviewVerdictOf(row);
-	return `<li class="flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-lg border border-rule bg-surface px-3 py-2.5"><span class="w-14 shrink-0 pt-0.5 font-mono text-xs text-ink-3">${id}</span><span class="min-w-[14rem] flex-1"><a class="text-sm font-medium leading-snug text-ink hover:text-accent" href="${labCriterionPath(task.slug, id)}">${escapeHtml(title)}</a><span class="block text-xs text-ink-3">${escapeHtml(task.title)}</span><span class="mt-1 flex flex-wrap items-center gap-1.5">${reviewed ? `<a href="${labReviewPath(review)}" aria-label="Open hand-audited item ${review}">${reviewBadgeHtml(reviewed, review)}</a>` : ""}${aiStatusHtml("Sol", STATUS[sol] ?? null)}${aiStatusHtml("Opus", STATUS[opus] ?? null)}</span></span><span class="flex shrink-0 flex-col gap-1">${gradePairHtml("luna", verdict(0), verdict(1))}${gradePairHtml("opus", verdict(2), verdict(3))}</span></li>`;
+	return `<li class="flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-lg border border-rule bg-surface px-3 py-2.5"><span class="w-14 shrink-0 pt-0.5 font-mono text-xs text-ink-3">${id}</span><span class="min-w-[14rem] flex-1"><a class="text-sm font-medium leading-snug text-ink hover:text-accent" href="${labCriterionPath(task.slug, id)}">${escapeHtml(title)}</a><span class="block text-xs text-ink-3">${escapeHtml(task.title)}</span><span class="mt-1 flex flex-wrap items-center gap-1.5">${reviewed ? `<a href="${labReviewPath(review)}" aria-label="Hand-audited item ${review}: reviewer verdict ${reviewed}">${reviewBadgeHtml(reviewed, review)}</a>` : ""}${aiStatusHtml("Sol", STATUS[sol] ?? null)}${aiStatusHtml("Opus", STATUS[opus] ?? null)}</span></span><span class="flex shrink-0 flex-col gap-1">${gradePairHtml("luna", verdict(0), verdict(1))}${gradePairHtml("opus", verdict(2), verdict(3))}</span></li>`;
 }
 
 if (section && form && results && more && url) {
@@ -78,8 +78,9 @@ if (section && form && results && more && url) {
 	let data: LabIndex | undefined;
 
 	const status = (text: string) => controls.setCount(text);
-	const draw = (): void => {
+	const draw = (focusFirst = false): void => {
 		if (!data) return;
+		const firstNew = results.children.length;
 		const next = matches.slice(drawn, drawn + BATCH);
 		results.insertAdjacentHTML(
 			"beforeend",
@@ -87,6 +88,8 @@ if (section && form && results && more && url) {
 		);
 		drawn += next.length;
 		more.hidden = drawn >= matches.length;
+		// Keep keyboard focus in the list: the button may hide when the list ends.
+		if (focusFirst) results.children[firstNew]?.querySelector("a")?.focus();
 		more.textContent = `Show ${Math.min(BATCH, matches.length - drawn)} more (${drawn} of ${matches.length} shown)`;
 	};
 
@@ -125,7 +128,7 @@ if (section && form && results && more && url) {
 	const controls = bindFilterBar(form, () => {
 		void apply();
 	});
-	more.addEventListener("click", draw);
+	more.addEventListener("click", () => draw(true));
 
 	// Fetch the index when the section approaches the viewport, or at once when
 	// the URL already carries a filter.

@@ -23,27 +23,27 @@ const tabs = [
 ] as const;
 ---
 
-<nav aria-label="LAB explorer views" class="grid gap-2 sm:grid-cols-2">
+<nav aria-label="LAB explorer views" class="grid grid-cols-2 gap-2">
 	{tabs.map((tab) => (
 		<a
 			href={tab.href}
 			aria-current={tab.key === active ? "page" : undefined}
 			class:list={[
-				"block rounded-xl border px-4 py-3 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+				"block rounded-xl border px-3 py-2 transition sm:px-4 sm:py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
 				tab.key === active
 					? "border-ink bg-surface-2"
 					: "border-rule bg-surface hover:border-rule-strong",
 			]}
 		>
 			<span class="flex items-center justify-between gap-2">
-				<span class="font-serif text-lg font-semibold tracking-tight text-ink">{tab.label}</span>
+				<span class="font-serif text-base font-semibold tracking-tight text-ink sm:text-lg">{tab.label}</span>
 				{tab.key === active ? (
 					<span class="rounded-full bg-ink px-2 py-0.5 text-[11px] font-medium text-bg">Viewing</span>
 				) : (
-					<span class="text-xs text-accent">Switch view →</span>
+					<span class="hidden text-xs text-accent sm:inline">Switch view →</span>
 				)}
 			</span>
-			<span class="mt-0.5 block text-sm text-ink-2">{tab.detail}</span>
+			<span class="mt-0.5 hidden text-sm text-ink-2 sm:block">{tab.detail}</span>
 		</a>
 	))}
 </nav>

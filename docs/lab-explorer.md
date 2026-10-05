@@ -15,7 +15,7 @@ Other pages: `/lab/review/<1..25>/` (one hand-audited criterion each, with previ
 
 ## What is human and what is AI
 
-Only the reviewer's verdicts are human judgments. Every page carries an AI notice, every chip for an audit status reads "AI Sol" or "AI Opus", every judge grade is labeled "AI judge", and the reviewer's determination is shown in a bordered block labeled "human, not AI" using the "Reviewer:" badge. Nothing from the AI audits is labeled "verified" or "confirmed" except where an audit's own text says so. Task instructions and rubric text are Harvey's (MIT licensed); the license is vendored with them.
+Only the reviewer's verdicts are human judgments. Every page carries an AI notice, every chip for an audit status reads "AI Sol" or "AI Opus", every judge grade is labeled "AI judge", and the reviewer's determination is shown in a bordered block titled "Reviewer's verdicts and analysis (John Hughes)" using the "Reviewer:" badge. Nothing from the AI audits is labeled "verified" or "confirmed" except where an audit's own text says so. Task instructions and rubric text are Harvey's (MIT licensed); the license is vendored with them.
 
 ## Data model and build-time pipeline
 

@@ -145,6 +145,32 @@ function buildTask(
 		},
 	} satisfies Record<RunKey, Record<JudgeKey, ScoreFile>>;
 
+	// Verify each score file against the rubric and against its own summary, so
+	// a refreshed or truncated file fails the build rather than shipping grades
+	// that do not belong to this rubric.
+	for (const run of RUNS) {
+		for (const judge of JUDGES) {
+			const file = scores[run][judge];
+			const where = `${slug} ${run}/${judge}`;
+			const counted = file.criteria_results.filter(
+				(result) => result.verdict === "pass",
+			).length;
+			if (
+				file.criteria_results.length !== upstream.criteria.length ||
+				file.n_criteria !== upstream.criteria.length
+			)
+				throw new Error(
+					`${where}: ${file.criteria_results.length} results, n_criteria ${file.n_criteria}, rubric ${upstream.criteria.length}.`,
+				);
+			if (file.n_passed !== counted)
+				throw new Error(
+					`${where}: n_passed ${file.n_passed}, counted ${counted}.`,
+				);
+			if (file.all_pass !== (counted === file.criteria_results.length))
+				throw new Error(`${where}: all_pass disagrees with the verdicts.`);
+		}
+	}
+
 	const criteria = upstream.criteria.map((source, index): Criterion => {
 		const grades = {} as Grades;
 		for (const run of RUNS) {

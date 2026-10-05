@@ -18,10 +18,11 @@ if (list && form) {
 		.map((row) => row.querySelector<HTMLDetailsElement>("details"))
 		.filter((element): element is HTMLDetailsElement => element !== null);
 	const texts = new WeakMap<HTMLElement, string>();
+	// Search matches the id and title only, so "opus" does not match every row.
 	const textOf = (row: HTMLElement): string => {
 		let text = texts.get(row);
 		if (text === undefined) {
-			text = row.textContent ?? "";
+			text = `${row.querySelector(".lab-id")?.textContent ?? ""} ${row.querySelector(".lab-title")?.textContent ?? ""}`;
 			texts.set(row, text);
 		}
 		return text;
@@ -65,16 +66,23 @@ if (list && form) {
 	const loadDetail = (): Promise<TaskDetail> => {
 		const url = list.dataset.detailUrl;
 		if (!url) return Promise.reject(new Error("No detail URL"));
-		detail ??= fetch(url).then((response) => {
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
-			return response.json() as Promise<TaskDetail>;
-		});
+		detail ??= fetch(url)
+			.then((response) => {
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				return response.json() as Promise<TaskDetail>;
+			})
+			.catch((error: unknown) => {
+				// Do not cache a failure: the next open retries.
+				detail = undefined;
+				throw error;
+			});
 		return detail;
 	};
 	const fill = async (element: HTMLDetailsElement): Promise<void> => {
 		const body = element.querySelector<HTMLElement>("[data-body]");
 		if (!body || element.dataset.filled) return;
 		element.dataset.filled = "1";
+		body.textContent = "Loading the rubric text and grades…";
 		try {
 			const payload = await loadDetail();
 			const own = payload.criteria[Number(element.dataset.index)];
@@ -82,7 +90,6 @@ if (list && form) {
 			body.innerHTML = criterionBodyHtml(payload.task, own);
 		} catch {
 			element.dataset.filled = "";
-			detail = undefined;
 			body.textContent =
 				"The rubric text and grades could not be loaded. Close and reopen this row to retry.";
 		}
@@ -105,7 +112,12 @@ if (list && form) {
 
 	// A link to #c-012 opens that row, clearing any filter that hides it.
 	const openHash = (): void => {
-		const id = decodeURIComponent(location.hash.slice(1));
+		let id = "";
+		try {
+			id = decodeURIComponent(location.hash.slice(1));
+		} catch {
+			return; // a malformed escape in the hash is simply not a row id
+		}
 		const row = id ? rows.find((candidate) => candidate.id === id) : undefined;
 		if (!row) return;
 		if (row.hidden) controls.set({ filters: [], query: "", task: "" });

@@ -51,7 +51,7 @@ export type RubricVerdict =
 export type EnvironmentVerdict = "Defective" | "Arguable" | "Correct";
 export type AiReasoning = "Correct" | "Partly correct" | "Wrong";
 
-/** One of the 25 criteria the reviewer judged himself. These are the reviewer's own words. */
+/** One of the 25 criteria the reviewer judged. The fields are the reviewer's. */
 export type ReviewItem = {
 	/** 1-based position in the worksheet, which is also the walk-through order. */
 	number: number;
