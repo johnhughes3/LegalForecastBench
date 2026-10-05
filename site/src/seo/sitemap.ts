@@ -7,6 +7,8 @@ export function includeInSitemap(pageUrl: string): boolean {
 	const path = new URL(pageUrl).pathname;
 	if (path.startsWith("/agent")) return false;
 	if (path.startsWith("/og/")) return false;
+	// Rendered model deliverables are reading copies, not pages to index.
+	if (path.startsWith("/lab/deliverables/")) return false;
 	if (path.includes("404")) return false;
 	if (/\.[a-z0-9]+$/i.test(path)) return false;
 	return true;

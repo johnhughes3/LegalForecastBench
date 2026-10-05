@@ -1,0 +1,164 @@
+---
+import LabShell from "../../components/lab/LabShell.astro";
+import ReviewBadge from "../../components/lab/ReviewBadge.astro";
+import { AUTHOR } from "../../data/author";
+import { loadLab } from "../../lab/load";
+import { gradePairHtml } from "../../lab/markup";
+import {
+	AUDIT_README_URL,
+	labReviewPath,
+	labTaskPath,
+	REVIEW_PROTOCOL_URL,
+	REVIEW_WORKSHEET_URL,
+} from "../../lab/paths";
+import { summarizeReview } from "../../lab/summary";
+import {
+	AI_REASONING,
+	ENVIRONMENT_VERDICTS,
+	RUBRIC_VERDICTS,
+} from "../../lab/worksheet";
+import { COPY } from "../../seo/copy";
+
+const lab = loadLab();
+const summary = summarizeReview(lab.review);
+const taskTitle = (slug: string) =>
+	lab.tasks.find((task) => task.slug === slug)?.title ?? slug;
+const criterionOf = (task: string, id: string) =>
+	lab.tasks.find((t) => t.slug === task)?.criteria.find((c) => c.id === id);
+---
+
+<LabShell title={COPY.lab.title} description={COPY.lab.description} active="audited">
+	<header class="mt-8 max-w-3xl">
+		<p class="eyebrow">Harvey LAB explorer</p>
+		<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">A litigator's review of {lab.review.length} Harvey LAB criteria</h1>
+		<p class="mt-5 text-lg text-ink-2">
+			Harvey's Legal Agent Benchmark (LAB) grades AI work product against expert-written rubrics. Two AI models audited all 52 of its litigation tasks and flagged {lab.flaggedTotal} of 2,858 rubric criteria as problematic or arguable. To test those AI flags, {AUTHOR.name}, a litigator, drew a seeded random sample of {lab.review.length} flagged criteria and judged each one himself, forming his own view before he opened the AI findings, as the review protocol required.
+		</p>
+		<div class="mt-6 flex flex-wrap items-center gap-3">
+			<a href={labReviewPath(1)} class="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg hover:opacity-90">Start the walk-through: item 1 of {lab.review.length}</a>
+			<a href="/lab/runs/" class="rounded-full border border-rule-strong px-5 py-2.5 text-sm font-medium text-ink hover:border-ink">Browse the full runs</a>
+		</div>
+	</header>
+
+	<section aria-labelledby="results" class="mt-14">
+		<h2 id="results" class="font-serif text-2xl font-semibold tracking-tight">What the reviewer found</h2>
+		<p class="mt-2 max-w-3xl text-sm text-ink-2">
+			These are the reviewer's own verdicts. <strong class="text-ink">Defective</strong> means the criterion, applied as written to the task as given, would grade a competent response wrong. <strong class="text-ink">Arguable</strong> means reasonable litigators could disagree. Only Defective verdicts count toward the protocol's decision rule, which was fixed before the review: see the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>protocol</a> for the table that turns a defective count into a confidence bound. A sample of {summary.total} gives a wide interval.
+		</p>
+		<dl class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+			{RUBRIC_VERDICTS.filter((verdict) => summary.verdicts[verdict].length > 0).map((verdict) => (
+				<div class="border-l border-rule pl-4">
+					<dt class="text-sm font-medium text-ink-2">Rubric criterion {verdict.toLowerCase()}</dt>
+					<dd class="font-serif text-3xl font-medium tracking-tight text-ink tabular">{summary.verdicts[verdict].length}<span class="text-lg text-ink-3"> of {summary.total}</span></dd>
+				</div>
+			))}
+			<div class="border-l border-rule pl-4">
+				<dt class="text-sm font-medium text-ink-2">Task environment defective</dt>
+				<dd class="font-serif text-3xl font-medium tracking-tight text-ink tabular">{summary.environment.Defective.length}<span class="text-lg text-ink-3"> of {summary.total}</span></dd>
+				<dd class="text-xs text-ink-3">in {summary.tasksWithDefectiveEnvironment} of {summary.tasks} sampled tasks</dd>
+			</div>
+			<div class="border-l border-rule pl-4">
+				<dt class="text-sm font-medium text-ink-2">Unambiguous objective errors</dt>
+				<dd class="font-serif text-3xl font-medium tracking-tight text-ink tabular">{summary.objectiveErrors.length}<span class="text-lg text-ink-3"> of {summary.total}</span></dd>
+			</div>
+			{AI_REASONING.map((value) => (
+				<div class="border-l border-rule pl-4">
+					<dt class="text-sm font-medium text-ink-2">AI audit reasoning {value.toLowerCase()}</dt>
+					<dd class="font-serif text-3xl font-medium tracking-tight text-ink tabular">{summary.aiReasoning[value].length}<span class="text-lg text-ink-3"> of {summary.total}</span></dd>
+				</div>
+			))}
+		</dl>
+	</section>
+
+	<section aria-labelledby="crosstab" class="mt-14">
+		<h2 id="crosstab" class="font-serif text-2xl font-semibold tracking-tight">Rubric verdict by task-environment verdict</h2>
+		<p class="mt-2 max-w-3xl text-sm text-ink-2">The reviewer judged two things separately: whether the rubric criterion is defective, and whether the task's supplied documents (the environment) are. Each number links to its items.</p>
+		<div class="mt-4 overflow-x-auto">
+			<table class="w-full min-w-[32rem] border-collapse text-sm">
+				<caption class="sr-only">Count of hand-audited criteria by the reviewer's rubric verdict (rows) and task-environment verdict (columns)</caption>
+				<thead>
+					<tr class="border-b border-rule-strong text-left text-xs uppercase tracking-wide text-ink-3">
+						<th scope="col" class="py-2 pr-4 font-medium">Rubric verdict ↓ / Environment →</th>
+						{ENVIRONMENT_VERDICTS.map((environment) => <th scope="col" class="px-3 py-2 font-medium">{environment}</th>)}
+						<th scope="col" class="px-3 py-2 font-medium">Total</th>
+					</tr>
+				</thead>
+				<tbody>
+					{RUBRIC_VERDICTS.map((verdict) => (
+						<tr class="border-b border-rule align-top">
+							<th scope="row" class="py-3 pr-4 text-left font-medium text-ink">{verdict}</th>
+							{ENVIRONMENT_VERDICTS.map((environment) => {
+								const numbers = summary.crossTab[verdict][environment];
+								return (
+									<td class="px-3 py-3">
+										<span class="font-serif text-xl tabular text-ink">{numbers.length}</span>
+										{numbers.length > 0 && (
+											<span class="mt-1 flex flex-wrap gap-x-1.5 text-xs">
+												{numbers.map((number) => <a class="text-accent" href={labReviewPath(number)} aria-label={`Item ${number}`}>#{number}</a>)}
+											</span>
+										)}
+									</td>
+								);
+							})}
+							<td class="px-3 py-3 font-serif text-xl tabular text-ink-2">{summary.verdicts[verdict].length}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<section aria-labelledby="items" class="mt-14">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<h2 id="items" class="font-serif text-2xl font-semibold tracking-tight">All {summary.total} hand-audited criteria</h2>
+			<a class="text-sm text-accent" href={REVIEW_WORKSHEET_URL}>Reviewer's raw worksheet</a>
+		</div>
+		<div class="mt-4 overflow-x-auto">
+			<table class="w-full min-w-[56rem] border-collapse text-sm">
+				<caption class="sr-only">The hand-audited criteria, with the reviewer's verdicts and the two runs' native grades</caption>
+				<thead>
+					<tr class="border-b border-rule-strong text-left text-xs uppercase tracking-wide text-ink-3">
+						<th scope="col" class="py-2 pr-3 font-medium">#</th>
+						<th scope="col" class="px-3 py-2 font-medium">Criterion</th>
+						<th scope="col" class="px-3 py-2 font-medium">Reviewer verdict</th>
+						<th scope="col" class="px-3 py-2 font-medium">Environment</th>
+						<th scope="col" class="px-3 py-2 font-medium">AI audit was</th>
+						<th scope="col" class="px-3 py-2 font-medium">Native AI grades</th>
+					</tr>
+				</thead>
+				<tbody>
+					{lab.review.map((item) => {
+						const criterion = criterionOf(item.task, item.criterion);
+						return (
+							<tr class="border-b border-rule align-top">
+								<th scope="row" class="py-3 pr-3 text-left font-serif text-lg tabular"><a class="text-accent" href={labReviewPath(item.number)}>{item.number}</a></th>
+								<td class="px-3 py-3">
+									<a class="font-medium text-ink hover:text-accent" href={labReviewPath(item.number)}>{item.criterion}: {criterion?.title}</a>
+									<p class="mt-0.5 text-xs text-ink-3">{taskTitle(item.task)} · <a class="text-accent" href={labTaskPath(item.task)}>all criteria</a></p>
+								</td>
+								<td class="px-3 py-3"><ReviewBadge verdict={item.verdict} /></td>
+								<td class="px-3 py-3 text-ink-2">{item.environment}</td>
+								<td class="px-3 py-3 text-ink-2">{item.aiReasoning}</td>
+								<td class="px-3 py-3">
+									{criterion && (
+										<div class="space-y-1">
+											<Fragment set:html={gradePairHtml("luna", criterion.grades.luna.sonnet.verdict, criterion.grades.luna.gpt.verdict)} />
+											<br />
+											<Fragment set:html={gradePairHtml("opus", criterion.grades.opus.sonnet.verdict, criterion.grades.opus.gpt.verdict)} />
+										</div>
+									)}
+								</td>
+							</tr>
+						);
+					})}
+				</tbody>
+			</table>
+		</div>
+		<p class="mt-3 text-xs text-ink-3">S = Sonnet 4.6 and G = GPT-5.5, the two native LAB judges (AI). ✓ = pass, ✗ = fail. Luna = GPT-6 Luna (xhigh) and Opus = Claude Opus 5.5 (low), the two runs that were graded.</p>
+	</section>
+
+	<section aria-labelledby="about" class="mt-14 max-w-3xl text-sm leading-relaxed text-ink-2">
+		<h2 id="about" class="font-serif text-2xl font-semibold tracking-tight text-ink">Where this comes from</h2>
+		<p class="mt-3">The sample was drawn from the {lab.flaggedTotal} criteria that either AI auditor (GPT-6 Sol or Claude Opus 5.5) finally flagged, using a fixed random seed and a protocol committed before the review began. Nothing here is a verified error rate for Harvey LAB as a whole: the AI audits are leads, and the reviewer's {summary.total} verdicts are the only human checks. Harvey LAB, its tasks and its rubrics belong to Harvey AI and are reproduced under its MIT license; Harvey is not affiliated with this project. See the <a class="text-accent" href={AUDIT_README_URL}>audit overview</a> for provenance of every model involved.</p>
+	</section>
+</LabShell>

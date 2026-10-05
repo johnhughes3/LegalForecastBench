@@ -19,6 +19,9 @@ export function crumbsFor(pathname: string, leaf: string): Crumb[] {
 		first === "approach"
 	) {
 		items.push({ name: "Analysis", path: "/analysis/" });
+	} else if (first === "lab") {
+		items.push({ name: "Analysis", path: "/analysis/" });
+		if (parts.length > 1) items.push({ name: "LAB explorer", path: "/lab/" });
 	} else if (first === "data" && parts.length > 1) {
 		items.push({ name: "Data and code", path: "/data/" });
 	}

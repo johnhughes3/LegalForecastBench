@@ -1,0 +1,162 @@
+@reference "./global.css";
+
+/*
+ * LAB explorer components. They are classes rather than inline utilities
+ * because the same chips are drawn thousands of times, on the server and in
+ * the browser, and repeated utility strings dominated the page weight.
+ * Status is always a glyph plus a word, never color alone.
+ */
+
+/* One judge's grade: "S ✓" or "G ✗". */
+.lab-g {
+	@apply inline-flex items-center gap-0.5 rounded border px-1 text-[11px] leading-5;
+}
+.lab-g-pass {
+	@apply border-good/40 text-good;
+}
+.lab-g-fail {
+	@apply border-critical/50 bg-critical/10 font-semibold text-critical;
+}
+.lab-g i {
+	@apply text-ink-3 not-italic;
+}
+/* A run's two grades side by side, led by the run's short name. */
+.lab-pair {
+	@apply inline-flex items-center gap-1;
+}
+.lab-pair b {
+	@apply w-9 text-[11px] font-normal text-ink-3;
+}
+
+/* An AI auditor's status. */
+.lab-chip {
+	@apply inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px];
+}
+.lab-chip i {
+	@apply text-ink-3 not-italic;
+}
+.lab-chip-problematic {
+	@apply border-critical/50 text-critical;
+}
+.lab-chip-arguable {
+	@apply border-rule-strong text-ink-2;
+}
+.lab-chip-unverified {
+	@apply border-rule text-ink-3;
+}
+
+/* The reviewer's verdict. */
+.lab-rev {
+	@apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold;
+}
+.lab-rev b {
+	@apply font-medium opacity-90;
+}
+.lab-rev-defective {
+	@apply border-accent bg-accent text-bg;
+}
+.lab-rev-arguable {
+	@apply border-ink-2 bg-surface-2 text-ink;
+}
+.lab-rev-not-defective {
+	@apply border-good text-good;
+}
+.lab-rev-unresolved {
+	@apply border-rule-strong text-ink-2;
+}
+
+/* A criterion row in a list (task page and scanner). */
+.lab-row {
+	@apply scroll-mt-28 rounded-xl border border-rule bg-surface;
+}
+.lab-row:target {
+	@apply border-accent ring-1 ring-accent;
+}
+.lab-row[data-reviewed] {
+	@apply border-accent/60;
+}
+.lab-line {
+	@apply flex flex-wrap items-start gap-x-3 gap-y-1.5 px-4 py-3;
+}
+.lab-id {
+	@apply w-14 shrink-0 pt-0.5 font-mono text-xs text-ink-3;
+}
+.lab-main {
+	@apply min-w-[14rem] flex-1;
+}
+.lab-title {
+	@apply block text-sm font-medium leading-snug text-ink;
+}
+.lab-tags {
+	@apply mt-1.5 flex flex-wrap items-center gap-1.5;
+}
+.lab-grades {
+	@apply flex shrink-0 flex-col gap-1;
+}
+
+/* An opened criterion on a task page. */
+.lab-sum {
+	@apply cursor-pointer list-none marker:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+}
+.lab-sum::-webkit-details-marker {
+	display: none;
+}
+.lab-caret {
+	@apply mt-1 text-ink-3 transition;
+}
+details[open] > .lab-sum .lab-caret {
+	@apply rotate-90;
+}
+.lab-body {
+	@apply border-t border-rule px-4 py-4;
+}
+.lab-body,
+.lab-prose {
+	@apply space-y-5 text-sm leading-relaxed text-ink-2;
+}
+.lab-h,
+.lab-prose h3,
+.lab-body h3 {
+	@apply text-sm font-semibold text-ink;
+}
+.lab-h small,
+.lab-prose h3 small,
+.lab-body h3 small {
+	@apply font-normal text-ink-3;
+}
+.lab-prose ul,
+.lab-body ul {
+	@apply mt-1 list-disc space-y-1 pl-5;
+}
+.lab-rubric {
+	@apply mt-1 text-[0.95rem] leading-relaxed;
+}
+.lab-findings {
+	@apply space-y-3 rounded-xl bg-surface-2 p-4;
+}
+.lab-findings p.who {
+	@apply font-medium text-ink;
+}
+.lab-grade-grid {
+	@apply mt-2 grid gap-3 md:grid-cols-2;
+}
+.lab-grade-card {
+	@apply rounded-lg border border-rule p-3;
+}
+.lab-grade-card header {
+	@apply flex flex-wrap items-center gap-2;
+}
+.lab-grade-card header strong {
+	@apply font-medium text-ink;
+}
+.lab-grade-card p {
+	@apply mt-1.5 leading-relaxed;
+}
+.lab-links {
+	@apply text-xs text-ink-3;
+}
+.lab-links a,
+.lab-prose a,
+.lab-body a {
+	@apply text-accent underline underline-offset-2;
+}

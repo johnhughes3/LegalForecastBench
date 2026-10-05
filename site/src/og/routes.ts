@@ -37,6 +37,10 @@ export const SECTION_CARDS = {
 		eyebrow: "Findings",
 		title: "Reports and notes on AI models and legal forecasting",
 	},
+	lab: {
+		eyebrow: "LAB explorer",
+		title: "Harvey LAB litigation tasks, AI audits, and a litigator's review",
+	},
 	methods: {
 		eyebrow: "Methods",
 		title: "How the benchmark builds cases, runs models, and scores forecasts",

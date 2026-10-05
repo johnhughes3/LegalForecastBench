@@ -1,0 +1,16 @@
+---
+interface Props {
+	/** Mention the reviewer's verdicts as the one human-judged element. */
+	humanContent?: boolean;
+}
+const { humanContent = true } = Astro.props;
+---
+
+<aside role="note" class="rounded-xl border border-rule-strong bg-accent-soft px-4 py-3 text-sm leading-relaxed text-ink-2">
+	<p>
+		<strong class="text-ink">AI-generated and unverified.</strong>{" "}
+		The audit findings and the pass/fail grades here come from AI models: the findings are two AI auditors' judgments and the grades are the benchmark's native AI judges, so any of them can be wrong.
+		{humanContent && <>{" "}The only human judgments are <strong class="text-ink">the reviewer's own verdicts</strong> on the 25 hand-audited criteria, labeled as such.{" "}</>}
+		Task instructions and rubric text are Harvey's, reproduced under its MIT license.
+	</p>
+</aside>

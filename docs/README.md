@@ -31,6 +31,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 - [Paper clustering analysis](paper/analysis/README.md) — Reproduce within-case dependence estimates and refresh the manuscript statistics.
 - [Rationale review export](rationale-audit.md): prepare private, model-blinded case assessments and unit rationales from saved forecasts for qualitative review.
 - [AI-generated Harvey LAB litigation audits](harvey-lab-audit/litigation-dispute-resolution/README.md): unverified, human-steered reference analysis of rubric and grading drift by GPT-6 Sol and Claude Opus 5.5, with model provenance, per-task reports for 52 tasks, and a [comparison of where the two audits agree and differ](harvey-lab-audit/litigation-dispute-resolution/comparison.md). Inclusion is not verification; findings verified for public discussion will be described separately on the public-facing site.
+- [Harvey LAB explorer design](lab-explorer.md): the public `/lab/` explorer over the audit: data model, build pipeline, lazy loading, size budget, accessibility, and where it is linked.
 
 <details>
 <summary>Audit report file index (AI-generated and unverified)</summary>

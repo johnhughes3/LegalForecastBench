@@ -1,0 +1,157 @@
+---
+import type { GetStaticPaths } from "astro";
+import FilterBar from "../../../components/lab/FilterBar.astro";
+import LabShell from "../../../components/lab/LabShell.astro";
+import ReviewBadge from "../../../components/lab/ReviewBadge.astro";
+import { flagsFor, JUDGES, RUNS } from "../../../lab/flags";
+import { JUDGE_LABEL, RUN_LABEL } from "../../../lab/labels";
+import { loadLab } from "../../../lab/load";
+import { aiStatusHtml, gradePairHtml } from "../../../lab/markup";
+import {
+	labDeliverablePath,
+	labReviewPath,
+	originalDeliverableUrl,
+	taskAuditReportUrl,
+} from "../../../lab/paths";
+import { upstreamDocumentsUrl, upstreamTaskUrl } from "../../../lab/upstream";
+
+export const getStaticPaths = (() =>
+	loadLab().tasks.map((task) => ({
+		params: { task: task.slug },
+		props: { slug: task.slug },
+	}))) satisfies GetStaticPaths;
+
+const { slug } = Astro.props;
+const lab = loadLab();
+const task = lab.tasks.find((candidate) => candidate.slug === slug);
+if (!task) throw new Error(`Unknown task ${slug}`);
+const reviewByNumber = new Map(lab.review.map((item) => [item.number, item]));
+const flaggedCount = task.criteria.filter((c) => c.ai.bucket !== null).length;
+const reviewedCount = task.criteria.filter((c) => c.review !== null).length;
+---
+
+<LabShell
+	active="runs"
+	title={task.title}
+	description={`${task.title}: ${task.criteria.length} Harvey LAB rubric criteria with AI audit findings and how two model runs were graded on each.`}
+>
+	<header class="mt-8 max-w-4xl">
+		<p class="eyebrow">Harvey LAB task · {task.workType}</p>
+		<h1 class="mt-3 font-serif text-3xl font-medium leading-tight tracking-tight sm:text-4xl">{task.title}</h1>
+		<ul class="mt-3 flex flex-wrap gap-1.5" aria-label="Task tags">
+			{task.tags.map((tag) => <li class="rounded-full border border-rule px-2 py-0.5 text-xs text-ink-3">{tag}</li>)}
+		</ul>
+		<dl class="mt-6 grid grid-cols-3 gap-4 text-sm sm:max-w-md">
+			<div class="border-l border-rule pl-3"><dt class="text-ink-3">Criteria</dt><dd class="font-serif text-2xl tabular text-ink">{task.criteria.length}</dd></div>
+			<div class="border-l border-rule pl-3"><dt class="text-ink-3">AI-flagged</dt><dd class="font-serif text-2xl tabular text-ink">{flaggedCount}</dd></div>
+			<div class="border-l border-rule pl-3"><dt class="text-ink-3">Hand-audited</dt><dd class="font-serif text-2xl tabular text-ink">{reviewedCount}</dd></div>
+		</dl>
+	</header>
+
+	<section aria-labelledby="instructions" class="mt-10 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
+		<div>
+			<h2 id="instructions" class="font-serif text-xl font-semibold tracking-tight">Task instructions</h2>
+			<p class="mt-1 text-xs text-ink-3">Harvey's text, unchanged. Source: <a class="text-accent" href={upstreamTaskUrl(task.slug)}>task.json at the pinned revision</a>.</p>
+			<div class="mt-3 whitespace-pre-line rounded-xl border border-rule bg-surface p-4 text-[0.95rem] leading-relaxed text-ink-2">{task.instructions}</div>
+		</div>
+		<div>
+			<h2 class="font-serif text-xl font-semibold tracking-tight">Documents the agent received</h2>
+			<p class="mt-1 text-xs text-ink-3">Fictional records, hosted by Harvey. <a class="text-accent" href={upstreamDocumentsUrl(task.slug)}>Browse the folder</a>.</p>
+			<ul class="mt-3 space-y-1.5 text-sm">
+				{task.documents.map((document) => (
+					<li><a class="break-all text-accent" href={document.url}>{document.name}</a></li>
+				))}
+			</ul>
+		</div>
+	</section>
+
+	<section aria-labelledby="runs" class="mt-10">
+		<h2 id="runs" class="font-serif text-xl font-semibold tracking-tight">The two graded runs</h2>
+		<div class="mt-3 grid gap-4 md:grid-cols-2">
+			{RUNS.map((run) => (
+				<div class="card p-4 text-sm">
+					<h3 class="font-semibold text-ink">{RUN_LABEL[run]}</h3>
+					<ul class="mt-2 space-y-1 text-ink-2">
+						{JUDGES.map((judge) => {
+							const summary = task.runs[run].judges[judge];
+							return (
+								<li>
+									{JUDGE_LABEL[judge]} (AI judge) passed <strong class="tabular text-ink">{summary.passed} of {summary.total}</strong> criteria
+									<span class="text-ink-3"> · task all-pass: {summary.allPass ? "yes" : "no"}</span>
+								</li>
+							);
+						})}
+					</ul>
+					<p class="mt-3 text-xs text-ink-3">Deliverables</p>
+					<ul class="text-sm">
+						{task.runs[run].deliverables.map((name) => (
+							<li>
+								<a class="text-accent" href={labDeliverablePath(task.slug, run, name)}>{name}</a>
+								{!name.endsWith(".md") && <> <span class="text-ink-3">(</span><a class="text-accent" href={originalDeliverableUrl(task.slug, run, name)}>original file</a><span class="text-ink-3">)</span></>}
+							</li>
+						))}
+					</ul>
+				</div>
+			))}
+		</div>
+		<p class="mt-3 text-xs text-ink-3">AI audit reports for this task: <a class="text-accent" href={taskAuditReportUrl(task.slug, "gpt-6-sol-audit.md")}>GPT-6 Sol</a> · <a class="text-accent" href={taskAuditReportUrl(task.slug, "claude-opus-5-5-audit.md")}>Claude Opus 5.5</a> (both AI-generated, unverified).</p>
+	</section>
+
+	<section aria-labelledby="criteria" class="mt-10">
+		<h2 id="criteria" class="font-serif text-xl font-semibold tracking-tight">Every rubric criterion</h2>
+		<p class="mt-1 mb-4 text-xs text-ink-3">S = Sonnet 4.6, G = GPT-5.5 (AI judges); ✓ pass, ✗ fail. Open a row for the rubric text, AI findings and the judges' reasoning.</p>
+		<noscript><p class="mb-3 text-sm text-ink-2">Opening a row to read its rubric text and grades needs JavaScript. Without it, read the <a class="text-accent" href={upstreamTaskUrl(task.slug)}>rubric in task.json</a> and the score files in the repository.</p></noscript>
+		<FilterBar label="Filter this task's criteria" />
+		<div class="mt-3 flex gap-2 text-sm">
+			<button type="button" data-expand="all" class="rounded-lg border border-rule-strong px-3 py-1.5 text-ink-2 hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent">Expand all</button>
+			<button type="button" data-expand="none" class="rounded-lg border border-rule-strong px-3 py-1.5 text-ink-2 hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent">Collapse all</button>
+		</div>
+		<ol class="mt-4 space-y-2" data-criteria data-detail-url={`/lab/data/tasks/${task.slug}.json`}>
+			{task.criteria.map((criterion, index) => {
+				const review = criterion.review === null ? undefined : reviewByNumber.get(criterion.review);
+				return (
+					<li id={criterion.id.toLowerCase()} data-crit data-flags={flagsFor(criterion, review)} data-reviewed={review ? "" : undefined} class="lab-row">
+						<details data-index={index}>
+							<summary class="lab-sum lab-line">
+								<span aria-hidden="true" class="lab-caret">▸</span>
+								<span class="lab-id">{criterion.id}</span>
+								<span class="lab-main">
+									<span class="lab-title">{criterion.title}</span>
+									<span class="lab-tags">
+										{review && <ReviewBadge verdict={review.verdict} number={review.number} />}
+										<Fragment set:html={aiStatusHtml("Sol", criterion.ai.sol)} />
+										<Fragment set:html={aiStatusHtml("Opus", criterion.ai.opus)} />
+									</span>
+								</span>
+								<span class="lab-grades">
+									<Fragment set:html={gradePairHtml("luna", criterion.grades.luna.sonnet.verdict, criterion.grades.luna.gpt.verdict)} />
+									<Fragment set:html={gradePairHtml("opus", criterion.grades.opus.sonnet.verdict, criterion.grades.opus.gpt.verdict)} />
+								</span>
+							</summary>
+							<div class="lab-body">
+								{review && (
+									<div class="rounded-xl border-2 border-accent p-4">
+										<p class="text-sm font-semibold text-ink">Reviewer's determination <span class="font-normal text-ink-3">(human, not AI)</span></p>
+										<p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-2">
+											<ReviewBadge verdict={review.verdict} />
+											<span>Environment: <strong class="text-ink">{review.environment}</strong></span>
+											<span>AI audit was: <strong class="text-ink">{review.aiReasoning}</strong></span>
+										</p>
+										{review.category && <p class="mt-2 text-sm text-ink-2">Category: {review.category}</p>}
+										<p class="mt-2 text-sm leading-relaxed text-ink">{review.note[0]}</p>
+										<p class="mt-2 text-sm"><a class="text-accent" href={labReviewPath(review.number)}>Read the full note in the walk-through (item {review.number} of {lab.review.length}) →</a></p>
+									</div>
+								)}
+								<div data-body><p class="text-ink-3">Loading…</p></div>
+							</div>
+						</details>
+					</li>
+				);
+			})}
+		</ol>
+	</section>
+</LabShell>
+
+<script>
+	import "../../../lab/client/task-page";
+</script>

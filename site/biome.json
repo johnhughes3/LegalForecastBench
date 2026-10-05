@@ -5,6 +5,7 @@
 			"**",
 			"!src/generated",
 			"!src/data/fixtures",
+			"!src/data/lab/upstream",
 			"!dist",
 			"!.astro",
 			"!public/data/summary-comparison/**/registry.json"

@@ -45,6 +45,11 @@ export const COPY = {
 		description:
 			"On shared GPT-5.6 Luna summaries, Jev forecast motions to dismiss worse than always guessing 50%. OpenAI controls beat the base rate. A separate Grok-short condition uses different summaries.",
 	},
+	lab: {
+		title: "Harvey LAB litigation explorer",
+		description:
+			"Explore Harvey LAB's 52 litigation tasks: rubric criteria, AI audit findings, two graded model runs, and a litigator's review of 25 sampled criteria.",
+	},
 	runNotes: {
 		title: "Run notes and cost methods",
 		description:

@@ -1,0 +1,124 @@
+---
+import FilterBar from "../../components/lab/FilterBar.astro";
+import LabShell from "../../components/lab/LabShell.astro";
+import { JUDGES, RUNS } from "../../lab/flags";
+import { JUDGE_LABEL, RUN_LABEL } from "../../lab/labels";
+import { loadLab } from "../../lab/load";
+import { labTaskPath } from "../../lab/paths";
+import { summarizeRuns } from "../../lab/summary";
+import type { JudgeKey, RunKey } from "../../lab/types";
+
+const lab = loadLab();
+const totals = summarizeRuns(lab);
+const criteriaTotal = lab.tasks.reduce(
+	(sum, task) => sum + task.criteria.length,
+	0,
+);
+const failed = (
+	task: (typeof lab.tasks)[number],
+	run: RunKey,
+	judge: JudgeKey,
+) =>
+	task.criteria.filter((c) => c.grades[run][judge].verdict === "fail").length;
+const gradeRows = RUNS.flatMap((run) =>
+	JUDGES.map((judge) => ({ run, judge, ...totals[run][judge] })),
+);
+const pct = (n: number, d: number) => `${((100 * n) / d).toFixed(1)}%`;
+---
+
+<LabShell
+	active="runs"
+	title="Harvey LAB full runs: all tasks and criteria"
+	description="All 52 Harvey LAB litigation tasks and 2,858 rubric criteria with the pass/fail grades of two model runs, filterable by AI flag, failure, and the reviewer's verdicts."
+>
+	<header class="mt-8 max-w-3xl">
+		<p class="eyebrow">Harvey LAB explorer · full runs</p>
+		<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">Every task and criterion, with both runs' grades</h1>
+		<p class="mt-5 text-lg text-ink-2">
+			Two models, GPT-6 Luna (xhigh) and Claude Opus 5.5 (low), each attempted all {lab.tasks.length} litigation tasks. Two AI judges graded every one of the {criteriaTotal.toLocaleString("en-US")} rubric criteria for each run. Scan the tasks below, or <a class="text-accent" href="#criteria">filter every criterion</a>.
+		</p>
+	</header>
+
+	<section aria-labelledby="totals" class="mt-10">
+		<h2 id="totals" class="font-serif text-xl font-semibold tracking-tight">How the runs scored on the native AI grades</h2>
+		<div class="mt-3 overflow-x-auto">
+			<table class="w-full min-w-[30rem] border-collapse text-sm">
+				<caption class="sr-only">Criteria passed and tasks passed under all-pass scoring, by run and judge</caption>
+				<thead>
+					<tr class="border-b border-rule-strong text-left text-xs uppercase tracking-wide text-ink-3">
+						<th scope="col" class="py-2 pr-4 font-medium">Run</th>
+						<th scope="col" class="px-3 py-2 font-medium">AI judge</th>
+						<th scope="col" class="px-3 py-2 font-medium">Criteria passed</th>
+						<th scope="col" class="px-3 py-2 font-medium">Tasks with every criterion passed</th>
+					</tr>
+				</thead>
+				<tbody>
+					{gradeRows.map((t) => (
+						<tr class="border-b border-rule">
+							<th scope="row" class="py-2 pr-4 text-left font-medium text-ink">{RUN_LABEL[t.run]}</th>
+							<td class="px-3 py-2 text-ink-2">{JUDGE_LABEL[t.judge]}</td>
+							<td class="px-3 py-2 tabular text-ink">{t.passed.toLocaleString("en-US")} of {t.total.toLocaleString("en-US")} <span class="text-ink-3">({pct(t.passed, t.total)})</span></td>
+							<td class="px-3 py-2 tabular text-ink">{t.tasksAllPass} of {t.tasks}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+		<p class="mt-2 max-w-3xl text-xs text-ink-3">LAB scores a task 1 only if every criterion passes, so one failed criterion zeroes a judge's score for the whole task. These are AI judges' grades, not human review.</p>
+	</section>
+
+	<section aria-labelledby="tasks" class="mt-12">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<h2 id="tasks" class="font-serif text-xl font-semibold tracking-tight">By task</h2>
+			<label class="text-sm text-ink-2">
+				<span class="sr-only">Find a task</span>
+				<input type="search" data-task-search autocomplete="off" placeholder="Find a task" class="w-56 rounded-lg border border-rule-strong bg-bg px-3 py-1.5 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent" />
+			</label>
+		</div>
+		<p data-task-count role="status" aria-live="polite" class="sr-only"></p>
+		<div class="mt-3 overflow-x-auto">
+			<table class="w-full min-w-[46rem] border-collapse text-sm">
+				<caption class="sr-only">Harvey LAB litigation tasks with criteria counts, AI flags, hand-audited counts and failed criteria per run</caption>
+				<thead>
+					<tr class="border-b border-rule-strong text-left text-xs uppercase tracking-wide text-ink-3">
+						<th scope="col" class="py-2 pr-3 font-medium">Task</th>
+						<th scope="col" class="px-2 py-2 text-right font-medium">Criteria</th>
+						<th scope="col" class="px-2 py-2 text-right font-medium">AI-flagged</th>
+						<th scope="col" class="px-2 py-2 text-right font-medium">Hand-audited</th>
+						<th scope="col" class="px-2 py-2 text-right font-medium">Failed: Luna<br /><span class="normal-case">Sonnet / GPT</span></th>
+						<th scope="col" class="px-2 py-2 text-right font-medium">Failed: Opus<br /><span class="normal-case">Sonnet / GPT</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					{lab.tasks.map((task) => {
+						const flagged = task.criteria.filter((c) => c.ai.bucket !== null).length;
+						const audited = task.criteria.filter((c) => c.review !== null).length;
+						return (
+							<tr data-task-row class="border-b border-rule">
+								<th scope="row" class="py-2.5 pr-3 text-left font-normal"><a class="font-medium text-ink hover:text-accent" href={labTaskPath(task.slug)}>{task.title}</a></th>
+								<td class="px-2 py-2.5 text-right tabular text-ink-2">{task.criteria.length}</td>
+								<td class="px-2 py-2.5 text-right tabular text-ink-2">{flagged}</td>
+								<td class="px-2 py-2.5 text-right tabular text-ink-2">{audited > 0 ? <strong class="text-accent">{audited}</strong> : "·"}</td>
+								<td class="px-2 py-2.5 text-right tabular text-ink-2">{failed(task, "luna", "sonnet")} / {failed(task, "luna", "gpt")}</td>
+								<td class="px-2 py-2.5 text-right tabular text-ink-2">{failed(task, "opus", "sonnet")} / {failed(task, "opus", "gpt")}</td>
+							</tr>
+						);
+					})}
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<section id="criteria" aria-labelledby="criteria-title" class="mt-14 scroll-mt-28" data-scanner data-index-url="/lab/data/index.json">
+		<h2 id="criteria-title" class="font-serif text-xl font-semibold tracking-tight">Every criterion</h2>
+		<p class="mt-1 mb-4 max-w-3xl text-sm text-ink-2">Filter all {criteriaTotal.toLocaleString("en-US")} criteria across the {lab.tasks.length} tasks. Combine filters to narrow the list: each active filter must match. S = Sonnet 4.6, G = GPT-5.5 (AI judges); ✓ pass, ✗ fail.</p>
+		<FilterBar label="Filter every criterion" tasks={lab.tasks.map(({ slug, title }) => ({ slug, title }))} />
+		<ol data-results class="mt-4 space-y-2"></ol>
+		<button type="button" data-more hidden class="mt-4 rounded-full border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"></button>
+		<noscript><p class="mt-4 text-sm text-ink-2">The criterion list needs JavaScript. Without it, open any task above to read all of its criteria.</p></noscript>
+	</section>
+</LabShell>
+
+<script>
+	import "../../lab/client/runs-page";
+</script>
