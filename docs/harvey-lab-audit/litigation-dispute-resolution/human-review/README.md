@@ -47,7 +47,7 @@ One or two sentences giving the reason, with the document and passage or the aut
 
 ## Procedure
 
-1. For each item, read the task instructions, the criterion, and the relevant supplied documents, and form a view **before** opening the collapsed AI findings. This limits anchoring on the AI's framing.
+1. For each item, read the task instructions, the criterion, the relevant supplied documents, and the AI findings, and weigh the AI's arguments against the sources.
 2. Check claims against the original Harvey LAB sources at the pinned commit (links are in the worksheet), not against quotations in the AI reports. Where a ground is legal, read the authority.
 3. Record the three fields in [`worksheet.md`](worksheet.md). Once all 25 items have a verdict, run `uv run python scripts/harvey_review_sample.py tally`.
 4. After the tally, verdicts change only to fix clerical errors, and any such change is noted in the worksheet.
@@ -97,7 +97,7 @@ During the review the reviewer applied the definitions above in two recurring si
 - **Defects in the environment.** An unplanted error in the supplied record (conflicting figures, arithmetic that does not add up, fabricated or misdescribed authority) makes a criterion Defective when it changes what a competent response can get right, so that the expected answer is contradicted or unsupported by the record. A criterion can also be defective by passing work that is wrong, for example accepting figures that do not answer the question asked when the record lacks the data requested. When the record is objectively wrong but the criterion still grades correctly, the verdict is Not defective (an environment-only defect).
 - **Task-environment verdicts.** Each item also records whether its task environment is Defective or Correct, judged on objective errors in the supplied record, or task materials that direct work product a competent litigator should not put before a court, whether or not they touch the sampled criterion. Each Defective item's Category line also records whether it rests on an unambiguous objective error (the record, the law, the cited authority, or arithmetic contradicts the rubric) or on professional judgment; objective errors are reported as a separate count. Environment verdicts are reported in a separate table against the rubric verdicts, to show where the two overlap, and do not enter the decision rule above.
 
-Verdicts were finalized after an AI stress test and consistency review, which argued both for and against each call. Those reviews did not change the definitions or the decision rule.
+Verdicts were finalized after an AI stress test and consistency review, which argued both for and against each call. Those reviews did not change the definitions or the decision rule. The original first step, which asked the reviewer to form a view before opening the AI findings, was dropped: a lawyer can read what the AI found and evaluate its arguments on the merits.
 
 ## Files
 
