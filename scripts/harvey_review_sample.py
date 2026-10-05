@@ -374,15 +374,20 @@ def parse_worksheet(text: str) -> list[tuple[str, str, str, str]]:
     return parsed
 
 
-def environment_defects(text: str) -> list[int]:
-    """Worksheet items flagged as environment defects, tallied apart from verdicts."""
-    items = re.split(r"(?m)^(?=## \d+\. )", text)[1:]
-    return [
-        int(m.group(1))
-        for item in items
-        if re.search(r"(?m)^- \*\*Environment defect:\*\* Yes", item)
-        and (m := re.match(r"## (\d+)\.", item))
-    ]
+ENVIRONMENT_VERDICTS = ("Defective", "Arguable", "Correct")
+
+
+def environment_verdicts(text: str) -> dict[int, str]:
+    """Each item's task-environment verdict, recorded apart from the rubric verdict."""
+    out: dict[int, str] = {}
+    for item in re.split(r"(?m)^(?=## \d+\. )", text)[1:]:
+        number = re.match(r"## (\d+)\.", item)
+        found = re.search(
+            r"(?m)^- \*\*Environment:\*\* (Defective|Arguable|Correct)", item
+        )
+        if number and found:
+            out[int(number.group(1))] = found.group(1)
+    return out
 
 
 def cmd_tally() -> None:
@@ -411,8 +416,25 @@ def cmd_tally() -> None:
         if key in by_bucket:
             got = by_bucket[key]
             print(f"  {label}: {got['Defective']} defective of {sum(got.values())}")
-    env = environment_defects(text)
-    print(f"  Environment defects (tallied separately): {len(env)} {env}")
+    env = environment_verdicts(text)
+    if env:
+        print("  Rubric verdict x task environment:")
+        print("    " + " | ".join(["Rubric \\ Environment", *ENVIRONMENT_VERDICTS]))
+        for verdict in VERDICTS:
+            cells = [
+                sum(
+                    1
+                    for i, (_, _, v, _) in enumerate(items, 1)
+                    if v == verdict and env.get(i) == e
+                )
+                for e in ENVIRONMENT_VERDICTS
+            ]
+            print("    " + " | ".join([verdict, *map(str, cells)]))
+        bad_tasks = {
+            r["task"] for i, r in enumerate(sample, 1) if env.get(i) == "Defective"
+        }
+        tasks = {r["task"] for r in sample}
+        print(f"  Task environments defective: {len(bad_tasks)} of {len(tasks)}")
     reasoning = Counter(r for _, _, _, r in items if r in AI_REASONING)
     print("  AI reasoning: " + ", ".join(f"{k} {reasoning[k]}" for k in AI_REASONING))
     if pending:

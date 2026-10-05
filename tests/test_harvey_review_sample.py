@@ -177,14 +177,15 @@ def test_run_outcomes_cover_every_criterion_once(
     assert counts[:5] == [83, 135, 127, 271, 219]
 
 
-def test_environment_defects_are_counted_separately() -> None:
+def test_environment_verdicts_are_read_per_item() -> None:
     text = "\n".join(
         [
             "## 1. A — C-001",
             "- **Verdict:** Not defective",
-            "- **Environment defect:** Yes (tallied separately).",
+            "- **Environment:** Defective: the record is wrong.",
             "## 2. B — C-002",
             "- **Verdict:** Defective",
+            "- **Environment:** Correct",
         ]
     )
-    assert sampler.environment_defects(text) == [1]
+    assert sampler.environment_verdicts(text) == {1: "Defective", 2: "Correct"}
