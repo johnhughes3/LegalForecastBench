@@ -1,0 +1,22 @@
+---
+import "../../styles/lab.css";
+import Layout from "../../layouts/Layout.astro";
+import AiNotice from "./AiNotice.astro";
+import LabTabs from "./LabTabs.astro";
+
+interface Props {
+	title: string;
+	description: string;
+	active: "audited" | "runs";
+	robots?: string;
+}
+const { title, description, active, robots } = Astro.props;
+---
+
+<Layout title={title} description={description} {...(robots ? { robots } : {})}>
+	<div class="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
+		<LabTabs active={active} />
+		<div class="mt-4"><AiNotice /></div>
+		<slot />
+	</div>
+</Layout>

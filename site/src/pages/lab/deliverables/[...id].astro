@@ -1,0 +1,64 @@
+---
+import { getCollection, render } from "astro:content";
+import type { GetStaticPaths } from "astro";
+import LabShell from "../../../components/lab/LabShell.astro";
+import { RUNS } from "../../../lab/flags";
+import { RUN_LABEL } from "../../../lab/labels";
+import { loadLab } from "../../../lab/load";
+import {
+	labCriterionPath,
+	labTaskPath,
+	originalDeliverableUrl,
+	RUN_DIRECTORY,
+} from "../../../lab/paths";
+
+export const getStaticPaths = (async () => {
+	const entries = await getCollection("labDeliverables");
+	return entries.map((entry) => ({
+		params: { id: entry.id },
+		props: { entry },
+	}));
+}) satisfies GetStaticPaths;
+
+const { entry } = Astro.props;
+const [slug, runDirectory, ...rest] = entry.id.split("/");
+const name = rest.join("/");
+const run = RUNS.find((candidate) => RUN_DIRECTORY[candidate] === runDirectory);
+const task = loadLab().tasks.find((candidate) => candidate.slug === slug);
+if (!task || !run)
+	throw new Error(`Deliverable ${entry.id} has no task or run.`);
+const { Content } = await render(entry);
+const criteria = task.criteria.filter((criterion) =>
+	criterion.deliverables.includes(name),
+);
+---
+
+<LabShell
+	active="runs"
+	title={`${name}: ${RUN_LABEL[run]}`}
+	description={`The ${RUN_LABEL[run]} deliverable ${name} for the Harvey LAB task "${task.title}", rendered to Markdown for reading.`}
+	robots="noindex, follow"
+>
+	<header class="mt-8 max-w-3xl">
+		<p class="eyebrow">Model deliverable · {RUN_LABEL[run]}</p>
+		<h1 class="mt-3 break-words font-serif text-3xl font-medium leading-tight tracking-tight">{name}</h1>
+		<p class="mt-3 text-sm text-ink-2">
+			Task: <a class="text-accent" href={labTaskPath(task.slug)}>{task.title}</a>.
+			This is the model's unedited output, AI-generated, rendered from the original file for reading; the file itself is the deliverable
+			{!name.endsWith(".md") && <> (<a class="text-accent" href={originalDeliverableUrl(task.slug, run, name)}>download the original</a>)</>}.
+		</p>
+		{criteria.length > 0 && (
+			<details class="mt-3 text-sm text-ink-2">
+				<summary class="cursor-pointer text-accent">The {criteria.length} criteria graded against this file</summary>
+				<ul class="mt-2 columns-1 gap-6 sm:columns-2">
+					{criteria.map((criterion) => (
+						<li class="break-inside-avoid"><a class="text-accent" href={labCriterionPath(task.slug, criterion.id)}>{criterion.id}</a> {criterion.title}</li>
+					))}
+				</ul>
+			</details>
+		)}
+	</header>
+	<article class="prose-lfb prose mt-8 max-w-none overflow-x-auto prose-table:block prose-table:overflow-x-auto prose-headings:scroll-mt-24 [&_table]:text-sm">
+		<Content />
+	</article>
+</LabShell>

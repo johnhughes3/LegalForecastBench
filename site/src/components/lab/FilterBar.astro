@@ -1,0 +1,53 @@
+---
+import { FILTERS } from "../../lab/flags";
+
+interface Props {
+	/** Offer a task dropdown; the all-criteria scanner uses it, task pages do not. */
+	tasks?: readonly { slug: string; title: string }[];
+	label: string;
+}
+const { tasks, label } = Astro.props;
+---
+
+<form data-lab-filters class="rounded-xl border border-rule bg-surface p-4" role="search" aria-label={label}>
+	<fieldset class="m-0 min-w-0 border-0 p-0">
+		<legend class="text-xs font-medium uppercase tracking-wide text-ink-3">Show only</legend>
+		<div class="mt-2 flex flex-wrap gap-2">
+			{FILTERS.map((filter) => (
+				<button
+					type="button"
+					data-filter={filter.key}
+					aria-pressed="false"
+					class="rounded-full border border-rule-strong px-3 py-1.5 text-sm text-ink-2 transition hover:border-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+				>
+					{filter.label}
+					<span class="sr-only"> ({filter.hint})</span>
+				</button>
+			))}
+		</div>
+	</fieldset>
+	<div class="mt-4 flex flex-wrap items-end gap-3">
+		<label class="min-w-[12rem] flex-1 text-sm text-ink-2">
+			<span class="block text-xs font-medium uppercase tracking-wide text-ink-3">Search</span>
+			<input
+				type="search"
+				data-query
+				autocomplete="off"
+				placeholder="Words from an id or title"
+				class="mt-1 w-full rounded-lg border border-rule-strong bg-bg px-3 py-2 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+			/>
+		</label>
+		{tasks && (
+			<label class="min-w-[12rem] flex-1 text-sm text-ink-2">
+				<span class="block text-xs font-medium uppercase tracking-wide text-ink-3">Task</span>
+				<select data-task class="mt-1 w-full rounded-lg border border-rule-strong bg-bg px-3 py-2 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent">
+					<option value="">All {tasks.length} tasks</option>
+					{tasks.map((task) => <option value={task.slug}>{task.title}</option>)}
+				</select>
+			</label>
+		)}
+		<button type="button" data-clear class="rounded-lg border border-rule-strong px-3 py-2 text-sm text-ink-2 hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent" hidden>Clear filters</button>
+	</div>
+	<p data-count role="status" aria-live="polite" class="mt-3 text-sm text-ink-2"></p>
+	<noscript><p class="mt-3 text-sm text-ink-3">Filtering needs JavaScript. Every criterion is still listed below.</p></noscript>
+</form>

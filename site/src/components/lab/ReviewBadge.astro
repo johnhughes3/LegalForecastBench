@@ -1,0 +1,13 @@
+---
+import { reviewBadgeHtml } from "../../lab/markup";
+import type { RubricVerdict } from "../../lab/types";
+
+interface Props {
+	verdict: RubricVerdict;
+	/** Worksheet number, shown when the badge points at an item. */
+	number?: number;
+}
+const { verdict, number } = Astro.props;
+---
+
+<Fragment set:html={reviewBadgeHtml(verdict, number)} />

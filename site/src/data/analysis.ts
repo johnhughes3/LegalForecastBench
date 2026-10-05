@@ -130,15 +130,14 @@ const STATIC_ITEMS: AnalysisItem[] = [
 		release: CURRENT_RELEASE,
 	},
 	{
-		href: "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution",
-		title: "Harvey LAB litigation tasks: an AI-assisted criteria audit",
+		href: "/lab/",
+		title: "Harvey LAB litigation explorer: AI audits and a litigator's review",
 		summary:
-			"Model-generated review of 52 litigation tasks and their grading criteria. The findings are unverified AI judgments that mark where to look, not a verified error rate.",
-		date: new Date("2026-09-27T00:00:00Z"),
+			"Browse 52 litigation tasks, every grading criterion, two graded model runs, and the AI audits. The audits are unverified AI judgments; a litigator hand-reviewed 25 sampled criteria.",
+		date: new Date("2026-10-05T00:00:00Z"),
 		group: "audits",
 		evidence: "unverified",
 		release: null,
-		external: true,
 	},
 ];
 

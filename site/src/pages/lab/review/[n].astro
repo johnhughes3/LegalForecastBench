@@ -1,0 +1,139 @@
+---
+import type { GetStaticPaths } from "astro";
+import LabShell from "../../../components/lab/LabShell.astro";
+import ReviewBadge from "../../../components/lab/ReviewBadge.astro";
+import { AUTHOR } from "../../../data/author";
+import { criterionDetail } from "../../../lab/index-format";
+import { loadLab } from "../../../lab/load";
+import { findingsHtml, gradeCardsHtml } from "../../../lab/markup";
+import {
+	LAB_ROOT,
+	labCriterionPath,
+	labReviewPath,
+	labTaskPath,
+	REVIEW_PROTOCOL_URL,
+} from "../../../lab/paths";
+import { upstreamTaskUrl } from "../../../lab/upstream";
+
+export const getStaticPaths = (() =>
+	loadLab().review.map((item) => ({
+		params: { n: String(item.number) },
+		props: { number: item.number },
+	}))) satisfies GetStaticPaths;
+
+const { number } = Astro.props;
+const lab = loadLab();
+const item = lab.review[number - 1];
+const task = lab.tasks.find((candidate) => candidate.slug === item?.task);
+const criterion = task?.criteria.find((c) => c.id === item?.criterion);
+if (!item || !task || !criterion)
+	throw new Error(`Review item ${number} is missing its task or criterion.`);
+const previous = lab.review[number - 2];
+const next = lab.review[number];
+const total = lab.review.length;
+const detail = criterionDetail(task, criterion);
+const titleOf = (slug: string) =>
+	lab.tasks.find((candidate) => candidate.slug === slug)?.title ?? slug;
+
+const verdictTone = {
+	Defective: "border-accent bg-accent text-bg",
+	Arguable: "border-ink-2 bg-surface-2 text-ink",
+	"Not defective": "border-good text-good",
+	Unresolved: "border-rule-strong text-ink-2",
+} as const;
+---
+
+<LabShell
+	active="audited"
+	title={`Hand-audited criterion ${number} of ${total}`}
+	description={`A litigator's verdict on ${criterion.id} of "${task.title}", with the rubric text, the AI audit findings, and both model runs' grades.`}
+>
+	<nav aria-label="Hand-audited items" class="mt-6">
+		<ol class="flex flex-wrap gap-1.5">
+			{lab.review.map((other) => (
+				<li>
+					<a
+						href={labReviewPath(other.number)}
+						aria-current={other.number === number ? "page" : undefined}
+						aria-label={`Item ${other.number}: ${other.verdict}`}
+						title={`${other.number}. ${other.verdict}`}
+						class:list={[
+							"flex size-8 items-center justify-center rounded-md border text-xs font-semibold tabular focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+							verdictTone[other.verdict],
+							other.number === number ? "ring-2 ring-ink ring-offset-2 ring-offset-bg" : "opacity-80 hover:opacity-100",
+						]}
+					>{other.number}</a>
+				</li>
+			))}
+		</ol>
+		<p class="mt-2 text-xs text-ink-3">Filled = defective, gray = arguable, green outline = not defective. <a class="text-accent" href={LAB_ROOT}>Back to the summary</a></p>
+	</nav>
+
+	<header class="mt-6">
+		<p class="eyebrow">Hand-audited criterion {number} of {total}</p>
+		<h1 class="mt-2 font-serif text-3xl font-medium leading-tight tracking-tight sm:text-4xl">{criterion.id}: {criterion.title}</h1>
+		<p class="mt-2 text-ink-2">
+			Task: <a class="text-accent" href={labTaskPath(task.slug)}>{task.title}</a>
+			· <a class="text-accent" href={labCriterionPath(task.slug, criterion.id)}>See it among all {task.criteria.length} criteria</a>
+			· <a class="text-accent" href={upstreamTaskUrl(task.slug, criterion.line ?? undefined)}>Rubric at the pinned upstream revision</a>
+		</p>
+	</header>
+
+	<div class="mt-6 flex items-center justify-between gap-3 text-sm">
+		{previous ? <a class="rounded-full border border-rule-strong px-3 py-1.5 font-medium text-ink hover:border-ink" href={labReviewPath(previous.number)} rel="prev">← Previous (#{previous.number})</a> : <span />}
+		{next ? <a class="rounded-full bg-ink px-3 py-1.5 font-medium text-bg hover:opacity-90" href={labReviewPath(next.number)} rel="next">Next (#{next.number}) →</a> : <span />}
+	</div>
+
+	<section aria-labelledby="reviewer" class="mt-6 rounded-2xl border-2 border-accent bg-surface p-5 sm:p-6">
+		<h2 id="reviewer" class="font-serif text-xl font-semibold tracking-tight">Reviewer's verdicts and analysis</h2>
+		<p class="mt-1 text-xs text-ink-3">Verdicts and analysis by {AUTHOR.name}. See the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>review protocol</a> for the question, definitions and decision rule.</p>
+		<dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div>
+				<dt class="text-xs font-medium uppercase tracking-wide text-ink-3">Rubric verdict</dt>
+				<dd class="mt-1"><ReviewBadge verdict={item.verdict} /></dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium uppercase tracking-wide text-ink-3">Task environment</dt>
+				<dd class="mt-1 text-sm font-semibold text-ink">{item.environment}</dd>
+				{item.environmentNote && <dd class="mt-1 text-sm text-ink-2">{item.environmentNote}</dd>}
+			</div>
+			<div>
+				<dt class="text-xs font-medium uppercase tracking-wide text-ink-3">AI audit was</dt>
+				<dd class="mt-1 text-sm font-semibold text-ink">{item.aiReasoning}</dd>
+			</div>
+			<div>
+				<dt class="text-xs font-medium uppercase tracking-wide text-ink-3">Category</dt>
+				<dd class="mt-1 text-sm text-ink-2">{item.category || "None recorded"}</dd>
+			</div>
+		</dl>
+		<div class="mt-5 space-y-3 border-t border-rule pt-4 text-[0.95rem] leading-relaxed text-ink">
+			<h3 class="text-xs font-medium uppercase tracking-wide text-ink-3">Note and source locator</h3>
+			{item.note.map((paragraph) => <p>{paragraph}</p>)}
+		</div>
+	</section>
+
+	<section aria-labelledby="rubric" class="mt-8">
+		<h2 id="rubric" class="font-serif text-xl font-semibold tracking-tight">The rubric criterion</h2>
+		<p class="mt-1 text-xs text-ink-3">Harvey's text as published at the pinned revision. A run passes only if the judge finds the PASS condition met.</p>
+		<blockquote class="mt-3 border-l-4 border-rule-strong pl-4 text-[0.95rem] leading-relaxed text-ink-2">{criterion.rubric}</blockquote>
+		<p class="mt-3 text-sm text-ink-2">
+			Source documents: {task.documents.map((document, index) => <>{index > 0 && ", "}<a class="text-accent" href={document.url}>{document.name}</a></>)}.
+		</p>
+	</section>
+
+	<section aria-labelledby="ai-audit" class="lab-prose mt-8">
+		<h2 id="ai-audit" class="sr-only">AI audit</h2>
+		<Fragment set:html={findingsHtml(criterion.ai, "h3")} />
+	</section>
+
+	<section aria-labelledby="grades" class="lab-prose mt-8">
+		<h2 id="grades" class="font-serif text-xl font-semibold tracking-tight">How the two runs were graded</h2>
+		<p class="mt-1 mb-4 text-xs text-ink-3">Native LAB grades by two AI judges (AI-generated, unverified). The judges can misapply a criterion. Under LAB's all-pass scoring, one failed criterion zeroes a judge's score for the whole task.</p>
+		<Fragment set:html={gradeCardsHtml(task.slug, detail)} />
+	</section>
+
+	<div class="mt-10 flex items-center justify-between gap-3 border-t border-rule pt-6 text-sm">
+		{previous ? <a class="block max-w-[45%] rounded-xl border border-rule-strong px-4 py-3 hover:border-ink" href={labReviewPath(previous.number)}><span class="text-xs text-ink-3">← Previous (#{previous.number})</span><span class="mt-0.5 block font-medium text-ink">{previous.criterion} · {titleOf(previous.task)}</span></a> : <span />}
+		{next ? <a class="block max-w-[45%] rounded-xl border border-rule-strong px-4 py-3 text-right hover:border-ink" href={labReviewPath(next.number)}><span class="text-xs text-ink-3">Next (#{next.number}) →</span><span class="mt-0.5 block font-medium text-ink">{next.criterion} · {titleOf(next.task)}</span></a> : <span />}
+	</div>
+</LabShell>

@@ -1,0 +1,49 @@
+---
+import { loadLab } from "../../lab/load";
+
+interface Props {
+	active: "audited" | "runs";
+}
+const { active } = Astro.props;
+const lab = loadLab();
+const criteria = lab.tasks.reduce((sum, task) => sum + task.criteria.length, 0);
+const tabs = [
+	{
+		key: "audited",
+		href: "/lab/",
+		label: "Hand-audited",
+		detail: `${lab.review.length} criteria a litigator reviewed`,
+	},
+	{
+		key: "runs",
+		href: "/lab/runs/",
+		label: "Full runs",
+		detail: `${lab.tasks.length} tasks, ${criteria.toLocaleString("en-US")} criteria, both model runs`,
+	},
+] as const;
+---
+
+<nav aria-label="LAB explorer views" class="grid grid-cols-2 gap-2">
+	{tabs.map((tab) => (
+		<a
+			href={tab.href}
+			aria-current={tab.key === active ? "page" : undefined}
+			class:list={[
+				"block rounded-xl border px-3 py-2 transition sm:px-4 sm:py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+				tab.key === active
+					? "border-ink bg-surface-2"
+					: "border-rule bg-surface hover:border-rule-strong",
+			]}
+		>
+			<span class="flex items-center justify-between gap-2">
+				<span class="font-serif text-base font-semibold tracking-tight text-ink sm:text-lg">{tab.label}</span>
+				{tab.key === active ? (
+					<span class="rounded-full bg-ink px-2 py-0.5 text-[11px] font-medium text-bg">Viewing</span>
+				) : (
+					<span class="hidden text-xs text-accent sm:inline">Switch view →</span>
+				)}
+			</span>
+			<span class="mt-0.5 hidden text-sm text-ink-2 sm:block">{tab.detail}</span>
+		</a>
+	))}
+</nav>
