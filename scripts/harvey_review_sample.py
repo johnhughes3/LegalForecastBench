@@ -390,6 +390,20 @@ def environment_verdicts(text: str) -> dict[int, str]:
     return out
 
 
+def objective_errors(text: str) -> list[int]:
+    """Items whose Category line records an unambiguous objective error."""
+    out: list[int] = []
+    for item in re.split(r"(?m)^(?=## \d+\. )", text)[1:]:
+        number = re.match(r"## (\d+)\.", item)
+        verdict = re.search(r"(?m)^- \*\*Verdict:\*\* Defective\s*$", item)
+        category = re.search(
+            r"(?mi)^- \*\*Category\*\*:\s*unambiguous objective error", item
+        )
+        if number and verdict and category:
+            out.append(int(number.group(1)))
+    return out
+
+
 def cmd_tally() -> None:
     record = load(REVIEW_DIR / "sample.json")
     pop = population(load(AUDIT_DIR / "comparison.json")["rows"])
@@ -435,6 +449,13 @@ def cmd_tally() -> None:
         }
         tasks = {r["task"] for r in sample}
         print(f"  Task environments defective: {len(bad_tasks)} of {len(tasks)}")
+    objective = objective_errors(text)
+    if objective:
+        floor = lower_bound(len(pop), len(items), len(objective))
+        print(
+            f"  Unambiguous objective errors: {len(objective)} {objective}; "
+            f"one-sided 95% lower bound {floor}"
+        )
     reasoning = Counter(r for _, _, _, r in items if r in AI_REASONING)
     print("  AI reasoning: " + ", ".join(f"{k} {reasoning[k]}" for k in AI_REASONING))
     if pending:

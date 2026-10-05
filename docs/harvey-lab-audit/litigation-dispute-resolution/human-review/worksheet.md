@@ -100,7 +100,7 @@ Raw files:
 - **Environment:** Correct
 - **Note and source locator:**  Defective / AI is Correct. JOHN HUGHES: The rubric is wrong because it fails fully Privileged, which is the better answer here (even if Partially Privileged is defensible).
 - The documents are handwritten lawyer notes from a fictitious meeting discussing problems with the R&D Department. The headings on individual topics seem intended to create the impression that there is a discussion of business topics (which would not be privileged) followed by a separate discussion of legal topics (privileged), so from a superficial glance, the rubric does seem to match the topic headings. However, the bullets under each heading make clear that the entire meeting is just dedicated to the topic of the company’s desire to find a way to fire the head of R&D without getting sued. The business topics (which look to be nonprivileged) are discusisons of how the R&D department is a bit of a disaster, such that management wants to fire the head. The legal sections then involve discussion of the fact that the R&D head has some sort of environmental whistleblower status, so termination is likely to trigger a lawsuit/whistleblower retaliation claim.
-- The meeting was specifically convened because outside counsel was concerned about the retaliation claim, and even some of the 'ops' sections that are supposed to be nonprivileged reflect counsel's advice, so they cannot be cleanly treated as nonlegal business discussions.
+- The meeting was specifically convened because outside counsel was concerned about the retaliation claim, and even some of the 'ops' sections that are supposed to be nonprivileged reflect counsel's advice, so they cannot be cleanly treated as nonlegal business discussions. For example, the 'Ops' sections record HR "compiling the file" of performance documentation and lay out a "Performance improvement plan first" / "Documentation period" sequence, which carries out outside counsel's recommendation, recorded in the legal section, to build a "contemporaneous performance record to insulate against retaliation" claims.
 - While partially privileged might be defensible, my preferred answer would be fully privileged, which the rubric incorrectly fails.
 - **Category**: low-quality professional judgment, rubric is incorrect.
 
@@ -257,6 +257,7 @@ Raw files:
 - **Environment:** Correct
 - **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric requires the model to recommend that an associate who shares an apartment with his sister (an in-house IP paralegal at TriPoint, the adverse party) be screened from the matter. Screening is generally used in certain specific situations where required by the professional conduct rules, but no rule requires screening in this scenario.
 - I agree that a prudent memo would flag the fact that a junior team member is sharing an apartment with an employee of the adverse party, but that is covered by other rubrics (C-026 through C-029). This rubric specifically fails the work product (and results in a 0 for all work on this task) even if the model recommended, say, obtaining the client’s informed consent, which would be perfectly permissible and appropriate here.
+- Other rubrics in this task resolve similar kinds of conflicts with informed consent (C-024 accepts "clearance with conditions (such as obtaining informed consent)" for Lisa Chow's spousal conflict, and C-016 recommends informed consent for the Ridgeline conflict). Accordingly, informed consent plus a home confidentiality protocol could suffice as an alternative to screening.
 - **Category**: low-quality professional judgment, rubric is incorrect.
 
 ## 6. Draft Conflict Check Memorandum for Litigation Engagement Clearance — C-049
@@ -499,9 +500,9 @@ Raw files:
 <!-- runs:end -->
 
 - **Verdict:** Not defective
-- **AI reasoning:** Correct
+- **AI reasoning:** Wrong
 - **Environment:** Defective: Ohio's Division of Safety & Hygiene cannot issue OSHA citations to this private employer. The criterion itself does not misgrade work (environment-only defect).
-- **Note and source locator:** Not defective (criterion); defective environment / AI is correct. JOHN HUGHES: Although the specific rubric being tested does not fail work product incorrectly, the environment is defective in an unintended way. The environment contains an OSHA citation from Ohio’s Division of Safety & Hygiene. But Ohio does not have an OSHA-approved State Plan, so only federal regulators  have jurisdiction to issue OSHA citations against this company. The environment does not test that so it is not being presented as a “mistake” by one’s adversary that the agents should pick up on.
+- **Note and source locator:** Not defective (criterion); defective environment / AI is wrong (as to the criterion). JOHN HUGHES: Although the specific rubric being tested does not fail work product incorrectly, the environment is defective in an unintended way. The environment contains an OSHA citation from Ohio’s Division of Safety & Hygiene. But Ohio does not have an OSHA-approved State Plan, so only federal regulators  have jurisdiction to issue OSHA citations against this company. The environment does not test that so it is not being presented as a “mistake” by one’s adversary that the agents should pick up on.
 - The rubric itself is not wrong because it simply wants a memo to address the purported citation, so an agent could write the memo while noticing that the task is obviously a fictitious evaluation with an incoherent environment.
 - **Category**: defective environment, but rubric does not fail correct work product.
 
@@ -549,9 +550,9 @@ Raw files:
 <!-- runs:end -->
 
 - **Verdict:** Not defective
-- **AI reasoning:** Partly correct
+- **AI reasoning:** Wrong
 - **Environment:** Correct
-- **Note and source locator:** Not defective / AI is partly correct. JOHN HUGHES: The AI agent is right that the rubric is really enforcing a stylistic choice, but the choice here is well-grounded in convention and an appropriate expectation for quality work product. The case file contains a court order where the judge encouraged the parties to discuss whether phased discovery would be appropriate at the Rule 26(f) conference, and there is some existing prioritization work in the environment. The rubric requires that the agent’s discovery plan include some kind of prioritization or phasing of custodians, which is a common expectation in these cases. I think it’s fair to judge anything that lacks any form of prioritization as deficient given the context.
+- **Note and source locator:** Not defective / AI is wrong. JOHN HUGHES: The AI agent is right that the rubric is really enforcing a stylistic choice, but the choice here is well-grounded in convention and an appropriate expectation for quality work product. The case file contains a court order where the judge encouraged the parties to discuss whether phased discovery would be appropriate at the Rule 26(f) conference, and there is some existing prioritization work in the environment. The rubric requires that the agent’s discovery plan include some kind of prioritization or phasing of custodians, which is a common expectation in these cases. I think it’s fair to judge anything that lacks any form of prioritization as deficient given the context.
 
 ## 12. Draft Federal Complaint for Breach of Contract and Fiduciary Duty — Placement Agent Dispute — C-025
 
@@ -795,16 +796,16 @@ Raw files:
 </details>
 <!-- runs:end -->
 
-- **Verdict:** Arguable
+- **Verdict:** Defective
 - **AI reasoning:** Correct
 - **Environment:** Defective: the task directs advocacy outside professional norms (an $11,000 rounding point offered as a *Daubert* ground) and labels a rounding difference an "arithmetic error."
-- **Note and source locator:** Arguable / AI is correct. JOHN HUGHES: The damages expert includes a summary table in her report listing various items of damages, which collectively add up to $14,211,000; the Total Damages line lists the total as $14,200,000. Opposing counsel questioned the expert about it at her deposition, and the expert calls it “a rounding discrepancy.” An internal strategy memo highlights the issue as a ground for seeking to exclude the expert’s testimony under *Daubert*, arguing “the arithmetic error supports a cumulative argument that the report was prepared without the rigor required of expert testimony in federal court.”
+- **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The damages expert includes a summary table in her report listing various items of damages, which collectively add up to $14,211,000; the Total Damages line lists the total as $14,200,000. Opposing counsel questioned the expert about it at her deposition, and the expert calls it “a rounding discrepancy.” An internal strategy memo highlights the issue as a ground for seeking to exclude the expert’s testimony under *Daubert*, arguing “the arithmetic error supports a cumulative argument that the report was prepared without the rigor required of expert testimony in federal court.”
 - This task is poorly specified, and the recommended strategy of raising this with the judge is a poor one:
 - First, the task environment repeatedly states that this is an “arithmetic error.” That is false. The expert has rounded the total in the table to the nearest $100,000. While that is somewhat unorthodox in an expert report (particularly since it is written out as $14,200,000 not $14.2 million), numbers often are rounded in court filings so the judge is unlikely to agree that this is an error.
 - Second, even if there were an error (which there is not), that is generally not a basis for excluding the expert’s testimony under *Daubert*. At most one could move to exclude the erroneous version and ask for more accurate testimony, but that does nothing to help the hypothetical client here; it just raises their damages exposure by the $11,000 that the expert was willing to round off.
 - Third, the proposed framing of the argument comes very close to a breach of decorum and carries a real risk of drawing a rebuke from the judge. The strategy memo wants the motion to argue the expert’s 30 prior engagements were “in state courts and arbitrations that do not impose the same methodological gatekeeping requirements” as federal courts. While some state courts use the *Frye* standard instead of *Daubert*, many federal judges would take offense at the suggestion that state courts do not observe adequate methodological rigor. Many busy judges could be annoyed at spending time on an argument that literally just amounts to a rounding error.
-- Despite the misgivings about this issue, this rubric is scored as Arguable. Our view is that the better approach would be to drop this issue entirely, but the specific sampled rubric (C-009) would pass if someone just dropped a footnote mentioning the discrepancy for clarity, which is an acceptable approach. The companion rubric, C-010, is in my view objectively wrong because it requires that this issue be presented as a basis for excluding the expert's testimony under *Daubert*. Luna was failed incorrectly on C-010 (by the Sonnet 4.6 judge) for downplaying this issue; in fact, Luna was right to do so, as it should not be raised at all. But since that's not the sampled criterion, we do not mark it here.
-- **Category**: defective environment (directs advocacy outside professional norms); sampled rubric C-009 arguable; companion rubric C-010 incorrect (not sampled).
+- This rubric is scored as Defective, as a professional-judgment call rather than an objective error. Our view is that the better approach is to drop this issue entirely, and the sampled rubric (C-009) fails a motion that does so, even though a motion that merely mentions the discrepancy in a footnote would pass. The companion rubric, C-010, is in my view objectively wrong because it requires that this issue be presented as a basis for excluding the expert's testimony under *Daubert*. Luna was failed incorrectly on C-010 (by the Sonnet 4.6 judge) for downplaying this issue; in fact, Luna was right to do so, as it should not be raised at all. But since that's not the sampled criterion, we do not mark it here.
+- **Category**: low-quality professional judgment, rubric is incorrect (a judgment call, not an objective error); defective environment (directs advocacy outside professional norms); companion rubric C-010 also incorrect (not sampled).
 
 ## 17. Draft Rule 12(b)(6) Motion to Dismiss Brief — Commercial Software Licensing Dispute — C-037
 
@@ -906,6 +907,7 @@ Raw files:
 - **Environment:** Defective: same task environment as item 17.
 - **Note and source locator:** Defective / AI is correct. JOHN HUGHES: The rubric makes a rookie mistake, demanding that the agent argue a factual dispute on a motion to dismiss, where the court is required to assume the plaintiff’s allegations are true and cannot consider factual dispute. The 45-day and 75-day delays complained of come from the defendant’s internal report, which the plaintiff’s complaint disputes. Moreover, courts generally cannot resolve messy fact disputes over “causation” on a motion to dismiss.
 - The criterion failed agents that correctly recognized that this argument was outside the scope of what can be argued on a motion to dismiss and thus decided to excluded it.
+- **Category**: unambiguous objective error, rubric is incorrect.
 
 ## 19. Draft Verified Responses and Objections to Plaintiff's First Set of Interrogatories in Commercial Breach of Contract and Fraud Action — C-028
 

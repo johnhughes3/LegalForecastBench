@@ -189,3 +189,20 @@ def test_environment_verdicts_are_read_per_item() -> None:
         ]
     )
     assert sampler.environment_verdicts(text) == {1: "Defective", 2: "Correct"}
+
+
+def test_objective_errors_come_from_defective_category_lines() -> None:
+    text = "\n".join(
+        [
+            "## 1. A — C-001",
+            "- **Verdict:** Defective",
+            "- **Category**: unambiguous objective error, rubric is incorrect.",
+            "## 2. B — C-002",
+            "- **Verdict:** Defective",
+            "- **Category**: low-quality professional judgment, rubric is incorrect.",
+            "## 3. C — C-003",
+            "- **Verdict:** Arguable",
+            "- **Category**: unambiguous objective error, rubric is incorrect.",
+        ]
+    )
+    assert sampler.objective_errors(text) == [1]
