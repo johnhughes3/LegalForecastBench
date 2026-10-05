@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/paper/**'
+      - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
       - 'pyproject.toml'
@@ -12,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'docs/paper/**'
+      - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
       - 'pyproject.toml'
@@ -53,6 +55,11 @@ jobs:
       - name: Check clustering analysis against the manuscript
         run: >-
           uv run --frozen python docs/paper/analysis/clustering.py --check
+          --manuscript docs/paper/LegalForecastBench-paper.tex
+
+      - name: Check the LAB human-review appendix against the worksheet
+        run: >-
+          uv run --frozen python docs/paper/analysis/lab_review.py --check
           --manuscript docs/paper/LegalForecastBench-paper.tex
 
       - name: Compile with pinned TeX Live

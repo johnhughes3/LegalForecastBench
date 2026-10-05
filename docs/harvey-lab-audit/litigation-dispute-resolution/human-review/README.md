@@ -102,4 +102,5 @@ Verdicts were finalized after an AI stress test and consistency review, which ar
 ## Files
 
 - [`sample.json`](sample.json): the seed, population size, and the 25 drawn criteria with their AI statuses.
+- [`citation-sweep.md`](citation-sweep.md): an AI-generated, spot-checked check of every case citation in the 19 sampled task environments against CourtListener.
 - [`worksheet.md`](worksheet.md): one entry per sampled criterion, with the criterion text from the pinned rubric, source links, the AI findings and model-run grades collapsed, and the verdict fields.

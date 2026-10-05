@@ -1,6 +1,10 @@
 {
   "authenticated_source_profiles": [],
   "dynamic_imports": {
+    "docs/paper/analysis/lab_review.py": [
+      "harvey_model_runs",
+      "harvey_review_sample"
+    ],
     "examples/adapters/claude-agent-sdk/adapter.py": [
       "legalforecast.multiharness.claude_agent_sdk_cli"
     ],
@@ -52,6 +56,7 @@
   ],
   "file_relative_resolution": [
     "docs/paper/analysis/clustering.py",
+    "docs/paper/analysis/lab_review.py",
     "docs/paper/figures/make_figures.py",
     "examples/adapters/claude-agent-sdk/adapter.py",
     "examples/adapters/codex-cli/adapter.py",
@@ -160,6 +165,7 @@
     "tests/test_package_import_order.py",
     "tests/test_package_skeleton.py",
     "tests/test_paper_build.py",
+    "tests/test_paper_lab_review.py",
     "tests/test_pdf_extractor_pin.py",
     "tests/test_prepare_forecast_recovery.py",
     "tests/test_protected_recovery_workflow.py",

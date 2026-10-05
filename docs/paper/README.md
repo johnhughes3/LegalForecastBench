@@ -37,6 +37,15 @@ uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py --ch
 
 The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regenerated result-figure bodies into the manuscript when changing the numerical inputs, preserving the standalone editor format. The check compares those bodies with the manuscript and fails on drift. The conceptual pipeline diagram is authored separately. CI runs this check before compiling. See the [figure reproduction notes](figures/README.md) for the manuscript panel and input limits.
 
+### Harvey LAB human-review appendix
+
+The appendix on the human review of AI-flagged Harvey LAB criteria is generated from the review worksheet (`docs/harvey-lab-audit/litigation-dispute-resolution/human-review/worksheet.md`). The script writes the counts as LaTeX macros in the preamble and the per-criterion entries in the appendix, between `% BEGIN GENERATED LAB REVIEW` markers; the surrounding prose is hand-written. CI fails if the blocks drift from the worksheet.
+
+```bash
+uv run --frozen python docs/paper/analysis/lab_review.py --write-manuscript --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen python docs/paper/analysis/lab_review.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+```
+
 ### Within-case clustering
 
 The [clustering analysis](analysis/README.md) reads the public unit-level exports listed in the significance input manifest. It regenerates outcome, prediction-error, and Brier-loss ICCs, bootstrap intervals, a label-permutation test, and the manuscript paragraph:
