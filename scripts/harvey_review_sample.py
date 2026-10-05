@@ -374,6 +374,17 @@ def parse_worksheet(text: str) -> list[tuple[str, str, str, str]]:
     return parsed
 
 
+def environment_defects(text: str) -> list[int]:
+    """Worksheet items flagged as environment defects, tallied apart from verdicts."""
+    items = re.split(r"(?m)^(?=## \d+\. )", text)[1:]
+    return [
+        int(m.group(1))
+        for item in items
+        if re.search(r"(?m)^- \*\*Environment defect:\*\* Yes", item)
+        and (m := re.match(r"## (\d+)\.", item))
+    ]
+
+
 def cmd_tally() -> None:
     record = load(REVIEW_DIR / "sample.json")
     pop = population(load(AUDIT_DIR / "comparison.json")["rows"])
@@ -382,7 +393,8 @@ def cmd_tally() -> None:
         (r["task"], r["criterion"]) for r in record["sample"]
     ]:
         sys.exit("sample.json no longer matches the seeded draw from comparison.json.")
-    items = parse_worksheet((REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8"))
+    text = (REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8")
+    items = parse_worksheet(text)
     if [(t, c) for t, c, _, _ in items] != [
         (r["task"], r["criterion"]) for r in sample
     ]:
@@ -399,6 +411,8 @@ def cmd_tally() -> None:
         if key in by_bucket:
             got = by_bucket[key]
             print(f"  {label}: {got['Defective']} defective of {sum(got.values())}")
+    env = environment_defects(text)
+    print(f"  Environment defects (tallied separately): {len(env)} {env}")
     reasoning = Counter(r for _, _, _, r in items if r in AI_REASONING)
     print("  AI reasoning: " + ", ".join(f"{k} {reasoning[k]}" for k in AI_REASONING))
     if pending:
