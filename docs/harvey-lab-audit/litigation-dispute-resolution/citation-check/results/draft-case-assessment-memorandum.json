@@ -62,7 +62,7 @@
         "explanation": "18 U.S.C. § 1836, as amended by the Defend Trade Secrets Act of 2016, provides the federal civil claim for trade secret misappropriation.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection ... [amended by] Defend Trade Secrets Act of 2016 (Pub. L. 114–153)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -89,8 +89,8 @@
         "explanation": "Section 1331 gives district courts original jurisdiction of civil actions arising under federal law; a DTSA claim arises under a federal statute. 18 U.S.C. § 1836(c) separately confirms original jurisdiction for DTSA actions.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -117,7 +117,7 @@
         "explanation": "18 U.S.C. § 1836 is the DTSA's civil-action provision. It is a federal statute that creates a private cause of action for trade secret misappropriation and gives district courts original jurisdiction.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -144,7 +144,7 @@
         "explanation": "Section 1367(a) grants supplemental jurisdiction over claims that form part of the same Article III case or controversy as the claims within original jurisdiction. The complaint uses the statute's 'same case or controversy' wording. The 'common nucleus of operative fact' phrasing in the cited_for field is the standard judicial gloss on that test, not statutory text, but the statute supports the proposition.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -171,7 +171,7 @@
         "explanation": "Section 1391(b)(1) allows venue in a district where any defendant resides, provided all defendants reside in the same State; here there is a single defendant. Section 1391(b)(2) allows venue where a substantial part of the events or omissions occurred. Both grounds the complaint alleges fall within subsection (b).",
         "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all ... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -225,7 +225,7 @@
         "explanation": "§ 1839(3) defines a trade secret as information whose owner has taken reasonable measures to keep it secret and that derives independent economic value from not being generally known or readily ascertainable. This matches the proposition.",
         "evidence_excerpt": "\"(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to...\"",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -279,7 +279,7 @@
         "explanation": "§ 1836(b)(3) is the DTSA remedies provision. Its subparagraphs (C) and (D) authorize exemplary damages and attorney's fees for willful and malicious misappropriation.",
         "evidence_excerpt": "\"Remedies.—In a civil action brought under this subsection with respect to the misappropriation of a trade secret, a court may—\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -333,7 +333,7 @@
         "explanation": "The cite is correct: § 1836(b)(3)(C) allows exemplary damages of up to 2x the compensatory award for willful and malicious misappropriation. Separately, the Oregon cite paired with it in the same sentence (ORS 646.465(2)) is wrong. That subsection covers measure-of-damages; punitive damages are in ORS 646.465(3).",
         "evidence_excerpt": "\"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
         ],
         "confidence": "high"
@@ -371,7 +371,7 @@
         "explanation": "The finding holds. The official ORS text shows that 646.465(3) is the punitive-damages provision: \"(3) Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.\" Attorney fees are in a separate section, ORS 646.467: \"The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.\" The correct cite is ORS 646.467(3). That fee award is discretionary (\"may award\"), and it depends on a willful or malicious finding, so \"entitled\" overstates it. The DTSA half, 18 U.S.C. § 1836(b)(3)(D), is correct: it allows a court to \"award reasonable attorney's fees to the prevailing party\" on willful and malicious misappropriation. The source is complaint ¶ 83.",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ]
       }
     },
@@ -397,7 +397,7 @@
         "explanation": "The cite is correct: § 1836(b)(3)(D) lets a court award reasonable attorney's fees to the prevailing party when misappropriation is willful and malicious. The fee award is discretionary ('may'), so 'entitled' is advocacy overstatement. Separately, the Oregon cite paired with it in the same sentence is wrong. ORS 646.465(3) covers punitive damages; the Oregon fee provision is ORS 646.467.",
         "evidence_excerpt": "\"or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
         ],
         "confidence": "high"
@@ -453,7 +453,7 @@
         "evidence_excerpt": "ORS 646.461(4): \"'Trade secret' means information, including a drawing, cost data, customer list, formula, pattern, compilation, program, device, method, technique or process that...\"; 18 U.S.C. § 1839(3): \"the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information...\"",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -481,7 +481,7 @@
         "evidence_excerpt": "ORS 646.461: \"(2) 'Misappropriation' means: (a) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; (b) Disclosure or use...\"; 18 U.S.C. § 1839: \"(5) the term 'misappropriation' means— (A) acquisition of a trade secret of another...\"",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -509,7 +509,7 @@
         "evidence_excerpt": "ORS 646.465(2): \"Damages may include both the actual loss caused by misappropriation, and the unjust enrichment...\"; (3): \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.\"",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       },
@@ -519,7 +519,7 @@
         "explanation": "The finding holds. ORS 646.465(2) states only compensatory measures: \"Damages may include both the actual loss caused by misappropriation, and the unjust enrichment ... but shall not be less than a reasonable royalty for the unauthorized disclosure or use of a trade secret.\" The doubling remedy is in 646.465(3): \"punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2).\" The DTSA cite is accurate. § 1836(b)(3)(C) reads: \"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B).\" The proposition is substantively right, but the Oregon subsection is wrong. The source is complaint ¶ 122 (the same error appears in ¶ 82).",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ]
       }
     },
@@ -546,7 +546,7 @@
         "evidence_excerpt": "ORS 646.467: \"The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.\" ORS 646.465(3): \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded...\"",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       },
@@ -556,7 +556,7 @@
         "explanation": "The finding holds. ORS 646.465(3) deals only with punitive damages: \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award...\" It says nothing about fees. Oregon's UTSA fee provision is ORS 646.467(3): \"The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.\" The DTSA half, § 1836(b)(3)(D), is correct. The correct cite is ORS 646.467(3); 18 U.S.C. § 1836(b)(3)(D). The source is complaint ¶ 123.",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ]
       }
     },
@@ -583,7 +583,7 @@
         "evidence_excerpt": "ORS 646.463(1): \"Actual or threatened misappropriation may be temporarily, preliminarily or permanently enjoined.\" (3) \"In appropriate circumstances, the court may order affirmative acts to protect a trade secret.\"; § 1836(b)(3)(A): \"grant an injunction— (i) to prevent any actual or threatened misappropriation...\"",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -638,7 +638,7 @@
         "evidence_excerpt": "ORS 646.465(3): \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2)\"; § 1836(b)(3)(C): \"award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)\"",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       },
@@ -648,7 +648,7 @@
         "explanation": "The finding holds. This is the same defect as ref 17, this time in the Bridger damages report. ORS 646.465(2) covers actual loss, unjust enrichment, and a reasonable-royalty floor, not enhanced damages. Enhanced damages are in 646.465(3): \"punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.\" The DTSA cite, § 1836(b)(3)(C), is correct (\"exemplary damages in an amount not more than 2 times the amount of the damages\"). The statement that enhanced damages \"could double\" the award fits both statutes; only the Oregon subsection is wrong.",
         "source_urls": [
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ]
       }
     },
@@ -701,7 +701,7 @@
         "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153) amended 18 U.S.C. § 1836 and related sections of chapter 90. '§ 1836 et seq.' is a conventional way to cite it. The contract clause is a party acknowledgment, not a claim about what the statute holds, and the statute supports treating qualifying confidential information as trade secrets.",
         "evidence_excerpt": "This section was significantly amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114–153, enacted May 11, 2016, 130 Stat. 376).",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -728,7 +728,7 @@
         "explanation": "§ 1833(b)(1) grants immunity for disclosures made in confidence to government officials or attorneys to report a suspected violation of law, or made in a sealed court filing. § 1833(b)(3)(A) requires employers to give notice of this immunity in employee agreements.",
         "evidence_excerpt": "\"An individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that— (A) is made—(i) in confidence to a Federal, State, or local government official, either directly or indirectly, or to an attorney\"",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -757,7 +757,7 @@
         "explanation": "17 U.S.C. § 101 defines \"work made for hire\" as (1) a work prepared by an employee within the scope of employment, or (2) certain specially commissioned works covered by a signed writing. The agreement correctly cites § 101 as the source of the definition. Deeming non-copyrightable materials (such as customer lists) to be works made for hire has no copyright effect, but the clause hedges with \"to the maximum extent permitted\" and adds a backup assignment.",
         "evidence_excerpt": "\"A 'work made for hire' is— (1) a work prepared by an employee within the scope of his or her employment; or (2) a work specially ordered or commissioned...\"",
         "source_urls": [
-          "https:/101"
+          "https://www.law.cornell.edu/uscode/text/17/101"
         ],
         "confidence": "high"
       }
@@ -811,7 +811,7 @@
         "explanation": "18 U.S.C. § 1836 is the correct cite for a civil DTSA claim. Section 1836(b)(1) creates the private civil action for misappropriation.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -865,7 +865,7 @@
         "explanation": "Both statutes provide enhanced damages and fees for willful (and malicious) misappropriation. The DTSA allows exemplary damages of up to 2x and attorney's fees when misappropriation is willful and malicious. The Oregon UTSA allows punitive damages of up to 2x (646.465(3)) and fees (646.467(3)) on a finding of willful OR malicious misappropriation, so Oregon's standard is the looser disjunctive one.",
         "evidence_excerpt": "\"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded\" (1836(b)(3)(C)); \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award\" (ORS 646.465(3))",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
         ],
         "confidence": "high"

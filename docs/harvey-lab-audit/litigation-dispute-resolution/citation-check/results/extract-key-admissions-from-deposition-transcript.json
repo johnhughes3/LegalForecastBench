@@ -309,7 +309,7 @@
         "explanation": "18 U.S.C. § 1836 begins the DTSA civil-action provisions, and the \"et seq.\" range includes the § 1839 definition of trade secret. Citing the DTSA as § 1836 et seq. for the claim that the information is a trade secret under federal law is a standard, accurate citation form.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -338,7 +338,7 @@
         "source_urls": [
           "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1901",
           "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1904",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -407,7 +407,7 @@
         "explanation": "Section 1833(b) is the DTSA's whistleblower immunity provision, enacted by the Defend Trade Secrets Act of 2016. It protects confidential disclosures to government officials or attorneys and disclosures in sealed filings. Calling it a whistleblower provision of federal law is a fair description.",
         "evidence_excerpt": "Immunity From Liability for Confidential Disclosure of a Trade Secret to the Government or in a Court Filing",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -434,7 +434,7 @@
         "explanation": "Section 1833(b)(1) grants immunity for disclosures made in confidence to government officials or attorneys to report a suspected violation of law, or made in a sealed court filing. Section 1833(b)(3)(A) requires employers to give this notice in employee agreements. The notice in the contract matches the statute.",
         "evidence_excerpt": "An individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that— (A) is made— (i) in confidence to a Federal, State, or local government official, either directly or indirectly, or to an attorney",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -463,7 +463,7 @@
         "explanation": "Section 101 defines \"work made for hire\", including a work prepared by an employee within the scope of employment. The contract clause properly refers to that definition.",
         "evidence_excerpt": "A \"work made for hire\" is— (1) a work prepared by an employee within the scope of his or her employment",
         "source_urls": [
-          "https:/101"
+          "https://www.law.cornell.edu/uscode/text/17/101"
         ],
         "confidence": "high"
       }

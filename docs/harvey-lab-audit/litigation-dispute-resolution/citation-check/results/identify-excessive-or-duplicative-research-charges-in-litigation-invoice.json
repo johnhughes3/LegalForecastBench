@@ -62,7 +62,7 @@
         "explanation": "A time-entry description, not a legal proposition: research on \"federal CERCLA analogs to MTCA strict liability framework.\" CERCLA exists and its liability section (§ 107(a), 42 U.S.C. § 9607(a)) is the federal counterpart to MTCA's liability section. MTCA (RCW 70A.305.040(2), formerly RCW 70.105D.040) expressly makes liable persons \"strictly liable, jointly and severally\"; the Washington Supreme Court in Pope Resources v. DNR, 190 Wn.2d 744 (2018), calls CERCLA \"the parent statute to MTCA\" and says MTCA \"was heavily patterned after CERCLA\"; the Ninth Circuit en banc in Carson Harbor Village v. Unocal, 270 F.3d 863 (2001), states CERCLA \"generally imposes strict liability on owners and operators.\" The premise that CERCLA is a federal analog to MTCA's strict-liability scheme is accurate. Side note outside this ref: the invoice documents elsewhere cite the MTCA section as 70.105D.040, which was recodified as RCW 70A.305.040 in 2020.",
         "evidence_excerpt": "Pope Resources: \"Because MTCA was heavily patterned after CERCLA, Washington courts have recognized 'federal cases interpreting similar 'owner or operator' language in the federal act are persuasive authority...'\"; Carson Harbor: \"CERCLA 'generally imposes strict liability on owners and operators of facilities at which hazardous substances were disposed.'\"; RCW 70A.305.040(2): \"Each person who is liable under this section is strictly liable, jointly and severally, for all remedial action costs...\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
           "https://www.courtlistener.com/opinion/4500878/pope-res-lp-v-wash-state-dept-of-natural-res/",
           "https://www.courtlistener.com/opinion/775487/carson-harbor-village-ltd-v-unocal-corporation/"
@@ -641,7 +641,7 @@
         "evidence_excerpt": "\"MTCA follows CERCLA in defining who is liable for environmental contamination. ... This is substantially the same language used in CERCLA with one exception. See 42 U.S.C. § 9607(a)(1) ... The parent statute to MTCA, CERCLA, has consistently been interpreted to avoid fusing the separate legal doctrines that underlie the terms, 'owner' and 'operator.'\" (Pope Resources, LP v. Dep't of Natural Resources, 190 Wn.2d 744, 751 (2018))",
         "source_urls": [
           "https://www.courtlistener.com/opinion/4500878/pope-res-lp-v-wash-state-dept-of-natural-res/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -866,8 +866,8 @@
         "explanation": "CERCLA Section 107 is real and is codified at 42 U.S.C. § 9607 (the LII source credit reads \"Pub. L. 96-510, title I, § 107\"). It is the liability provision listing the four classes of covered persons, so \"contractor liability under CERCLA Section 107\" is an accurate way to describe the question. Ninth Circuit authority on exactly that point exists: Kaiser Aluminum & Chemical Corp. v. Catellus Development Corp., 976 F.2d 1338 (9th Cir. 1992), held that an excavation contractor could be liable under § 9607(a)(2) as an operator and under § 9607(a)(4) as a transporter. Two caveats: (1) the statutory text specifically addressing response action contractors is § 119 (42 U.S.C. § 9619), not § 107, though the liability it limits arises under § 107; (2) I confirmed the Ninth Circuit half of the phrase but did not locate and read a specific EPA guidance document on contractor liability, and the entry names none.",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"(1) the owner and operator of a vessel or a facility, (2) any person who at the time of disposal of any hazardous substance owned or operated any facility at which such hazardous substances were disposed of ... shall be liable for—\". Kaiser Aluminum: \"The question is whether the allegations of Catellus's complaint are sufficient to show that Ferry was an operator of the facility and that it disposed of a hazardous substance.\" 42 U.S.C. § 9619(a)(1): \"A person who is a response action contractor ... shall not be liable under this subchapter or under any other Federal law ...\"",
         "source_urls": [
-          "https:/9607",
-          "https:/9619",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9619",
           "https://www.courtlistener.com/opinion/9011937/kaiser-aluminum-chemical-corp-v-catellus-development-corp/"
         ],
         "confidence": "high"

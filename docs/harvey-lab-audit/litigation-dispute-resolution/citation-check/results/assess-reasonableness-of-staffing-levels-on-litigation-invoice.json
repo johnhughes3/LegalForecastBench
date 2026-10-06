@@ -59,7 +59,7 @@
         "explanation": "The DTSA is codified at 18 U.S.C. § 1836 et seq. Section 1836(b)(1) creates a private civil action for the owner of a misappropriated trade secret. That makes it the correct federal statutory basis for the claim.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -129,7 +129,7 @@
         "evidence_excerpt": "\"This Act may be cited as the `Defend Trade Secrets Act of 2016'.\" ... \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -211,7 +211,7 @@
         "explanation": "The DTSA exists (18 U.S.C. § 1836 et seq.), but its text has no express specificity or identification requirement; that standard comes from case law. The added claim that trade secret identification specificity 'has been the subject of recent case law developments in the Eleventh Circuit' cannot be checked because no case is named. A web search found Eleventh Circuit DTSA decisions on other issues (Compulife v. Newman on improper means and compilations; Highland Consulting v. Minjares on ownership). The specificity development it found was Ninth Circuit authority (Quintara). No identifiable Eleventh Circuit authority on identification specificity was located, so the Eleventh Circuit part of the claim is unverified rather than shown to be false.",
         "evidence_excerpt": "Search results: \"the Ninth Circuit's recent decision in Quintara Biosciences v. Ruifeng Biztech rejects importing California's pre-discovery 'reasonable particularity' rule into the Defend Trade Secrets Act\"; Eleventh Circuit cases located (Compulife v. Newman; Highland Consulting Group v. Minjares) address other DTSA issues.",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://patentlyo.com/patent/2025/08/damore-trade-secret-particularity.html",
           "https://ipwatchdog.com/2026/01/28/identifying-trade-secrets-under-dtsa-critical-requirement-reasonable-particularity/"
         ],
@@ -325,7 +325,7 @@
         "explanation": "Both statutes exist. The invoice entry only names preemption as a research topic, and that is a legitimate question. The DTSA addresses it expressly in § 1838: the chapter does not preempt or displace state-law trade secret remedies. The GTSA is codified at O.C.G.A. § 10-1-760 et seq., as Agilysys v. Hall (N.D. Ga.) confirms. Note that the research would find that the DTSA does not preempt the GTSA claim.",
         "evidence_excerpt": "18 U.S.C. § 1838: \"this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by ... State ... law for the misappropriation of a trade secret\"; Agilysys: \"Under [the GTSA] O.C.G.A. §§ 10-1-760 et seq., a claim for misappropriation of trade secrets requires...\"",
         "source_urls": [
-          "https:/1838",
+          "https://www.law.cornell.edu/uscode/text/18/1838",
           "https://www.courtlistener.com/opinion/7326057/agilysys-inc-v-hall/"
         ],
         "confidence": "high"
@@ -434,7 +434,7 @@
         "explanation": "This is a billing-entry mention of research on DTSA extraterritorial issues. The topic exists: 18 U.S.C. § 1837, 'Applicability to conduct outside the United States,' extends chapter 90, which includes the § 1836 civil action, to some foreign conduct. The reference is accurate.",
         "evidence_excerpt": "\"This chapter also applies to conduct occurring outside the United States if— (1) the offender is a natural person who is a citizen or permanent resident alien of the United States, or an organization organized under the laws of the United States ...; or (2) an act in furtherance of the offense was committed in the United States.\"",
         "source_urls": [
-          "https:/1837",
+          "https://www.law.cornell.edu/uscode/text/18/1837",
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
         ],
         "confidence": "high"
@@ -489,7 +489,7 @@
         "explanation": "Research on DTSA extraterritorial-application requirements for overseas data transfers fits a real statutory provision. 18 U.S.C. § 1837 sets the conditions (a U.S. offender, or an act in furtherance committed in the United States) under which chapter 90 reaches conduct outside the United States.",
         "evidence_excerpt": "18 U.S. Code § 1837 – \"Applicability to conduct outside the United States\" ... \"(2) an act in furtherance of the offense was committed in the United States.\"",
         "source_urls": [
-          "https:/1837"
+          "https://www.law.cornell.edu/uscode/text/18/1837"
         ],
         "confidence": "high"
       }
@@ -516,7 +516,7 @@
         "explanation": "This billing entry describes research on extraterritorial data transfers under the DTSA. The research topic is real: 18 U.S.C. § 1837 governs when chapter 90, including the § 1836 civil action, applies to conduct outside the United States. Nothing about it is mischaracterized.",
         "evidence_excerpt": "\"This chapter also applies to conduct occurring outside the United States if— ...\"",
         "source_urls": [
-          "https:/1837"
+          "https://www.law.cornell.edu/uscode/text/18/1837"
         ],
         "confidence": "high"
       }
@@ -570,7 +570,7 @@
         "explanation": "This billing entry describes research on trade secret identification requirements under the DTSA. The DTSA exists. The statute itself does not spell out an identification or particularity rule; courts developed that requirement in DTSA cases. That makes it a legitimate research topic, and the entry does not misstate the law.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection ...\" (18 U.S.C. § 1836(b)(1)); search results show courts addressing identification of trade secrets under the DTSA (e.g., Ninth Circuit, Quintara Biosciences v. Ruifeng Biztech).",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://patentlyo.com/patent/2025/08/damore-trade-secret-particularity.html"
         ],
         "confidence": "medium"
@@ -679,7 +679,7 @@
         "explanation": "Both statutes contain fee-shifting provisions. Under the DTSA (§ 1836(b)(3)(D)), a court may award reasonable attorney's fees to the prevailing party for a bad-faith claim, a bad-faith motion about an injunction, or willful and malicious misappropriation. Under the GTSA (O.C.G.A. § 10-1-764), a court may award reasonable fees for willful and malicious misappropriation, as Brandenburg v. All-Fleet Refinishing confirms. The GTSA text itself could not be fetched because Justia returned a 403 error.",
         "evidence_excerpt": "§ 1836(b)(3)(D): \"the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party\"; Brandenburg: \"OCGA § 10-1-764 provides that if the court finds wilful and malicious misappropriation, the court may award reasonable attorney fees to the prevailing party.\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.courtlistener.com/opinion/1247379/brandenburg-v-all-fleet-refinishing-inc/"
         ],
         "confidence": "high"

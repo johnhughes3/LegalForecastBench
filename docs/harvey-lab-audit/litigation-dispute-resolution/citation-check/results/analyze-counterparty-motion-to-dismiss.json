@@ -357,7 +357,7 @@
         "explanation": "28 U.S.C. § 1391 is the general federal venue statute. It governs venue for civil actions in district courts, so it supports the description of a Rule 12(b)(3) challenge as one to venue that is improper under § 1391.",
         "evidence_excerpt": "this section shall govern the venue of all civil actions brought in district courts of the United States",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -499,7 +499,7 @@
         "explanation": "§ 1332(a) sets the amount-in-controversy requirement: the amount must exceed $75,000, exclusive of interest and costs. DataCore's concession and its choice not to move on this ground are its own litigation position, not a claim about what the statute says. The statutory proposition is accurate.",
         "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -555,7 +555,7 @@
         "explanation": "28 U.S.C. § 1332 is the federal diversity-jurisdiction statute; the motion cites it only to describe the Complaint's asserted basis for jurisdiction, which matches Complaint ¶ 13, invoking § 1332(a).",
         "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1154,7 +1154,7 @@
         "explanation": "§ 1332(a)(1) gives federal courts diversity jurisdiction between citizens of different States when the amount exceeds $75,000. The Complaint correctly pleads Georgia against Delaware/Texas citizenship and more than $75,000 exclusive of interest and costs.",
         "evidence_excerpt": "exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1237,7 +1237,7 @@
         "explanation": "§ 1391(b)(2) puts venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. The Complaint paraphrases this accurately.",
         "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -1264,7 +1264,7 @@
         "explanation": "§ 1391(b)(1) puts venue in a district where any defendant resides. Under § 1391(c)(2), an entity defendant resides in any district where it is subject to personal jurisdiction for the action. The Complaint pleads both the permanent office and employees and that DataCore is subject to this Court's personal jurisdiction, which is a fair application of (c)(2). One nuance: Georgia has more than one district, and for a corporation in a multi-district State, § 1391(d) more precisely governs district-level residence. That provision is not cited, but the omission does not make the cited provisions inaccurate.",
         "evidence_excerpt": "(2) an entity with the capacity to sue and be sued in its common name under applicable law, whether or not incorporated, shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -1551,7 +1551,7 @@
         "explanation": "Section 1746 lets an unsworn declaration made under penalty of perjury substitute for a sworn verification or affidavit. That fits a complaint verification made under the statute.",
         "evidence_excerpt": "any matter is required or permitted to be supported, evidenced, established, or proved by the sworn declaration, verification, certificate, statement, oath, or affidavit... I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct.",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -1663,7 +1663,7 @@
         "explanation": "Section 1404(a) authorizes transfer of a civil action to another district for convenience and in the interest of justice, including to a district to which all parties have consented. Atlantic Marine holds that this is the mechanism for enforcing a forum-selection clause that points to a federal forum.",
         "evidence_excerpt": "For the convenience of parties and witnesses, in the interest of justice, a district court may transfer any civil action to any other district or division where it might have been brought or to any district or division to which all parties have consented.",
         "source_urls": [
-          "https:/1404"
+          "https://www.law.cornell.edu/uscode/text/28/1404"
         ],
         "confidence": "high"
       }
@@ -1883,7 +1883,7 @@
         "explanation": "§ 1332(a) sets the threshold: the amount in controversy must exceed $75,000. The citation is accurate.",
         "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -2094,7 +2094,7 @@
         "explanation": "§ 1332(a) sets the jurisdictional threshold the Complaint refers to: more than $75,000, exclusive of interest and costs. Pleaded damages of more than $2.3 million exceed it.",
         "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -2311,7 +2311,7 @@
         "explanation": "Section 1746 governs unsworn declarations under penalty of perjury. The Whitford declaration invokes it, and its paragraph 16 closes with the statutory language ('I declare under penalty of perjury under the laws of the United States of America that the foregoing is true and correct').",
         "evidence_excerpt": "I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }

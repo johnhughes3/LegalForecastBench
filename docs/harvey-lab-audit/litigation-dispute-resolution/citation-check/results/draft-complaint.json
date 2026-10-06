@@ -37,7 +37,7 @@
         "explanation": "Section 1746 allows an unsworn declaration subscribed as true under penalty of perjury to stand in for a sworn affidavit. The declarant's preamble properly invokes the statute. The statute's form also calls for a dated, signed closing statement that the foregoing is true and correct; that is a drafting point, not a citation defect.",
         "evidence_excerpt": "such matter may, with like force and effect, be supported ... by the unsworn declaration ... which is subscribed by him, as true under penalty of perjury, and dated",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -64,7 +64,7 @@
         "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under (b)(3)(B) when the misappropriation is willful and malicious. This matches the spreadsheet's description.",
         "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -91,8 +91,8 @@
         "explanation": "Under 18 U.S.C. § 1833(b)(3)(A), an employer must give notice of the whistleblower immunity in any contract or agreement with an employee that governs trade secrets or confidential information. Section 1833(b)(3)(C) provides that an employer who does not give that notice may not be awarded exemplary damages or attorney fees under 18 U.S.C. § 1836(b)(3)(C)-(D) against an employee who did not receive it. The statute supports the hedged statement that DTSA exemplary damages 'may depend on' compliance. The precise provision is § 1833(b)(3). Under (b)(3)(D), the rule reaches only contracts entered into or updated after the 2016 enactment.",
         "evidence_excerpt": "If an employer does not comply with the notice requirement in subparagraph (A), the employer may not be awarded exemplary damages or attorney fees under subparagraph (C) or (D) of section 1836(b)(3) in an action against an employee to whom notice was not provided.",
         "source_urls": [
-          "https:/1833",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1833",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -119,7 +119,7 @@
         "explanation": "Under the DTSA, exemplary damages are capped at 2 times the actual damages award for willful and malicious misappropriation, and the civil action requires that the trade secret relate to a product or service in interstate or foreign commerce. Both general references are accurate.",
         "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
         ],
         "confidence": "high"
@@ -149,7 +149,7 @@
         "explanation": "17 U.S.C. § 101 defines 'work made for hire' to include (1) a work prepared by an employee within the scope of employment, and (2) certain specially commissioned works covered by a signed written agreement. The contract correctly references this definition.",
         "evidence_excerpt": "A \"work made for hire\" is— (1) a work prepared by an employee within the scope of his or her employment; or (2) a work specially ordered or commissioned ...",
         "source_urls": [
-          "https:/101"
+          "https://www.law.cornell.edu/uscode/text/17/101"
         ],
         "confidence": "high"
       }
@@ -176,7 +176,7 @@
         "explanation": "18 U.S.C. § 1839(3)(A) makes it a condition of trade secret status under the DTSA that the owner has taken reasonable measures to keep the information secret. This supports the proposition. (The same sentence in the document also cites N.C. Gen. Stat. § 66-152(3)(a). In the NC statute, the reasonable-efforts element appears to be sub-part b., not a. That NC cite is outside this ref and was not checked here.)",
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -230,7 +230,7 @@
         "explanation": "The DTSA civil action is available only if the trade secret relates to a product or service used in, or intended for use in, interstate or foreign commerce. That supports the memo's 'jurisdictional predicate' characterization.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
         ],
         "confidence": "high"
@@ -258,7 +258,7 @@
         "explanation": "Same authority as ref 23. Sections 1836–1839 give the private civil cause of action for trade secret misappropriation and define its terms. The citation is accurate for a federal trade secret misappropriation claim.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -313,7 +313,7 @@
         "explanation": "Section 1836(c) gives federal district courts original jurisdiction over civil actions under the section. A DTSA claim arises under federal law, so citing § 1836 as the basis for federal question jurisdiction is a fair general reference. The more precise pin is § 1836(c), together with 28 U.S.C. § 1331.",
         "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -340,7 +340,7 @@
         "explanation": "Under § 1367(a), district courts have supplemental jurisdiction over related state-law claims that form part of the same case or controversy as the claims within their original jurisdiction.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -367,7 +367,7 @@
         "explanation": "The rubric bases federal-question jurisdiction on the DTSA (18 U.S.C. § 1836) and 28 U.S.C. § 1331. That is accurate: § 1836(c) confers original jurisdiction over DTSA civil actions, and a DTSA claim arises under federal law.",
         "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -394,7 +394,7 @@
         "explanation": "28 U.S.C. § 1331 is the general federal-question jurisdiction statute. A DTSA claim arises under federal law.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -421,7 +421,7 @@
         "explanation": "Section 1367(a) grants supplemental jurisdiction over state-law claims that are related to the claims within the court's original jurisdiction.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -448,7 +448,7 @@
         "explanation": "Section 1391(b)(1) makes venue proper where any defendant resides if all defendants reside in the same State. Section 1391(b)(2) makes venue proper where a substantial part of the events or omissions occurred. Both bases match the rubric's description.",
         "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -475,7 +475,7 @@
         "explanation": "Section 1836(b)(1) requires that the trade secret be related to a product or service used in, or intended for use in, interstate or foreign commerce. The rubric states this accurately and cites the correct subsection.",
         "evidence_excerpt": "if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -502,7 +502,7 @@
         "explanation": "Section 1836(b)(2) is the DTSA civil seizure provision. Under (b)(2)(A)(i), a court may order seizure of property on an ex parte application, but only in extraordinary circumstances. This matches the proposition.",
         "evidence_excerpt": "(b)(2)(A)(i) ... the court may, upon ex parte application but only in extraordinary circumstances, issue an order providing for the seizure of property necessary to prevent the propagation or dissemination of the trade secret",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -529,7 +529,7 @@
         "explanation": "Section 1833(b)(3)(A) requires an employer to give notice of the immunity in any contract or agreement with an employee that governs the use of trade secrets or other confidential information. An employment agreement or CIAA is that kind of agreement. Under (b)(3)(C), failing to give notice bars exemplary damages and attorney fees against an employee who was not notified. The proposition's hedged 'may preclude' is accurate. The more precise pin is § 1833(b)(3). The requirement applies only to agreements entered into or updated after the May 2016 enactment (b)(3)(D).",
         "evidence_excerpt": "An employer shall provide notice of the immunity set forth in this subsection in any contract or agreement with an employee that governs the use of a trade secret or other confidential information.",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -556,8 +556,8 @@
         "explanation": "Under § 1833(b)(3)(C), an employer who fails to give the notice may not be awarded exemplary damages or attorney fees under § 1836(b)(3)(C)-(D) against an employee who did not receive it. The 'up to 2x' figure comes from the cross-referenced § 1836(b)(3)(C), which caps exemplary damages at 2 times the damages awarded. The rubric's statement is accurate. Its 'may be unavailable or subject to challenge' wording fits the statute's limits: the bar applies only against the employee who was not notified, and only to agreements entered into or updated after enactment.",
         "evidence_excerpt": "the employer may not be awarded exemplary damages or attorney fees under subparagraph (C) or (D) of section 1836(b)(3) in an action against an employee to whom notice was not provided. ... § 1836(b)(3)(C): award exemplary damages in an amount not more than 2 times the amount of the damages awarded",
         "source_urls": [
-          "https:/1833",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1833",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -648,7 +648,7 @@
         "explanation": "Under § 1836(b)(3)(C), when a trade secret is willfully and maliciously misappropriated, a court may award exemplary damages of up to 2 times the damages awarded under (b)(3)(B). This matches the 'up to 2x' proposition.",
         "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -675,8 +675,8 @@
         "explanation": "18 U.S.C. §§ 1836–1839 contain the DTSA civil action (§ 1836(b)(1)) and the definitions (§ 1839), so they support a DTSA misappropriation count. The statute lets the trade secret owner sue whoever misappropriated the secret, and nothing in it stops that count being pleaded against both an individual and a company.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -731,8 +731,8 @@
         "explanation": "The CFAA is real and is codified at 18 U.S.C. § 1030 ('Fraud and related activity in connection with computers'). It includes a civil cause of action in § 1030(g). The rubric names it only as an example of a claim the complaint should not assert, so the reference to the statute is accurate. Whether such a claim would actually fail on these facts is a judgment for the rubric and was not checked here.",
         "evidence_excerpt": "This Act [amending section 1030 of this title] may be cited as the 'Computer Fraud and Abuse Act of 1986'. ... Any person who suffers damage or loss by reason of a violation of this section may maintain a civil action against the violator",
         "source_urls": [
-          "https:/1001",
-          "https:/1030"
+          "https://www.law.cornell.edu/uscode/text/18/1001",
+          "https://www.law.cornell.edu/uscode/text/18/1030"
         ],
         "confidence": "high"
       }
@@ -786,7 +786,7 @@
         "explanation": "28 U.S.C. § 1746 permits matters required or permitted to be supported by sworn declaration or affidavit to be supported instead by an unsworn declaration subscribed as true under penalty of perjury and dated. The declaration's invocation of it is accurate.",
         "evidence_excerpt": "such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }

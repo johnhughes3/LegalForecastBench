@@ -227,9 +227,9 @@
         "explanation": "The Act's name and year are exactly as written (Pub. L. 104-191, section 1(a)). The implementing regulations require a covered entity that discloses PHI to a business associate to obtain satisfactory assurances documented in a written contract (45 C.F.R. 164.502(e)(1)-(2), cross-referencing 164.504(e)), which is the business associate agreement. HITECH (42 U.S.C. 17934(a)) itself uses the term 'business associate agreement'. The proposal's 'if required' hedge is accurate, since a BAA is needed only where PHI of a covered entity is handled.",
         "evidence_excerpt": "The satisfactory assurances required by paragraph (e)(1) of this section must be documented through a written contract or other written agreement or arrangement with the business associate that meets the applicable requirements of § 164.504(e).",
         "source_urls": [
-          "https:/164.502",
+          "https://www.law.cornell.edu/cfr/text/45/164.502",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
-          "https:/17934"
+          "https://www.law.cornell.edu/uscode/text/42/17934"
         ],
         "confidence": "high"
       }
@@ -300,8 +300,8 @@
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
-          "https:/17931",
-          "https:/17934"
+          "https://www.law.cornell.edu/uscode/text/42/17931",
+          "https://www.law.cornell.edu/uscode/text/42/17934"
         ],
         "confidence": "high"
       }

@@ -32,7 +32,7 @@
         "explanation": "18 U.S.C. § 1836 ('Civil proceedings') exists and, as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153, § 2(a), 130 Stat. 376), provides the private civil action for trade secret misappropriation at § 1836(b). Section 1836 itself was originally added in 1996 by Pub. L. 104-294 (Economic Espionage Act); the DTSA added subsections (b)-(d). Citing the DTSA as '18 U.S.C. § 1836 et seq.' is the standard form; the Seventh Circuit in Motorola Solutions v. Hytera, 108 F.4th 458 (7th Cir. 2024), likewise describes a N.D. Ill. suit under 'the federal Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836(b), and the Illinois Trade Secrets Act (ITSA), 765 ILCS 1065/1 et seq.' The statute supports the proposition that a party may assert civil trade secret claims under it.",
         "evidence_excerpt": "(b) Private Civil Actions.— (1) In general.— An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce. [govinfo, Pub. L. 114-153:] SECTION 1. SHORT TITLE. This Act may be cited as the ``Defend Trade Secrets Act of 2016''.",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
           "https://www.courtlistener.com/opinion/9987798/motorola-solutions-inc-v-hytera-communications-corporation-ltd/"
         ],
@@ -150,7 +150,7 @@
         "evidence_excerpt": "This Act may be cited as the ``Defend Trade Secrets Act of 2016''. [REXA v. Chester:] Our court has emphasized that \"a plaintiff must do more than just identify a kind of technology and then invite ... REXA has failed to identify a concrete trade secret, as it must, to defeat summary judgment.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.courtlistener.com/opinion/7454057/rexa-inc-v-mark-chester/"
         ],
         "confidence": "high"
@@ -428,7 +428,7 @@
         "evidence_excerpt": "This Act may be cited as the ``Defend Trade Secrets Act of 2016''. ... An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.courtlistener.com/opinion/7454057/rexa-inc-v-mark-chester/"
         ],
         "confidence": "high"

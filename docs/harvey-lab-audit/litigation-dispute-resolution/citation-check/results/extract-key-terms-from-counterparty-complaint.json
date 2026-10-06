@@ -31,7 +31,7 @@
         "evidence_excerpt": "This article shall be known as the 'Georgia Trade Secrets Act of 1990.' ... § 10-1-762 - Injunctive Relief; § 10-1-763 - Recovery of Damages",
         "source_urls": [
           "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -58,7 +58,7 @@
         "explanation": "18 U.S.C. § 1836 (\"Civil proceedings\") is the DTSA provision creating a private civil action for trade-secret misappropriation. It is the correct federal basis for the claim.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -171,7 +171,7 @@
         "evidence_excerpt": "(4) \"Trade secret\" means information, without regard to form, including ... a compilation ... financial data ... or a list of actual or potential customers or suppliers which is not commonly known by or available to the public ...",
         "source_urls": [
           "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -200,7 +200,7 @@
         "explanation": "18 U.S.C. § 1839(3) is the DTSA definition of \"trade secret.\" It expressly covers business and financial information, including compilations, which matches the complaint's description (customer lists, compilations, financial data). The citation supports the proposition.",
         "evidence_excerpt": "the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations ...",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -228,7 +228,7 @@
         "evidence_excerpt": "(2) \"Misappropriation\" means: (A) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) Disclosure or use of a trade secret of another without express or implied consent by a person who ...",
         "source_urls": [
           "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -255,7 +255,7 @@
         "explanation": "18 U.S.C. § 1839(5) defines \"misappropriation\" under the DTSA. It covers acquisition by improper means and disclosure or use without consent, which matches the complaint's characterization.",
         "evidence_excerpt": "the term 'misappropriation' means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -282,7 +282,7 @@
         "explanation": "Both statutory bases exist and support a misappropriation count. The GTSA is at O.C.G.A. § 10-1-760 et seq. Under 18 U.S.C. § 1836(b)(1), the DTSA lets an owner of a misappropriated trade secret bring a civil action. A more precise cite would be § 1836(b), but citing the section as a whole is acceptable.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html"
         ],
         "confidence": "high"
@@ -313,7 +313,7 @@
         "evidence_excerpt": "18 U.S.C. § 1839(3): \"all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations ...\"; O.C.G.A. § 10-1-761(4): \"... financial data, financial plans, product plans, or a list of actual or potential customers or suppliers ...\"",
         "source_urls": [
           "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -369,7 +369,7 @@
         "evidence_excerpt": "§ 10-1-762(a): \"Actual or threatened misappropriation may be enjoined.\" § 1836(b)(3)(A): \"grant an injunction— (i) to prevent any actual or threatened misappropriation ... (ii) ... requiring affirmative actions to be taken to protect the trade secret\"",
         "source_urls": [
           "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -568,7 +568,7 @@
         "evidence_excerpt": "This article shall be known as the 'Georgia Trade Secrets Act of 1990.' / An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
           "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-760/",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }

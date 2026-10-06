@@ -39,7 +39,7 @@
         "explanation": "Section 1332(a)(1) does grant diversity jurisdiction where the amount in controversy exceeds $75,000 and the parties are citizens of different States. But § 1332(c)(1) makes a corporation a citizen of both its State of incorporation and the State of its principal place of business. The complaint itself pleads that Meridian is a Delaware corporation with its principal place of business in Savannah, Georgia, so Meridian is also a Georgia citizen. The complaint also pleads that all of Caldwell's LLC members are Georgia citizens. On the complaint's own facts, then, both sides include Georgia citizens and complete diversity is absent. Complaint ¶ 8 says Meridian is a citizen only of Delaware 'by virtue of its state of incorporation', which misstates the statute's citizenship rule. The statute is real and the amount-in-controversy statement is accurate, but it does not support jurisdiction as pleaded.",
         "evidence_excerpt": "§ 1332(a): \"The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\" § 1332(c)(1): \"a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       },
@@ -48,7 +48,7 @@
         "revised_status": "VERIFIED",
         "explanation": "The citation is accurate, and the statute supports the rule the complaint cites it for. LII text of 28 U.S.C. § 1332(a) reads: \"The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\". That is exactly the proposition in Complaint ¶ 7: jurisdiction rests on complete diversity plus more than $75,000 in controversy, exclusive of interest and costs.\n\nThe first reviewer's underlying point is substantively correct. § 1332(c)(1) deems a corporation a citizen \"of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business.\" The complaint pleads that Meridian is a Delaware corporation with its principal place of business in Savannah, Georgia, and that all of Caldwell's LLC members are Georgia citizens. Complaint ¶ 8 says Meridian is a citizen only of Delaware \"by virtue of its state of incorporation,\" which is wrong. On the pleaded facts, complete diversity is lacking.\n\nThat is a factual and jurisdictional defect in the pleading, probably planted for the Answer to deny. It is not a citation error. The statute is not quoted, and it is not cited for a rule it lacks: it states the very rule invoked, and the complaint simply misapplies it to its own facts. The jurisdictional defect is a real substantive issue for the Answer, but MISCHARACTERIZED overstates the problem as a citation-accuracy finding.",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ]
       }
     },
@@ -74,7 +74,7 @@
         "explanation": "Section 1391(b)(1) puts venue in a district where any defendant resides, if all defendants reside in that State. Section 1391(b)(2) puts venue where a substantial part of the events or omissions occurred. The complaint's paraphrase tracks both provisions. Caldwell is pleaded as a Georgia LLC headquartered in Atlanta, and Tranche 2 was delivered to its Atlanta warehouse, which fits the Northern District of Georgia.",
         "evidence_excerpt": "(b)(1) \"a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located\"; (b)(2) \"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred\"",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -101,7 +101,7 @@
         "explanation": "Section 1746 allows a verification to be made by unsworn declaration under penalty of perjury, in substantially the statutory form. The verification invokes it correctly. One small point: the declaration is qualified 'to the best of my knowledge, information, and belief' rather than stating that the content is simply 'true and correct', and it is also notarized. Neither point affects whether the cited authority supports the proposition.",
         "evidence_excerpt": "\"such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated\"; form: \"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct.\"",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -359,7 +359,7 @@
         "explanation": "Section 14706 is the Carmack Amendment, which governs motor-carrier liability. Subsection (c)(1)(A) lets a carrier limit its liability to a value declared by the shipper. Where no value is limited, § 14706(a)(1) sets the measure as the actual loss or injury to the property. The bill-of-lading clause, read this way, is consistent with the statute. The phrase 'maximum liability permitted' is loose, though: the statute does not set a fixed dollar cap. It simply makes actual loss the ceiling.",
         "evidence_excerpt": "(c)(1)(A): carrier may establish rates \"under which the liability of the carrier for such property is limited to a value established by written or electronic declaration of the shipper\"; (a)(1): \"The liability imposed under this paragraph is for the actual loss or injury to the property\"",
         "source_urls": [
-          "https:/14706"
+          "https://www.law.cornell.edu/uscode/text/49/14706"
         ],
         "confidence": "medium"
       }
@@ -388,7 +388,7 @@
         "explanation": "The bill of lading's shipper certification copies, nearly word for word, the standard Department of Transportation certification in the hazardous-materials rules at 49 C.F.R. § 172.204(a)(1). Those regulations exist and contain this certification. Strictly, the certification is required for hazardous materials, which valves are not. Even so, the language is standard boilerplate on bill-of-lading forms, and the reference is accurate.",
         "evidence_excerpt": "\"This is to certify that the above-named materials are properly classified, described, packaged, marked and labeled, and are in proper condition for transportation according to the applicable regulations of the Department of Transportation.\"",
         "source_urls": [
-          "https:/172.204"
+          "https://www.law.cornell.edu/cfr/text/49/172.204"
         ],
         "confidence": "high"
       }

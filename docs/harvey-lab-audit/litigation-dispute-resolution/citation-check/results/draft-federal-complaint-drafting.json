@@ -97,7 +97,7 @@
         "explanation": "Section 1332(a)(1) gives district courts original jurisdiction when the matter in controversy exceeds $75,000, exclusive of interest and costs, and the parties are citizens of different States. Strictly, the dollar threshold is in the § 1332(a) preamble and (a)(1) is the diversity clause, but citing (a)(1) for diversity jurisdiction is standard practice.",
         "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -124,7 +124,7 @@
         "explanation": "Section 1391(b)(2) makes venue proper in a judicial district where a substantial part of the events or omissions giving rise to the claim occurred.",
         "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -151,7 +151,7 @@
         "explanation": "28 U.S.C. § 1391 is the general federal venue statute. Section 1391(b) sets out where a civil action may be brought, which supports alleging venue in the Northern District of Texas under § 1391.",
         "evidence_excerpt": "(b) Venue in General.— A civil action may be brought in— ... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -290,7 +290,7 @@
         "explanation": "The Securities Act of 1933 is a real federal statute, codified at 15 U.S.C. § 77a et seq. The contract only requires compliance with it, so the reference is accurate.",
         "evidence_excerpt": "15 U.S.C. § 77a: \"This subchapter may be cited as the 'Securities Act of 1933'.\"",
         "source_urls": [
-          "https:/77a"
+          "https://www.law.cornell.edu/uscode/text/15/77a"
         ],
         "confidence": "high"
       }
@@ -317,7 +317,7 @@
         "explanation": "The Securities Exchange Act of 1934 is a real federal statute (codified at 15 U.S.C. § 78a et seq.). The contract simply requires Graydon to solicit investors in compliance with it and other securities laws. That is an accurate general reference; it is not a claim about any particular provision.",
         "evidence_excerpt": "15 U.S.C. § 78o(a)(1): \"It shall be unlawful for any broker or dealer ... to effect any transactions in, or to induce or attempt to induce the purchase or sale of, any security ... unless such broker or dealer is registered in accordance with subsection (b) of this section.\"",
         "source_urls": [
-          "https:/78o"
+          "https://www.law.cornell.edu/uscode/text/15/78o"
         ],
         "confidence": "high"
       }
@@ -344,8 +344,8 @@
         "explanation": "Both statutes are real and properly named. The Securities Act of 1933 is at 15 U.S.C. § 77a et seq., and the Securities Exchange Act of 1934 is at 15 U.S.C. § 78a et seq. The contract uses them only in a general covenant to comply with law, which is accurate.",
         "evidence_excerpt": "15 U.S.C. § 77a: \"This subchapter may be cited as the 'Securities Act of 1933'.\" 15 U.S.C. § 78a: \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
         "source_urls": [
-          "https:/77a",
-          "https:/78a"
+          "https://www.law.cornell.edu/uscode/text/15/77a",
+          "https://www.law.cornell.edu/uscode/text/15/78a"
         ],
         "confidence": "high"
       }
@@ -372,8 +372,8 @@
         "explanation": "The Securities Act of 1933 provides exemptions from registration. Section 4(a)(2), at 15 U.S.C. § 77d(a)(2), exempts private offerings by an issuer. The contract's representation that the Fund is sold under applicable exemptions refers to a real statutory scheme.",
         "evidence_excerpt": "15 U.S.C. § 77d(a): \"The provisions of section 77e of this title shall not apply to— ... (2) transactions by an issuer not involving any public offering.\"",
         "source_urls": [
-          "https:/77a",
-          "https:/77d"
+          "https://www.law.cornell.edu/uscode/text/15/77a",
+          "https://www.law.cornell.edu/uscode/text/15/77d"
         ],
         "confidence": "high"
       }
@@ -454,7 +454,7 @@
         "explanation": "Section 1332(a)(1) grants original jurisdiction over civil actions between citizens of different States when the amount in controversy exceeds $75,000. That matches the proposition.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -481,7 +481,7 @@
         "explanation": "This is a short-form cite to § 1332(a)(1), which has two requirements: the parties must be citizens of different States, and the amount in controversy must exceed $75,000. The statute's text does not use the phrase 'complete diversity'; that rule comes from judicial interpretation of the statute. Describing the requirement that way is still a fair and standard reading.",
         "evidence_excerpt": "matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -508,7 +508,7 @@
         "explanation": "Section 1391(b)(2) allows venue where a substantial part of the events giving rise to the claim occurred. Events in Dallas County fall within the Northern District of Texas, so the statute supports the proposition. The statute sets venue by judicial district only; the choice of the Dallas Division is a local matter that the statute does not address.",
         "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -643,7 +643,7 @@
         "explanation": "The Exchange Act really does require brokers and dealers to register (Section 15(a), 15 U.S.C. § 78o(a)(1)), so the statute this broker-dealer registration representation refers to exists and is described accurately. Whether the Introducer is actually exempt from registration is a factual representation by a party, not a statement of law, so the citation itself is sound. (On the scenario facts, the representation may be false, but that is a merits issue.)",
         "evidence_excerpt": "\"It shall be unlawful for any broker or dealer ... to make use of the mails or any means or instrumentality of interstate commerce to effect any transactions in, or to induce or attempt to induce the purchase or sale of, any security ... unless such broker or dealer is registered in accordance with subsection (b) of this section.\"",
         "source_urls": [
-          "https:/78o"
+          "https://www.law.cornell.edu/uscode/text/15/78o"
         ],
         "confidence": "high"
       }
@@ -753,7 +753,7 @@
         "explanation": "The authority is identified only by description. 28 U.S.C. § 1332(a) sets the diversity amount-in-controversy requirement: the amount must exceed $75,000, exclusive of interest and costs. The $14,730,000 alleged is well above that threshold.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }

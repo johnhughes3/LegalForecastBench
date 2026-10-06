@@ -547,8 +547,8 @@
         "explanation": "This is a general recommendation to contest citations not supported by the facts or the applicable standards; it names no specific provision. The citations at issue rest on real standards (29 CFR 1910.147 and 1910.212). The OSHA citation document itself states the employer's right to contest within 15 working days. Nothing specific to verify beyond that, and the reference is not inaccurate. As with refs 68 and 70, the scenario's use of Ohio Chapter 4167 (public employers only) against a private employer is questionable.",
         "evidence_excerpt": "1910.147(c)(4)(i): \"Procedures shall be developed, documented and utilized for the control of potentially hazardous energy...\"; 1910.212(a)(1): \"One or more methods of machine guarding shall be provided...\"",
         "source_urls": [
-          "https:/1910.147",
-          "https:/1910.212"
+          "https://www.law.cornell.edu/cfr/text/29/1910.147",
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
         ],
         "confidence": "medium"
       }
@@ -763,9 +763,9 @@
         "explanation": "All three bodies of regulation exist and are correctly named: the EAR (Commerce/BIS, 15 C.F.R. subchapter C), the ITAR (22 C.F.R. subchapter M), and the regulations administered by Treasury's OFAC (31 C.F.R. chapter V). The contract clause refers to them generically as export control and sanctions laws, which is accurate.",
         "evidence_excerpt": "EAR: 'references to the Export Administration Regulations (EAR) are references to 15 CFR chapter VII, subchapter C.' ITAR: 'SUBCHAPTER M—INTERNATIONAL TRAFFIC IN ARMS REGULATIONS.' OFAC: 'OFFICE OF FOREIGN ASSETS CONTROL, DEPARTMENT OF THE TREASURY.'",
         "source_urls": [
-          "https:/730.1",
-          "https:/120.1",
-          "https:/chapter-V"
+          "https://www.law.cornell.edu/cfr/text/15/730.1",
+          "https://www.law.cornell.edu/cfr/text/22/120.1",
+          "https://www.law.cornell.edu/cfr/text/31/chapter-V"
         ],
         "confidence": "high"
       }
@@ -1259,7 +1259,7 @@
         "explanation": "29 CFR 1910.212(a)(1) is OSHA's general machine-guarding requirement ('Types of guarding'). It requires guarding that protects the operator and other employees from hazards such as point of operation, nip points, rotating parts, and flying chips and sparks. Citing it for inadequate guarding of the cylinder housing against ejected components is a reasonable fit. The violation and inspection number are facts of the fictional scenario.",
         "evidence_excerpt": "(a) Machine guarding—(1) Types of guarding. One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards...",
         "source_urls": [
-          "https:/1910.212"
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
         ],
         "confidence": "high"
       }
@@ -1301,7 +1301,7 @@
         "explanation": "The FAA exists, and under § 2 arbitration agreements are 'valid, irrevocable, and enforceable' except on grounds that exist for revoking any contract. FAA preemption of a state public policy against arbitrating personal-injury or wrongful-death claims is a real and directly relevant doctrine. In Marmet, the Supreme Court held that a state public policy refusing to enforce predispute arbitration of personal-injury and wrongful-death claims was preempted. Telling the memo to analyze Ohio public policy together with FAA preemption is therefore a sound framing.",
         "evidence_excerpt": "9 U.S.C. § 2: \"...shall be valid, irrevocable, and enforceable, save upon such grounds as exist at law or in equity for the revocation of any contract...\"; Marmet: \"The West Virginia court's interpretation of the FAA was both incorrect and inconsistent with clear instruction in the precedents of this Court.\"",
         "source_urls": [
-          "https:/2",
+          "https://www.law.cornell.edu/uscode/text/9/2",
           "https://www.courtlistener.com/opinion/623142/marmet-health-care-center-inc-v-brown/"
         ],
         "confidence": "high"
@@ -1515,7 +1515,7 @@
         "explanation": "29 CFR 1910.212(a)(1) is the general machine-guarding standard, and the rubric cites it correctly for a machine-guarding citation. The $12,500 penalty is a scenario fact that matches the citation document; the regulation does not address it.",
         "evidence_excerpt": "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards",
         "source_urls": [
-          "https:/1910.212"
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
         ],
         "confidence": "high"
       }
@@ -1853,7 +1853,7 @@
         "explanation": "Stream of commerce is a recognized theory of specific personal jurisdiction over component and product manufacturers, developed in World-Wide Volkswagen and Asahi. It fits analysis of a component maker (HydraCore) whose part reached the forum inside a finished product. The rubric cites no specific case. Under the Asahi plurality, placement in the stream without more is not enough, so the analysis has to address 'something more.'",
         "evidence_excerpt": "Asahi, 480 U.S. at 112: 'The placement of a product into the stream of commerce, without more, is not an act of the defendant purposefully directed toward the forum State.'; quoting World-Wide Volkswagen: 'The forum State does not exceed its powers under the Due Process Clause if it asserts personal jurisdiction over a corporation that delivers its products into the stream of commerce with the expectation that they will be purchased by consumers in the forum State.'",
         "source_urls": [
-          "https:/102"
+          "https://www.law.cornell.edu/supremecourt/text/480/102"
         ],
         "confidence": "high"
       }
@@ -1880,7 +1880,7 @@
         "explanation": "Section 1332 exists, and § 1332(c)(1) correctly places Dalton (Delaware/Ohio) and Ironclad (Michigan/Michigan) by state of incorporation and principal place of business. The rubric then treats HydraCore, an Indiana LLC, as a citizen of Indiana because it was organized and has its principal place of business there. That applies the corporate test to an LLC. The § 1332(c)(1) rule covers corporations only, and the state-of-organization/principal-place-of-business rule for unincorporated associations in § 1332(d)(10) is limited to class actions. In the Sixth Circuit, the controlling circuit for an Ohio forum, an LLC has the citizenship of each of its members. Nothing in the record identifies HydraCore's members, so the record cannot establish complete diversity. Requiring the memo to state that complete diversity exists on this basis misstates the governing rule. A memo that correctly flags the open member-citizenship question could be graded down for it. The conclusion may still prove correct once the members are identified.",
         "evidence_excerpt": "§ 1332(c)(1): \"a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business\"; Delay: \"we held in an unpublished decision that a limited liability company has the citizenship of each of its members... And we so hold today.\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/"
         ],
         "confidence": "medium"
@@ -1891,7 +1891,7 @@
         "explanation": "The finding holds. Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003 (6th Cir. 2009), confirmed on CourtListener, holds: \"a limited liability company has the citizenship of each of its members... And we so hold today. In doing so, we join every other circuit that has addressed this issue.\" The rubric treats HydraCore (an Indiana LLC) as an Indiana citizen because of where it was organized and its principal place of business. That is the 1332(c)(1) corporate test, applied to an LLC. The record (e.g. the engagement letter: 'an Indiana limited liability company headquartered in Evansville, Indiana') never names HydraCore's members. So the rubric's stated basis for complete diversity misstates the governing rule, even though diversity may turn out to exist once the members are identified.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/",
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ]
       }
     },
@@ -1917,7 +1917,7 @@
         "explanation": "FOIA requires each agency to make records 'promptly available to any person' when the request reasonably describes them and follows the published procedures. OSHA is a federal agency (part of the Department of Labor), so a FOIA request is a recognized way to obtain its inspection records. Practice note: while an enforcement case is still open, materials may be withheld under the law-enforcement exemption, but that does not undermine the recommendation.",
         "evidence_excerpt": "\"each agency, upon any request for records which (i) reasonably describes such records and (ii) is made in accordance with published rules ... shall make the records promptly available to any person.\"",
         "source_urls": [
-          "https:/552"
+          "https://www.law.cornell.edu/uscode/text/5/552"
         ],
         "confidence": "high"
       }
@@ -2039,7 +2039,7 @@
         "explanation": "29 CFR 1910.147 is the real lockout/tagout standard. But (c)(4)(i) requires that energy-control procedures be 'developed, documented and utilized.' It does not say devices must be capable of being locked out. The quoted text is invented: it echoes (c)(2)(i) (use tagout if a device can't be locked out), (c)(2)(iii) (equipment installed after 1990 must accept a lockout device), and (c)(3) (tagout must give safety equivalent to lockout). Charge (b), the missing accumulator steps in the written LOTO procedure, does fit (c)(4)(i). The main charge, a non-lockable isolation valve on newly installed equipment, fits (c)(2)(iii) better. Separate jurisdiction problem: Ohio Revised Code Chapter 4167, and OAC 4167-3, which adopts Part 1910, cover public employers only. A private manufacturer would normally be cited by federal OSHA.",
         "evidence_excerpt": "(c)(4)(i): \"Procedures shall be developed, documented and utilized for the control of potentially hazardous energy when employees are engaged in the activities covered by this section.\" (c)(2)(iii): \"...energy isolating devices for such machine or equipment shall be designed to accept a lockout device.\"",
         "source_urls": [
-          "https:/1910.147",
+          "https://www.law.cornell.edu/cfr/text/29/1910.147",
           "https://codes.ohio.gov/ohio-revised-code/section-4167.01",
           "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01"
         ],
@@ -2050,7 +2050,7 @@
         "revised_status": "MISQUOTED",
         "explanation": "The finding holds. 29 CFR 1910.147(c)(4)(i) reads: 'Procedures shall be developed, documented and utilized for the control of potentially hazardous energy when employees are engaged in the activities covered by this section.' The quoted sentence, 'Energy isolating devices for each machine or piece of equipment shall be capable of being locked out ...', appears nowhere in § 1910.147. Its parts loosely echo three other paragraphs. (c)(2)(i): 'If an energy isolating device is not capable of being locked out, the employer's energy control program ... shall utilize a tagout system.' (c)(2)(iii): new or modified equipment 'shall be designed to accept a lockout device.' (c)(3) requires tagout to give equivalent protection. The standard is real and fits the lockout/tagout subject, but the quoted 'regulatory text' is invented and is attributed to the wrong subsection. MISQUOTED is the right status. A secondary problem: OAC 4167-3-01 adopts Part 1910 only as 'Ohio employment risk reduction standards' under the public-employer program in R.C. Chapter 4167, so the 'as adopted under Ohio Administrative Code 4167' framing does not fit a private employer either.",
         "source_urls": [
-          "https:/1910.147",
+          "https://www.law.cornell.edu/cfr/text/29/1910.147",
           "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01",
           "https://codes.ohio.gov/ohio-revised-code/section-4167.01"
         ]
@@ -2109,7 +2109,7 @@
         "explanation": "The quoted regulatory text matches 1910.212(a)(1) word for word, and the standard reasonably supports a citation for failing to guard against ejected components. Minor defect in the 'as adopted under Ohio Administrative Code 4167' framing: OAC 4167-3 does adopt Part 1910, but ORC Chapter 4167 applies to public employers only. A private manufacturer like Dalton would fall under federal OSHA, not the Ohio Division of Safety & Hygiene.",
         "evidence_excerpt": "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards such as those created by point of operation, ingoing nip points, rotating parts, flying chips and sparks. Examples of guarding methods are— barrier guards, two-hand tripping devices, electronic safety devices, etc.",
         "source_urls": [
-          "https:/1910.212",
+          "https://www.law.cornell.edu/cfr/text/29/1910.212",
           "https://codes.ohio.gov/ohio-revised-code/section-4167.01",
           "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01"
         ],
@@ -2193,7 +2193,7 @@
         "explanation": "The penalty summary row cites 29 CFR 1910.212(a)(1), a real machine-guarding standard, which matches Item 2. The $12,500 amount is a scenario fact.",
         "evidence_excerpt": "(a) Machine guarding—(1) Types of guarding. One or more methods of machine guarding shall be provided...",
         "source_urls": [
-          "https:/1910.212"
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
         ],
         "confidence": "high"
       }
@@ -2247,7 +2247,7 @@
         "explanation": "ERISA is a real federal statute and its short title is exactly as stated. The policy exclusion only refers to it by name, which is accurate.",
         "evidence_excerpt": "This Act ... may be cited as the 'Employee Retirement Income Security Act of 1974'.",
         "source_urls": [
-          "https:/1001"
+          "https://www.law.cornell.edu/uscode/text/29/1001"
         ],
         "confidence": "high"
       }

@@ -34,7 +34,7 @@
         "explanation": "Blackthorn is pleaded as a Delaware corporation with its principal place of business in Akron, Ohio. Under § 1332(c)(1), a corporation is a citizen of its state of incorporation and the state of its principal place of business, so Delaware and Ohio citizenship is correct. Citing only the general section rather than (c)(1) is acceptable in a pleading.",
         "evidence_excerpt": "a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -61,7 +61,7 @@
         "explanation": "§ 1332 is the correct diversity statute, but it does not make an LLC a citizen of the state where it is organized or has its principal place of business. The corporate rule in (c)(1) covers only corporations. The unincorporated-association rule in (d)(10) applies only 'for purposes of this subsection [(d), class actions] and section 1453.' Sixth Circuit law (Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003 (6th Cir. 2009)) gives an LLC the citizenship of each of its members. Complaint ¶9 pairs Ridgeline's Texas organization and Houston headquarters with a conclusory claim of Texas citizenship. It never alleges the citizenship of Ridgeline's members, such as managing member Calloway. The statute is real and correctly cited, but the allegation as framed is not supported by § 1332's text. The defect lies in the pleading's jurisdictional allegation, not in the citation itself.",
         "evidence_excerpt": "(10) For purposes of this subsection and section 1453, an unincorporated association shall be deemed to be a citizen of the State where it has its principal place of business and the State under whose laws it is organized.",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/"
         ],
         "confidence": "medium"
@@ -89,7 +89,7 @@
         "explanation": "28 U.S.C. § 1331 confers original federal-question jurisdiction over civil actions arising under federal law; DTSA claims (18 U.S.C. § 1836) arise under federal law. The citation is accurate and supports the proposition.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -116,7 +116,7 @@
         "explanation": "18 U.S.C. § 1836, as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153), gives trade secret owners a private civil cause of action for misappropriation in § 1836(b)(1). The 'et seq.' cite is the conventional form.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -143,7 +143,7 @@
         "explanation": "Section 1367(a) provides supplemental jurisdiction over state-law claims that form part of the same Article III case or controversy as claims within original jurisdiction. The complaint invokes it for the Ohio contract and UTSA claims, which are related to the federal DTSA claim. The complaint's paraphrase tracks the statutory text.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -197,7 +197,7 @@
         "explanation": "§ 1332(a)(1) grants diversity jurisdiction over suits between citizens of different states where more than $75,000 is in controversy, exclusive of interest and costs. That matches the complaint's description. The statute supports the proposition, although the factual allegation of Ridgeline's citizenship has the LLC problem described in ref 1.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -224,7 +224,7 @@
         "explanation": "Section 1391(b)(1) sets venue where any defendant resides; it is a residence-based provision. The complaint cites it 'because' the EDA contains a forum-selection clause, but (b)(1) has no forum-selection basis. Venue under (b)(1) would depend on Ridgeline, a Texas LLC with its principal place of business in Houston, 'residing' in N.D. Ohio under § 1391(c)(2) and (d), meaning it is subject to personal jurisdiction there. The complaint does not make that argument in ¶20. A residence theory through consent-based personal jurisdiction is arguable, which is why confidence is medium, but the stated rationale misdescribes what (b)(1) provides.",
         "evidence_excerpt": "(b)(1): a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "medium"
       },
@@ -233,7 +233,7 @@
         "revised_status": "VERIFIED_MINOR_DEFECT",
         "explanation": "The first check overstates this one. 28 U.S.C. § 1391(b)(1) puts venue in 'a judicial district in which any defendant resides, if all defendants are residents of the State.' Under § 1391(c)(2), an unincorporated entity such as an LLC 'shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question.' Ridgeline is the only defendant and is a Texas LLC. Complaint ¶19 alleges that Ridgeline 'consented to the personal jurisdiction of the courts located in the Northern District of Ohio through the forum selection clause.' Read fairly, the clause gives consent to personal jurisdiction, which makes Ridgeline a resident of N.D. Ohio under (c)(2), which satisfies (b)(1). The statute therefore supports the cited conclusion that venue is proper under (b)(1). The defect is in the drafting: ¶20 skips the (c)(2) residence step and makes it sound as if the forum-selection clause is itself the venue ground, which § 1391 does not provide. Paragraph 20 also pleads (b)(2) as an alternative. Section (d), which the first check cited, applies only to corporations, so it is not the relevant provision for an LLC.",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ]
       }
     },
@@ -259,7 +259,7 @@
         "explanation": "Section 1391(b)(2) provides venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. The complaint's paraphrase tracks the statute closely.",
         "evidence_excerpt": "a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -286,7 +286,7 @@
         "explanation": "Both statutes exist and define trade secrets broadly enough to cover technical and pricing or business information: DTSA § 1839(3) and Ohio Rev. Code § 1333.61(D). Ohio's Uniform Trade Secrets Act (UTSA) begins at § 1333.61, the definitions section ('As used in sections 1333.61 to 1333.69'). The statutes are correctly cited for an allegation that the materials qualify; whether they do is a factual question.",
         "evidence_excerpt": "Ohio Rev. Code § 1333.61(D): \"'Trade secret' means information, including the whole or any portion or phase of any scientific or technical information, design, process, procedure, formula, pattern, compilation, program, device, method, technique, or improvement, or any business information or plans, financial information...\"",
         "source_urls": [
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
         ],
         "confidence": "high"
@@ -314,7 +314,7 @@
         "explanation": "This is a count heading citing § 1836 for DTSA misappropriation. Section 1836 ('Civil proceedings') contains the private civil action for misappropriation that the DTSA added.",
         "evidence_excerpt": "Civil proceedings ... An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -343,7 +343,7 @@
         "explanation": "Section 1839(3) defines 'trade secret' to include financial, business, technical, and engineering information, including compilations, programs, codes, methods, and formulas. It applies where the owner has taken reasonable secrecy measures and the information derives independent economic value from not being generally known. An algorithm's source code, a pricing matrix, and historical pricing data fit within that definition. Whether they qualify is a factual allegation.",
         "evidence_excerpt": "all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures, programs, or codes",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -370,7 +370,7 @@
         "explanation": "Section 1836(b)(1) creates the DTSA civil action for a misappropriated trade secret related to a product or service used in, or intended for use in, interstate or foreign commerce. The complaint's interstate-commerce allegation tracks that text.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -397,7 +397,7 @@
         "explanation": "Section 1839(5) defines 'misappropriation' in two parts. Part (A) covers acquiring a trade secret by someone who knows or has reason to know it was acquired by improper means. Part (B) covers disclosure or use without consent by someone who used improper means or knew of them. That matches the complaint's theory of improper acquisition, disclosure, and use.",
         "evidence_excerpt": "(A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -424,7 +424,7 @@
         "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to 2 times the damages awarded under subparagraph (B) when a trade secret is willfully and maliciously misappropriated. The complaint says '2x actual damages' where the statute measures from damages under (B), which can include unjust enrichment or a royalty, not only actual loss. That is an acceptable paraphrase.",
         "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -451,7 +451,7 @@
         "explanation": "Section 1836(b)(3)(D) authorizes reasonable attorney's fees to the prevailing party where the trade secret was willfully and maliciously misappropriated, among other grounds.",
         "evidence_excerpt": "or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -478,7 +478,7 @@
         "explanation": "Section 1836(b)(3)(A) lets a court grant an injunction to prevent any actual or threatened misappropriation, subject to limits on employment restraints. Clause (iii) of the same subparagraph also allows orders requiring affirmative protective actions, which covers the requested return/destroy order.",
         "evidence_excerpt": "grant an injunction—(i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -756,7 +756,7 @@
         "explanation": "The Ohio UTSA (R.C. 1333.61 et seq.) and the federal DTSA both exist. The DTSA expressly does not preempt or displace state trade secret remedies (18 U.S.C. § 1838), so the Ohio claim can be pleaded alongside the DTSA claim. The two statutes' definitions of trade secret and misappropriation are closely parallel. That supports the 'substantially similar but not identical' characterization, which is a general pleading statement rather than a pinpoint proposition.",
         "evidence_excerpt": "\"this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State ... law for the misappropriation of a trade secret\" (18 U.S.C. § 1838)",
         "source_urls": [
-          "https:/1838",
+          "https://www.law.cornell.edu/uscode/text/18/1838",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
         ],
         "confidence": "high"
@@ -784,7 +784,7 @@
         "explanation": "For the DTSA cites: (b)(3)(C) provides exemplary damages of up to 2x for willful and malicious misappropriation, and (b)(3)(D) provides reasonable attorney's fees to the prevailing party in that case. Section 1836(b)(3)(D) mentions only attorney's fees, not costs. Costs come from general federal rules, which is a minor looseness. Note that the same sentence pairs these cites with Ohio Rev. Code §1333.62(B) and §1333.63, and those Ohio section numbers are wrong (see ref 27). Exemplary damages are in §1333.63(B), with a cap of 3x rather than 2x, and fees are in §1333.64.",
         "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
         ],
@@ -816,7 +816,7 @@
           "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.64",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       },
@@ -880,7 +880,7 @@
         "explanation": "Ridgeline's answer admits federal-question jurisdiction under § 1331 based on the DTSA claims. The statute grants exactly that jurisdiction.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -907,7 +907,7 @@
         "explanation": "18 U.S.C. § 1836 creates the DTSA private civil action (§ 1836(b)(1)) and confers original jurisdiction on the federal district courts over civil actions brought under the section (§ 1836(c)), so it supports federal-question jurisdiction over DTSA claims.",
         "evidence_excerpt": "\"The district courts of the United States shall have original jurisdiction of civil actions brought under this section.\" (§ 1836(c)); \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\" (§ 1836(b)(1))",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -934,7 +934,7 @@
         "explanation": "§ 1367(a) grants supplemental jurisdiction over claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. That matches the answer's admission about the state-law claims.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -961,7 +961,7 @@
         "explanation": "Section 1391 is the general federal venue statute. The answer's general admission that venue is proper under § 1391, together with the forum-selection clause, is supported at least through § 1391(b)(2) (substantial part of the events in the district). The answer does not cite a subsection, so there is no subsection error.",
         "evidence_excerpt": "a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -990,7 +990,7 @@
         "explanation": "Both statutes contain definitions of 'trade secret' that the answer invokes to deny that the information qualifies. The citations are accurate. The denial itself is a factual contention, not a legal proposition the statutes have to establish.",
         "evidence_excerpt": "18 U.S.C. § 1839(3): trade secret requires that \"(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value...\"",
         "source_urls": [
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
         ],
         "confidence": "high"
@@ -1047,8 +1047,8 @@
         "explanation": "The answer denies that the information qualifies as trade secrets under the DTSA. The term is defined for the chapter in § 1839(3), so citing § 1836 et seq. reaches that definition. This is a proper denial resting on the statutory definition.",
         "evidence_excerpt": "As used in this chapter— ... the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information",
         "source_urls": [
-          "https:/1839",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1133,7 +1133,7 @@
         "explanation": "The affirmative defense correctly identifies the statutory definitions: DTSA § 1839(3) (reasonable secrecy measures plus independent economic value) and Ohio Rev. Code § 1333.61(D). Whether the information fails those definitions is a factual matter.",
         "evidence_excerpt": "Ohio Rev. Code § 1333.61: \"As used in sections 1333.61 to 1333.69 of the Revised Code... 'Trade secret' means information... that satisfies both of the following:\"",
         "source_urls": [
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
         ],
         "confidence": "high"
@@ -1188,7 +1188,7 @@
         "explanation": "Section 1367(a) grants supplemental jurisdiction over claims so related to claims within the court's original jurisdiction that they form part of the same Article III case or controversy. A compulsory counterclaim arising from the same EDA fits that grant, so the cite supports jurisdiction over the counterclaim. The defect is the label: the pleading says § 1367 confers 'original jurisdiction', but the statute confers supplemental jurisdiction that depends on an anchor of original jurisdiction (here § 1331 over the DTSA claim). The paragraph's own parenthetical says 'supplemental jurisdiction', which lessens the error.",
         "evidence_excerpt": "in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -1215,7 +1215,7 @@
         "explanation": "§ 1332 is the diversity-jurisdiction statute, and the counterclaim invokes it only as an alternative basis. Citing it for that purpose is correct. Whether diversity is actually complete depends on the citizenship of Ridgeline's members as an LLC (see ref 1), but the statute supports the proposition it is cited for.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1269,8 +1269,8 @@
         "explanation": "This is a contract survival clause that ties the duration of confidentiality to whether information 'remains a trade secret under applicable law,' including the DTSA. The DTSA chapter defines 'trade secret' (18 U.S.C. § 1839(3)) by reasonable secrecy measures and independent economic value, with no fixed time limit, so using it as the reference standard is accurate. The perpetual duration comes from the contract, not the statute, and the clause does not claim otherwise.",
         "evidence_excerpt": "As used in this chapter— ... the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret",
         "source_urls": [
-          "https:/1836",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1325,7 +1325,7 @@
         "explanation": "This is a response heading for the DTSA count citing 18 U.S.C. § 1836, which provides the civil action for trade secret misappropriation.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1433,7 +1433,7 @@
         "explanation": "Informal reference to the federal DTSA in a rubric item. The DTSA (Pub. L. 114-153) created a federal private civil action for trade secret misappropriation at 18 U.S.C. § 1836(b), so it does underlie a trade secret claim. The cite is informal but not wrong.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1625,7 +1625,7 @@
         "explanation": "The DTSA definition of 'trade secret' in 18 U.S.C. § 1839(3) requires (A) reasonable measures to keep the information secret and (B) independent economic value from the information not being generally known or readily ascertainable. That matches the memo's statement of what must be established.",
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1735,7 +1735,7 @@
         "explanation": "The case management order bases jurisdiction on § 1331 (federal question). The statute is the federal-question grant, so the citation is correct.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -1762,7 +1762,7 @@
         "explanation": "Section 1367 is the supplemental-jurisdiction statute. It is correctly paired with § 1331 federal-question jurisdiction over the DTSA claim as the anchor for the state-law claims.",
         "evidence_excerpt": "28 U.S. Code § 1367 - Supplemental jurisdiction",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -1789,7 +1789,7 @@
         "explanation": "The case management order describes the claim as DTSA misappropriation under 18 U.S.C. § 1836, and § 1836(b) supplies that cause of action.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -2483,7 +2483,7 @@
         "explanation": "The protective order describes the trade secret claims as brought under the DTSA, 18 U.S.C. § 1836. That section provides the private civil action for misappropriation.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -2753,8 +2753,8 @@
         "explanation": "The DTSA (18 U.S.C. § 1836 et seq.) protects trade secrets. Its definition in § 1839(3) expressly covers technical and business information, including programs, codes, compilations, and financial information, when the owner keeps it secret through reasonable measures and it has independent economic value. Calling the algorithm, source code, and pricing data protectable trade secrets is a fair statement of the statute, which is cited generally for that point. Whether they actually qualify is a factual question.",
         "evidence_excerpt": "\"all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures, programs, or codes...\" (18 U.S.C. § 1839(3))",
         "source_urls": [
-          "https:/1836",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -2944,7 +2944,7 @@
         "explanation": "18 U.S.C. § 1836(b)(1) provides a civil action for misappropriation of trade secrets, and the definitions are in § 1839 within the 'et seq.' range. The citation is correct for a misappropriation claim.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }

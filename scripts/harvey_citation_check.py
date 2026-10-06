@@ -62,7 +62,7 @@ TYPES = (
     "other",
 )
 # Working paths recorded by the checking agents; only the file name is published.
-LOCAL_PATH = re.compile(r"(?:/[\w.\-]+)+/text/[\w.\-]+/")
+LOCAL_PATH = re.compile(r"(?<![\w:/.])/(?:tmp|home|Users)/[^\s\"']*?/text/[\w.\-]+/")
 
 
 def _docx(path: Path) -> str:

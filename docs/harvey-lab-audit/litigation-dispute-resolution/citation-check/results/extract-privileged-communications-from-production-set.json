@@ -518,7 +518,7 @@
         "explanation": "42 U.S.C. § 1320a-7b is the criminal-penalties section for federal health care programs, and subsection (b) is the Anti-Kickback Statute. The citation correctly identifies the AKS. The comment's statement that DOJ pursues off-label promotion cases under it is commentary in the fictional scenario, not a statutory proposition.",
         "evidence_excerpt": "Criminal penalties for acts involving Federal health care programs ... (b)(2) Whoever knowingly and willfully offers or pays any remuneration (including any kickback, bribe, or rebate) ... to induce such person ... shall be guilty of a felony",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -545,7 +545,7 @@
         "explanation": "31 U.S.C. 3729-3733 is the False Claims Act subchapter: 3729 false claims, 3730 civil actions, 3731 procedure, 3732 jurisdiction, 3733 civil investigative demands. The cite is correct. The comment only recommends naming the FCA in the policy, and the citation identifies that statute correctly.",
         "evidence_excerpt": "§ 3729 'False claims'; § 3730 'Civil actions for false claims'; § 3731 'False claims procedure'; § 3732 'False claims jurisdiction'; § 3733 'Civil investigative demands'",
         "source_urls": [
-          "https:/subtitle-III/chapter-37/subchapter-III"
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-III/chapter-37/subchapter-III"
         ],
         "confidence": "high"
       }
@@ -601,7 +601,7 @@
         "explanation": "A general statement of commitment to comply with the AKS and FCA. Both statutes exist, and the AKS is § 1320a-7b(b). There is no substantive legal proposition to mischaracterize.",
         "evidence_excerpt": "a claim that includes items or services resulting from a violation of this section constitutes a false or fraudulent claim for purposes of subchapter III of chapter 37 of title 31.",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -628,7 +628,7 @@
         "explanation": "The Federal Food, Drug, and Cosmetic Act is a real statute codified in Title 21, Chapter 9 of the U.S. Code; its prohibited-acts provision is 21 U.S.C. § 331. The policy names the FDCA only as a governing framework, which is accurate.",
         "evidence_excerpt": "21 U.S.C. § 331 – Prohibited acts: \"The following acts and the causing thereof are prohibited: (a) The introduction or delivery for introduction into interstate commerce of any food, drug, device, tobacco product, or cosmetic that is adulterated or misbranded.\"",
         "source_urls": [
-          "https:/331"
+          "https://www.law.cornell.edu/uscode/text/21/331"
         ],
         "confidence": "high"
       }
@@ -655,8 +655,8 @@
         "explanation": "21 C.F.R. Part 202 is 'Prescription Drug Advertising' (section 202.1, prescription-drug advertisements). Part 314 is 'Applications for FDA Approval to Market a New Drug', which includes 314.81(b)(3)(i) on submitting promotional labeling and advertisements. Both are real FDA regulations and fit as a basis for a promotional compliance policy.",
         "evidence_excerpt": "Part 202 title: 'PRESCRIPTION DRUG ADVERTISING'; Part 314 title: 'APPLICATIONS FOR FDA APPROVAL TO MARKET A NEW DRUG'.",
         "source_urls": [
-          "https:/part-202",
-          "https:/part-314"
+          "https://www.law.cornell.edu/cfr/text/21/part-202",
+          "https://www.law.cornell.edu/cfr/text/21/part-314"
         ],
         "confidence": "high"
       }
@@ -683,7 +683,7 @@
         "explanation": "This is an internal training requirement that refers to the AKS and FCA by name. Both statutes exist (the AKS at § 1320a-7b(b), with the FCA in 31 U.S.C. ch. 37, subch. III). The reference makes no legal claim that could be wrong.",
         "evidence_excerpt": "Criminal penalties for acts involving Federal health care programs ... subchapter III of chapter 37 of title 31",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -710,7 +710,7 @@
         "explanation": "FDCA 502(a), codified at 21 U.S.C. 352(a), deems a drug misbranded if its labeling is false or misleading in any particular. The subsection is now numbered (a)(1), but citing it as 502(a) is conventional and accurate.",
         "evidence_excerpt": "'A drug or device shall be deemed to be misbranded—(a) False or misleading label (1) If its labeling is false or misleading in any particular.'",
         "source_urls": [
-          "https:/352"
+          "https://www.law.cornell.edu/uscode/text/21/352"
         ],
         "confidence": "high"
       }
@@ -737,9 +737,9 @@
         "explanation": "21 U.S.C. 352(f) deems a drug misbranded unless its labeling bears adequate directions for use. The implementing regulation, 21 C.F.R. 201.5, defines adequate directions as directions for the purposes for which the drug is intended. It requires statements of all conditions, purposes, or uses for which the drug is intended, including uses suggested in advertising (see also 201.128 on intended uses). This matches the description.",
         "evidence_excerpt": "352(f): 'Unless its labeling bears (1) adequate directions for use'; 21 C.F.R. 201.5: 'All conditions, purposes, or uses for which such drug is intended, including conditions, purposes, or uses for which it is prescribed, recommended, or suggested in its oral, written, printed, or graphic advertising'",
         "source_urls": [
-          "https:/352",
-          "https:/201.5",
-          "https:/201.128"
+          "https://www.law.cornell.edu/uscode/text/21/352",
+          "https://www.law.cornell.edu/cfr/text/21/201.5",
+          "https://www.law.cornell.edu/cfr/text/21/201.128"
         ],
         "confidence": "high"
       }
@@ -767,7 +767,7 @@
         "evidence_excerpt": "Search results: \"Celgene agreed to pay $280 million to resolve allegations it promoted two cancer treatment drugs for uses not approved by the FDA\" (older settlement, outside the FY2021-2023 window)",
         "source_urls": [
           "https://www.justice.gov/opa/pr/eli-lilly-and-company-agrees-pay-1415-billion-resolve-allegations-label-promotion-zyprexa",
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "medium"
       }
@@ -794,7 +794,7 @@
         "explanation": "31 U.S.C. 3729(a)(1)(A) makes liable anyone who 'knowingly presents, or causes to be presented' a false claim, which supports the theory that off-label promotion caused providers to submit claims. (B) covers false records or statements material to a false claim. 3729(a)(1) provides for 3 times the government's damages plus per-claim civil penalties, which matches the treble-damages description.",
         "evidence_excerpt": "(A) 'knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval'; (B) 'knowingly makes, uses, or causes to be made or used, a false record or statement material to a false or fraudulent claim'; '3 times the amount of damages which the Government sustains'",
         "source_urls": [
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }
@@ -821,8 +821,8 @@
         "explanation": "Section 1320a-7b(b)(2) makes it a felony to knowingly and willfully pay remuneration to induce someone to order or recommend items payable by federal health care programs, which covers speaker payments meant to induce prescribing. The predicate-for-FCA point is supported by § 1320a-7b(g), which provides that a claim including items or services resulting from an AKS violation is a false claim under the FCA. Section 1320a-7a(a)(7) supplies per-violation civil penalties.",
         "evidence_excerpt": "(g) In addition to the penalties provided for in this section or section 1320a-7a of this title, a claim that includes items or services resulting from a violation of this section constitutes a false or fraudulent claim for purposes of subchapter III of chapter 37 of title 31.",
         "source_urls": [
-          "https:/1320a-7b",
-          "https:/1320a-7a"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7a"
         ],
         "confidence": "high"
       }
@@ -849,9 +849,9 @@
         "explanation": "21 U.S.C. 352 defines misbranding, including (f), adequate directions for use. 21 U.S.C. 331 prohibits introducing misbranded drugs into interstate commerce. Read with 21 C.F.R. 201.5 and 201.128 (intended uses include uses shown by advertising and promotion), promoting a drug for an unapproved use can leave its labeling without adequate directions for that use, which makes the drug misbranded. That is the standard off-label misbranding theory. One small point: criminal penalties appear in 21 U.S.C. 333, which is not cited, but 331 supplies the prohibited acts that 333 punishes.",
         "evidence_excerpt": "331: 'The following acts and the causing thereof are prohibited: (a) The introduction or delivery for introduction into interstate commerce of any ... drug ... that is adulterated or misbranded.'",
         "source_urls": [
-          "https:/331",
-          "https:/352",
-          "https:/201.128"
+          "https://www.law.cornell.edu/uscode/text/21/331",
+          "https://www.law.cornell.edu/uscode/text/21/352",
+          "https://www.law.cornell.edu/cfr/text/21/201.128"
         ],
         "confidence": "medium"
       }
@@ -878,7 +878,7 @@
         "explanation": "18 U.S.C. § 371 is the general federal conspiracy statute. It covers conspiracies to commit any offense against the United States or to defraud the United States, plus an overt act. A conspiracy to promote a drug for unapproved uses (that is, misbranding offenses) fits within it. Calling it an \"umbrella\" charge is fair commentary.",
         "evidence_excerpt": "\"If two or more persons conspire either to commit any offense against the United States, or to defraud the United States, or any agency thereof in any manner or for any purpose, and one or more of such persons do any act to effect the object of the conspiracy...\"",
         "source_urls": [
-          "https:/371"
+          "https://www.law.cornell.edu/uscode/text/18/371"
         ],
         "confidence": "high"
       }
@@ -906,7 +906,7 @@
         "evidence_excerpt": "FR 2024-02829 table, 31 U.S.C. 3729(a)(1): 2023 penalty \"Min 13,508, Max 27,018\"; 2024 \"Min 13,946, Max 27,894\"; statute: \"3 times the amount of damages which the Government sustains\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/FR-2024-02-12/html/2024-02829.htm",
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }
@@ -933,8 +933,8 @@
         "explanation": "This is named without a citation. The civil monetary penalty provision for AKS violations imposes $100,000 for each act plus damages of up to three times the total remuneration, and the criminal provision also sets fines up to $100,000. Section 1320a-7b(g) makes resulting claims false claims under the FCA. The slide's description matches the statute.",
         "evidence_excerpt": "in cases under paragraph (7), $100,000 for each such act ... (or, in cases under paragraph (7), damages of not more than 3 times the total amount of remuneration offered, paid, solicited, or received",
         "source_urls": [
-          "https:/1320a-7a",
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7a",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -989,7 +989,7 @@
         "explanation": "The Physician Payments Sunshine Act is the popular name for ACA § 6002 (42 U.S.C. § 1320a-7h, 'Transparency reports...'). It requires applicable manufacturers to report payments and other transfers of value to covered recipients, including speaking fees and consulting. That supports the statement that KOL engagement is subject to transparency reporting obligations.",
         "evidence_excerpt": "\"any applicable manufacturer that provides a payment or other transfer of value to a covered recipient...shall submit to the Secretary...the following information with respect to the preceding calendar year\"",
         "source_urls": [
-          "https:/1320a-7h",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7h",
           "https://www.cms.gov/openpayments/downloads/affordable-care-act-section-6002-final-rule.pdf"
         ],
         "confidence": "high"
@@ -1450,8 +1450,8 @@
         "explanation": "The FDA regulation (21 C.F.R. § 201.5) defines adequate directions for use as directions under which a layperson can use the drug safely 'for the purposes for which it is intended.' It requires statements of 'all conditions, purposes, or uses for which such drug is intended.' Section 201.128 defines intended use by objective intent. This supports the paraphrase 'directions for all intended uses.'",
         "evidence_excerpt": "\"Adequate directions for use means directions under which the layman can use a drug safely and for the purposes for which it is intended.\" (a) \"Statements of all conditions, purposes, or uses for which such drug is intended...\"",
         "source_urls": [
-          "https:/201.5",
-          "https:/201.128"
+          "https://www.law.cornell.edu/cfr/text/21/201.5",
+          "https://www.law.cornell.edu/cfr/text/21/201.128"
         ],
         "confidence": "high"
       }
@@ -1505,8 +1505,8 @@
         "explanation": "The reference is general and gives no specific citation. The proposition is accurate. Under FDA regulations, prescription drug advertisements may not recommend or suggest a use that is not in the approved labeling (21 C.F.R. 202.1(e)(4)(i)(a)). Using literature to recommend unapproved conditions of use is a violation (202.1(e)(6)(xi)). Promotional materials must be submitted on Form FDA-2253 (21 C.F.R. 314.81(b)(3)(i)). OPDP reviews promotional materials and issues compliance letters (untitled and warning letters). The email's loose reference to 'current OPDP guidance' fairly describes this framework.",
         "evidence_excerpt": "21 C.F.R. 202.1(e)(4)(i)(a): 'shall not recommend or suggest any use that is not in the labeling accepted in such approved new-drug application'; OPDP: 'reviewing prescription drug advertising and promotional labeling to ensure that the information contained in these promotional materials is not false or misleading.'",
         "source_urls": [
-          "https:/202.1",
-          "https:/314.81",
+          "https://www.law.cornell.edu/cfr/text/21/202.1",
+          "https://www.law.cornell.edu/cfr/text/21/314.81",
           "https://www.fda.gov/about-fda/cder-offices-and-divisions/office-prescription-drug-promotion-opdp"
         ],
         "confidence": "medium"
@@ -1534,7 +1534,7 @@
         "explanation": "42 U.S.C. § 1320a-7b(b) is the federal Anti-Kickback Statute; subsection (b) is headed 'Illegal remunerations' and makes it a crime to knowingly and willfully solicit, receive, offer, or pay kickbacks. The engagement letter cites it only to identify a regulatory area within the scope of compliance counseling, and the cite is correct for that purpose.",
         "evidence_excerpt": "(b) Illegal remunerations ... Whoever knowingly and willfully solicits or receives any remuneration (including any kickback, bribe, or rebate) directly or indirectly, overtly or covertly, in cash or in kind—",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -1561,7 +1561,7 @@
         "explanation": "The False Claims Act is codified at 31 U.S.C. §§ 3729–3733: § 3729 False claims, § 3730 civil actions, § 3731 procedure, § 3732 jurisdiction, § 3733 civil investigative demands. The engagement letter cites it only to name an area of compliance counseling, and the section range is correct.",
         "evidence_excerpt": "\"§ 3729. False claims\" ... \"§ 3733. Civil investigative demands\"",
         "source_urls": [
-          "https:/subtitle-III/chapter-37/subchapter-III"
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-III/chapter-37/subchapter-III"
         ],
         "confidence": "high"
       }
@@ -1669,7 +1669,7 @@
         "explanation": "28 U.S.C. § 1826 ('Recalcitrant witnesses') authorizes summary confinement (civil contempt) of a witness before a court or grand jury who refuses without just cause to comply with a court order to testify or produce documents. It supports the notice that noncompliance with a grand jury subpoena may lead to contempt proceedings. Strictly, § 1826 applies once a witness refuses a court order compelling compliance, but the subpoena also says 'and any other applicable provisions of law,' so the citation is a fair reference.",
         "evidence_excerpt": "Whenever a witness in any proceeding before or ancillary to any court or grand jury of the United States refuses without just cause shown to comply with an order of the court to testify or provide other information, including any book, paper, document, record ... the court ... may summarily order his confinement",
         "source_urls": [
-          "https:/1826"
+          "https://www.law.cornell.edu/uscode/text/28/1826"
         ],
         "confidence": "high"
       }
@@ -1758,7 +1758,7 @@
         "explanation": "Section 352(a) deems a drug misbranded if its labeling is false or misleading in any particular. The proposition is accurate. A side note that falls outside the cited proposition: the same sentence of the email calls FDA's guidance on communications consistent with labeling a '2014 draft guidance.' This was not verified here and may be misdated.",
         "evidence_excerpt": "21 U.S.C. 352: A drug or device shall be deemed to be misbranded \"(a) ... If its labeling is false or misleading in any particular.\"",
         "source_urls": [
-          "https:/352"
+          "https://www.law.cornell.edu/uscode/text/21/352"
         ],
         "confidence": "high"
       }
@@ -1822,7 +1822,7 @@
         "explanation": "21 U.S.C. § 331 is the FDCA's prohibited-acts section. It bars introducing misbranded drugs into interstate commerce, which is the statutory route by which off-label promotion is treated as an FDCA violation (the promotion creates a new intended use, so the labeling is inadequate and the drug is misbranded). The statute does not mention 'off-label promotion' expressly, but the memo's statement is a fair reading. The conventional general cite for the whole Act is 21 U.S.C. § 301 et seq.; using § 331 et seq. is a stylistic variation, not an error.",
         "evidence_excerpt": "\"The following acts and the causing thereof are prohibited: (a) The introduction or delivery for introduction into interstate commerce of any food, drug, device, tobacco product, or cosmetic that is adulterated or misbranded.\"",
         "source_urls": [
-          "https:/331"
+          "https://www.law.cornell.edu/uscode/text/21/331"
         ],
         "confidence": "high"
       }
@@ -1913,7 +1913,7 @@
         "explanation": "Section 3729(a)(1) makes liable any person who knowingly presents, or causes to be presented, a false claim. It imposes a per-claim civil penalty, adjusted for inflation, plus three times the government's damages. That supports the memo's description: FCA exposure on a 'causes to be presented' theory where off-label promotion leads to non-covered federal program claims, with treble damages and per-claim penalties. The off-label causation theory comes from case law and enforcement practice, not from the statute's text, but the statute is the correct authority for the proposition.",
         "evidence_excerpt": "\"knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval\" ... \"3 times the amount of damages which the Government sustains\"",
         "source_urls": [
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }
@@ -1940,7 +1940,7 @@
         "explanation": "The cited section bars knowingly and willfully offering or paying remuneration to induce a person to order or recommend items payable by federal programs. Characterizing speaker honoraria paid to prescribers as possible inducement remuneration is a fair reading.",
         "evidence_excerpt": "Whoever knowingly and willfully offers or pays any remuneration (including any kickback, bribe, or rebate) directly or indirectly, overtly or covertly, in cash or in kind to any person to induce such person ... (B) to purchase, lease, order, or arrange for or recommend purchasing, leasing, or ordering any good ... or item for which payment may be made in whole or in part under a Federal health care program",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -1967,7 +1967,7 @@
         "explanation": "The personal services safe harbor in 42 C.F.R. § 1001.952(d) excludes agent compensation from 'remuneration' only if all of its standards are met. These include a signed written agreement, a term of at least one year, compensation set in advance at fair market value and not based on referral volume or value, and services that do not involve promoting illegal activity. That cumulative, all-standards-required structure supports calling the safe harbor narrowly construed, and the point that a promotional program could undermine its protection.",
         "evidence_excerpt": "(d) Personal services and management contracts and outcomes-based payment arrangements. (1) As used in section 1128B of the Act, 'remuneration' does not include any payment made by a principal to an agent as compensation for the services of the agent, as long as all of the following standards are met:",
         "source_urls": [
-          "https:/1001.952"
+          "https://www.law.cornell.edu/cfr/text/42/1001.952"
         ],
         "confidence": "medium"
       }
@@ -1994,9 +1994,9 @@
         "explanation": "This is the same authority as ref 28. 331 prohibits introducing misbranded drugs into interstate commerce, and 352(f) together with 21 C.F.R. 201.5 and 201.128 treats a drug as lacking adequate directions for uses promoted outside its labeling. The statute does not use the words 'off-label promotion', but citing these sections for the off-label misbranding theory is a fair paraphrase. The memo's statement about DOJ enforcement history is a factual assertion that the statutes themselves do not address.",
         "evidence_excerpt": "21 C.F.R. 201.5: adequate directions must state 'All conditions, purposes, or uses for which such drug is intended, including ... uses for which it is prescribed, recommended, or suggested in its ... advertising'",
         "source_urls": [
-          "https:/331",
-          "https:/352",
-          "https:/201.5"
+          "https://www.law.cornell.edu/uscode/text/21/331",
+          "https://www.law.cornell.edu/uscode/text/21/352",
+          "https://www.law.cornell.edu/cfr/text/21/201.5"
         ],
         "confidence": "medium"
       }
@@ -2023,7 +2023,7 @@
         "explanation": "The FDCA makes a violation of § 331 (including introducing misbranded drugs into commerce) a misdemeanor punishable by up to one year, and Park, applying Dotterweich, holds that a corporate officer standing in a responsible relation to the violation can be convicted without awareness of wrongdoing. That is the responsible corporate officer doctrine. The email's general description is accurate.",
         "evidence_excerpt": "21 U.S.C. 333(a)(1): \"Any person who violates a provision of section 331 of this title shall be imprisoned for not more than one year or fined not more than $1,000, or both.\" Park: the Act \"dispenses with the conventional requirement for criminal conduct — awareness of some wrongdoing. ... upon a person otherwise innocent but standing in responsible relation to a public danger.\"",
         "source_urls": [
-          "https:/333",
+          "https://www.law.cornell.edu/uscode/text/21/333",
           "https://www.courtlistener.com/opinion/109264/united-states-v-park/"
         ],
         "confidence": "high"
@@ -2078,7 +2078,7 @@
         "explanation": "The FCA reaches 'any person' who knowingly presents or causes a false claim to be presented, so an individual executive can be civilly liable if the government ties promotional activity to false claims submitted to federal healthcare programs. The email's hedged statement ('potentially') fits the statute.",
         "evidence_excerpt": "\"Subject to paragraph (2), any person who— (A) knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval\"",
         "source_urls": [
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }
@@ -2174,7 +2174,7 @@
         "explanation": "'FCA' is a short form for the False Claims Act, 31 U.S.C. § 3729 et seq. The statute imposes civil liability on 'any person,' including individuals. The email gives a judgment that civil exposure is harder to rule out, which fits a statute that reaches individuals who cause false claims to be presented.",
         "evidence_excerpt": "\"any person who— (A) knowingly presents, or causes to be presented, a false or fraudulent claim\" ... \"is liable to the United States Government for a civil penalty\"",
         "source_urls": [
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }

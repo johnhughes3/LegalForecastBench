@@ -1550,7 +1550,7 @@
         "explanation": "COBRA gives qualified beneficiaries who lose group health coverage because of a qualifying event, including job loss, the right to elect continuation coverage. That matches the proposition.",
         "evidence_excerpt": "\"each qualified beneficiary who would lose coverage under the plan as a result of a qualifying event is entitled, under the plan, to elect, within the election period, continuation coverage under the plan.\" (29 U.S.C. 1161(a), as added Pub. L. 99-272)",
         "source_urls": [
-          "https:/1161",
+          "https://www.law.cornell.edu/uscode/text/29/1161",
           "https://www.dol.gov/general/topic/health-plans/cobra"
         ],
         "confidence": "high"
@@ -1578,7 +1578,7 @@
         "explanation": "Title VII of the Civil Rights Act of 1964 (Pub. L. 88-352, title VII; 42 U.S.C. 2000e et seq.) is a real statute that prohibits employment discrimination. The release accurately names it among the claims released.",
         "evidence_excerpt": "\"It shall be an unlawful employment practice for an employer—(1) to fail or refuse to hire or to discharge any individual...\" (Pub. L. 88–352, title VII, § 703, July 2, 1964, 78 Stat. 255)",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -1605,7 +1605,7 @@
         "explanation": "The statute's short title is correctly given, and it has been amended (including by the OWBPA). Listing it among the federal statutory claims released is accurate.",
         "evidence_excerpt": "\"That this Act [enacting this chapter] may be cited as the 'Age Discrimination in Employment Act of 1967'.\"",
         "source_urls": [
-          "https:/621"
+          "https://www.law.cornell.edu/uscode/text/29/621"
         ],
         "confidence": "high"
       }
@@ -1632,8 +1632,8 @@
         "explanation": "The Older Workers Benefit Protection Act (Pub. L. 101-433, 1990) is a real statute that amended the ADEA, including the waiver requirements at 29 U.S.C. 626(f). Naming it among the statutes whose claims are released is accurate.",
         "evidence_excerpt": "\"This Act...may be cited as the 'Older Workers Benefit Protection Act'.\" (Pub. L. 101-433, Oct. 16, 1990); 626(f)(1): \"An individual may not waive any right or claim under this chapter unless the waiver is knowing and voluntary.\"",
         "source_urls": [
-          "https:/621",
-          "https:/626"
+          "https://www.law.cornell.edu/uscode/text/29/621",
+          "https://www.law.cornell.edu/uscode/text/29/626"
         ],
         "confidence": "high"
       }
@@ -1660,7 +1660,7 @@
         "explanation": "This is a real federal employment statute, and it has been amended (by the ADA Amendments Act of 2008). It is properly listed among the released claims.",
         "evidence_excerpt": "\"may be cited as the 'Americans with Disabilities Act of 1990'.\" ... \"may be cited as the 'ADA Amendments Act of 2008'.\"",
         "source_urls": [
-          "https:/12101"
+          "https://www.law.cornell.edu/uscode/text/42/12101"
         ],
         "confidence": "high"
       }
@@ -1687,7 +1687,7 @@
         "explanation": "This is a real federal employment statute. It is properly listed among the released claims.",
         "evidence_excerpt": "\"Pub. L. 103-3, Feb. 5, 1993, 107 Stat. 6, known as the Family and Medical Leave Act of 1993, which enacted this chapter\"",
         "source_urls": [
-          "https:/2601"
+          "https://www.law.cornell.edu/uscode/text/29/2601"
         ],
         "confidence": "high"
       }
@@ -1714,7 +1714,7 @@
         "explanation": "The short title and year are correct, and the statute has been amended. It is properly listed among the released statutory claims.",
         "evidence_excerpt": "\"may be cited as the 'Employee Retirement Income Security Act of 1974'.\"",
         "source_urls": [
-          "https:/1001"
+          "https://www.law.cornell.edu/uscode/text/29/1001"
         ],
         "confidence": "high"
       }
@@ -1741,7 +1741,7 @@
         "explanation": "The Worker Adjustment and Retraining Notification Act is a real federal statute (29 U.S.C. 2101 et seq.). Naming it among the statutes whose claims are released is accurate.",
         "evidence_excerpt": "\"This Act may be cited as the 'Worker Adjustment and Retraining Notification Act'.\" (note to 29 U.S.C. 2101)",
         "source_urls": [
-          "https:/2101"
+          "https://www.law.cornell.edu/uscode/text/29/2101"
         ],
         "confidence": "high"
       }
@@ -1769,7 +1769,7 @@
         "evidence_excerpt": "\"Equal Pay Act of 1963 (EPA)(Pub. L. 88-38), as amended, as it appears in 29 U.S.C. 206(d)\"",
         "source_urls": [
           "https://www.eeoc.gov/statutes/equal-pay-act-1963",
-          "https:/206"
+          "https://www.law.cornell.edu/uscode/text/29/206"
         ],
         "confidence": "high"
       }
@@ -1796,7 +1796,7 @@
         "explanation": "The Genetic Information Nondiscrimination Act of 2008 (Pub. L. 110-233) is a real federal statute. Its Title II employment provisions are codified at 42 U.S.C. 2000ff et seq., so it is properly listed among the employment statutory claims released.",
         "evidence_excerpt": "42 U.S. Code § 2000ff - Definitions ... Pub. L. 110–233, title II, § 201, May 21, 2008, 122 Stat. 905",
         "source_urls": [
-          "https:/2000ff"
+          "https://www.law.cornell.edu/uscode/text/42/2000ff"
         ],
         "confidence": "high"
       }
@@ -1823,8 +1823,8 @@
         "explanation": "The National Labor Relations Act is a real federal statute (29 U.S.C. 151 et seq.; short title at 29 U.S.C. 167). Listing it by name among the statutes whose claims a general release covers is an accurate reference. The record cites no pin and makes no substantive claim about the statute.",
         "evidence_excerpt": "\"This subchapter may be cited as the 'National Labor Relations Act'.\" (29 U.S.C. 167)",
         "source_urls": [
-          "https:/167",
-          "https:/151"
+          "https://www.law.cornell.edu/uscode/text/29/167",
+          "https://www.law.cornell.edu/uscode/text/29/151"
         ],
         "confidence": "high"
       }
@@ -1851,8 +1851,8 @@
         "explanation": "The Sarbanes-Oxley Act of 2002 (Pub. L. 107-204) is a real statute, and its whistleblower provision is codified at 18 U.S.C. 1514A. The citation is accurate as a name reference in a release list. Side note on enforceability, not citation accuracy: 1514A(e)(1) says SOX whistleblower rights 'may not be waived by any agreement', so releasing those claims may be unenforceable.",
         "evidence_excerpt": "\"This Act may be cited as the 'Sarbanes-Oxley Act of 2002'.\"; 1514A(e)(1): \"The rights and remedies provided for in this section may not be waived by any agreement, policy form, or condition of employment...\"",
         "source_urls": [
-          "https:/7201",
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/15/7201",
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -1906,8 +1906,8 @@
         "explanation": "The EEOC, SEC, OSHA, and DOL are real federal agencies. The carve-out (agency charges, cooperation, and whistleblower awards) is consistent with federal law. ADEA/OWBPA 29 U.S.C. 626(f)(4) says no waiver may interfere with the right to file an EEOC charge or take part in an EEOC investigation. SEC Rule 21F-17(a) bars impeding communications with the SEC through confidentiality agreements. No statutory cite was made, and the general description is accurate.",
         "evidence_excerpt": "29 U.S.C. 626(f)(4): \"No waiver may be used to justify interfering with the protected right of an employee to file a charge or participate in an investigation or proceeding conducted by the Commission.\" 17 CFR 240.21F-17(a): \"No person may take any action to impede an individual from communicating directly with the Commission staff about a possible securities law violation, including enforcing, or threatening to enforce, a confidentiality agreement\"",
         "source_urls": [
-          "https:/626",
-          "https:/240.21F-17"
+          "https://www.law.cornell.edu/uscode/text/29/626",
+          "https://www.law.cornell.edu/cfr/text/17/240.21F-17"
         ],
         "confidence": "medium"
       }
@@ -1934,7 +1934,7 @@
         "explanation": "The OWBPA waiver provisions of the ADEA require that, for an individual waiver to be knowing and voluntary, the employee be given at least 21 days to consider the agreement and at least 7 days after execution to revoke it. That matches the agreement's 21-day consideration and 7-day revocation periods. The 45-day period applies only to group exit programs, and the record describes an individual termination.",
         "evidence_excerpt": "\"the individual is given a period of at least 21 days within which to consider the agreement\" ... \"for a period of at least 7 days following the execution of such agreement, the individual may revoke the agreement\"",
         "source_urls": [
-          "https:/626"
+          "https://www.law.cornell.edu/uscode/text/29/626"
         ],
         "confidence": "high"
       }

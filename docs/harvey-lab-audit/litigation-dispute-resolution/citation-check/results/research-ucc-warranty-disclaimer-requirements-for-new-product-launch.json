@@ -91,9 +91,9 @@
         "explanation": "The Act exists and is named correctly. The memo's conclusion that it is unlikely to reach most of CIT's sales (industrial water purification systems sold to commercial, municipal and industrial buyers) follows from the statutory definition of 'consumer product' as property 'normally used for personal, family, or household purposes.' The 'fringe applicability' caveat is also grounded: the FTC interpretation at 16 C.F.R. § 700.1(a) keys coverage to normal use of the product type and resolves ambiguity in favor of coverage, and § 700.1(b) addresses agricultural products. This is an analytic conclusion rather than a pinpoint proposition, and it is a reasonable reading of the authority.",
         "evidence_excerpt": "15 U.S.C. § 2301(1): \"any tangible personal property which is distributed in commerce and which is normally used for personal, family, or household purposes\". 16 C.F.R. § 700.1(a): \"Where it is unclear whether a particular product is covered under the definition of consumer product, any ambiguity will be resolved in favor of coverage.\"",
         "source_urls": [
-          "https:/2301",
-          "https:/700.1",
-          "https:/chapter-50"
+          "https://www.law.cornell.edu/uscode/text/15/2301",
+          "https://www.law.cornell.edu/cfr/text/16/700.1",
+          "https://www.law.cornell.edu/uscode/text/15/chapter-50"
         ],
         "confidence": "high"
       }
@@ -624,10 +624,10 @@
         "explanation": "The Act is codified at 15 U.S.C. §§ 2301-2312 (chapter 50, § 2301 Definitions through § 2312 Effective dates), so the range is correct. Section 2301(1) defines 'consumer product' as the memo states. The Act regulates written warranties on consumer products (§ 2302(a)), and § 2310(d)(1) gives a damaged consumer a civil action in state or federal court, with § 2310(d)(2) allowing a prevailing consumer to recover costs and expenses including attorneys' fees. All elements of the proposition are supported.",
         "evidence_excerpt": "§ 2301(1): \"any tangible personal property which is distributed in commerce and which is normally used for personal, family, or household purposes\". § 2310(d)(2): \"he may be allowed by the court to recover as part of the judgment a sum equal to the aggregate amount of cost and expenses (including attorneys' fees based on actual time expended)\"",
         "source_urls": [
-          "https:/chapter-50",
-          "https:/2301",
-          "https:/2310",
-          "https:/2302"
+          "https://www.law.cornell.edu/uscode/text/15/chapter-50",
+          "https://www.law.cornell.edu/uscode/text/15/2301",
+          "https://www.law.cornell.edu/uscode/text/15/2310",
+          "https://www.law.cornell.edu/uscode/text/15/2302"
         ],
         "confidence": "high"
       }
@@ -654,7 +654,7 @@
         "explanation": "Section 2308(a) bars a supplier who makes a written warranty on a consumer product from disclaiming or modifying implied warranties; § 2308(b) permits limiting their duration to that of the written warranty if conscionable and set out in clear and unmistakable language prominently displayed on the face of the warranty; § 2308(c) makes a non-complying disclaimer ineffective. The memo's statement, including that a blanket disclaimer would be prohibited where the Act applies, is supported. Two small points: 'MMWA § 2308' is a hybrid form (the U.S. Code section is 2308; the Act's own section is 108), and the memo omits the statutory qualifier that the written warranty be 'of reasonable duration.' Neither changes the substance.",
         "evidence_excerpt": "\"No supplier may disclaim or modify (except as provided in subsection (b)) any implied warranty to a consumer with respect to such consumer product if (1) such supplier makes any written warranty to the consumer ...\"; \"implied warranties may be limited in duration to the duration of a written warranty of reasonable duration, if such limitation is conscionable and is set forth in clear and unmistakable language and prominently displayed on the face of the warranty.\"",
         "source_urls": [
-          "https:/2308"
+          "https://www.law.cornell.edu/uscode/text/15/2308"
         ],
         "confidence": "high"
       }
@@ -682,7 +682,7 @@
         "evidence_excerpt": "16 C.F.R. § 700.1(a): \"This means that a product is a 'consumer product' if the use of that type of product is not uncommon. The percentage of sales or the use to which a product is put by any individual buyer is not determinative. ... Where it is unclear whether a particular product is covered under the definition of consumer product, any ambiguity will be resolved in favor of coverage.\"",
         "source_urls": [
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-16.xml?part=700&section=700.1",
-          "https:/700.1"
+          "https://www.law.cornell.edu/cfr/text/16/700.1"
         ],
         "confidence": "high"
       }
@@ -1380,8 +1380,8 @@
         "explanation": "The rubric cites no specific provision but refers to 'tying concerns under antitrust law or Magnuson-Moss Warranty Act implications' from conditioning warranty coverage on use of the seller's own replacement cartridges. Both bodies of law exist and address that conduct. Section 2302(c) forbids a warrantor of a consumer product from conditioning a written or implied warranty on the consumer's use of an article or service identified by brand, trade, or corporate name (unless provided free under the warranty or the FTC grants a waiver). Clayton Act § 3 reaches sales of goods conditioned on the buyer not using a competitor's goods where competition may be substantially lessened. Caveat for the reader: § 2302(c) applies only to 'consumer products,' so its reach to CIT's industrial systems depends on the same threshold question the 2021 memo treats as unlikely; the rubric's 'potential' phrasing accommodates that.",
         "evidence_excerpt": "15 U.S.C. § 2302(c): \"No warrantor of a consumer product may condition his written or implied warranty of such product on the consumer's using, in connection with such product, any article or service (other than article or service provided without charge under the terms of the warranty) which is identified by brand, trade, or corporate name\"",
         "source_urls": [
-          "https:/2302",
-          "https:/14"
+          "https://www.law.cornell.edu/uscode/text/15/2302",
+          "https://www.law.cornell.edu/uscode/text/15/14"
         ],
         "confidence": "high"
       }
@@ -1897,8 +1897,8 @@
         "explanation": "The Safe Drinking Water Act is a real federal statute, codified at 42 U.S.C. § 300f et seq. It is an Act of Congress administered by EPA, so \"EPA Safe Drinking Water Act standards\" is informal marketing phrasing for EPA's national primary drinking water regulations issued under the Act; that is a naming looseness, not a citation error. The Act and its regulations set standards for public water systems. Whether the product \"meets and exceeds all\" of them is a factual performance claim the statute cannot confirm.",
         "evidence_excerpt": "This subchapter is known as the \"Safe Drinking Water Act\", see note set out under section 201 of this title.",
         "source_urls": [
-          "https:/300f",
-          "https:/141.2"
+          "https://www.law.cornell.edu/uscode/text/42/300f",
+          "https://www.law.cornell.edu/cfr/text/40/141.2"
         ],
         "confidence": "high"
       }
@@ -1925,8 +1925,8 @@
         "explanation": "21 C.F.R. Part 11 (\"Electronic Records; Electronic Signatures\") is a real FDA regulation that sets the criteria under which FDA treats electronic records and signatures as trustworthy and equivalent to paper, including time-stamped audit-trail controls in § 11.10(e). It is the regulation a pharmaceutical-sector \"compliant data logging\" claim would refer to, so the reference is accurate and apt. Whether AquaMonitor v3.2 actually complies is a factual product claim, not something the regulation can confirm; Part 11 imposes requirements on regulated records and does not certify products.",
         "evidence_excerpt": "The regulations in this part set forth the criteria under which the agency considers electronic records, electronic signatures, and handwritten signatures executed to electronic records to be trustworthy, reliable, and generally equivalent to paper records and handwritten signatures executed on paper.",
         "source_urls": [
-          "https:/11.1",
-          "https:/11.10"
+          "https://www.law.cornell.edu/cfr/text/21/11.1",
+          "https://www.law.cornell.edu/cfr/text/21/11.10"
         ],
         "confidence": "high"
       }
@@ -1953,9 +1953,9 @@
         "explanation": "EPA Maximum Contaminant Levels are real: the term is defined in the Safe Drinking Water Act (42 U.S.C. § 300f(3)) and in 40 C.F.R. § 141.2, and specific MCLs are set in 40 C.F.R. Part 141 (for example, the § 141.61(c) table). The slide names the regulatory concept without a citation, so the citation above is supplied for completeness. MCLs are ceilings on contaminants in water delivered by public water systems, so \"exceed ... MCLs\" is marketing shorthand for outperforming them. \"Anticipated\" MCLs are not existing law, and whether the product meets any MCL is a factual claim the regulation cannot confirm.",
         "evidence_excerpt": "Maximum contaminant level means the maximum permissible level of a contaminant in water which is delivered to any user of a public water system.",
         "source_urls": [
-          "https:/141.2",
-          "https:/141.61",
-          "https:/300f"
+          "https://www.law.cornell.edu/cfr/text/40/141.2",
+          "https://www.law.cornell.edu/cfr/text/40/141.61",
+          "https://www.law.cornell.edu/uscode/text/42/300f"
         ],
         "confidence": "high"
       }
@@ -2012,7 +2012,7 @@
         "source_urls": [
           "https://www.federalregister.gov/documents/2024/04/26/2024-07773/pfas-national-primary-drinking-water-regulation",
           "https://www.federalregister.gov/api/v1/documents/2024-07773.json",
-          "https:/141.61",
+          "https://www.law.cornell.edu/cfr/text/40/141.61",
           "https://www.epa.gov/sdwa/proposed-pfas-rescission-rule",
           "https://www.federalregister.gov/api/v1/documents/2026-10086.json"
         ],
@@ -2043,8 +2043,8 @@
         "source_urls": [
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-21.xml?part=117&section=117.37",
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-9.xml?part=416&section=416.2",
-          "https:/117.37",
-          "https:/416.2"
+          "https://www.law.cornell.edu/cfr/text/21/117.37",
+          "https://www.law.cornell.edu/cfr/text/9/416.2"
         ],
         "confidence": "medium"
       }
@@ -2099,7 +2099,7 @@
         "explanation": "The brochure uses \"cGMP\" as a shorthand reference to a regulatory regime, not for a specific rule. That regime is real: FDA's current good manufacturing practice regulations for drugs are in 21 C.F.R. Parts 210 and 211. The brochure cites no section, so the reference is incomplete as a citation but accurate as a reference. Whether the product actually supports a customer's compliance is a factual marketing claim I did not assess. ecfr.gov blocked the fetch, so the text was read on Cornell LII.",
         "evidence_excerpt": "§ 210.1 Status of current good manufacturing practice regulations. (a) The regulations set forth in this part and in parts 211, 213, 225, and 226 of this chapter contain the minimum current good manufacturing practice for methods to be used in, and the facilities or controls to be used for, the manufacture, processing, packing, or holding of a drug",
         "source_urls": [
-          "https:/210.1"
+          "https://www.law.cornell.edu/cfr/text/21/210.1"
         ],
         "confidence": "high"
       }
@@ -2155,7 +2155,7 @@
         "evidence_excerpt": "21 C.F.R. § 117.37(a): \"Any water that contacts food, food-contact surfaces, or food-packaging materials must be safe and of adequate sanitary quality. Running water at a suitable temperature, and under pressure as needed, must be provided in all areas where required for the processing of food, for the cleaning of equipment, utensils, and food-packaging materials, or for employee sanitary facilities.\"",
         "source_urls": [
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-21.xml?part=117&section=117.37",
-          "https:/117.37"
+          "https://www.law.cornell.edu/cfr/text/21/117.37"
         ],
         "confidence": "medium"
       }
@@ -2184,7 +2184,7 @@
         "source_urls": [
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-40.xml?part=141&section=141.1",
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-40.xml?part=142&section=142.10",
-          "https:/141.1"
+          "https://www.law.cornell.edu/cfr/text/40/141.1"
         ],
         "confidence": "medium"
       }
@@ -2212,7 +2212,7 @@
         "evidence_excerpt": "21 C.F.R. § 117.37(a): \"Water supply. The water supply must be adequate for the operations intended and must be derived from an adequate source. Any water that contacts food, food-contact surfaces, or food-packaging materials must be safe and of adequate sanitary quality.\"",
         "source_urls": [
           "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-21.xml?part=117&section=117.37",
-          "https:/117.37"
+          "https://www.law.cornell.edu/cfr/text/21/117.37"
         ],
         "confidence": "medium"
       }

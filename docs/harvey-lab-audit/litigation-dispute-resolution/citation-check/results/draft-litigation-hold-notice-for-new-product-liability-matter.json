@@ -295,7 +295,7 @@
         "explanation": "FOIA requires each agency, including FDA, to make records promptly available to any person on a request that reasonably describes them. Exemptions apply, notably (b)(4) for trade secrets and confidential commercial information, which the document's 'generally obtainable' hedge covers.",
         "evidence_excerpt": "5 U.S.C. 552(a)(3)(A): \"Each agency, upon any request for records which (i) reasonably describes such records and (ii) is made in accordance with published rules... shall make the records promptly available to any person.\"",
         "source_urls": [
-          "https:/552"
+          "https://www.law.cornell.edu/uscode/text/5/552"
         ],
         "confidence": "high"
       }
@@ -547,7 +547,7 @@
         "explanation": "The Sunshine Act requires applicable manufacturers to report payments and other transfers of value to covered recipients. 'Consulting fees' is an expressly listed nature-of-payment category, so consulting payments to KOL physicians are subject to Sunshine Act reporting and public disclosure.",
         "evidence_excerpt": "\"any applicable manufacturer that provides a payment or other transfer of value to a covered recipient ... shall submit to the Secretary ... the following information\"; (a)(1)(A)(vi) lists \"Consulting fees.\"",
         "source_urls": [
-          "https:/1320a-7h"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7h"
         ],
         "confidence": "high"
       }
@@ -1207,7 +1207,7 @@
         "explanation": "21 CFR Part 820 is FDA's device current-good-manufacturing-practice / quality-system regulation, so the retention policy's reference to it is sound. The policy is dated January 1, 2024. On that date Part 820 was still titled the 'Quality System Regulation': the FDA's amending rule was itself titled 'Medical Devices; Quality System Regulation Amendments' and took effect February 2, 2026. Today the Part is headed 'Quality Management System Regulation,' so any revision of the policy after 2026 should update the name. One related item outside this ref: the policy's Design History File row cites § 820.184, which under the pre-2026 regulation governed device history records, not design history files.",
         "evidence_excerpt": "LII: \"21 CFR Part 820 - QUALITY MANAGEMENT SYSTEM REGULATION\"; FDA: rule \"Medical Devices; Quality System Regulation Amendments Final Rule\" ... effective February 2, 2026.",
         "source_urls": [
-          "https:/part-820",
+          "https://www.law.cornell.edu/cfr/text/21/part-820",
           "https://www.fda.gov/medical-devices/postmarket-requirements-devices/quality-management-system-regulation-qmsr"
         ],
         "confidence": "high"
@@ -1327,7 +1327,7 @@
         "explanation": "Under § 1332(d)(2), district courts have original jurisdiction over class actions where more than $5,000,000 is in controversy and any class member is a citizen of a State different from any defendant (minimal diversity). Under § 1332(d)(5)(B), CAFA does not apply where the proposed classes total fewer than 100 members. The complaint's summary is accurate apart from one small looseness: it says 'more than 100 members,' but the statutory threshold is 100 or more. That makes no difference with a class of about 47,000.",
         "evidence_excerpt": "\"exceeds the sum or value of $5,000,000, exclusive of interest and costs, and is a class action in which—(A) any member of a class of plaintiffs is a citizen of a State different from any defendant\"; \"(B) the number of members of all proposed plaintiff classes in the aggregate is less than 100.\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1354,7 +1354,7 @@
         "explanation": "Under § 1332(d)(2)(A), minimal diversity exists when any class member is a citizen of a State different from any defendant. On the pleaded facts, Kessler is an Ohio citizen and Vantage is a citizen of Delaware and Indiana, so the requirement is met.",
         "evidence_excerpt": "\"(A) any member of a class of plaintiffs is a citizen of a State different from any defendant\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1410,8 +1410,8 @@
         "explanation": "§ 1391(b)(1) does make venue proper in a district where any defendant resides, provided all defendants reside in that State. Vantage is the only defendant, so the statute supports the legal proposition. The application is a separate problem: the complaint is filed in the Southern District of Indiana but rests residency on the Fort Wayne headquarters, which is in Allen County and therefore in the Northern District (28 U.S.C. § 94). See ref 51.",
         "evidence_excerpt": "\"a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located\"",
         "source_urls": [
-          "https:/1391",
-          "https:/94"
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/94"
         ],
         "confidence": "high"
       }
@@ -1438,8 +1438,8 @@
         "explanation": "§ 1391(c)(2) says an entity defendant resides in any district where it is subject to personal jurisdiction, so it does support the residency proposition in general. But Indiana has more than one federal district, and for a corporation in a multi-district State § 1391(d) is the specific provision: the corporation resides in any district where its contacts would support personal jurisdiction if that district were a separate State. Citing only (c) is incomplete. The factual premise is also flawed. The complaint is captioned in the Southern District of Indiana, Indianapolis Division, yet says Vantage's Fort Wayne headquarters is 'located within this District.' Fort Wayne is the county seat of Allen County, which by statute (28 U.S.C. § 94) is in the Fort Wayne Division of the Northern District. Residency in the Southern District would therefore depend on Vantage's contacts there under § 1391(d).",
         "evidence_excerpt": "§ 1391(d): \"in a State which has more than one judicial district ... such corporation shall be deemed to reside in any district in that State within which its contacts would be sufficient to subject it to personal jurisdiction if that district were a separate State\"; § 94: \"The Fort Wayne Division comprises the counties of Adams, Allen, ...\"",
         "source_urls": [
-          "https:/1391",
-          "https:/94",
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/94",
           "https://www.in.gov/library/collections-and-services/genealogy/indiana-county-research-guides/allen-county/"
         ],
         "confidence": "high"
@@ -1467,8 +1467,8 @@
         "explanation": "§ 1391(b)(2) makes venue proper in a district where a substantial part of the events or omissions giving rise to the claim occurred, so the statute supports the legal proposition. The complaint's application is a separate problem: the events it pleads (design, testing, and manufacture in Fort Wayne) took place in Allen County, which is in the Northern District of Indiana, while the suit is filed in the Southern District.",
         "evidence_excerpt": "\"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated\"",
         "source_urls": [
-          "https:/1391",
-          "https:/94"
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/94"
         ],
         "confidence": "high"
       }

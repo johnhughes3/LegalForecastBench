@@ -116,7 +116,7 @@
         "explanation": "28 U.S.C. § 1332(a)(1) gives district courts original jurisdiction over civil actions between citizens of different States where the matter in controversy exceeds $75,000, exclusive of interest and costs. That is exactly what the order cites it for, and the order's amount-in-controversy language tracks the statute. Side note outside the citation itself: the order describes the defendant LLC only by its State of organization and principal place of business, which is the § 1332(c)(1) test for corporations. In the Third Circuit an LLC's citizenship follows that of its members (Zambelli Fireworks Mfg. Co. v. Wood, 592 F.3d 412 (3d Cir. 2010)), so the recited facts do not on their own establish the LLC's citizenship. This is a gap in the factual recital, not a defect in the citation.",
         "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.courtlistener.com/opinion/1356047/zambelli-fireworks-manufacturing-co-v-wood/"
         ],
         "confidence": "high"
@@ -144,7 +144,7 @@
         "explanation": "28 U.S.C. § 1391(b) is the general federal venue provision and is the correct authority for a statement that venue is proper in a district. The order does not say which paragraph applies or recite venue facts. Venue in W.D. Pa. is plausible under (b)(2) (substantial part of the events; the plaintiff's principal place of business is in Pittsburgh) or under (b)(1) read with (c)(2) (an entity defendant resides in any district where it is subject to personal jurisdiction). Whether the venue facts are actually satisfied cannot be checked from the order, but the citation is accurate for the proposition.",
         "evidence_excerpt": "(b) Venue in General.— A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -632,7 +632,7 @@
         "explanation": "28 U.S.C. § 636(b)(1)(A) lets a judge designate a magistrate judge to hear and determine any pretrial matter, apart from a list of excepted dispositive motions. Discovery disputes are not on that list, so the provision supports referring them to the magistrate judge. The companion cite to Fed. R. Civ. P. 72(a) is also accurate: it covers nondispositive pretrial matters referred to a magistrate judge and sets the 14-day objection period the order recites.",
         "evidence_excerpt": "(A) a judge may designate a magistrate judge to hear and determine any pretrial matter pending before the court, except a motion for injunctive relief, for judgment on the pleadings, for summary judgment, ... and to involuntarily dismiss an action.",
         "source_urls": [
-          "https:/636",
+          "https://www.law.cornell.edu/uscode/text/28/636",
           "https://www.law.cornell.edu/rules/frcp/rule_72"
         ],
         "confidence": "high"
@@ -661,7 +661,7 @@
         "evidence_excerpt": "(a) Nondispositive Matters. When a pretrial matter not dispositive of a party's claim or defense is referred to a magistrate judge to hear and decide, the magistrate judge must promptly conduct the required proceedings and, when appropriate, issue a written order stating the decision. A party may serve and file objections to the order within 14 days after being served with a copy.",
         "source_urls": [
           "https://www.law.cornell.edu/rules/frcp/rule_72",
-          "https:/636"
+          "https://www.law.cornell.edu/uscode/text/28/636"
         ],
         "confidence": "high"
       }

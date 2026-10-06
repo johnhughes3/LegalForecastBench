@@ -1330,7 +1330,7 @@
         "explanation": "28 U.S.C. § 1746 provides that where federal law or rule requires a matter to be supported by a sworn declaration, verification, oath or affidavit, it may with like force and effect be supported by an unsworn written declaration subscribed as true under penalty of perjury. That supports using a § 1746 declaration to verify interrogatory answers. Drafting note that does not affect the citation: the statutory form is 'true and correct' and must be dated, whereas the firm template adds 'to the best of my knowledge, information, and belief'. The statute requires only substantial conformity to the form.",
         "evidence_excerpt": "such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated, in substantially the following form",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -1605,7 +1605,7 @@
         "explanation": "28 U.S.C. § 1332(a) grants district courts original jurisdiction over civil actions where the matter in controversy exceeds $75,000, exclusive of interest and costs, and is between citizens of different States. That matches the Answer's admission of diversity jurisdiction with an amount in controversy over $75,000, exclusive of interest and costs. The cite is to the section without a subsection, which is acceptable; the operative provision is subsection (a)(1).",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1825,8 +1825,8 @@
         "evidence_excerpt": "\"§78dd-1. Prohibited foreign trade practices by issuers ... (a) Prohibition. It shall be unlawful for any issuer which has a class of securities registered pursuant to section 78l of this title...\"; § 78dd-2 note: \"Section was enacted as part of Pub. L. 95-213, the Foreign Corrupt Practices Act of 1977\"",
         "source_urls": [
           "https://www.govinfo.gov/link/uscode/15/78dd-1?type=usc&year=mostrecent&link-type=html",
-          "https:/78dd-1",
-          "https:/78dd-2"
+          "https://www.law.cornell.edu/uscode/text/15/78dd-1",
+          "https://www.law.cornell.edu/uscode/text/15/78dd-2"
         ],
         "confidence": "high"
       }
@@ -3119,7 +3119,7 @@
         "explanation": "28 U.S.C. § 1332(a) is the diversity-of-citizenship grant of subject-matter jurisdiction, with a $75,000 threshold exclusive of interest and costs. The Case Management Order's recital tracks the statute: it alleges a Pennsylvania corporate defendant, an LLC plaintiff whose members are all citizens of states other than Pennsylvania, and an amount in controversy over $75,000.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -3146,7 +3146,7 @@
         "explanation": "28 U.S.C. § 1391 is the general federal venue statute. Under § 1391(b)(1), venue lies in a district where any defendant resides if all defendants reside in the forum State. The sole defendant is alleged to be a Pennsylvania corporation headquartered in Verona, Pennsylvania (the Answer gives an Allegheny River Boulevard address and refers to courts in Allegheny County), which supports venue in the Western District of Pennsylvania. The order cites the section with no subsection, which is loose but common. The forum selection clause is a separate basis the order cites alongside the statute.",
         "evidence_excerpt": "A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located;",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }

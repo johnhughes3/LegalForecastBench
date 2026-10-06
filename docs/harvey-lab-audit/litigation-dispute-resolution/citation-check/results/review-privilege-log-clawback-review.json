@@ -315,7 +315,7 @@
         "evidence_excerpt": "§9607. Liability (a) Covered persons; scope; recoverable costs and damages ... (1) the owner and operator of a vessel or a facility ... shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan ... (Pub. L. 96–510, title I, §107, Dec. 11, 1980, 94 Stat. 2781",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title42/html/USCODE-2023-title42-chap103-subchapI-sec9607.htm",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -526,7 +526,7 @@
         "evidence_excerpt": "\"Not all harms are capable of apportionment, however, and CERCLA defendants seeking to avoid joint and several liability bear the burden of proving that a reasonable basis for apportionment exists.\" Also: the Act \"did not mandate 'joint and several' liability in every case\".",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -568,7 +568,7 @@
         "explanation": "CERCLA § 113(f) (42 U.S.C. § 9613(f)) exists and the cite is correct, but it is a contribution provision, not a 'defense': it lets a liable party seek contribution and directs the court to allocate response costs 'using such equitable factors as the court determines are appropriate.' The email's substantive point, that voluntary early remediation could improve Thornfield's equitable position in a § 113(f) allocation, is a reasonable reading of § 113(f)(1), since allocation is expressly equitable. The defect is only the label 'equitable defense under CERCLA § 113(f)': the statute creates no defense to § 107(a) liability, and Burlington Northern separately notes that equitable considerations play no role in § 107 apportionment (as opposed to § 113(f) contribution). Whether voluntary remediation in fact weighs in a party's favor is a matter of case law that the statute's text does not itself address; I did not check that case law.",
         "evidence_excerpt": "42 U.S.C. § 9613(f)(1): \"In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.\" Burlington Northern, 556 U.S. at 615 n.9: \"contribution actions allow jointly and severally liable PRPs to recover from each other on the basis of equitable considerations.\"",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/"
         ],
         "confidence": "medium"
@@ -708,8 +708,8 @@
         "explanation": "RCRA is a real federal statute, referenced here by acronym only in a privilege-log description. It governs hazardous waste generators' dealings with transporters and disposal facilities, including the manifest system that ensures waste reaches permitted treatment, storage or disposal facilities. A description of legal analysis of waste disposal contractor agreements and \"compliance with RCRA requirements\" is consistent with what the statute covers. No specific provision or holding is asserted.",
         "evidence_excerpt": "\"This Act ... may be cited as the 'Resource Conservation and Recovery Act of 1976'.\" (Short Title note, 42 U.S.C. 6901). 42 U.S.C. 6922(a)(5): \"use of a manifest system and any other reasonable means necessary to assure that all such hazardous waste generated is designated for treatment, storage, or disposal in, and arrives at, treatment, storage, or disposal facilities ... for which a permit has been issued\".",
         "source_urls": [
-          "https:/6901",
-          "https:/6922"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/uscode/text/42/6922"
         ],
         "confidence": "high"
       }
@@ -736,7 +736,7 @@
         "explanation": "Privilege-log description referring generally to TSCA reporting requirements and compliance obligations for chemical inventory. TSCA section 8 (15 U.S.C. § 2607) is headed 'Reporting and retention of information', directs EPA to promulgate reporting rules, and requires EPA to compile and keep current the inventory of chemical substances manufactured or processed in the United States. The reference is accurate at the level of generality used; no specific provision was cited.",
         "evidence_excerpt": "15 U.S.C. § 2607 heading: \"Reporting and retention of information\"; § 2607(b)(1): \"The Administrator shall compile, keep current, and publish a list of each chemical substance which is manufactured or processed in the United States.\"; § 2607(a)(1): \"The Administrator shall promulgate rules under which—\"",
         "source_urls": [
-          "https:/2607"
+          "https://www.law.cornell.edu/uscode/text/15/2607"
         ],
         "confidence": "high"
       }
@@ -763,8 +763,8 @@
         "explanation": "Privilege-log description referring generally to hazardous waste manifesting requirements under RCRA and NJDEP regulations. Both bodies of law exist and contain manifest requirements: RCRA (42 U.S.C. § 6922(a)(5)) and its regulations (40 C.F.R. § 262.20) require generators to prepare manifests, and New Jersey's hazardous waste rules (N.J.A.C. 7:26G-6.1) incorporate 40 C.F.R. Part 262, the generator standards including the manifest subpart, by reference. No specific provision was cited; the reference is accurate at the level of generality used.",
         "evidence_excerpt": "40 C.F.R. § 262.20(a)(1): \"A generator that transports, or offers for transport a hazardous waste for offsite treatment, storage, or disposal ... must prepare a Manifest (OMB Control number 2050-0039) on EPA Form 8700-22\". N.J.A.C. 7:26G-6.1(a): \"This subchapter incorporates by reference up to November 5, 2007 and prospectively incorporates by reference 40 C.F.R. Part 262, Federal regulations on the standards applicable to generators of hazardous waste, as amended and supplemented, except as provided in (b) below.\"",
         "source_urls": [
-          "https:/262.20",
-          "https:/6922",
+          "https://www.law.cornell.edu/cfr/text/40/262.20",
+          "https://www.law.cornell.edu/uscode/text/42/6922",
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-26G-6-1"
         ],
         "confidence": "high"
@@ -819,7 +819,7 @@
         "explanation": "CERCLA § 107 is 42 U.S.C. § 9607. Subsection (a) imposes liability 'subject only to the defenses set forth in subsection (b)', and subsection (b) ('Defenses') lists act of God, act of war, third-party act or omission, or any combination. So a memo 'analyzing available defenses under CERCLA Section 107' accurately describes the statute. The reference to 'applicable Third Circuit case law' names no case and cannot be cite-checked as such; a body of Third Circuit authority on § 107 defenses does exist (e.g., United States v. Alcan Aluminum Corp., 964 F.2d 252 (3d Cir. 1992), which discusses the 'three limited defenses to liability based on causation which are contained in 42 U.S.C. § 9607(b)').",
         "evidence_excerpt": "42 U.S.C. § 9607(b): \"Defenses. There shall be no liability under subsection (a) of this section for a person otherwise liable who can establish by a preponderance of the evidence that the release or threat of release of a hazardous substance and the damages resulting therefrom were caused solely by— (1) an act of God; (2) an act of war; (3) an act or omission of a third party ... or (4) any combination of the foregoing paragraphs.\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/583601/united-states-v-alcan-aluminum-corp/"
         ],
         "confidence": "high"
@@ -875,7 +875,7 @@
         "explanation": "Section 104 exists (Pub. L. 96-510, title I, § 104, codified at 42 U.S.C. § 9604) and is CERCLA's response-authorities provision. It covers removal and remedial response, including response to a 'public health or environmental emergency', and allows the owner, operator or other responsible party to carry out the response. The loose point is that § 104 mainly confers authority on the President/EPA rather than imposing 'emergency response obligations' on a private company; such obligations come chiefly from §§ 103 and 106 and from the § 104(e) information and access provisions. As a privilege-log subject-matter description the reference is reasonable, but 'obligations under Section 104' is an imprecise characterization. I did not read §§ 9603 or 9606 in this pass; the pointer to them is offered as context, not as verified text.",
         "evidence_excerpt": "42 U.S.C. § 9604(a)(1): \"the President is authorized to act, consistent with the national contingency plan, to remove or arrange for the removal of, and provide for remedial action relating to such hazardous substance, pollutant, or contaminant at any time ... When the President determines that such action will be done properly and promptly by the owner or operator of the facility or vessel or by any other responsible party, the President may allow such person to carry out the action\"",
         "source_urls": [
-          "https:/9604"
+          "https://www.law.cornell.edu/uscode/text/42/9604"
         ],
         "confidence": "medium"
       }
@@ -902,7 +902,7 @@
         "explanation": "This is a general privilege-log description of a memo on statute of limitations defenses to CERCLA and NJ Spill Act claims, with no section cited. Both statutes exist and limitations is a real issue under each. CERCLA sets express periods in 42 U.S.C. § 9613(g) for natural resource damages, cost recovery and contribution. For the Spill Act, the NJ Supreme Court in Morristown Associates addressed the issue directly and held that the general six-year statute of limitations does not apply to private Spill Act contribution claims. The description is therefore accurate as a topic reference, though a limitations defense to a private Spill Act contribution claim is foreclosed by Morristown.",
         "evidence_excerpt": "§ 9613(g)(2): \"An initial action for recovery of the costs referred to in section 9607 of this title must be commenced— (A) for a removal action, within 3 years after completion of the removal action\". Morristown: \"we hold that N.J.S.A 2A:14-1's six-year statute of limitations is not applicable to Spill Act contribution claims.\"",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/2773171/morristown-associates-v-grant-oil-company-073248/"
         ],
         "confidence": "high"
@@ -931,7 +931,7 @@
         "evidence_excerpt": "\"Not all harms are capable of apportionment, however, and CERCLA defendants seeking to avoid joint and several liability bear the burden of proving that a reasonable basis for apportionment exists.\" ... \"[W]e conclude that the facts contained in the record reasonably supported the apportionment of liability.\"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -958,8 +958,8 @@
         "explanation": "CERCLA § 107(b)(3), 42 U.S.C. § 9607(b)(3), is the third-party defense: no liability where the release was caused solely by an act or omission of a third party not in a contractual relationship with the defendant, if the defendant exercised due care and took precautions. The 'innocent landowner' defense is a species of that same defense: 42 U.S.C. § 9601(35)(A) defines 'contractual relationship' expressly 'for the purpose of section 9607(b)(3)' and excludes purchasers who did not know and had no reason to know of the contamination. The Third Circuit describes the arrangement the same way (United States v. CDMG Realty Co., 96 F.3d 706: § 9607(b)(3) 'provides the causation defenses including the third party defense'; § 9601(35) is 'the provision establishing the innocent owner defense'). The log description is accurate.",
         "evidence_excerpt": "42 U.S.C. § 9607(b): \"(3) an act or omission of a third party other than an employee or agent of the defendant, or than one whose act or omission occurs in connection with a contractual relationship, existing directly or indirectly, with the defendant ... if the defendant establishes by a preponderance of the evidence that (a) he exercised due care with respect to the hazardous substance concerned\". 42 U.S.C. § 9601(35)(A): \"The term 'contractual relationship', for the purpose of section 9607(b)(3) of this title, includes ... unless ... (i) At the time the defendant acquired the facility the defendant did not know and had no reason to know that any hazardous substance ... was disposed of on, in, or at the facility.\"",
         "source_urls": [
-          "https:/9607",
-          "https:/9601",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9601",
           "https://www.courtlistener.com/opinion/726685/united-states-v-cdmg-realty-co/"
         ],
         "confidence": "high"
@@ -987,7 +987,7 @@
         "explanation": "CERCLA § 113 (Pub. L. 96-510, title I, § 113, as amended by SARA) is codified at 42 U.S.C. § 9613; subsection (f) is headed 'Contribution'. It creates the contribution right (f)(1), prescribes procedure ('Such claims shall be brought in accordance with this section and the Federal Rules of Civil Procedure, and shall be governed by Federal law'), and addresses settlement contribution protection and post-settlement contribution ((f)(2)-(3)). 'Contribution rights and procedures under CERCLA Section 113(f)' is an accurate description. The 'applicable Third Circuit precedent' is unnamed and cannot be checked as a citation; Third Circuit authority applying § 113(f) exists (e.g., New Castle County v. Halliburton NUS Corp., 111 F.3d 1116 (3d Cir. 1997)).",
         "evidence_excerpt": "42 U.S.C. § 9613(f)(1): \"Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title. Such claims shall be brought in accordance with this section and the Federal Rules of Civil Procedure, and shall be governed by Federal law.\" Source credit: \"Pub. L. 96–510, title I, § 113, Dec. 11, 1980, 94 Stat. 2795; Pub. L. 99–499, title I, § 113, Oct. 17, 1986\"",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/739914/new-castle-county-rhone-poulenc-inc-zeneca-inc-v-halliburton-nus-corp/"
         ],
         "confidence": "high"
@@ -1015,8 +1015,8 @@
         "explanation": "Section 107(a)(4)(A) makes responsible parties liable for government removal and remedial costs 'not inconsistent with the national contingency plan', which is the government cost recovery standard and its NCP-consistency element. The NCP itself is at 40 C.F.R. Part 300. The log description matches the statute.",
         "evidence_excerpt": "42 U.S.C. § 9607(a)(4)(A): \"all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan\"",
         "source_urls": [
-          "https:/9607",
-          "https:/300.430"
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/cfr/text/40/300.430"
         ],
         "confidence": "high"
       }
@@ -1043,7 +1043,7 @@
         "explanation": "Section 107(a)(3) is the arranger-liability provision, and Burlington Northern (556 U.S. 599 (2009)) is the Supreme Court's leading decision on it, holding that an entity qualifies as an arranger when it takes intentional steps to dispose of a hazardous substance. Both authorities exist and stand for the subject described in the log entry.",
         "evidence_excerpt": "42 U.S.C. § 9607(a)(3): \"any person who by contract, agreement, or otherwise arranged for disposal or treatment, or arranged with a transporter for transport for disposal or treatment, of hazardous substances owned or possessed by such person\". Burlington Northern, 556 U.S. at 611: \"under the plain language of the statute, an entity may qualify as an arranger under § 9607(a)(3) when it takes intentional steps to dispose of a hazardous substance.\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/"
         ],
         "confidence": "high"
@@ -1071,7 +1071,7 @@
         "explanation": "This is a general privilege-log reference to CERCLA operator liability standards and Third Circuit case law on direct and indirect operator theories; no case is named. CERCLA § 107(a)(1)-(2) imposes liability on operators. Bestfoods distinguishes direct operator liability (the party itself operates the facility) from indirect or derivative liability (veil piercing). The Third Circuit has its own body of operator law: Lansford-Coaldale adopted the \"actual control\" test over the \"authority-to-control\" test. The description matches a real body of law.",
         "evidence_excerpt": "Bestfoods: \"operator liability may attach to a parent corporation both directly, when the parent itself operates the facility, and indirectly, when the corporate veil can be pierced under state law.\" Lansford-Coaldale: \"We believe that test sweeps too broadly and we thus adopt the actual control standard\".",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/118219/united-states-v-bestfoods/",
           "https://www.courtlistener.com/opinion/652885/lansford-coaldale-joint-water-authority-in-no-92-7605-v-tonolli/"
         ],
@@ -1128,7 +1128,7 @@
         "explanation": "Section 113(f)(2) (42 U.S.C. § 9613(f)(2)) is the contribution-protection provision: a party that resolves its liability to the United States or a State in an administrative or judicially approved settlement (which includes a consent decree) is not liable for contribution claims regarding matters addressed in the settlement. This matches the entry's reference to consent decree implications and contribution protection.",
         "evidence_excerpt": "(2) Settlement A person who has resolved its liability to the United States or a State in an administrative or judicially approved settlement shall not be liable for claims for contribution regarding matters addressed in the settlement.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -1155,7 +1155,7 @@
         "explanation": "Subparagraph (C) of § 107(a) is the natural resource damages provision, and it expressly includes the reasonable costs of assessing the injury, which fits the log entry's reference to 'assessment methodologies'. Section 107(f)(1) confirms that subparagraph (C) liability runs to the United States, States and Indian tribes as trustees. The pin cite is correct.",
         "evidence_excerpt": "42 U.S.C. § 9607(a)(4)(C): \"damages for injury to, destruction of, or loss of natural resources, including the reasonable costs of assessing such injury, destruction, or loss resulting from such a release\"",
         "source_urls": [
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -1182,7 +1182,7 @@
         "explanation": "CERCLA § 113(f), 42 U.S.C. § 9613(f), is the contribution provision, and paragraph (f)(1) expressly provides that in resolving contribution claims the court may allocate response costs among liable parties using such equitable factors as it determines appropriate. The log's description ('equitable factors considered in CERCLA cost allocation proceedings under Section 113(f)') tracks the statutory text directly. The Third Circuit quotes the same language in New Castle County v. Halliburton NUS Corp., 111 F.3d 1116, 1121-22 (3d Cir. 1997).",
         "evidence_excerpt": "42 U.S.C. § 9613(f)(1): \"In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.\" New Castle County: \"To resolve contribution claims, section 113 provides that 'the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.' 42 U.S.C. § 9613(f)(1)\"",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/739914/new-castle-county-rhone-poulenc-inc-zeneca-inc-v-halliburton-nus-corp/"
         ],
         "confidence": "high"
@@ -1267,7 +1267,7 @@
         "explanation": "Section 122(g) (42 U.S.C. § 9622(g)) is headed \"De minimis settlements\" and provides for expedited final settlements with parties whose contribution involves only a minor portion of response costs, where the amount and toxicity of their substances are minimal or they are qualifying landowners. It is the correct provision for de minimis settlement analysis.",
         "evidence_excerpt": "(g) De minimis settlements (1) Expedited final settlement Whenever practicable and in the public interest, as determined by the President, the President shall as promptly as possible reach a final settlement with a potentially responsible party ... if such settlement involves only a minor portion of the response costs at the facility concerned",
         "source_urls": [
-          "https:/9622"
+          "https://www.law.cornell.edu/uscode/text/42/9622"
         ],
         "confidence": "high"
       }
@@ -1294,7 +1294,7 @@
         "explanation": "Section 107 (42 U.S.C. § 9607) lists the categories of recoverable costs: government removal or remedial costs not inconsistent with the NCP, other persons' necessary response costs consistent with the NCP, natural resource damages, and health assessment costs, plus interest. A memo 'analyzing categories of recoverable response costs under CERCLA Section 107' is accurately described.",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\"",
         "source_urls": [
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -1377,7 +1377,7 @@
         "explanation": "This is a general privilege-log reference to a memo on NJ voluntary cleanup program participation and CERCLA preemption issues, with no section cited and no holding asserted. CERCLA addresses its relationship to state law expressly: § 9614(a) says the Act does not preempt states from imposing additional liability or requirements for hazardous substance releases, and § 9614(b) bars double recovery under state and federal law. Preemption is therefore a real CERCLA topic. I did not read any authority on New Jersey's voluntary cleanup program itself; the entry asserts nothing specific about it.",
         "evidence_excerpt": "\"Nothing in this chapter shall be construed or interpreted as preempting any State from imposing any additional liability or requirements with respect to the release of hazardous substances within such State.\"",
         "source_urls": [
-          "https:/9614"
+          "https://www.law.cornell.edu/uscode/text/42/9614"
         ],
         "confidence": "medium"
       }
@@ -1431,7 +1431,7 @@
         "explanation": "Section 113(f)(2) (42 U.S.C. § 9613(f)(2)) provides contribution protection to parties that settle with the United States or a State and reduces non-settlors' potential liability by the settlement amount. It supports the entry's reference to contribution protection provisions and settlement strategy.",
         "evidence_excerpt": "Such settlement does not discharge any of the other potentially liable persons unless its terms so provide, but it reduces the potential liability of the others by the amount of the settlement.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -1485,7 +1485,7 @@
         "explanation": "CERCLA § 113 is codified at 42 U.S.C. § 9613 (source credit: Pub. L. 96-510, title I, § 113). Subsection (f) creates the contribution claim and the equitable-allocation standard the log entry refers to. Caveat: the statutory text itself says nothing about burden of proof or burden shifting; any such framework is judicial gloss on (f)(1) (e.g., Von Duprin v. Moran Electric, 7th Cir. 2021, places the burden of proving a basis for apportionment on the party seeking it, but under § 107(a) divisibility). Read fairly, the entry cites § 113(f) as the locus of the contribution claim and equitable allocation, not as the textual source of a burden-shifting rule, so the cite is accurate.",
         "evidence_excerpt": "(f) Contribution (1) Contribution Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title ... In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/5090915/von-duprin-llc-v-moran-electric-service-inc/"
         ],
         "confidence": "medium"
@@ -1513,7 +1513,7 @@
         "explanation": "Privilege-log description referring generally to environmental liability disclosure requirements under SEC regulations. SEC Regulation S-K Item 103 expressly requires disclosure of administrative or judicial proceedings arising under federal, state or local environmental provisions when material, when exceeding 10 percent of current assets, or when a governmental authority is a party and potential monetary sanctions meet the threshold. The reference names no specific provision but is accurate as a description of the body of law. The accompanying mention of 'accounting standards' is not a cited legal authority and was not checked.",
         "evidence_excerpt": "17 C.F.R. § 229.103(c)(3): \"Administrative or judicial proceedings (including proceedings which present in large degree the same issues) arising under any Federal, State, or local provisions that have been enacted or adopted regulating the discharge of materials into the environment or primarily for the purpose of protecting the environment. Such proceedings shall not be deemed \"ordinary routine litigation incidental to the business\" and shall be described if: (i) Such proceeding is material to the business or financial condition of the registrant\"",
         "source_urls": [
-          "https:/229.103"
+          "https://www.law.cornell.edu/cfr/text/17/229.103"
         ],
         "confidence": "high"
       }
@@ -1540,7 +1540,7 @@
         "explanation": "28 U.S.C. § 1292(b) exists and is the provision that sets the standard for certified interlocutory appeals: a controlling question of law, substantial ground for difference of opinion, and an immediate appeal that may materially advance the termination of the litigation, with the court of appeals having discretion to permit the appeal on application within ten days. The privilege-log description (a memo analyzing \"standards for interlocutory appeal under 28 U.S.C. § 1292(b)\") is accurate. Text read on LII and on govinfo (2023 edition); uscode.house.gov was down for maintenance.",
         "evidence_excerpt": "\"(b) When a district judge, in making in a civil action an order not otherwise appealable under this section, shall be of the opinion that such order involves a controlling question of law as to which there is substantial ground for difference of opinion and that an immediate appeal from the order may materially advance the ultimate termination of the litigation, he shall so state in writing in such order.\"",
         "source_urls": [
-          "https:/1292",
+          "https://www.law.cornell.edu/uscode/text/28/1292",
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title28/html/USCODE-2023-title28-partIV-chap83-sec1292.htm"
         ],
         "confidence": "high"
@@ -1568,8 +1568,8 @@
         "explanation": "Section 107 (42 U.S.C. § 9607) imposes liability for response costs, including under (a)(4)(B) \"any other necessary costs of response incurred by any other person\" (cost recovery), while § 113(f) (42 U.S.C. § 9613(f)) separately provides contribution claims. The two carry different procedural rules, e.g., separate limitations periods in § 9613(g)(2) (cost recovery: 3 or 6 years) and § 9613(g)(3) (contribution: 3 years). The Supreme Court has confirmed the distinction in United States v. Atlantic Research Corp., 551 U.S. 128, 138 (2007). The entry's description of distinct cost recovery and contribution claims with procedural implications is accurate.",
         "evidence_excerpt": "We have previously recognized that §§ 107(a) and 113(f) provide two \"clearly distinct\" remedies. ... \"CERCLA provide[s] for a right to cost recovery in certain circumstances, § 107(a), and separate rights to contribution in other circumstances, §§ 113(f)(1), 113(f)(3)(B)",
         "source_urls": [
-          "https:/9607",
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/145719/united-states-v-atlantic-research-corp/"
         ],
         "confidence": "high"
@@ -1597,7 +1597,7 @@
         "explanation": "The National Contingency Plan exists at 40 C.F.R. Part 300. Section 300.430 sets the remedy selection standards (nine evaluation criteria; threshold, primary balancing and modifying criteria) and expressly prescribes how cost-effectiveness is evaluated. The privilege-log description of a memo on 'remedy selection standards under CERCLA National Contingency Plan and cost-effectiveness evaluation criteria' matches the regulation's content.",
         "evidence_excerpt": "40 C.F.R. § 300.430(f)(1)(ii)(D): \"Each remedial action selected shall be cost-effective, provided that it first satisfies the threshold criteria set forth in § 300.430(f)(1)(ii)(A) and (B). ... A remedy shall be cost-effective if its costs are proportional to its overall effectiveness.\"",
         "source_urls": [
-          "https:/300.430"
+          "https://www.law.cornell.edu/cfr/text/40/300.430"
         ],
         "confidence": "high"
       }
@@ -1624,7 +1624,7 @@
         "explanation": "CERCLA § 122 is codified at 42 U.S.C. § 9622, headed \"Settlements\" (Pub. L. 96-510, title I, § 122, as added Pub. L. 99-499). It contains the settlement procedures the entry describes: (d)(1)(A) requires remedial-action agreements to be entered in district court as a consent decree; (d)(2) requires filing the proposed judgment 30 days before entry and an opportunity for non-party comment; (i) is headed \"Settlement procedures\" and requires Federal Register notice and a 30-day comment period. The substantive standard a court applies in approving a decree (fair, reasonable, consistent with CERCLA) is case law, not statutory text, but the statute does mandate the judicial-entry step, so the description holds.",
         "evidence_excerpt": "the agreement shall be entered in the appropriate United States district court as a consent decree. ... (B) Opportunity for comment The Attorney General shall provide an opportunity to persons who are not named as parties to the action to comment on the proposed judgment before its entry by the court as a final judgment.",
         "source_urls": [
-          "https:/9622"
+          "https://www.law.cornell.edu/uscode/text/42/9622"
         ],
         "confidence": "high"
       }
@@ -1891,7 +1891,7 @@
         "explanation": "CERCLA is real and authorizes cost recovery claims by the kinds of plaintiffs named. 42 U.S.C. 9607(a)(4)(A) makes responsible parties liable for response costs incurred by 'a State' (covering a state agency such as NJDEP), and 9607(a)(4)(B) for necessary response costs incurred by 'any other person' (covering a private organization). The email's reference to 'pending CERCLA cost recovery claims' brought by a coalition and a state environmental agency is consistent with the statute. The pending case itself is part of the fictional scenario and was not checked as a real docket.",
         "evidence_excerpt": "shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan",
         "source_urls": [
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -1974,7 +1974,7 @@
         "evidence_excerpt": "\"In 1980, Congress enacted the Comprehensive Environmental Response, Compensation, and Liability Act (CERCLA or Act), 94 Stat. 2767, as amended, 42 U. S. C. §§9601-9675\" ... \"CERCLA imposes strict liability for environmental contamination upon four broad classes of PRPs\"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2002,7 +2002,7 @@
         "evidence_excerpt": "\"CERCLA imposes strict liability for environmental contamination upon four broad classes of PRPs: '(1) the owner and operator of a vessel or a facility, ...'\"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2030,7 +2030,7 @@
         "evidence_excerpt": "\"(2) any person who at the time of disposal of any hazardous substance owned or operated any facility at which such hazardous substances were disposed of\" (42 U.S.C. § 9607(a), as quoted in Burlington Northern, 556 U.S. at 608)",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2057,7 +2057,7 @@
         "explanation": "This is a general privilege-log reference to an anticipated CERCLA cost recovery action. CERCLA § 107(a) makes covered persons liable for governmental removal or remedial costs and for other persons' necessary response costs, which is the cost recovery action. The reference is accurate.",
         "evidence_excerpt": "\"shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\"",
         "source_urls": [
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2084,8 +2084,8 @@
         "explanation": "This is a general privilege-log reference to CERCLA contribution claims against third-party operators. CERCLA expressly provides a contribution right against any person liable or potentially liable under § 9607(a), a class that includes facility operators under § 9607(a)(1)-(2). The reference is accurate.",
         "evidence_excerpt": "\"Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.\"",
         "source_urls": [
-          "https:/9613",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2114,7 +2114,7 @@
         "source_urls": [
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-1E-5-7",
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-1E-5-3",
-          "https:/9604"
+          "https://www.law.cornell.edu/uscode/text/42/9604"
         ],
         "confidence": "medium"
       }
@@ -2141,7 +2141,7 @@
         "explanation": "Privilege-log description of a memo on 'evidentiary standards for contamination source attribution in CERCLA cost recovery actions.' CERCLA does provide cost recovery actions (§ 9607(a)(4)(A)-(B)), and source attribution evidence is litigated in them (e.g., Burlington Northern's review of volumetric, chronological and geographic evidence for apportionment). The statute itself does not prescribe evidentiary standards for source attribution (those come from case law and the rules of evidence), but the entry only labels the memo's topic and does not attribute a rule to the statute.",
         "evidence_excerpt": "\"shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State\" ... \"(B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\"; Burlington Northern: \"divisibility may be established by 'volumetric, chronological, or other types of evidence,' including appropriate geographic considerations\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/"
         ],
         "confidence": "medium"
@@ -2169,8 +2169,8 @@
         "explanation": "Privilege-log description of a memo on 'timing requirements for CERCLA removal and remedial actions.' CERCLA distinguishes removal from remedial actions (§ 9601(23), (24)) and attaches different timing rules to each: a cost recovery action must be commenced within 3 years after completion of a removal action and within 6 years after initiation of physical on-site construction of a remedial action (§ 9613(g)(2)). The topic label accurately reflects the statute. Excerpt for § 9613(g)(2) was returned by a fetch of the LII page with internal ellipses; the fetch tool declined to reproduce the full subsection.",
         "evidence_excerpt": "\"An initial action for recovery of the costs referred to in section 9607 of this title must be commenced—(A) for a removal action, within 3 years after completion of the removal action...and (B) for a remedial action, within 6 years after initiation of physical on-site construction of the remedial action...\"",
         "source_urls": [
-          "https:/9613",
-          "https:/9601"
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9601"
         ],
         "confidence": "medium"
       }
@@ -2197,7 +2197,7 @@
         "explanation": "Privilege-log description referring generally to waste characterization requirements under RCRA and NJDEP regulations. RCRA's generator regulations require a person who generates a solid waste to make an accurate determination whether it is hazardous (40 C.F.R. § 262.11), and New Jersey's hazardous waste rules incorporate 40 C.F.R. Part 262 by reference (N.J.A.C. 7:26G-6.1). The reference is accurate at the level of generality used; no specific provision was cited.",
         "evidence_excerpt": "40 C.F.R. § 262.11 (\"Hazardous waste determination and recordkeeping\"): \"A person who generates a solid waste, as defined in 40 CFR 261.2, must make an accurate determination as to whether that waste is a hazardous waste in order to ensure wastes are properly managed according to applicable RCRA regulations.\" N.J.A.C. 7:26G-6.1(a): \"This subchapter incorporates by reference ... 40 C.F.R. Part 262, Federal regulations on the standards applicable to generators of hazardous waste\"",
         "source_urls": [
-          "https:/262.11",
+          "https://www.law.cornell.edu/cfr/text/40/262.11",
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-26G-6-1"
         ],
         "confidence": "high"
@@ -2225,8 +2225,8 @@
         "explanation": "Privilege-log description of a memo on 'summary judgment standards and burden of proof in CERCLA cost recovery and contribution actions.' CERCLA provides both cost recovery (§ 9607(a)) and contribution (§ 9613(f)(1)) actions, and the statute and case law do allocate burdens of proof (e.g., § 9607(b) defenses must be established 'by a preponderance of the evidence'; defendants bear the burden on apportionment under Burlington Northern). Summary judgment standards themselves come from Fed. R. Civ. P. 56 rather than CERCLA, but the entry only labels the memo's topic and does not attribute that standard to the statute.",
         "evidence_excerpt": "\"Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.\" ... \"There shall be no liability under subsection (a) of this section for a person otherwise liable who can establish by a preponderance of the evidence that the release or threat of release\"",
         "source_urls": [
-          "https:/9613",
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/"
         ],
         "confidence": "medium"
@@ -2254,8 +2254,8 @@
         "explanation": "CERCLA (Comprehensive Environmental Response, Compensation, and Liability Act of 1980, Pub. L. 96-510, 42 U.S.C. 9601 et seq.) is real. Section 107(a), 42 U.S.C. 9607(a), expressly provides that amounts recoverable in a cost recovery action include interest accruing from the later of written demand or the date of expenditure, at the Superfund investment rate, i.e. prejudgment interest. Contribution actions are authorized by 42 U.S.C. 9613(f)(1). The privilege log entry is a subject-matter description of a research memo and accurately describes a topic the statute governs.",
         "evidence_excerpt": "The amounts recoverable in an action under this section shall include interest on the amounts recoverable under subparagraphs (A) through (D). Such interest shall accrue from the later of (i) the date payment of a specified amount is demanded in writing, or (ii) the date of the expenditure concerned.",
         "source_urls": [
-          "https:/9607",
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -2283,8 +2283,8 @@
         "evidence_excerpt": "Not all harms are capable of apportionment, however, and CERCLA defendants seeking to avoid joint and several liability bear the burden of proving that a reasonable basis for apportionment exists. [Burlington Northern, 556 U.S. 599] / Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title [42 U.S.C. 9613(f)(1)]",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
-          "https:/9613",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2311,8 +2311,8 @@
         "explanation": "CERCLA is real and governs the described topic. 42 U.S.C. 9607(a)(4)(A) makes responsible parties liable for all government costs of removal or remedial action not inconsistent with the national contingency plan, and 42 U.S.C. 9604(a)(1) specifically addresses reimbursement of government costs of overseeing a responsible party's RI/FS. Whether and to what extent oversight costs are recoverable, and how response costs are tested (NCP consistency), are genuine CERCLA questions, so the log's description of a memo on 'recoverability of government oversight costs under CERCLA and standards for reasonableness of response costs' is an accurate topic descriptor. The statute's own test is consistency with the NCP rather than a free-standing 'reasonableness' standard, but the entry states no rule of law.",
         "evidence_excerpt": "shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan [9607(a)(4)(A)] / if the responsible party agrees to reimburse the Fund for any cost incurred by the President under, or in connection with, the oversight contract or arrangement [9604(a)(1)]",
         "source_urls": [
-          "https:/9607",
-          "https:/9604"
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9604"
         ],
         "confidence": "high"
       }
@@ -2366,9 +2366,9 @@
         "explanation": "CERCLA is real and its remedial framework does address institutional controls. The term does not appear in the remedy-selection section itself (42 U.S.C. 9621 returned no match), but the statute refers to institutional controls employed in connection with a response action in its definitions (42 U.S.C. 9601(35)(A) and 9601(40), the innocent landowner and bona fide prospective purchaser provisions), and the implementing National Contingency Plan, 40 C.F.R. 300.430(a)(1)(iii)(D), states EPA's expectation to use institutional controls such as water use and deed restrictions in remedies. That matches the log entry's reference to institutional controls and 'deed restriction implications.' The entry is a subject-matter description and is accurate.",
         "evidence_excerpt": "does not impede the effectiveness or integrity of any institutional control employed at the vessel or facility in connection with a response action [42 U.S.C. 9601(40)] / EPA expects to use institutional controls such as water use and deed restrictions to supplement engineering controls as appropriate for short- and long-term management to prevent or limit exposure to hazardous substances [40 C.F.R. 300.430(a)(1)(iii)(D)]",
         "source_urls": [
-          "https:/9601",
-          "https:/300.430",
-          "https:/9621"
+          "https://www.law.cornell.edu/uscode/text/42/9601",
+          "https://www.law.cornell.edu/cfr/text/40/300.430",
+          "https://www.law.cornell.edu/uscode/text/42/9621"
         ],
         "confidence": "high"
       }
@@ -2395,7 +2395,7 @@
         "explanation": "CERCLA is real and directly governs covenants not to sue in settlements. Section 122(f), 42 U.S.C. 9622(f), is titled 'Covenant not to sue' and sets the conditions under which the President may grant a settling party a covenant covering liability to the United States, including future liability. The log entry describing a memo on 'covenant not to sue provisions in CERCLA settlements and scope of liability release considerations' accurately describes this statutory subject.",
         "evidence_excerpt": "(f) Covenant not to sue (1) Discretionary covenants The President may, in his discretion, provide any person with a covenant not to sue concerning any liability to the United States under this chapter, including future liability, resulting from a release or threatened release of a hazardous substance addressed by a remedial action",
         "source_urls": [
-          "https:/9622"
+          "https://www.law.cornell.edu/uscode/text/42/9622"
         ],
         "confidence": "high"
       }
@@ -2425,7 +2425,7 @@
           "https://www.courtlistener.com/opinion/699213/hatco-corporation-v-wr-grace-co-conn/",
           "https://www.courtlistener.com/opinion/7319299/trinity-industries-inc-v-greenlease-holding-co/",
           "https://www.courtlistener.com/opinion/4726153/ugi-sunbury-llc-v-permanent-easement-for-17575/",
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -2452,9 +2452,9 @@
         "explanation": "CERCLA is real and governs both halves of the described topic. Challenges to a government-selected remedy are reviewed under 42 U.S.C. 9613(j)(2) on the administrative record under an arbitrary-and-capricious standard; cost considerations in remedy selection are addressed by 42 U.S.C. 9621(a) (cost-effective response); and recoverable government costs are those 'not inconsistent with the national contingency plan' under 42 U.S.C. 9607(a)(4)(A). The statute frames the test as NCP consistency and cost-effectiveness rather than a free-standing 'reasonableness' standard, but the log entry is a topic description of a research memo and states no rule of law, so it is fairly supported.",
         "evidence_excerpt": "the court shall uphold the President's decision in selecting the response action unless the objecting party can demonstrate, on the administrative record, that the decision was arbitrary and capricious or otherwise not in accordance with law. [9613(j)(2)] / and which provide for cost-effective response. In evaluating the cost effectiveness of proposed alternative remedial actions, the President shall take into account the total short- and long-term costs of such actions [9621(a)]",
         "source_urls": [
-          "https:/9613",
-          "https:/9621",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9621",
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -2523,8 +2523,8 @@
         "explanation": "The citation is accurate: CERCLA § 107(a) (Pub. L. 96-510, title I, § 107) is codified at 42 U.S.C. § 9607(a), and it establishes the liability of the four classes of potentially responsible parties. The same sentence correctly places contribution claims under § 113(f) (42 U.S.C. § 9613(f)), which is where the express allocation language sits. Describing 'allocation of liability among potentially responsible parties under Section 107(a)' is a fair reading, since § 107(a) is the liability provision and Burlington Northern, 556 U.S. at 614, recognizes apportionment of § 107(a) liability where a reasonable basis exists.",
         "evidence_excerpt": "42 U.S.C. § 9613(f)(1): \"Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.\" Source credit for § 9607: \"Pub. L. 96–510, title I, § 107, Dec. 11, 1980, 94 Stat. 2781\"",
         "source_urls": [
-          "https:/9607",
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/"
         ],
         "confidence": "high"
@@ -2552,7 +2552,7 @@
         "explanation": "Section 113(f) of CERCLA (42 U.S.C. § 9613(f)) is the contribution provision; (f)(1) authorizes contribution claims against any other person liable or potentially liable under § 107(a). It supports the reference to identifying potential contribution claims under Section 113(f).",
         "evidence_excerpt": "(f) Contribution (1) Contribution Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -2579,9 +2579,9 @@
         "explanation": "Existence and scope check only (the audit report lists the statutes as within audit scope, with no pin cites). All three exist under the names used: the Clean Water Act is the common name of the Federal Water Pollution Control Act, 33 U.S.C. § 1251 et seq., whose § 402 (33 U.S.C. § 1342) is the NPDES permit program the same report references; the Resource Conservation and Recovery Act of 1976 is codified at 42 U.S.C. § 6901 et seq.; and the New Jersey Spill Compensation and Control Act is N.J.S.A. 58:10-23.11 et seq., the citation the report itself gives later in the document. The New Jersey act's name and citation were confirmed from the N.J. Supreme Court's opinion in Morristown Associates v. Grant Oil Co., 220 N.J. 360 (2015), since the state statute pages were not retrievable.",
         "evidence_excerpt": "This Act [this chapter] may be cited as the 'Federal Water Pollution Control Act' (commonly referred to as the Clean Water Act). ... may be cited as the 'Resource Conservation and Recovery Act of 1976'. ... the New Jersey Spill Compensation and Control Act (Spill Act), N.J.S.A. 58:10-23.11f(a)(2)(a)",
         "source_urls": [
-          "https:/1251",
-          "https:/1342",
-          "https:/6901",
+          "https://www.law.cornell.edu/uscode/text/33/1251",
+          "https://www.law.cornell.edu/uscode/text/33/1342",
+          "https://www.law.cornell.edu/uscode/text/42/6901",
           "https://www.courtlistener.com/opinion/2773171/morristown-associates-v-grant-oil-company-073248/"
         ],
         "confidence": "high"
@@ -2609,8 +2609,8 @@
         "explanation": "40 C.F.R. Part 302 exists, is titled \"Designation, Reportable Quantities, and Notification,\" and is issued under CERCLA authority (42 U.S.C. 9601 et seq., 9602, 9603). Section 302.6 imposes the release-reporting obligation: immediate notice to the National Response Center of a hazardous substance release at or above the reportable quantity. Citing it for \"CERCLA reporting obligations\" is accurate. ecfr.gov redirected to a block page, so the text was read on Cornell LII.",
         "evidence_excerpt": "\"Any person in charge of a vessel or an offshore or an onshore facility shall, as soon as he or she has knowledge of any release ... of a hazardous substance from such vessel or facility in a quantity equal to or exceeding the reportable quantity determined by this part in any 24-hour period, immediately notify the National Response Center\"",
         "source_urls": [
-          "https:/part-302",
-          "https:/302.6"
+          "https://www.law.cornell.edu/cfr/text/40/part-302",
+          "https://www.law.cornell.edu/cfr/text/40/302.6"
         ],
         "confidence": "high"
       }
@@ -2694,8 +2694,8 @@
         "source_urls": [
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-26B-1-1",
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-26B-1-4",
-          "https:/2601",
-          "https:/7401"
+          "https://www.law.cornell.edu/uscode/text/15/2601",
+          "https://www.law.cornell.edu/uscode/text/42/7401"
         ],
         "confidence": "high"
       }
@@ -2896,7 +2896,7 @@
         "explanation": "The recital refers by name to Section 107(a) of CERCLA and to the New Jersey Spill Compensation and Control Act without codified citations. Both exist as named: CERCLA § 107 (Pub. L. 96-510, title I, § 107) is 42 U.S.C. § 9607, whose subsection (a) is the liability/cost-recovery provision, and the Spill Compensation and Control Act is N.J.S.A. 58:10-23.11 et seq. The reference is accurate for the descriptive proposition (claims asserted in the litigation); omission of the U.S.C./N.J.S.A. cites in a contract recital is not a defect.",
         "evidence_excerpt": "LII, 42 U.S. Code § 9607 - Liability: \"(a) Covered persons; scope; recoverable costs and damages; interest rate; 'comparable maturity' date. Notwithstanding any other provision or rule of law, and subject only to the defenses set forth in subsection (b) of this section—\" ... \"(Pub. L. 96–510, title I, § 107, Dec. 11, 1980, 94 Stat. 2781\". NJDEP copy: \"58:10-23.11. Short title. This act shall be known and may be cited as the 'Spill Compensation and Control Act.' L.1976, c. 141, s. 1.\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://dep.nj.gov/wp-content/uploads/srp/spill_act.pdf"
         ],
         "confidence": "high"
@@ -3021,7 +3021,7 @@
         "explanation": "CERCLA § 107(a) is correctly cited as 42 U.S.C. § 9607(a), the provision making covered persons liable for response costs where there is a release or threatened release of a hazardous substance. The New Jersey Spill Compensation and Control Act is correctly cited as N.J.S.A. 58:10-23.11 et seq.; its liability section (58:10-23.11g(c)(1)) makes any person who has discharged a hazardous substance strictly, jointly and severally liable for cleanup and removal costs. Both citations are accurate and fit the description of the claims in the action (discharge of hazardous substances to groundwater; remediation costs).",
         "evidence_excerpt": "42 U.S.C. § 9607(a)(4): \"from which there is a release, or a threatened release which causes the incurrence of response costs, of a hazardous substance, shall be liable for—\". N.J.S.A. 58:10-23.11g(c)(1): \"any person who has discharged a hazardous substance, or is in any way responsible for any hazardous substance, shall be strictly liable, jointly and severally, without regard to fault, for all cleanup and removal costs no matter by whom incurred.\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://dep.nj.gov/wp-content/uploads/srp/spill_act.pdf"
         ],
         "confidence": "high"
@@ -3157,7 +3157,7 @@
         "explanation": "The engagement letter names CERCLA § 107(a) and the New Jersey Spill Compensation and Control Act as the anticipated claims to be defended. § 107(a) (42 U.S.C. § 9607(a)) is the CERCLA liability provision under which response-cost claims are asserted, and the Spill Act exists under that exact title at N.J.S.A. 58:10-23.11 et seq. Both names and the section number are accurate.",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\". LII source credit: \"Pub. L. 96–510, title I, § 107, Dec. 11, 1980, 94 Stat. 2781\". N.J.S.A. 58:10-23.11: \"This act shall be known and may be cited as the 'Spill Compensation and Control Act.'\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.nj.gov/dep/enforcement/dp/downloads/NJ_Spill_Act.pdf"
         ],
         "confidence": "high"
@@ -3187,8 +3187,8 @@
         "source_urls": [
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-14A-1-1",
           "https://www.law.cornell.edu/regulations/new-jersey/N-J-A-C-7-26G-1-1",
-          "https:/6901",
-          "https:/1251"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/uscode/text/33/1251"
         ],
         "confidence": "high"
       }
@@ -3258,7 +3258,7 @@
         "explanation": "CERCLA Section 107 (Pub. L. 96-510, title I, § 107) is codified at 42 U.S.C. § 9607; subsection (a) is the liability provision listing the four classes of covered persons and the recoverable response costs and damages, so the section-to-U.S.C. mapping is correct and an 'exposure' assessment under it is apt. The New Jersey Spill Compensation and Control Act begins at N.J.S.A. 58:10-23.11 (short title) and runs through 58:10-23.11z, so 'N.J.S.A. 58:10-23.11 et seq.' is the correct citation form; 58:10-23.11g(c)(1) imposes strict, joint and several liability on dischargers. Both authorities exist and are accurately cited for the general proposition (the statutes under which the client's exposure is assessed).",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"...shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\" (source credit: \"Pub. L. 96–510, title I, § 107, Dec. 11, 1980, 94 Stat. 2781\"). N.J.S.A. \"58:10-23.11. Short title. This act shall be known and may be cited as the 'Spill Compensation and Control Act.'\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://dep.nj.gov/wp-content/uploads/srp/spill_act.pdf",
           "https://www.courtlistener.com/opinion/2773171/morristown-associates-v-grant-oil-company-073248/"
         ],
@@ -3316,7 +3316,7 @@
         "explanation": "§ 107(b)(3) (42 U.S.C. § 9607(b)(3)) provides the third-party defense as the memo describes: no liability where the release and resulting damages were 'caused solely by' an act or omission of a third party, excluding employees/agents and third parties whose act or omission occurs in connection with a contractual relationship with the defendant. The memo's paraphrase ('other than one with whom the defendant has a contractual relationship') slightly compresses the statutory wording, which requires that the third party's act or omission occur 'in connection with' a direct or indirect contractual relationship, and it omits the additional due-care and precautions elements. Those omissions do not make the description wrong, and the memo's conclusion is appropriately hedged ('almost certainly precludes').",
         "evidence_excerpt": "42 U.S.C. § 9607(b): \"There shall be no liability under subsection (a) of this section for a person otherwise liable who can establish by a preponderance of the evidence that the release or threat of release of a hazardous substance and the damages resulting therefrom were caused solely by— ... (3) an act or omission of a third party other than an employee or agent of the defendant, or than one whose act or omission occurs in connection with a contractual relationship, existing directly or indirectly, with the defendant\"",
         "source_urls": [
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -3343,8 +3343,8 @@
         "explanation": "The innocent landowner defense arises from § 107(b)(3) read with the definition of 'contractual relationship' in § 101(35) (42 U.S.C. § 9601(35)). § 101(35)(A)(i) requires the defendant to establish that at the time it acquired the facility it 'did not know and had no reason to know' of the disposal of the hazardous substance, and the property must have been acquired after the disposal. The memo's statement of the requirement is accurate (it abbreviates 'did not know and had no reason to know' to 'no reason to know', and does not mention the all-appropriate-inquiries and § 107(b)(3)(a)-(b) requirements, but nothing stated is incorrect).",
         "evidence_excerpt": "42 U.S.C. § 9601(35)(A): \"The term 'contractual relationship', for the purpose of section 9607(b)(3) of this title, includes, but is not limited to, land contracts, deeds, easements, leases ... unless the real property on which the facility concerned is located was acquired by the defendant after the disposal or placement of the hazardous substance ... (i) At the time the defendant acquired the facility the defendant did not know and had no reason to know that any hazardous substance which is the subject of the release or threatened release was disposed of on, in, or at the facility.\"",
         "source_urls": [
-          "https:/9601",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9601",
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -3371,8 +3371,8 @@
         "explanation": "42 U.S.C. § 9613(g) exists and is CERCLA's limitations provision (\"Period in which action may be brought\"), so it is the correct section for limitations issues. Two points of looseness in the memo do not make the citation wrong. First, the § 9613(g)(2) cost recovery periods run from completion of a removal action or initiation of physical on-site construction of a remedial action, not from the date of discharge, so \"pre-2005 discharge\" is not itself the statutory trigger. Second, the \"discovery rule\" exists only in § 9613(g)(1)(A) for natural resource damages and in § 9658 for state-law personal injury and property damage claims; there is no discovery rule for § 107 cost recovery. The memo's sentence is hedged (\"may face limitations issues\") and is a reasonable reading.",
         "evidence_excerpt": "§ 9613(g)(1): \"within 3 years after the later of the following: (A) The date of the discovery of the loss and its connection with the release in question.\" § 9613(g)(2)(B): \"for a remedial action, within 6 years after initiation of physical on-site construction of the remedial action\"",
         "source_urls": [
-          "https:/9613",
-          "https:/9658"
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9658"
         ],
         "confidence": "medium"
       }
@@ -3429,7 +3429,7 @@
         "explanation": "Section 107(a) of CERCLA is codified at 42 U.S.C. § 9607(a) and is the cost-recovery liability provision; it authorizes recovery by a State ((a)(4)(A)) and by 'any other person' ((a)(4)(B)), which fits claims asserted by NJDEP and a nonprofit plaintiff. The Spill Compensation and Control Act is correctly cited as N.J.S.A. 58:10-23.11 et seq. (sections 58:10-23.11 through -23.11z; the NJ Supreme Court in Morristown Associates v. Grant Oil cites it as 'N.J.S.A. 58:10-23.11 to -23.11z'). Citations are accurate for the descriptive proposition that plaintiffs assert claims under these statutes.",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"(1) the owner and operator of a vessel or a facility, (2) any person who at the time of disposal of any hazardous substance owned or operated any facility at which such hazardous substances were disposed of ... shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State ...; (B) any other necessary costs of response incurred by any other person\". Morristown Associates: \"a claim under the Spill Act, N.J.S.A. 58:10-23.11 to -23.11z, seeking contribution for costs related to the cleanup and removal\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://dep.nj.gov/wp-content/uploads/srp/spill_act.pdf",
           "https://www.courtlistener.com/opinion/2773171/morristown-associates-v-grant-oil-company-073248/"
         ],
@@ -3458,7 +3458,7 @@
         "explanation": "The parallel cite is correct: CERCLA § 113 is codified at 42 U.S.C. § 9613 (Pub. L. 96-510, title I, § 113), and subsection (f) governs contribution. (f)(1) expressly authorizes the court to allocate response costs among liable parties using equitable factors, which supports the memo's use of § 113(f) as the contribution and allocation framework. The specific factors the memo lists (volume, time periods, Gore factors) are not in the statutory text but fall within the open-ended equitable-factors language and are not attributed to the statute itself.",
         "evidence_excerpt": "In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -3541,8 +3541,8 @@
         "explanation": "§ 107(a) (42 U.S.C. § 9607(a)) is the correct liability provision for the described exposure, and Thornfield as current owner/operator falls within § 107(a)(1). The memo's statement that 'CERCLA imposes strict, joint and several liability' is not in the statutory text itself (the statute says 'shall be liable' and § 9601(32) borrows the Clean Water Act § 311 standard); it is the settled judicial reading. Burlington Northern, 556 U.S. 599 (2009), confirms 'CERCLA imposes strict liability' and treats joint and several liability as the rule unless the defendant proves the harm is divisible, noting the Act does not mandate joint and several liability in every case. The memo's unqualified phrasing is the common shorthand and a fair statement of exposure; it is not a defect in the citation.",
         "evidence_excerpt": "Burlington Northern, 556 U.S. at 608: \"CERCLA imposes strict liability for environmental contamination upon four broad classes of PRPs\"; id. at 614: \"CERCLA defendants seeking to avoid joint and several liability bear the burden of proving that a reasonable basis for apportionment exists.\" 42 U.S.C. § 9601(32): \"The terms 'liable' or 'liability' under this subchapter shall be construed to be the standard of liability which obtains under section 311 of the Federal Water Pollution Control Act\".",
         "source_urls": [
-          "https:/9607",
-          "https:/9601",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9601",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
           "https://www.nj.gov/dep/enforcement/dp/downloads/NJ_Spill_Act.pdf"
         ],
@@ -3586,7 +3586,7 @@
         "explanation": "§ 113(f)(1) (42 U.S.C. § 9613(f)(1)) authorizes any person to seek contribution from any other person who is liable or potentially liable under § 107(a), during or following a civil action under § 106 or § 107(a). Thornfield is a defendant in a pending § 107(a) action, so a § 113(f) contribution claim against co-defendant Garfield is the correct statutory vehicle for the strategy described.",
         "evidence_excerpt": "42 U.S.C. § 9613(f)(1): \"Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.\" LII source credit: \"Pub. L. 96–510, title I, § 113, Dec. 11, 1980, 94 Stat. 2795\".",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -3614,7 +3614,7 @@
         "evidence_excerpt": "\"Short Title.--This Act may be cited as the ``Private Securities Litigation Reform Act of 1995''.\" ... \"SEC. 102. SAFE HARBOR FOR FORWARD-LOOKING STATEMENTS.\" (Pub. L. 104-67). 15 U.S.C. 78u-5(c)(1)(A)(i): \"identified as a forward-looking statement, and is accompanied by meaningful cautionary statements identifying important factors that could cause actual results to differ materially from those in the forward-looking statement\".",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-104publ67/html/PLAW-104publ67.htm",
-          "https:/78u-5"
+          "https://www.law.cornell.edu/uscode/text/15/78u-5"
         ],
         "confidence": "high"
       }
@@ -3657,7 +3657,7 @@
         "evidence_excerpt": "(3) any person who by contract, agreement, or otherwise arranged for disposal or treatment, or arranged with a transporter for transport for disposal or treatment, of hazardous substances owned or possessed by such person ... shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title42/html/USCODE-2023-title42-chap103-subchapI-sec9607.htm",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -3741,7 +3741,7 @@
         "explanation": "CERCLA § 113(f) is codified at 42 U.S.C. § 9613(f) (source credit: Pub. L. 96-510, title I, § 113, as amended by Pub. L. 99-499, § 113). Subsection (f)(1) expressly authorizes the court to allocate response costs among liable parties using equitable factors, which is the 'equitable allocation framework' the letter invokes. The document cites the section by its CERCLA act-section number without 'CERCLA' in the same sentence, but the Re line and surrounding text make the statute unambiguous; that is ordinary practice and not a defect.",
         "evidence_excerpt": "In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -3783,7 +3783,7 @@
         "explanation": "CERCLA § 107(a) is codified at 42 U.S.C. § 9607(a) (Pub. L. 96-510, title I, § 107) and is the liability / cost-recovery provision. The New Jersey Spill Compensation and Control Act exists at N.J.S.A. 58:10-23.11 et seq.; 'NJ Spill Act' is the standard shorthand. The document only references these as the claims/defense the search terms were built around, which is accurate. Strictly, § 107(a) is the liability provision rather than a 'defense' (defenses are in § 107(b)), but 'CERCLA § 107(a) defense' reads naturally as the defense of the § 107(a) claims.",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"Notwithstanding any other provision or rule of law, and subject only to the defenses set forth in subsection (b) of this section— (1) the owner and operator of a vessel or a facility ... shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State\". N.J.S.A. 58:10-23.11: \"This act shall be known and may be cited as the 'Spill Compensation and Control Act.'\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.nj.gov/dep/enforcement/dp/downloads/NJ_Spill_Act.pdf"
         ],
         "confidence": "high"
@@ -3811,7 +3811,7 @@
         "explanation": "The document refers to 'CERCLA § 107(a) cost recovery claims' and Spill Act claims. § 107(a)(4)(A)-(B) (42 U.S.C. § 9607(a)) is exactly the cost-recovery provision, making covered persons liable for removal/remedial and other necessary response costs. The New Jersey Spill Compensation and Control Act exists under that title at N.J.S.A. 58:10-23.11 et seq. Accurate.",
         "evidence_excerpt": "42 U.S.C. § 9607(a): \"from which there is a release, or a threatened release which causes the incurrence of response costs, of a hazardous substance, shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State ... (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\". N.J.S.A. 58:10-23.11: \"This act shall be known and may be cited as the 'Spill Compensation and Control Act.'\"",
         "source_urls": [
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.nj.gov/dep/enforcement/dp/downloads/NJ_Spill_Act.pdf"
         ],
         "confidence": "high"
@@ -3987,9 +3987,9 @@
         "source_urls": [
           "https://www.courtlistener.com/opinion/10373614/in-re-appeal-of-the-new-jersey-department-of-environmental-protections/",
           "https://www.courtlistener.com/opinion/2773171/morristown-associates-v-grant-oil-company-073248/",
-          "https:/9607",
-          "https:/9613",
-          "https:/9601"
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9601"
         ],
         "confidence": "high"
       }
@@ -4016,7 +4016,7 @@
         "explanation": "CERCLA § 113(f) (42 U.S.C. § 9613(f)) is the contribution provision. Subsection (f)(1) allows any person to seek contribution from any other person liable or potentially liable under § 107(a) (42 U.S.C. § 9607(a)) during or following a civil action under § 106 or § 107(a). Thornfield is a defendant in a pending cost-recovery suit, so describing its claim against co-PRP Garfield as a '§ 113(f) contribution position' is accurate. The email's subject line identifies the statute as CERCLA.",
         "evidence_excerpt": "Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4184,8 +4184,8 @@
         "explanation": "Generic, uncited reference to CERCLA liability allocation among potentially responsible parties in an expert consultant report. CERCLA does provide for liability of specified classes of responsible parties (§ 9607(a)) and for allocation of response costs among liable parties in contribution actions (§ 9613(f)(1)). Burlington Northern, 556 U.S. 599, 614 also confirms that liability may be apportioned where there is a reasonable basis for doing so. The statement is an accurate general description of the statute.",
         "evidence_excerpt": "42 U.S.C. § 9613(f)(1): \"In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.\"",
         "source_urls": [
-          "https:/9613",
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/"
         ],
         "confidence": "high"
@@ -4213,7 +4213,7 @@
         "explanation": "The memo's Re line identifies its subject as potential contribution claims under CERCLA § 113(f). That section, codified at 42 U.S.C. § 9613(f) and headed 'Contribution', is the statutory basis for contribution claims among potentially responsible parties. The reference is accurate. (The memo body's later gloss that a party must have 'resolved its liability or been found liable under Section 107' is narrower than the text of (f)(1), which permits a claim 'during or following' a § 106/§ 107 action, but that is outside the Re-line reference checked here.)",
         "evidence_excerpt": "(f) Contribution (1) Contribution Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4240,7 +4240,7 @@
         "explanation": "CERCLA § 113(f)(1) is codified at 42 U.S.C. § 9613(f)(1) and creates the express contribution right: any person may seek contribution from any other person liable or potentially liable under § 107(a), during or following a civil action under § 106 or § 107(a). The record (Pacific Mutual common interest agreement recitals) describes the plaintiffs' claims against Thornfield as brought under CERCLA § 107(a), and Thornfield is a defendant in that pending suit, so § 113(f)(1) is the correct basis for contribution claims against other PRPs such as co-defendant Garfield. Cooper Industries v. Aviall, 543 U.S. 157, 162-63, 165-66 (2004), quotes the same text and confirms the 'during or following' condition.",
         "evidence_excerpt": "Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/137734/cooper-industries-inc-v-aviall-services-inc/"
         ],
         "confidence": "high"
@@ -4268,9 +4268,9 @@
         "explanation": "The bottom-line proposition (a PRP may seek contribution from other PRPs under § 113(f)) is correct, but the memo's statement of the rule conflates two paragraphs and misstates the (f)(1) trigger. § 113(f)(1) does not require that the claimant have 'resolved its liability' or 'been found liable'; it permits contribution 'during or following any civil action' under § 106 or § 107(a), so a claim may be brought while the action is pending and before any liability finding. The 'resolved its liability' route is a separate provision, § 113(f)(3)(B), and it is limited to an administrative or judicially approved settlement with the United States or a State. Cooper Industries v. Aviall, 543 U.S. 157, 166-67 (2004), draws exactly this distinction between the two 'express avenues for contribution.' Section 107 (42 U.S.C. § 9607(a)) is correctly identified as the liability provision. The memo's own recommendation (crossclaim during the pending action) is consistent with the actual statute, so the defect is an imprecise paraphrase and pin cite rather than a wrong result.",
         "evidence_excerpt": "§ 113 provides two express avenues for contribution: § 113(f)(1) (\"during or following\" specified civil actions) and § 113(f)(3)(B) (after an administrative or judicially approved settlement that resolves liability to the United States or a State).",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/137734/cooper-industries-inc-v-aviall-services-inc/",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -4330,7 +4330,7 @@
         "explanation": "42 U.S.C. § 9613(f)(1) authorizes a contribution claim 'during' a pending § 107(a) civil action and directs that such claims be brought in accordance with the Federal Rules of Civil Procedure, which is what a crossclaim against co-defendant Garfield in the pending action would be. The statute supports the recommendation as cited.",
         "evidence_excerpt": "Such claims shall be brought in accordance with this section and the Federal Rules of Civil Procedure, and shall be governed by Federal law.",
         "source_urls": [
-          "https:/9613",
+          "https://www.law.cornell.edu/uscode/text/42/9613",
           "https://www.courtlistener.com/opinion/137734/cooper-industries-inc-v-aviall-services-inc/"
         ],
         "confidence": "high"
@@ -4417,7 +4417,7 @@
           "https://www.courtlistener.com/opinion/145879/burlington-northern-santa-fe-railway-co-v-united-states/",
           "https://www.courtlistener.com/opinion/145719/united-states-v-atlantic-research-corp/",
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title42/html/USCODE-2023-title42-chap103-subchapI-sec9607.htm",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "medium"
       }
@@ -4471,7 +4471,7 @@
         "explanation": "The email refers to a memo on 'the § 113(f) contribution framework and allocation methodology.' CERCLA § 113(f) (42 U.S.C. § 9613(f)) both creates the contribution claim and directs equitable allocation of response costs among liable parties, so the description matches the statute. The email's subject line identifies the statute as CERCLA.",
         "evidence_excerpt": "In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4499,7 +4499,7 @@
         "evidence_excerpt": "\"shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title42/html/USCODE-2023-title42-chap103-subchapI-sec9607.htm",
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.courtlistener.com/opinion/145719/united-states-v-atlantic-research-corp/"
         ],
         "confidence": "high"
@@ -4530,7 +4530,7 @@
         "evidence_excerpt": "\"(A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan;\"",
         "source_urls": [
           "https://www.govinfo.gov/link/uscode/42/9607?type=usc&year=mostrecent&link-type=html",
-          "https:/9607"
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -4557,8 +4557,8 @@
         "explanation": "The National Contingency Plan is real and is codified at 40 C.F.R. Part 300. The proposition is sound: a private party's CERCLA cost recovery is limited to 'necessary costs of response incurred by any other person consistent with the national contingency plan' (42 U.S.C. 9607(a)(4)(B)), so attacking the plaintiffs' remedy as NCP-inconsistent is a recognized defense. One point outside this ref: the same paragraph attributes 'necessary costs of response' to section 107(a)(4)(A), but that phrase is in clause (B); clause (A) covers government costs 'not inconsistent with' the NCP.",
         "evidence_excerpt": "The purpose of the National Oil and Hazardous Substances Pollution Contingency Plan (NCP) is to provide the organizational structure and procedures for preparing for and responding to discharges of oil and releases of hazardous substances, pollutants, and contaminants. ... (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan",
         "source_urls": [
-          "https:/300.1",
-          "https:/9607"
+          "https://www.law.cornell.edu/cfr/text/40/300.1",
+          "https://www.law.cornell.edu/uscode/text/42/9607"
         ],
         "confidence": "high"
       }
@@ -4641,7 +4641,7 @@
         "explanation": "The document cites CERCLA § 113(f) for cost allocation among potentially responsible parties, and in the next paragraph refers to 'the equitable factors set forth in § 113(f)(1).' Section 113(f)(1) (42 U.S.C. § 9613(f)(1)) authorizes allocation of response costs among liable parties using equitable factors. One nuance: the statute does not itself enumerate the factors (culpability, volume, cooperation); it leaves them to the court's discretion, and the listed ones are the judicially developed 'Gore factors.' Saying the factors are 'set forth in' (f)(1) is therefore loose, but the cited proposition — that § 113(f) governs cost allocation among PRPs — is correct.",
         "evidence_excerpt": "In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4668,7 +4668,7 @@
         "explanation": "§ 113(f)(1) (42 U.S.C. § 9613(f)(1)) is the provision that authorizes courts to allocate response costs among liable parties using equitable factors, so it supports an argument for equitable reallocation to Garfield. Small looseness worth noting: the statute does not itself 'set forth' any list of factors; it leaves them to the court ('such equitable factors as the court determines are appropriate'). The specific factors the letter goes on to name (relative culpability, volume, cooperation) come from case law and legislative history (the so-called Gore factors), not the statutory text. I treated this as acceptable paraphrase rather than a defect.",
         "evidence_excerpt": "In resolving contribution claims, the court may allocate response costs among liable parties using such equitable factors as the court determines are appropriate.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4695,7 +4695,7 @@
         "explanation": "The letter refers to a memorandum 'analyzing the contribution claim framework under CERCLA § 113(f).' Section 113(f), codified at 42 U.S.C. § 9613(f), is CERCLA's contribution provision: it creates the claim, requires it to be brought under the Federal Rules and governed by federal law, and provides for equitable allocation. The reference is accurate.",
         "evidence_excerpt": "Such claims shall be brought in accordance with this section and the Federal Rules of Civil Procedure, and shall be governed by Federal law.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4723,7 +4723,7 @@
         "evidence_excerpt": "\"§9607. Liability (a) Covered persons; scope; recoverable costs and damages ... (1) the owner and operator of a vessel or a facility, ... from which there is a release, or a threatened release which causes the incurrence of response costs, of a hazardous substance, shall be liable for—\" (source credit: \"Pub. L. 96–510, title I, §107, Dec. 11, 1980, 94 Stat. 2781\")",
         "source_urls": [
           "https://www.govinfo.gov/link/uscode/42/9607?type=usc&year=mostrecent&link-type=html",
-          "https:/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
           "https://www.federalregister.gov/documents/2024/05/08/2024-08547/designation-of-perfluorooctanoic-acid-pfoa-and-perfluorooctanesulfonic-acid-pfos-as-cercla-hazardous"
         ],
         "confidence": "medium"
@@ -4751,7 +4751,7 @@
         "explanation": "The Re line describes a 'Contribution Claim Strategy Under CERCLA § 113(f).' CERCLA § 113(f) (42 U.S.C. § 9613(f)) is headed 'Contribution' and is the statutory source of contribution claims between potentially responsible parties. The reference is accurate.",
         "evidence_excerpt": "(f) Contribution (1) Contribution Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4778,7 +4778,7 @@
         "explanation": "The document describes 'a potential contribution claim under CERCLA § 113(f)' in a pending cost-recovery action in which Thornfield is a defendant. Section 113(f)(1) (42 U.S.C. § 9613(f)(1)) permits a person to seek contribution from another liable or potentially liable person 'during or following' a civil action under § 106 or § 107(a), which fits a defendant's claim against a co-PRP in pending litigation.",
         "evidence_excerpt": "Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title, during or following any civil action under section 9606 of this title or under section 9607(a) of this title.",
         "source_urls": [
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4805,8 +4805,8 @@
         "explanation": "CERCLA is real, and 'cost recovery and contribution actions' are the two principal private and governmental causes of action it creates: cost recovery under section 107(a), 42 U.S.C. 9607(a)(4)(A)-(B), and contribution under section 113(f), 42 U.S.C. 9613(f)(1). The sentence is a law firm's statement of its experience with those action types; it asserts no legal rule, and the statute supports the existence of both kinds of action. (The firm's actual experience is a fictional fact not checkable against legal sources.)",
         "evidence_excerpt": "shall be liable for— (A) all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan; (B) any other necessary costs of response incurred by any other person consistent with the national contingency plan [9607(a)] / Any person may seek contribution from any other person who is liable or potentially liable under section 9607(a) of this title [9613(f)(1)]",
         "source_urls": [
-          "https:/9607",
-          "https:/9613"
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9613"
         ],
         "confidence": "high"
       }
@@ -4860,8 +4860,8 @@
         "explanation": "Generic reference in a (fictional) audit summary to RCRA hazardous waste manifest requirements. RCRA does impose such requirements: 42 U.S.C. § 6922(a)(5) directs generator standards requiring use of a manifest system, and 40 C.F.R. § 262.20(a)(1) requires a generator offering hazardous waste for offsite transport to prepare a manifest on EPA Form 8700-22. The reference is accurate as a description of the body of law; no specific provision or pin cite was given, so the specific provisions are supplied in correct_citation. Whether the fictional facility actually complied is a fact assertion, not a legal one.",
         "evidence_excerpt": "40 C.F.R. § 262.20(a)(1): \"A generator that transports, or offers for transport a hazardous waste for offsite treatment, storage, or disposal ... must prepare a Manifest (OMB Control number 2050-0039) on EPA Form 8700-22, and, if necessary, EPA Form 8700-22A.\" 42 U.S.C. § 6922(a)(5): \"use of a manifest system and any other reasonable means necessary to assure that all such hazardous waste generated is designated for treatment, storage, or disposal in, and arrives at, treatment, storage, or disposal facilities\"",
         "source_urls": [
-          "https:/262.20",
-          "https:/6922"
+          "https://www.law.cornell.edu/cfr/text/40/262.20",
+          "https://www.law.cornell.edu/uscode/text/42/6922"
         ],
         "confidence": "high"
       }

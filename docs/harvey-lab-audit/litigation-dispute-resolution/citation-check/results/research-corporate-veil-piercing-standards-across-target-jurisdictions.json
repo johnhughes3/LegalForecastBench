@@ -36,7 +36,7 @@
         "evidence_excerpt": "\"(415 ILCS 5/1) (from Ch. 111 1/2, par. 1001) Sec. 1. This Act shall be known and may be cited as the 'Environmental Protection Act'.\"",
         "source_urls": [
           "https://www.ilga.gov/Documents/legislation/ilcs/documents/041500050K1.htm",
-          "https:/6901"
+          "https://www.law.cornell.edu/uscode/text/42/6901"
         ],
         "confidence": "high"
       }
@@ -63,8 +63,8 @@
         "explanation": "42 U.S.C. § 6901 et seq. is the correct codification of RCRA (Title 42, chapter 82; § 6901 is the Congressional findings section, and the short-title note identifies the Resource Conservation and Recovery Act of 1976). Subtitle C, the hazardous waste program, is subchapter III of chapter 82, and § 6926(b) provides for EPA authorization of State hazardous waste programs to be administered and enforced by the State, which matches 'as implemented through the State of Illinois's authorized hazardous waste management program under RCRA Subtitle C.' I did not separately confirm Illinois's authorization status; the statute only establishes the mechanism. The scenario's premise that Illinois's program reaches storage at a Canton, Ohio facility is a feature of the fictional facts, not a citation defect.",
         "evidence_excerpt": "LII, 42 U.S. Code § 6901 - Congressional findings (Title 42, CHAPTER 82, SUBCHAPTER I). 42 U.S.C. § 6926(b) (SUBCHAPTER III): \"Any State which seeks to administer and enforce a hazardous waste program pursuant to this subchapter may develop and, after notice and opportunity for public hearing, submit to the Administrator an application ... for authorization of such program.\"",
         "source_urls": [
-          "https:/6901",
-          "https:/6926"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/uscode/text/42/6926"
         ],
         "confidence": "high"
       }
@@ -120,7 +120,7 @@
         "explanation": "42 U.S.C. § 6926 (RCRA § 3006) is the provision under which EPA authorizes a state to run its hazardous waste program in lieu of the federal one, and 40 C.F.R. § 272.700 confirms Illinois holds that authorization, approved under § 6926(b). The precise pin would be subsection (b). One point outside the cite itself: the authorization runs to the program 'in such State', so it does not obviously reach a facility in Canton, Ohio; that is a feature of the scenario, not a citation error.",
         "evidence_excerpt": "§ 6926(b): 'Such State is authorized to carry out such program in lieu of the Federal program under this subchapter in such State and to issue and enforce permits for the storage, treatment, or disposal of hazardous waste'. 40 C.F.R. 272.700(a): 'The State of Illinois is authorized to administer and enforce a hazardous waste management program in lieu of the Federal program under subtitle C of the Resource Conservation and Recovery Act of 1976 (RCRA)'",
         "source_urls": [
-          "https:/6926",
+          "https://www.law.cornell.edu/uscode/text/42/6926",
           "https://www.ecfr.gov/current/title-40/section-272.700"
         ],
         "confidence": "high"
@@ -149,7 +149,7 @@
         "evidence_excerpt": "eCFR Title 40, Subchapter I: \"260 | Hazardous Waste Management System: General\" ... \"271 | Requirements for Authorization of State Hazardous Waste Programs\" ... \"279 | Standards for the Management of Used Oil\". 42 U.S.C. 6926(b): \"Any State which seeks to administer and enforce a hazardous waste program pursuant to this subchapter may develop and ... submit to the Administrator an application ... for authorization of such program.\"",
         "source_urls": [
           "https://www.ecfr.gov/api/versioner/v1/structure/current/title-40.json",
-          "https:/6926"
+          "https://www.law.cornell.edu/uscode/text/42/6926"
         ],
         "confidence": "high"
       }
@@ -486,7 +486,7 @@
         "explanation": "Section 6925(a) directs EPA to issue regulations requiring each person owning or operating a treatment, storage, or disposal facility to have a permit, and prohibits treatment, storage, or disposal except in accordance with such a permit. The complaint's description is a fair paraphrase; strictly, the duty runs through the regulations and the statutory prohibition, and the permit is one 'issued pursuant to this section'. That Pryor stored waste without a permit is a scenario allegation, not something the statute establishes.",
         "evidence_excerpt": "the Administrator shall promulgate regulations requiring each person owning or operating an existing facility or planning to construct a new facility for the treatment, storage, or disposal of hazardous waste identified or listed under this subchapter to have a permit issued pursuant to this section ... the treatment, storage, or disposal of any such hazardous waste ... is prohibited except in accordance with such a permit",
         "source_urls": [
-          "https:/6925"
+          "https://www.law.cornell.edu/uscode/text/42/6925"
         ],
         "confidence": "high"
       }
@@ -764,9 +764,9 @@
         "explanation": "Both provisions exist, but neither gives 'operator' a meaning. 42 U.S.C. § 6928 is RCRA's federal enforcement section (compliance orders, civil and criminal penalties); the word 'operator' does not appear anywhere in it, and RCRA's statutory definitions section (§ 6903) does not define the term either. 415 ILCS 5/3.315 defines 'Person', not 'operator'; the same complaint cites it correctly for 'person' in para. 64. The RCRA meaning of 'operator' is regulatory: 40 C.F.R. § 260.10, mirrored in Illinois at 35 Ill. Adm. Code 720.110. So the sentence cites two sections for a definition neither contains. Read generously, § 6928 could be meant as the enforcement hook and 3.315 as showing Cascade is a 'person', but that is not what the sentence says.",
         "evidence_excerpt": "415 ILCS 5/3.315: 'Sec. 3.315. Person. \"Person\" is any individual, partnership, co-partnership, firm, company, limited liability company, corporation, association ...'. 40 C.F.R. 260.10: 'Operator means the person responsible for the overall operation of a facility.' 42 U.S.C. 6928(a)(1): 'whenever on the basis of any information the Administrator determines that any person has violated or is in violation of any requirement of this subchapter'",
         "source_urls": [
-          "https:/6928",
+          "https://www.law.cornell.edu/uscode/text/42/6928",
           "https://www.ilga.gov/legislation/ilcs/documents/041500050K3.315.htm",
-          "https:/6903",
+          "https://www.law.cornell.edu/uscode/text/42/6903",
           "https://www.ecfr.gov/current/title-40/section-260.10",
           "https://www.law.cornell.edu/regulations/illinois/Ill-Admin-Code-tit-35-SS-720.110"
         ],
@@ -777,9 +777,9 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds. LII text of 42 U.S.C. § 6928 is the enforcement section. Subsection (a)(1) begins \"whenever on the basis of any information the Administrator determines that any person has violated...\", and the word \"operator\" does not appear anywhere in the section. The official ILGA text of 415 ILCS 5/3.315 is headed \"Person.\" and reads: \"'Person' is any individual, partnership, co-partnership, firm, company, limited liability company, corporation, association, joint stock company, trust, estate, political subdivision, state agency, or any other legal entity...\" It has no operator definition. The complaint cites the same section correctly for \"person\" in para. 64. The regulatory definition is at 40 C.F.R. § 260.10: \"Operator means the person responsible for the overall operation of a facility.\" A generous reading is possible: § 6928 as the enforcement hook and 3.315 to show Cascade is a covered \"person\". But para. 74 cites both provisions for the \"meaning\" of \"operator,\" and neither one supplies it. The authorities are real and cited for content they do not contain, so MISCHARACTERIZED stands. The substantive operator theory (Bestfoods) is separately cited and is not at issue here.",
         "source_urls": [
-          "https:/6928",
+          "https://www.law.cornell.edu/uscode/text/42/6928",
           "https://ilga.gov/ftp/ILCS/Ch%200415/Act%200005/041500050K3.315.html",
-          "https:/260.10"
+          "https://www.law.cornell.edu/cfr/text/40/260.10"
         ]
       }
     },
@@ -942,7 +942,7 @@
         "evidence_excerpt": "\"Sec. 1. This Act shall be known and may be cited as the 'Environmental Protection Act'.\" 42 U.S.C. 6901: heading \"Congressional findings\"; \"The Congress finds with respect to solid waste—\" (Chapter 82, Solid Waste Disposal; Pub. L. 94-580, Resource Conservation and Recovery Act of 1976).",
         "source_urls": [
           "https://www.ilga.gov/Documents/legislation/ilcs/documents/041500050K1.htm",
-          "https:/6901"
+          "https://www.law.cornell.edu/uscode/text/42/6901"
         ],
         "confidence": "high"
       }
@@ -1170,7 +1170,7 @@
         "evidence_excerpt": "\"§ 1910.217 Mechanical power presses. ... (5) Excluded machines. Press brakes, hydraulic and pneumatic power presses, bulldozers, hot bending and hot metal presses, forging presses and hammers, riveting machines and similar types of fastener applicators are excluded from the requirements of this section.\"; \"(3) Machines using full revolution positive clutches. (i) Machines using full revolution clutches shall incorporate a single-stroke mechanism.\"; \"(ii) Two-hand trip systems on full revolution clutch machines shall incorporate an antirepeat feature.\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2025-title29-vol5/xml/CFR-2025-title29-vol5-sec1910-217.xml",
-          "https:/1910.217"
+          "https://www.law.cornell.edu/cfr/text/29/1910.217"
         ],
         "confidence": "low"
       }
@@ -1198,7 +1198,7 @@
         "evidence_excerpt": "\"§ 1910.217 Mechanical power presses.\"; \"(ii) Two-hand trip systems on full revolution clutch machines shall incorporate an antirepeat feature.\"; record email: \"Our QA team's assessment is that the current HP-4400 interlock configuration, as specified by Cascade's engineering team, may not comply with OSHA 1910.217 requirements for full-revolution presses.\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2025-title29-vol5/xml/CFR-2025-title29-vol5-sec1910-217.xml",
-          "https:/1910.217"
+          "https://www.law.cornell.edu/cfr/text/29/1910.217"
         ],
         "confidence": "medium"
       }
@@ -1351,7 +1351,7 @@
         "evidence_excerpt": "Record email: \"Our QA team's assessment is that the current HP-4400 interlock configuration, as specified by Cascade's engineering team, may not comply with OSHA 1910.217 requirements for full-revolution presses.\" Regulation: \"(3) Machines using full revolution positive clutches. (i) Machines using full revolution clutches shall incorporate a single-stroke mechanism.\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2025-title29-vol5/xml/CFR-2025-title29-vol5-sec1910-217.xml",
-          "https:/1910.217"
+          "https://www.law.cornell.edu/cfr/text/29/1910.217"
         ],
         "confidence": "medium"
       }
@@ -1637,7 +1637,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "Confirmed against the 29 C.F.R. § 1910.217 text on LII. Three problems:\n(1) The section requires an antirepeat feature for full-revolution machines only in a narrow place: \"(ii) Two-hand trip systems on full revolution clutch machines shall incorporate an antirepeat feature.\" That attaches to trip controls, not to a barrier-guard interlock.\n(2) The interlocked barrier guard provision (c)(2)(iv) requires only that the guard be \"interlocked with the press clutch control so that the clutch cannot be activated unless the guard itself ... [is] in position.\" It says nothing about redundancy or monitoring.\n(3) Control reliability (b)(13) and brake monitoring (b)(14) apply only \"When required by paragraph (c)(5).\" Paragraph (c)(5) covers hand feeding with \"a two hand control, presence sensing device, Type B gate or movable barrier (on a part revolution clutch).\"\nIn addition, (a)(5) states: \"Press brakes, hydraulic and pneumatic power presses ... are excluded from the requirements of this section.\" The email itself calls the HP-4400 a \"hydraulic press.\" No reading of the text found supports the claim that full-revolution interlocks must have redundant circuit monitoring.",
         "source_urls": [
-          "https:/1910.217"
+          "https://www.law.cornell.edu/cfr/text/29/1910.217"
         ]
       }
     },
@@ -1704,7 +1704,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds, with the caveat the first reviewer already noted: as a report of Choi's position, the email is accurate. As an assertion about the regulation, Choi's hedged claim (\"arguably directed at older mechanical interlock systems, not modern electronic barrier guard systems\") has no textual support in 29 C.F.R. § 1910.217.\n- Control reliability (b)(13) addresses \"the control system.\" (b)(8)(vi) addresses \"Electrical clutch/brake control circuits.\" Neither is limited to older mechanical devices.\n- Where the section does distinguish older equipment, it exempts it: exceptions for controls \"manufactured and installed before August 31, 1971\" are made inapplicable under (c)(5). That is the opposite of Choi's premise.\n- The explicit word \"Redundancy\" appears in the PSDI appendix, which concerns electronic presence-sensing systems: \"Redundancy, and comparison and/or diagnostic checking, exist for the critical items that may cause injury.\"\nChoi's bottom line (no redundancy mandate for this interlock) is closer to the text. The real reasons are the (c)(5) part-revolution and hand-feeding trigger and the (a)(5) exclusion of hydraulic presses, not the old-versus-new distinction he gives.",
         "source_urls": [
-          "https:/1910.217"
+          "https://www.law.cornell.edu/cfr/text/29/1910.217"
         ]
       }
     },
@@ -2002,8 +2002,8 @@
         "evidence_excerpt": "But a corporate parent that actively participated in, and exercised control over, the operations of the facility itself may be held directly liable in its own right as an operator of the facility.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/118219/united-states-v-bestfoods/",
-          "https:/9607",
-          "https:/6925"
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/6925"
         ],
         "confidence": "medium"
       }
@@ -2350,8 +2350,8 @@
         "explanation": "Generic reference to RCRA with no section cited. The act exists and contains the permit and enforcement provisions the scenario relies on (42 U.S.C. §§ 6925, 6928). The memo's description also matches the scenario's own complaint, which alleges RCRA violations at the Canton, Ohio facility and seeks a $2,400,000 civil penalty (paras. 4 and 87). Those are scenario facts rather than legal propositions.",
         "evidence_excerpt": "42 U.S.C. 6928(g): 'Any person who violates any requirement of this subchapter shall be liable to the United States for a civil penalty'. Complaint para. 4: 'The Agency seeks the assessment of a civil penalty in the amount of Two Million Four Hundred Thousand Dollars ($2,400,000.00)'",
         "source_urls": [
-          "https:/6928",
-          "https:/6925"
+          "https://www.law.cornell.edu/uscode/text/42/6928",
+          "https://www.law.cornell.edu/uscode/text/42/6925"
         ],
         "confidence": "high"
       }
@@ -2378,8 +2378,8 @@
         "explanation": "The document names RCRA only, with no code cite, as the statute the enforcement action invokes for unpermitted storage of hazardous waste. RCRA exists (42 U.S.C. ch. 82) and § 6925(a) prohibits treatment, storage or disposal of hazardous waste except in accordance with a permit, so the statute is the right one for an unpermitted-storage allegation. One loose usage, which originates in the complaint being summarized: 'interim status permit' is not a statutory term. Under § 6925(e), interim status is a statutory treatment of qualifying existing facilities 'as having been issued such permit', not a separate permit. This does not affect the accuracy of the reference. I also note the document describes the action as against Pryor only, while the complaint names both Pryor and Cascade; that is a factual point, not a citation defect.",
         "evidence_excerpt": "42 U.S.C. § 6901 note: \"This Act ... may be cited as the 'Resource Conservation and Recovery Act of 1976'.\" 42 U.S.C. § 6925(a) (as relayed by the fetch tool): \"the treatment, storage, or disposal of any such hazardous waste ... is prohibited except in accordance with such a permit.\"",
         "source_urls": [
-          "https:/6901",
-          "https:/6925"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/uscode/text/42/6925"
         ],
         "confidence": "high"
       }

@@ -35,7 +35,7 @@
         "explanation": "§ 1332(a) confers jurisdiction where the parties are diverse and the amount in controversy exceeds $75,000, exclusive of interest and costs. This matches the proposition exactly.",
         "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -116,7 +116,7 @@
         "explanation": "§ 1391(b)(2) allows venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. This matches the proposition.",
         "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -780,7 +780,7 @@
         "explanation": "§ 1332(a) supports jurisdiction based on diversity of citizenship plus an amount in controversy over $75,000.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -807,7 +807,7 @@
         "explanation": "§ 1391(b) is the general federal venue provision. It lists the districts where a civil action may be brought, which supports an admission that venue is proper.",
         "evidence_excerpt": "(b) Venue in General.—A civil action may be brought in— (1) a judicial district in which any defendant resides... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -1052,7 +1052,7 @@
         "explanation": "28 U.S.C. § 1332(a)(1) gives district courts original jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000. That supports diversity jurisdiction. Citing § 1332 without the subsection is acceptable.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }

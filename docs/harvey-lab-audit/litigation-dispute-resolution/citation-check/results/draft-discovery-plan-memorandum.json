@@ -193,9 +193,9 @@
         "explanation": "The Export Administration Regulations are codified in 15 C.F.R. chapter VII, subchapter C. LII's chapter index lists subchapter C as parts 730-780, but the operative parts end at Part 774 (the Commerce Control List), and 'Parts 730-774' is the standard citation form. The MSA clause requiring compliance with the EAR cites them correctly.",
         "evidence_excerpt": "\"SUBCHAPTER C—EXPORT ADMINISTRATION REGULATIONS\" and \"PART 774—THE COMMERCE CONTROL LIST\"; 15 CFR 730.1: references to the EAR are references to \"15 CFR chapter VII, subchapter C.\"",
         "source_urls": [
-          "https:/part-774",
-          "https:/chapter-VII",
-          "https:/730.1"
+          "https://www.law.cornell.edu/cfr/text/15/part-774",
+          "https://www.law.cornell.edu/cfr/text/15/chapter-VII",
+          "https://www.law.cornell.edu/cfr/text/15/730.1"
         ],
         "confidence": "high"
       }
@@ -735,7 +735,7 @@
         "explanation": "§ 1332(a) confers jurisdiction where the parties are diverse and the amount in controversy exceeds $75,000, exclusive of interest and costs. This matches the complaint's jurisdictional allegation.",
         "evidence_excerpt": "\"(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -762,7 +762,7 @@
         "explanation": "The complaint cites 28 U.S.C. § 1332 as the diversity statute and states the LLC citizenship rule as applying 'for purposes of' it. That framing is accurate. The statute's own text addresses only corporations in (c)(1) and does not mention LLCs. The member-citizenship rule is a judicial gloss on § 1332, confirmed in the Sixth Circuit (Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003 (6th Cir. 2009), returned by an exact-phrase search). Read reasonably, the citation supports the proposition, though a case cite for the LLC rule would be better practice.",
         "evidence_excerpt": "§1332(c)(1): \"a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business\"; CourtListener exact-phrase hit in Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003: \"limited liability company has the citizenship of each of its members\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/"
         ],
         "confidence": "medium"
@@ -790,8 +790,8 @@
         "explanation": "§ 1391(b)(1) makes venue proper in a district where any defendant resides if all defendants reside in the State. § 1391(b)(2) makes it proper where a substantial part of the events occurred. Hartwell's Toledo headquarters (Lucas County) is in the Northern District of Ohio, so venue there is supported. The statute citation is accurate. However, the complaint's factual premise is wrong: it says Belmont County (the Blackridge Station) is in the Northern District of Ohio, Eastern Division. Under 28 U.S.C. § 115, Belmont County is in the Southern District of Ohio, Eastern Division. This does not defeat venue under (b)(1), and the manufacturing in Lucas and Hancock Counties is in the Northern District.",
         "evidence_excerpt": "§1391(b)(1): \"a judicial district in which any defendant resides, if all defendants are residents of the State\"; §115 (S.D. Ohio) \"The Eastern Division comprises the counties of Athens, Belmont, ...\"",
         "source_urls": [
-          "https:/1391",
-          "https:/115"
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/115"
         ],
         "confidence": "high"
       }
@@ -818,7 +818,7 @@
         "explanation": "Under § 1391(c)(2), an entity defendant resides in any district where it is subject to personal jurisdiction. Hartwell is an Ohio corporation headquartered in Toledo, so it resides in the Northern District of Ohio. For a State with several districts, § 1391(d) is the more precise provision for where a corporation resides. Its result here is the same: Toledo is in the Northern District. Citing (c) is acceptable.",
         "evidence_excerpt": "\"an entity with the capacity to sue and be sued in its common name under applicable law, whether or not incorporated, shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question\"",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -1011,7 +1011,7 @@
         "explanation": "28 U.S.C. § 1332 gives district courts original jurisdiction over civil actions between citizens of different States where more than $75,000 is in controversy. This supports the answer's admission of diversity jurisdiction.",
         "evidence_excerpt": "\"(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1263,7 +1263,7 @@
         "explanation": "§ 1332(a)(1) provides diversity jurisdiction where the parties are citizens of different States and more than $75,000 is in controversy. That supports the alternative basis for jurisdiction over the counterclaim.",
         "evidence_excerpt": "\"The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1290,7 +1290,7 @@
         "explanation": "28 U.S.C. § 1961 governs interest on money judgments in civil cases in federal district courts, including how the post-judgment interest rate is set. This supports the prayer for post-judgment interest at the § 1961 rate.",
         "evidence_excerpt": "\"Interest shall be allowed on any money judgment in a civil case recovered in a district court.\"",
         "source_urls": [
-          "https:/1961"
+          "https://www.law.cornell.edu/uscode/text/28/1961"
         ],
         "confidence": "high"
       }

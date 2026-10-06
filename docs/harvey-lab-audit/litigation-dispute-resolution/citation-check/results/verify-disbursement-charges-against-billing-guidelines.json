@@ -32,8 +32,8 @@
         "evidence_excerpt": "Title VII is codified at 42 U.S.C. 2000e and in subsequent sections. ... It shall be an unlawful employment practice for an employer — (1) to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual’s race, color, religion, sex, or national origin",
         "source_urls": [
           "https://www.eeoc.gov/statutes/title-vii-civil-rights-act-1964",
-          "https:/2000e-2",
-          "https:/chapter-21/subchapter-VI"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/chapter-21/subchapter-VI"
         ],
         "confidence": "high"
       }
@@ -60,8 +60,8 @@
         "explanation": "29 U.S.C. § 206(d) is headed 'Prohibition of sex discrimination' and bars employers from paying employees of one sex less than the opposite sex for equal work. The short-title note confirms Pub. L. 88-38, which added subsection (d), is the 'Equal Pay Act of 1963'. Name, year and section are all correct, and the provision is the proper statutory basis for a gender-based pay discrimination claim.",
         "evidence_excerpt": "(d) Prohibition of sex discrimination (1) No employer having employees subject to any provisions of this section shall discriminate, within any establishment in which such employees are employed, between employees on the basis of sex by paying wages to employees in such establishment at a rate less than the rate at which he pays wages to employees of the opposite sex in such establishment for equal work on jobs the performance of which requires equal skill, effort, and responsibility",
         "source_urls": [
-          "https:/206",
-          "https:/201"
+          "https://www.law.cornell.edu/uscode/text/29/206",
+          "https://www.law.cornell.edu/uscode/text/29/201"
         ],
         "confidence": "high"
       }
@@ -349,7 +349,7 @@
         "explanation": "Bare descriptive reference to Title VII of the Civil Rights Act of 1964, a real statute codified at 42 U.S.C. § 2000e and following sections. It is not cited for a legal proposition; the sentence describes a (fictional) expert's experience with compensation analyses in Title VII matters. That description is consistent with the statute, which prohibits discrimination in compensation because of sex (42 U.S.C. § 2000e-2(a)(1)). The expert's actual experience is a scenario fact that cannot be checked against any source. CourtListener was not used because it does not host statutory text; the statute was read on LII and the EEOC's site.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer — (1) to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual’s race, color, religion, sex, or national origin",
         "source_urls": [
-          "https:/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
           "https://www.eeoc.gov/statutes/title-vii-civil-rights-act-1964"
         ],
         "confidence": "high"
@@ -377,8 +377,8 @@
         "explanation": "Name-only reference to the Equal Pay Act as a category of matters (sex-based pay discrimination) in which the expert has done compensation analyses. The Equal Pay Act of 1963 exists (Pub. L. 88-38) and added 29 U.S.C. § 206(d), which prohibits sex-based wage differentials for equal work. The reference is accurate; no legal proposition beyond the statute's subject matter is asserted.",
         "evidence_excerpt": "Short Title of 1963 Amendment Pub. L. 88-38, § 1, June 10, 1963, 77 Stat. 56, provided: \"That this Act [amending section 206 of this title and enacting provisions set out as notes under section 206 of this title] may be cited as the 'Equal Pay Act of 1963'.\"",
         "source_urls": [
-          "https:/201",
-          "https:/206"
+          "https://www.law.cornell.edu/uscode/text/29/201",
+          "https://www.law.cornell.edu/uscode/text/29/206"
         ],
         "confidence": "high"
       }
@@ -406,7 +406,7 @@
         "evidence_excerpt": "EDITOR'S NOTE: The following is the text of Title VII of the Civil Rights Act of 1964 (Title VII) (Pub. L. 88-352), as amended. Title VII is codified at 42 U.S.C. 2000e and in subsequent sections.",
         "source_urls": [
           "https://www.eeoc.gov/statutes/title-vii-civil-rights-act-1964",
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }

@@ -42,7 +42,7 @@
         "explanation": "28 U.S.C. § 1332 is the diversity jurisdiction statute. It requires citizens of different States and more than $75,000 in controversy, which matches the proposition it is cited for.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -69,7 +69,7 @@
         "explanation": "The complaint gives two grounds for venue: the defendant resides in the district, and a substantial part of the events occurred there. These track § 1391(b)(1) and (b)(2) exactly.",
         "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -490,7 +490,7 @@
         "explanation": "28 U.S.C. § 1332(a)(1) gives district courts original jurisdiction over suits between citizens of different States where more than $75,000 is in controversy, so it supports the admission of diversity jurisdiction. A pleading note unrelated to the citation itself: Harborview is an LLC, and an LLC's citizenship is that of its members, not its state of organization.",
         "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -517,7 +517,7 @@
         "explanation": "Section 1391(b) is the general federal venue provision; it lays venue where any defendant resides (all defendants residing in the State) or where a substantial part of the events occurred. An admission that venue is proper under § 1391(b) is a correct use of the statute. The EDA forum-selection clause is a contract fact, not something the statute addresses.",
         "evidence_excerpt": "A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -706,7 +706,7 @@
         "explanation": "Section 1332(a)(1) supports diversity jurisdiction over the counterclaim, which seeks $1.2M between an Oregon corporation and a Washington LLC.",
         "evidence_excerpt": "original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -733,7 +733,7 @@
         "explanation": "Section 1367(a) grants supplemental jurisdiction over claims so related to the claims within original jurisdiction that they form part of the same case or controversy. That fits a compulsory counterclaim arising from the same transaction. Supplemental jurisdiction is redundant here because the counterclaim independently satisfies § 1332, but the citation is accurate.",
         "evidence_excerpt": "(a) Except as provided in subsections (b) and (c) ... in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -760,7 +760,7 @@
         "explanation": "28 U.S.C. § 1961 allows interest on any money judgment in a civil case recovered in a district court and sets the post-judgment rate. That supports a prayer for post-judgment interest at the applicable rate.",
         "evidence_excerpt": "Interest shall be allowed on any money judgment in a civil case recovered in a district court.",
         "source_urls": [
-          "https:/1961"
+          "https://www.law.cornell.edu/uscode/text/28/1961"
         ],
         "confidence": "high"
       }

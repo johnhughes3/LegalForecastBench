@@ -52,9 +52,9 @@
         "explanation": "RCRA is real and regulates hazardous waste management, including manifesting (Subtitle C; 42 U.S.C. § 6922 sets generator standards). Chromium waste can be hazardous (D007). Saying improper manifesting of hexavalent chromium waste 'would implicate potential' RCRA violations is a fair, hedged statement.",
         "evidence_excerpt": "§ 6922: Standards applicable to generators of hazardous waste; 40 CFR 261.24: D007 Chromium 5.0 mg/L",
         "source_urls": [
-          "https:/6901",
-          "https:/chapter-82/subchapter-III",
-          "https:/261.24"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/uscode/text/42/chapter-82/subchapter-III",
+          "https://www.law.cornell.edu/cfr/text/40/261.24"
         ],
         "confidence": "high"
       }
@@ -135,8 +135,8 @@
         "explanation": "RCRA is a real federal statute governing hazardous waste. It is an appropriate benchmark for a hazardous waste compliance audit, and its implementing regulations are in 40 C.F.R. Parts 260–268.",
         "evidence_excerpt": "Short Title: Resource Conservation and Recovery Act of 1976; Subchapter III \"HAZARDOUS WASTE MANAGEMENT\"",
         "source_urls": [
-          "https:/6901",
-          "https:/chapter-I/subchapter-I"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/cfr/text/40/chapter-I/subchapter-I"
         ],
         "confidence": "high"
       }
@@ -163,7 +163,7 @@
         "explanation": "40 C.F.R. Parts 260–268 are the core RCRA hazardous waste regulations: general provisions, identification and listing, generators, transporters, TSDFs (264/265), specific wastes, standardized permits, and land disposal restrictions. Citing them as the federal standard for a hazardous waste audit is accurate.",
         "evidence_excerpt": "PART 260—\"HAZARDOUS WASTE MANAGEMENT SYSTEM: GENERAL\" ... PART 262—\"STANDARDS APPLICABLE TO GENERATORS OF HAZARDOUS WASTE\" ... PART 268—\"LAND DISPOSAL RESTRICTIONS\"",
         "source_urls": [
-          "https:/chapter-I/subchapter-I"
+          "https://www.law.cornell.edu/cfr/text/40/chapter-I/subchapter-I"
         ],
         "confidence": "high"
       }
@@ -217,7 +217,7 @@
         "explanation": "42 U.S.C. § 6901 et seq. is the Solid Waste Disposal Act as amended by RCRA, whose short title is the Resource Conservation and Recovery Act of 1976. Its findings address solid and hazardous waste management. The description as the principal federal statute on solid and hazardous waste is accurate.",
         "evidence_excerpt": "42 U.S.C. § 6901 \"Congressional findings\" ... \"that the placement of inadequate controls on hazardous waste management will result in substantial risks to human health and the environment\"; Short Title: Resource Conservation and Recovery Act of 1976",
         "source_urls": [
-          "https:/6901"
+          "https://www.law.cornell.edu/uscode/text/42/6901"
         ],
         "confidence": "high"
       }
@@ -600,7 +600,7 @@
         "explanation": "This is a general reference with no section cited. The generator container rules in 40 C.F.R. § 262.17 bar only incompatible wastes from sharing a container, which implies compatible wastes may be combined. Part 262 Subpart B requires the combined shipment to be manifested. § 262.17(f) also expressly permits consolidation, under stated conditions, of waste received from very small quantity generators. Read reasonably, that supports the paraphrase 'permissible ... when certain conditions are met.' No provision is titled 'consolidation for manifesting', so the support is inferential.",
         "evidence_excerpt": "40 CFR 262.17: \"Incompatible wastes, or incompatible wastes and materials, (see appendix V of part 265 for examples) must not be placed in the same container\"; 262.17(f): \"Large quantity generators may accumulate on site hazardous waste received from very small quantity generators under control of the same person\"",
         "source_urls": [
-          "https:/262.17"
+          "https://www.law.cornell.edu/cfr/text/40/262.17"
         ],
         "confidence": "medium"
       }
@@ -660,7 +660,7 @@
           "https://www.ecfr.gov/api/versioner/v1/full/2026-09-01/title-40.xml?part=262&section=262.11",
           "https://www.ecfr.gov/api/versioner/v1/full/2026-09-01/title-40.xml?part=261&section=261.24",
           "https://www.ecfr.gov/api/versioner/v1/full/2022-12-01/title-40.xml?part=264&section=264.72",
-          "https:/6901",
+          "https://www.law.cornell.edu/uscode/text/42/6901",
           "https://codes.ohio.gov/ohio-revised-code/chapter-3734",
           "https://codes.ohio.gov/ohio-administrative-code/chapter-3745-52",
           "https://codes.ohio.gov/ohio-administrative-code/rule-3745-52-11",
@@ -720,7 +720,7 @@
         "source_urls": [
           "https://www.presidency.ucsb.edu/documents/statement-signing-the-hart-scott-rodino-antitrust-improvements-act-1976",
           "https://www.ftc.gov/terms/hart-scott-rodino-act-hsr",
-          "https:/18a"
+          "https://www.law.cornell.edu/uscode/text/15/18a"
         ],
         "confidence": "medium"
       }
@@ -747,7 +747,7 @@
         "explanation": "The HSR filing requirements are real. They are codified at 15 U.S.C. § 18a and require notification and a waiting period only for transactions above size-of-transaction and size-of-person thresholds. Whether this fictional deal falls below those thresholds is a factual question that cannot be checked. Problem: the statute requires filing for covered transactions and exempts others. Nothing I read in § 18a provides for a 'voluntary' HSR filing, so describing a voluntary filing as an option does not match the statutory scheme.",
         "evidence_excerpt": "\"no person shall acquire, directly or indirectly, any voting securities or assets of any other person, unless both persons ... file notification pursuant to rules under subsection (d)(1) and the waiting period described in subsection (b)(1) has expired, if—\"",
         "source_urls": [
-          "https:/18a",
+          "https://www.law.cornell.edu/uscode/text/15/18a",
           "https://www.ftc.gov/terms/hart-scott-rodino-act-hsr"
         ],
         "confidence": "medium"
@@ -775,7 +775,7 @@
         "explanation": "This is a narrative reference in fictional board minutes to a company's SOX compliance program and testing of key controls. SOX is real. Section 404 (15 U.S.C. § 7262) requires management assessment of internal controls over financial reporting, which matches the reference to testing key controls. No legal proposition is asserted beyond the fictional fact.",
         "evidence_excerpt": "15 U.S.C. § 7262 (Pub. L. 107-204, title IV, § 404): annual report to \"contain an internal control report, which shall ... contain an assessment ... of the effectiveness of the internal control structure and procedures of the issuer for financial reporting.\"",
         "source_urls": [
-          "https:/7262"
+          "https://www.law.cornell.edu/uscode/text/15/7262"
         ],
         "confidence": "high"
       }
@@ -802,8 +802,8 @@
         "explanation": "RCRA's EPA regulations treat chromium-bearing waste as hazardous under the toxicity characteristic (D007, 5.0 mg/L TCLP). That brings it under the full Subtitle C regime for generators, transporters, TSDFs and land disposal restrictions, which supports 'stringent requirements on the handling and disposal.' Calling the implementing rules 'EPA guidelines' rather than regulations is loose wording but does not change the substance.",
         "evidence_excerpt": "40 CFR 261.24(a): \"A solid waste exhibits the characteristic of toxicity if, using the Toxicity Characteristic Leaching Procedure...\"; table: D007 | Chromium | 5.0",
         "source_urls": [
-          "https:/261.24",
-          "https:/chapter-I/subchapter-I"
+          "https://www.law.cornell.edu/cfr/text/40/261.24",
+          "https://www.law.cornell.edu/cfr/text/40/chapter-I/subchapter-I"
         ],
         "confidence": "medium"
       }
@@ -830,7 +830,7 @@
         "explanation": "35 U.S.C. § 115 is the correct authority for an inventor's oath or declaration. It requires each inventor to state that the application was made or authorized by them, and that they believe themselves to be 'the original inventor or an original joint inventor.' The document paraphrases this as 'original and first inventors,' which is the pre-AIA wording. The parent application (No. 17/328,451) appears to have been filed in 2021, so the post-AIA 'original inventor' standard would govern. The citation is otherwise accurate. Whether these fictional inventors actually executed oaths cannot be verified.",
         "evidence_excerpt": "such individual believes himself or herself to be the original inventor or an original joint inventor of a claimed invention in the application",
         "source_urls": [
-          "https:/115"
+          "https://www.law.cornell.edu/uscode/text/35/115"
         ],
         "confidence": "high"
       }
@@ -857,7 +857,7 @@
         "explanation": "37 C.F.R. § 1.53(b) governs nonprovisional applications and expressly provides for continuation, divisional, and continuation-in-part applications under 35 U.S.C. 120. It also requires that a continuation naming an inventor not named in the prior application be filed under paragraph (b). That fits these facts, because Kevin Park was not named in the parent. Labeling the filing 'Continuation under 37 C.F.R. § 1.53(b)' is accurate.",
         "evidence_excerpt": "a continuation or divisional application naming an inventor not named in the prior application must be filed under this paragraph.",
         "source_urls": [
-          "https:/1.53"
+          "https://www.law.cornell.edu/cfr/text/37/1.53"
         ],
         "confidence": "high"
       }
@@ -884,7 +884,7 @@
         "explanation": "35 U.S.C. § 120 is the correct statute for a continuation application to claim the benefit of an earlier U.S. filing date. The citation is correct for the type of claim being made. However, § 120 benefit requires the later application to be filed before the earlier application is patented. Here the parent patent issued August 15, 2022, and the continuation was filed November 1, 2023, so under the statute's copendency requirement the fictional benefit claim would fail. The claim is also loosely framed as priority 'to the parent patent' rather than to the parent application. The statute is properly invoked but, as applied to these facts, does not support the claim.",
         "evidence_excerpt": "shall have the same effect, as to such invention, as though filed on the date of the prior application, if filed before the patenting or abandonment of or termination of proceedings on the first application",
         "source_urls": [
-          "https:/120"
+          "https://www.law.cornell.edu/uscode/text/35/120"
         ],
         "confidence": "medium"
       }
@@ -926,7 +926,7 @@
         "explanation": "37 C.F.R. § 1.63 governs the inventor's oath or declaration. It requires each inventor or joint inventor to execute one. Mehta and Park are the two named inventors on the continuation, so declarations under § 1.63 are appropriate. The declarations' contents (reviewed the application, aware of the § 1.56 duty, § 1001 penalty acknowledgment) track § 1.63's requirements.",
         "evidence_excerpt": "The inventor, or each individual who is a joint inventor of a claimed invention, in an application for patent must execute an oath or declaration directed to the application",
         "source_urls": [
-          "https:/1.63"
+          "https://www.law.cornell.edu/cfr/text/37/1.63"
         ],
         "confidence": "high"
       }
@@ -953,8 +953,8 @@
         "explanation": "37 C.F.R. § 1.56 is titled 'Duty to disclose information material to patentability' and defines materiality. Under 37 C.F.R. § 1.63(c), a declarant must be aware of the duty to disclose information material to patentability 'as defined in § 1.56.' The declaration's acknowledgment matches.",
         "evidence_excerpt": "§ 1.56 Duty to disclose information material to patentability.",
         "source_urls": [
-          "https:/1.56",
-          "https:/1.63"
+          "https://www.law.cornell.edu/cfr/text/37/1.56",
+          "https://www.law.cornell.edu/cfr/text/37/1.63"
         ],
         "confidence": "high"
       }
@@ -981,8 +981,8 @@
         "explanation": "18 U.S.C. § 1001(a) criminalizes knowingly and willfully making materially false statements in any matter within federal executive-branch jurisdiction (which includes the USPTO). It provides for a fine, imprisonment, or both. 37 C.F.R. § 1.63 also requires an inventor's declaration to acknowledge that willful false statements are punishable under 18 U.S.C. 1001. The declaration's statement is accurate.",
         "evidence_excerpt": "whoever ... knowingly and willfully ... makes any materially false, fictitious, or fraudulent statement or representation ... shall be fined under this title, imprisoned not more than 5 years ... or both.",
         "source_urls": [
-          "https:/1001",
-          "https:/1.63"
+          "https://www.law.cornell.edu/uscode/text/18/1001",
+          "https://www.law.cornell.edu/cfr/text/37/1.63"
         ],
         "confidence": "high"
       }
@@ -1009,7 +1009,7 @@
         "explanation": "This is the same text as ref 32, in Kevin Park's declaration. § 1.56 sets out the duty to disclose information material to patentability.",
         "evidence_excerpt": "§ 1.56 Duty to disclose information material to patentability.",
         "source_urls": [
-          "https:/1.56"
+          "https://www.law.cornell.edu/cfr/text/37/1.56"
         ],
         "confidence": "high"
       }
@@ -1036,7 +1036,7 @@
         "explanation": "This is the same text as ref 33, in Kevin Park's declaration. Under § 1001(a), knowingly and willfully false material statements are punishable by a fine, imprisonment, or both.",
         "evidence_excerpt": "shall be fined under this title, imprisoned not more than 5 years ... or both.",
         "source_urls": [
-          "https:/1001"
+          "https://www.law.cornell.edu/uscode/text/18/1001"
         ],
         "confidence": "high"
       }
@@ -1064,7 +1064,7 @@
         "evidence_excerpt": "IRS Notice 98-12: \"COBRA is the Consolidated Omnibus Budget Reconciliation Act of 1985, the law that added the health care continuation coverage requirements.\"",
         "source_urls": [
           "https://www.irs.gov/pub/irs-drop/n-98-12.pdf",
-          "https:/1161"
+          "https://www.law.cornell.edu/uscode/text/29/1161"
         ],
         "confidence": "high"
       }
@@ -1091,7 +1091,7 @@
         "explanation": "Title VII of the Civil Rights Act of 1964 is real and codified at 42 U.S.C. § 2000e et seq. Listing it as a released claim in a separation agreement is a standard, accurate reference.",
         "evidence_excerpt": "42 U.S.C. § 2000e-2 \"Unlawful employment practices\" — Source: \"Pub. L. 88–352, title VII, § 703, July 2, 1964, 78 Stat. 255\"",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -1118,8 +1118,8 @@
         "explanation": "The ADEA's short-title note at 29 U.S.C. § 621 confirms the Act's name. Section 626(f), added by the OWBPA, sets out when a waiver counts as 'knowing and voluntary.' The requirements include specific reference to ADEA rights, at least 21 days to consider the agreement, and a revocation period of at least 7 days before the agreement takes effect. Sections 4.1, 4.3 and 4.4 of the agreement follow these requirements, so the release of ADEA claims and the knowing-and-voluntary framing are supported.",
         "evidence_excerpt": "\"may be cited as the 'Age Discrimination in Employment Act of 1967'\"; 29 U.S.C. 626(f): \"a waiver may not be considered knowing and voluntary unless at a minimum— ... (F)(i) the individual is given a period of at least 21 days ... (G) ... for a period of at least 7 days following the execution of such agreement, the individual may revoke the agreement\"",
         "source_urls": [
-          "https:/621",
-          "https:/626"
+          "https://www.law.cornell.edu/uscode/text/29/621",
+          "https://www.law.cornell.edu/uscode/text/29/626"
         ],
         "confidence": "high"
       }
@@ -1146,7 +1146,7 @@
         "explanation": "The OWBPA, codified at 29 U.S.C. § 626(f)(1), requires that an ADEA waiver be knowing and voluntary, refer specifically to ADEA rights, be supported by consideration beyond what the employee is already owed, include written advice to consult an attorney, allow at least 21 days to consider, and allow at least 7 days to revoke. Section 4 of the agreement contains each of these elements (4.1 through 4.4), so the heading accurately describes it as structured for OWBPA compliance.",
         "evidence_excerpt": "(E) the individual is advised in writing to consult with an attorney prior to executing the agreement ... (G) the agreement provides that for a period of at least 7 days following the execution of such agreement, the individual may revoke the agreement",
         "source_urls": [
-          "https:/626"
+          "https://www.law.cornell.edu/uscode/text/29/626"
         ],
         "confidence": "high"
       }
@@ -1173,7 +1173,7 @@
         "explanation": "The short-title note at 42 U.S.C. § 12101 confirms the 'Americans with Disabilities Act of 1990.' It was amended by the ADA Amendments Act of 2008 (Pub. L. 110-325), so 'as amended' is accurate. Listing ADA claims in a general release is a proper reference to a real statute.",
         "evidence_excerpt": "\"may be cited as the 'Americans with Disabilities Act of 1990'.\" ... \"Findings and Purposes of Pub. L. 110–325\"",
         "source_urls": [
-          "https:/12101"
+          "https://www.law.cornell.edu/uscode/text/42/12101"
         ],
         "confidence": "high"
       }
@@ -1200,7 +1200,7 @@
         "explanation": "The FMLA is a real federal statute (Pub. L. 103-3, 107 Stat. 6, codified at 29 U.S.C. 2601 et seq.). The name and year are correct, and it is listed only as one of the claims released.",
         "evidence_excerpt": "may be cited as the 'Family and Medical Leave Act of 1993'. (Pub. L. 103-3, § 1(a), Feb. 5, 1993, 107 Stat. 6)",
         "source_urls": [
-          "https:/2601"
+          "https://www.law.cornell.edu/uscode/text/29/2601"
         ],
         "confidence": "high"
       }
@@ -1227,7 +1227,7 @@
         "explanation": "ERISA is a real federal statute (Pub. L. 93-406, 88 Stat. 829, codified at 29 U.S.C. 1001 et seq.). The name and year are correct. Its use in a release clause, with an internal carve-out for vested benefits, is a contractual drafting point and needs no further statutory support.",
         "evidence_excerpt": "This Act may be cited as the 'Employee Retirement Income Security Act of 1974.' (Pub. L. 93-406, § 1, Sept. 2, 1974, 88 Stat. 829)",
         "source_urls": [
-          "https:/1001"
+          "https://www.law.cornell.edu/uscode/text/29/1001"
         ],
         "confidence": "high"
       }
@@ -1366,7 +1366,7 @@
         "explanation": "Section 1833(b)(1) grants immunity for disclosing a trade secret that is either (A) made in confidence to a federal, state, or local government official, or to an attorney, solely to report or investigate a suspected violation of law, or (B) made in a court filing under seal. Section 1833(b)(3) requires employers to give notice of this immunity in agreements with employees. The separation agreement's notice tracks the statute.",
         "evidence_excerpt": "\"An individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that— (A) is made— (i) in confidence to a Federal, State, or local government official, either directly or indirectly, or to an attorney; and (ii) solely for the purpose of reporting or investigating a suspected violation of law; or (B) is made in a complaint or other document filed in a lawsuit or other proceeding, if such filing is made under seal.\"",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -1451,7 +1451,7 @@
         "explanation": "HIPAA and its Privacy Rule are real, and the rubric only asks the reviewer to invoke 'privacy grounds, HIPAA considerations, or similar protective rationale.' That is a reasonable generic reference. One caveat: HIPAA's PHI definition excludes employment records held by an employer, so HIPAA may not strictly govern an HR-held medical record. Medical-privacy grounds for redaction would still apply.",
         "evidence_excerpt": "\"Protected health information excludes individually identifiable health information: ... In employment records held by a covered entity in its role as employer\"",
         "source_urls": [
-          "https:/160.103"
+          "https://www.law.cornell.edu/cfr/text/45/160.103"
         ],
         "confidence": "medium"
       }
@@ -1478,7 +1478,7 @@
         "explanation": "This is a passing reference to a prior fictional 'TSCA reporting matter.' TSCA is a real federal statute codified at 15 U.S.C. § 2601 et seq. No legal proposition is asserted.",
         "evidence_excerpt": "15 U.S.C. § 2601 \"Findings, policy, and intent\"; short title: \"Toxic Substances Control Act\" (Pub. L. 94–469, § 1).",
         "source_urls": [
-          "https:/2601"
+          "https://www.law.cornell.edu/uscode/text/15/2601"
         ],
         "confidence": "high"
       }
@@ -1505,8 +1505,8 @@
         "explanation": "This is a short-form reference to RCRA (42 U.S.C. § 6901 et seq., which the report cites in full elsewhere) and to Ohio's hazardous waste rules (OAC Chapter 3745-52). The report's finding of substantial compliance is a factual conclusion within the fictional scenario, not a statement about what the law says. The authorities exist and are the correct framework for a hazardous-waste generator audit.",
         "evidence_excerpt": "Chapter 82 (the Solid Waste Disposal Act) spans from section 6901 through at least 6992k ... encompassing hazardous waste management (LII summary)",
         "source_urls": [
-          "https:/6901",
-          "https:/262.17"
+          "https://www.law.cornell.edu/uscode/text/42/6901",
+          "https://www.law.cornell.edu/cfr/text/40/262.17"
         ],
         "confidence": "high"
       }
@@ -1533,7 +1533,7 @@
         "explanation": "40 C.F.R. § 262.20(a)(1) requires generators to prepare a manifest on EPA Form 8700-22 (with continuation Form 8700-22A). This matches the description of it as the standardized federal form for tracking hazardous waste shipments from generator to TSDF.",
         "evidence_excerpt": "40 CFR § 262.20(a)(1): generators must \"prepare a Manifest (OMB Control number 2050-0039) on EPA Form 8700-22, and, if necessary, EPA Form 8700-22A.\"",
         "source_urls": [
-          "https:/262.20"
+          "https://www.law.cornell.edu/cfr/text/40/262.20"
         ],
         "confidence": "high"
       }
@@ -1560,7 +1560,7 @@
         "explanation": "Under 40 C.F.R. 261.24, a waste has the toxicity characteristic when its Toxicity Characteristic Leaching Procedure (Method 1311) extract meets or exceeds the Table 1 levels. Table 1 lists D007 as chromium with a regulatory level of 5.0 mg/L. The audit report's description is accurate.",
         "evidence_excerpt": "\"using the Toxicity Characteristic Leaching Procedure, test Method 1311\" ... Table 1: \"D007 | Chromium | 7440-47-3 | 5.0\"",
         "source_urls": [
-          "https:/261.24"
+          "https://www.law.cornell.edu/cfr/text/40/261.24"
         ],
         "confidence": "high"
       }
@@ -1625,7 +1625,7 @@
         "evidence_excerpt": "\"does not receive a copy of the manifest with the handwritten signature of the owner or operator of the designated facility within 35 days ... must contact the transporter and/or the owner or operator ... (2) ... must submit an Exception Report ... within 45 days of the date the waste was accepted by the initial transporter.\" (40 CFR 262.42, 2021 ed.)",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2021-title40-vol28/pdf/CFR-2021-title40-vol28-sec262-42.pdf",
-          "https:/262.42"
+          "https://www.law.cornell.edu/cfr/text/40/262.42"
         ],
         "confidence": "high"
       }
@@ -1752,7 +1752,7 @@
         "explanation": "COBRA gives qualified beneficiaries the right to elect continuation coverage under their group health plan (29 U.S.C. § 1161(a)). The contract term under which the employer pays the employer share of COBRA premiums for six months, provided the employee timely elects coverage, correctly relies on that election-based continuation right. The subsidy itself is a contractual term, which is appropriate.",
         "evidence_excerpt": "29 U.S.C. § 1161(a): \"each qualified beneficiary who would lose coverage under the plan as a result of a qualifying event is entitled, under the plan, to elect, within the election period, continuation coverage under the plan.\"",
         "source_urls": [
-          "https:/1161",
+          "https://www.law.cornell.edu/uscode/text/29/1161",
           "https://www.dol.gov/general/topic/health-plans/cobra"
         ],
         "confidence": "high"
@@ -1780,8 +1780,8 @@
         "explanation": "Section 626(f)(1)(F) requires at least 21 days to consider the agreement and (G) requires at least 7 days to revoke it, with no effectiveness until that period ends. The agreement matches both: 21 days to consider, 7 days to revoke, effective only after revocation lapses. The advice-of-counsel clause (4.2) matches (E). Clause 4.5 (changes, material or immaterial, do not restart the 21-day period) is expressly permitted by the EEOC regulation at 29 C.F.R. § 1625.22(e)(4).",
         "evidence_excerpt": "\"the agreement provides that for a period of at least 7 days following the execution of such agreement, the individual may revoke the agreement, and the agreement shall not become effective or enforceable until the revocation period has expired\"; 1625.22(e)(4): \"The parties may agree that changes, whether material or immaterial, do not restart the running of the 21 or 45 day period.\"",
         "source_urls": [
-          "https:/626",
-          "https:/1625.22"
+          "https://www.law.cornell.edu/uscode/text/29/626",
+          "https://www.law.cornell.edu/cfr/text/29/1625.22"
         ],
         "confidence": "high"
       }
@@ -1947,7 +1947,7 @@
         "explanation": "17 U.S.C. § 101 defines \"work made for hire.\" The definition covers works prepared by an employee within the scope of employment, and certain specially commissioned works if a written agreement says so. The clause adopts the term \"as that term is defined under Section 101,\" which is an accurate cross-reference. A contract cannot make a work \"for hire\" if it falls outside the statutory categories, but the citation is only to the definition, and the agreement presumably includes a backup assignment clause.",
         "evidence_excerpt": "\"A 'work made for hire' is— (1) a work prepared by an employee within the scope of his or her employment; or (2) a work specially ordered or commissioned ...\"",
         "source_urls": [
-          "https:/101"
+          "https://www.law.cornell.edu/uscode/text/17/101"
         ],
         "confidence": "high"
       }
@@ -2040,7 +2040,7 @@
         "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153) created the federal civil cause of action for trade secret misappropriation at 18 U.S.C. § 1836. Citing \"18 U.S.C. § 1836 et seq.\" is the standard way to refer to the DTSA. The duration-of-confidentiality clause is a contract term, and it is consistent with treating protection as lasting while the information remains a trade secret. The citation simply identifies the statute and is accurate.",
         "evidence_excerpt": "18 U.S.C. § 1836(b)(1): \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.govinfo.gov/app/details/PLAW-114publ153"
         ],
         "confidence": "high"
@@ -2068,8 +2068,8 @@
         "explanation": "42 U.S.C. ch. 82 (Solid Waste Disposal, i.e., RCRA as amended) runs from § 6901 through § 6992k, so the range cite is accurate. RCRA § 3002, 42 U.S.C. § 6922(a)(5), requires generator standards including use of a manifest system, and 40 C.F.R. § 262.20 implements it. Improper manifesting of hazardous waste is therefore properly framed as a violation of RCRA and its implementing regulations.",
         "evidence_excerpt": "42 U.S.C. § 6922(a)(5): \"use of a manifest system and any other reasonable means necessary to assure that all such hazardous waste generated is designated for treatment, storage, or disposal in, and arrives at, treatment, storage, or disposal facilities\"; Chapter 82 first section § 6901, last section § 6992k (Subchapter X).",
         "source_urls": [
-          "https:/chapter-82",
-          "https:/6922"
+          "https://www.law.cornell.edu/uscode/text/42/chapter-82",
+          "https://www.law.cornell.edu/uscode/text/42/6922"
         ],
         "confidence": "high"
       }
@@ -2152,8 +2152,8 @@
         "explanation": "RCRA Subtitle C (42 U.S.C. ch. 82, subch. III, 'Hazardous Waste Management') governs hazardous waste. Under its regulations, waste exhibits the toxicity characteristic for chromium (EPA HW No. D007) when its TCLP extract reaches 5.0 mg/L. Chromium-containing waste is therefore hazardous under Subtitle C when it meets the characteristic or a listing. That is consistent with how the memo describes the facility's waste.",
         "evidence_excerpt": "Subchapter III \"HAZARDOUS WASTE MANAGEMENT\" — § 6921 Identification and listing of hazardous waste; 40 CFR 261.24 table: D007 | Chromium | 7440-47-3 | 5.0",
         "source_urls": [
-          "https:/chapter-82/subchapter-III",
-          "https:/261.24"
+          "https://www.law.cornell.edu/uscode/text/42/chapter-82/subchapter-III",
+          "https://www.law.cornell.edu/cfr/text/40/261.24"
         ],
         "confidence": "high"
       }
@@ -2384,7 +2384,7 @@
         "explanation": "Most of the statement is correct: § 6928(d) does create criminal liability for knowing hazardous-waste violations, with fines of up to $50,000 per day and up to two years' imprisonment. The parenthetical is wrong, though. Under § 6928(d), the five-year maximum applies to violations of paragraphs (1) or (2) (knowingly transporting waste to an unpermitted facility, or treating, storing or disposing without a permit or in violation of one). It is not the knowing-endangerment penalty. Knowing endangerment is a separate offense under § 6928(e), punishable by up to fifteen years and a $250,000 fine ($1,000,000 for an organization). The memo therefore understates knowing-endangerment exposure and misplaces it in subsection (d).",
         "evidence_excerpt": "\"imprisonment not to exceed two years (five years in the case of a violation of paragraph (1) or (2)), or both\"; (e): \"shall, upon conviction, be subject to a fine of not more than $250,000 or imprisonment for not more than fifteen years, or both.\"",
         "source_urls": [
-          "https:/6928"
+          "https://www.law.cornell.edu/uscode/text/42/6928"
         ],
         "confidence": "high"
       },
@@ -2393,7 +2393,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The main proposition is right: § 6928(d) creates criminal liability for knowing violations. The parenthetical is wrong. Section 6928(d) reads: 'imprisonment not to exceed two years (five years in the case of a violation of paragraph (1) or (2))'. The five-year tier is for unpermitted transport, treatment, storage or disposal, not knowing endangerment. Knowing endangerment is a separate offense under § 6928(e): 'a fine of not more than $250,000 or imprisonment for not more than fifteen years ... A defendant that is an organization shall ... be subject to a fine of not more than $1,000,000.' The memo understates knowing-endangerment exposure by ten years and places it in the wrong subsection. That is a substantive legal error, not a loose parenthetical, so MISCHARACTERIZED stands. VERIFIED_MINOR_DEFECT would be a defensible lesser grade only if the parenthetical is treated as an aside.",
         "source_urls": [
-          "https:/6928"
+          "https://www.law.cornell.edu/uscode/text/42/6928"
         ]
       }
     },
@@ -2447,10 +2447,10 @@
         "explanation": "42 U.S.C. Chapter 103, the Comprehensive Environmental Response, Compensation, and Liability Act, runs from § 9601 (Subchapter I, §§ 9601-9628) through § 9675 (Subchapter IV, §§ 9671-9675). So '§§ 9601–9675' correctly cites the whole Act. Under CERCLA § 107 (42 U.S.C. § 9607), parties including those who arranged for disposal are liable for removal and remedial costs. That supports the memo's statement about potential liability for contamination and cleanup costs from disposal at unauthorized facilities.",
         "evidence_excerpt": "\"SUBCHAPTER I—HAZARDOUS SUBSTANCES RELEASES, LIABILITY, COMPENSATION (§§ 9601 – 9628) ... SUBCHAPTER IV—POLLUTION INSURANCE (§§ 9671 – 9675)\"; § 9607: \"all costs of removal or remedial action incurred by the United States Government or a State or an Indian tribe not inconsistent with the national contingency plan\"",
         "source_urls": [
-          "https:/chapter-103",
-          "https:/9601",
-          "https:/9607",
-          "https:/9675"
+          "https://www.law.cornell.edu/uscode/text/42/chapter-103",
+          "https://www.law.cornell.edu/uscode/text/42/9601",
+          "https://www.law.cornell.edu/uscode/text/42/9607",
+          "https://www.law.cornell.edu/uscode/text/42/9675"
         ],
         "confidence": "high"
       }
@@ -2477,7 +2477,7 @@
         "explanation": "42 U.S.C. § 6901 et seq. (Chapter 82, running through § 6992k) is the Solid Waste Disposal Act as comprehensively revised by the Resource Conservation and Recovery Act of 1976. Citing it as \"RCRA, 42 U.S.C. §§ 6901 et seq.\" is the standard convention. It governs hazardous waste handling, storage, and disposal, which is the subject of the audit.",
         "evidence_excerpt": "The current framework was established by the Resource Conservation and Recovery Act of 1976 (Pub. L. 94-580), which completely revised the original 1965 solid waste disposal provisions. (LII summary of the § 6901 notes)",
         "source_urls": [
-          "https:/6901"
+          "https://www.law.cornell.edu/uscode/text/42/6901"
         ],
         "confidence": "high"
       }
@@ -2531,8 +2531,8 @@
         "explanation": "The federal RCRA generator rules set the accumulation time limits the letter describes. Large quantity generators get 90 days (40 C.F.R. § 262.17). Small quantity generators get 180 days, or 270 days when the waste must travel 200 miles or more (40 C.F.R. § 262.16). Ohio's counterpart rule, OAC 3745-52-17, imposes the same 90-day limit on large quantity generators. The reference to 90/180/270-day limits \"as applicable\" is accurate.",
         "evidence_excerpt": "\"A large quantity generator accumulates hazardous waste on site for no more than 90 days\" (262.17); \"accumulates hazardous waste on site for no more than 180 days\" / \"may accumulate hazardous waste on site for 270 days or less\" (262.16); OAC: \"A large quantity generator accumulates or treats hazardous waste on-site for no more than ninety days\"",
         "source_urls": [
-          "https:/262.16",
-          "https:/262.17",
+          "https://www.law.cornell.edu/cfr/text/40/262.16",
+          "https://www.law.cornell.edu/cfr/text/40/262.17",
           "https://codes.ohio.gov/ohio-administrative-code/rule-3745-52-17"
         ],
         "confidence": "high"
@@ -2630,7 +2630,7 @@
         "explanation": "This is a general reference to RCRA and the corresponding Ohio EPA rules, describing the allegations in the fictional memo. RCRA (42 U.S.C. § 6901 et seq.) and the generator manifest rules under it (40 C.F.R. Part 262; OAC Chapter 3745-52) do govern hazardous waste manifesting. The reference is accurate.",
         "evidence_excerpt": "Chapter 82 ... encompassing hazardous waste management (LII § 6901 page summary)",
         "source_urls": [
-          "https:/6901"
+          "https://www.law.cornell.edu/uscode/text/42/6901"
         ],
         "confidence": "high"
       }
@@ -2838,8 +2838,8 @@
         "explanation": "This is a generic reservation to add claims for violations of unspecified federal environmental statutes. Such statutes exist, for example RCRA (42 U.S.C. 6901 et seq.) with its hazardous waste rules at 40 C.F.R. Parts 261-262, which I checked. No specific provision is cited, so nothing beyond that general category can be checked. Inequitable conduct before the USPTO is a patent-law doctrine rather than a statute, and it is outside this citation's scope.",
         "evidence_excerpt": "\"must identify all applicable EPA hazardous waste numbers (EPA hazardous waste codes) in subparts C and D of part 261\" (40 C.F.R. 262.11(g), a RCRA implementing regulation)",
         "source_urls": [
-          "https:/6971",
-          "https:/262.11"
+          "https://www.law.cornell.edu/uscode/text/42/6971",
+          "https://www.law.cornell.edu/cfr/text/40/262.11"
         ],
         "confidence": "medium"
       }
@@ -2963,7 +2963,7 @@
         "explanation": "45 C.F.R. § 160.103 does define PHI, so the citation is accurate for that purpose. The problem is how the footer applies it. The same definition excludes individually identifiable health information 'in employment records held by a covered entity in its role as employer.' This short-term disability claim summary is an employer HR benefits record, and short-term disability is generally an excepted benefit rather than a 'health plan.' Calling this record 'PHI as defined under' § 160.103 is therefore doubtful, even though the cite correctly identifies where PHI is defined.",
         "evidence_excerpt": "\"Protected health information means individually identifiable health information: ... (2) Protected health information excludes individually identifiable health information: ... In employment records held by a covered entity in its role as employer\"",
         "source_urls": [
-          "https:/160.103"
+          "https://www.law.cornell.edu/cfr/text/45/160.103"
         ],
         "confidence": "medium"
       }
@@ -3156,7 +3156,7 @@
         "explanation": "COBRA continuation coverage is codified at ERISA Part 6, 29 U.S.C. § 1161 et seq. It was added by Pub. L. 99-272, title X (1986), as the § 1161 source credit shows. The section requires group health plans to let qualified beneficiaries who lose coverage because of a qualifying event, such as termination of employment, elect continuation coverage. The letter's generic reference to COBRA continuation eligibility is accurate. I could not find the popular name 'COBRA' in the text I fetched, so the link between that name and Pub. L. 99-272 rests on the source credit.",
         "evidence_excerpt": "29 U.S.C. 1161(a): \"The plan sponsor of each group health plan shall provide, in accordance with this part, that each qualified beneficiary who would lose coverage under the plan as a result of a qualifying event is entitled, under the plan, to elect, within the election period, continuation coverage under the plan.\" (\"as added Pub. L. 99–272, title X, § 10002(a), Apr. 7, 1986\")",
         "source_urls": [
-          "https:/1161"
+          "https://www.law.cornell.edu/uscode/text/29/1161"
         ],
         "confidence": "high"
       }
@@ -3210,7 +3210,7 @@
         "explanation": "This is a general statement of corporate compliance policy that refers to RCRA and Ohio EPA rules. Both exist and apply to hazardous waste generators. The email makes no specific legal claim to check.",
         "evidence_excerpt": "\"A large quantity generator accumulates or treats hazardous waste on-site for no more than ninety days\" (OAC 3745-52-17, confirming the Ohio EPA hazardous waste generator rules exist)",
         "source_urls": [
-          "https:/6901",
+          "https://www.law.cornell.edu/uscode/text/42/6901",
           "https://codes.ohio.gov/ohio-administrative-code/rule-3745-52-17"
         ],
         "confidence": "high"
@@ -3330,7 +3330,7 @@
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2012-title40-vol27/pdf/CFR-2012-title40-vol27-part262-app-id160.pdf",
           "https://www.epa.gov/sites/default/files/2018-05/documents/instructions_for_completing_the_uniform_hazardous_waste_manifest.pdf",
-          "https:/268.7"
+          "https://www.law.cornell.edu/cfr/text/40/268.7"
         ],
         "confidence": "high"
       },
@@ -3340,7 +3340,7 @@
         "explanation": "The finding holds. The memo says RCRA regulations require hazardous waste quantities to be determined \"through measurement or analytical characterization, not mere estimation,\" especially for waste subject to Land Disposal Restrictions. The governing manifest instructions say the opposite. EPA's instructions for the Uniform Hazardous Waste Manifest (40 CFR Part 262 appendix), Item 11, read: \"Waste quantities entered should be based on actual measurements or reasonably accurate estimates of actual quantities shipped. Container capacities are not acceptable as estimates.\" So reasonably accurate estimates are expressly allowed; only container capacities are barred as estimates. The LDR rule, 40 C.F.R. § 268.7(a)(1), deals with whether waste must be treated before land disposal. It says that determination may be made \"in either of two ways: testing the waste or using knowledge of the waste.\" It does not address manifest quantities and requires no analytical verification of quantities. The memo's citation is vague, and no regulation I read supports its proposition. The relevant authority actually contradicts it.",
         "source_urls": [
           "https://www.epa.gov/sites/default/files/2018-05/documents/instructions_for_completing_the_uniform_hazardous_waste_manifest.pdf",
-          "https:/268.7"
+          "https://www.law.cornell.edu/cfr/text/40/268.7"
         ]
       }
     },
@@ -3366,8 +3366,8 @@
         "explanation": "D007 is the toxicity characteristic code for chromium (40 C.F.R. 261.24, Table 1). Under 40 C.F.R. 262.11, a generator must check the listing descriptions (c), must 'also' check the characteristics (d), and must identify 'all applicable' waste codes from both subparts C and D (g). That supports the memo's point: a waste that is both characteristic and listed needs both codes. Whether this particular waste was in fact a listed waste is a fictional fact.",
         "evidence_excerpt": "\"The person then must also determine whether the waste exhibits one or more hazardous characteristics...\" (262.11(d)); \"must identify all applicable EPA hazardous waste numbers (EPA hazardous waste codes) in subparts C and D of part 261\" (262.11(g)); Table 1: \"D007 | Chromium | 7440-47-3 | 5.0\"",
         "source_urls": [
-          "https:/261.24",
-          "https:/262.11"
+          "https://www.law.cornell.edu/cfr/text/40/261.24",
+          "https://www.law.cornell.edu/cfr/text/40/262.11"
         ],
         "confidence": "high"
       }
@@ -3394,7 +3394,7 @@
         "explanation": "This is a generic reservation of rights under unspecified whistleblower statutes. Federal environmental whistleblower protections do exist; for example, RCRA's employee protection provision at 42 U.S.C. 6971(a) bars retaliation against employees who start or testify in proceedings under the Act. Because no specific statute is named, the reference is accurate only as a general statement.",
         "evidence_excerpt": "No person shall fire, or in any other way discriminate against ... any employee ... by reason of the fact that such employee ... has filed, instituted, or caused to be filed or instituted any proceeding under this chapter",
         "source_urls": [
-          "https:/6971"
+          "https://www.law.cornell.edu/uscode/text/42/6971"
         ],
         "confidence": "medium"
       }

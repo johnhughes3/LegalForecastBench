@@ -234,7 +234,7 @@
         "explanation": "Both acts exist, and the memo names them without a section cite. The FDCA's express food-labeling preemption provision, § 403A (21 U.S.C. § 343-1), was added by the NLEA and bars states from establishing food labeling requirements 'not identical to' the enumerated federal requirements. That supports the memo's hedged statement that there 'may be' federal preemption defenses under the two acts. I checked only the statutory text; I did not check the memo's separate remark about Ninth Circuit precedent or whether preemption would actually reach a '100% Natural' claim.",
         "evidence_excerpt": "no State or political subdivision of a State may directly or indirectly establish under any authority or continue in effect as to any food in interstate commerce ... (June 25, 1938, ch. 675, § 403A, as added Pub. L. 101–535, § 6(a), Nov. 8, 1990, 104 Stat. 2362",
         "source_urls": [
-          "https:/343-1"
+          "https://www.law.cornell.edu/uscode/text/21/343-1"
         ],
         "confidence": "high"
       }
@@ -483,7 +483,7 @@
         "explanation": "Section 5 of the FTC Act is codified at 15 U.S.C. § 45. Subsection (a)(1) declares unlawful the quoted 'unfair or deceptive acts or practices in or affecting commerce', and (a)(2) empowers and directs the Commission to prevent them. That supports the letter's statement that the FTC has independent authority to challenge deceptive advertising claims, which would include 'natural' claims on food. The statute does not mention 'natural' claims specifically; that is the letter's application, not a quotation. A pin to § 45(a)(1) would be more precise but the section cite is correct.",
         "evidence_excerpt": "(1) Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are hereby declared unlawful. (2) The Commission is hereby empowered and directed to prevent persons, partnerships, or corporations ...",
         "source_urls": [
-          "https:/45"
+          "https://www.law.cornell.edu/uscode/text/15/45"
         ],
         "confidence": "high"
       }
@@ -1551,7 +1551,7 @@
         "evidence_excerpt": "In the preamble of a proposed rule we published in the Federal Register (56 FR 60421, November 27, 1991), we stated ... Further, we said that we have considered ``natural'' to mean that nothing artificial or synthetic (including colors regardless of source) is included in, or has been added to, the product that would not normally be expected to be there (56 FR 60421 at 60466).",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
-          "https:/10.85",
+          "https://www.law.cornell.edu/cfr/text/21/10.85",
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
         ],
         "confidence": "medium"
@@ -1991,7 +1991,7 @@
         "source_urls": [
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
           "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
-          "https:/101.100"
+          "https://www.law.cornell.edu/cfr/text/21/101.100"
         ],
         "confidence": "low"
       },
@@ -2003,7 +2003,7 @@
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
           "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
           "https://www.courtlistener.com/opinion/8725229/janney-v-mills/",
-          "https:/101.100"
+          "https://www.law.cornell.edu/cfr/text/21/101.100"
         ]
       }
     },
@@ -2029,7 +2029,7 @@
         "explanation": "No specific document is cited, only 'the relevant FDA guidance documents'. The FDA materials I read do not say what the email attributes to them. (a) The only FDA provision on processing-aid disclosure, 21 C.F.R. 101.100(a)(3), exempts incidental additives present at 'insignificant levels' that have no technical or functional effect in the finished food. It has no 0.5% or other percentage threshold, governs ingredient declaration only, and does not mention 'natural'. (b) FDA's 'natural' policy covers anything artificial or synthetic 'included in, or ... added to, a food', with no processing-aid carve-out and no de minimis level. (c) The 2015 notice's remark that the policy did not 'explicitly address food processing or manufacturing methods' concerns methods such as pasteurization and irradiation, not added substances. The email also describes the additives as an acidity regulator and preservative aid for shelf life, which is a functional effect in the finished food and falls outside 101.100(a)(3)(ii)(c)'s own definition. The email frames this as the team's 'reading' and asks counsel to confirm, so it is a hedged internal position, not a firm statement of law. I cannot rule out some other FDA document with a 0.5% figure, but none appears in the texts read.",
         "evidence_excerpt": "(3) Incidental additives that are present in a food at insignificant levels and do not have any technical or functional effect in that food. ... (ii) Processing aids, which are as follows: ... (c) Substances that are added to a food for their technical or functional effect in the processing but are present in the finished food at insignificant levels and do not have any technical or functional effect in that food.",
         "source_urls": [
-          "https:/101.100",
+          "https://www.law.cornell.edu/cfr/text/21/101.100",
           "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
         ],
@@ -2040,7 +2040,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "No FDA guidance document I located says that processing aids below 0.5% need no disclosure or leave a '100% Natural' claim unaffected. The only processing-aid provision, 21 C.F.R. 101.100(a)(3), exempts incidental additives present at 'insignificant levels' from ingredient declaration. It has no numerical percentage threshold (the only number in the section is a separate 10 ppm sulfite rule in (a)(4)) and does not mention 'natural'. The FDA 'natural' policy page and the 2015 Federal Register notice contain no processing-aid carve-out and no threshold. FDA warning letters quoted in Janney v. General Mills, 944 F. Supp. 2d at 812-13, treat added citric acid as precluding 'natural' / '100% NATURAL'. The source documents themselves concede the point: the Rennick email calls the 0.5% figure 'an internal standard rather than a published FDA bright line', and the Pemberton letter says it 'does not appear in any published FDA guidance'. The email hedges ('our team's reading') and asks counsel to confirm, but it still attributes to FDA guidance content that guidance does not contain. Finding upheld.",
         "source_urls": [
-          "https:/101.100",
+          "https://www.law.cornell.edu/cfr/text/21/101.100",
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
           "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
           "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
@@ -2071,7 +2071,7 @@
         "source_urls": [
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
           "https://www.federalregister.gov/documents/2015/11/12/2015-28779/use-of-the-term-natural-in-the-labeling-of-human-food-products-request-for-information-and-comments",
-          "https:/101.100",
+          "https://www.law.cornell.edu/cfr/text/21/101.100",
           "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
         ],
         "confidence": "medium"
@@ -2083,7 +2083,7 @@
         "source_urls": [
           "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
           "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
-          "https:/101.100",
+          "https://www.law.cornell.edu/cfr/text/21/101.100",
           "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
         ]
       }

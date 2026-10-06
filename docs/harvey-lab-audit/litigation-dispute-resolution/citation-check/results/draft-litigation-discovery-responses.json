@@ -62,7 +62,7 @@
         "explanation": "§ 1332(a) requires diversity of citizenship and an amount in controversy over $75,000, which matches the complaint's paraphrase.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -89,7 +89,7 @@
         "explanation": "§ 1391(b)(2) makes venue proper in a district where a substantial part of the events or omissions occurred. Citing § 1391(b) without the (2) paragraph is acceptable, and the paraphrase tracks the statutory language closely.",
         "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -279,7 +279,7 @@
         "explanation": "§ 1332(a) is the correct basis for diversity jurisdiction. The answer cites it to admit jurisdiction, and the citation is accurate.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000 ... and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -306,7 +306,7 @@
         "explanation": "28 U.S.C. § 1391 is the general federal venue statute. Section 1391(b)(2) makes venue proper where a substantial part of the events occurred. A general cite to § 1391 when admitting proper venue is accurate.",
         "evidence_excerpt": "(b) Venue in General.—A civil action may be brought in— ... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -1641,7 +1641,7 @@
         "explanation": "28 U.S.C. § 1332 confers original jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000. It supports diversity jurisdiction.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1778,7 +1778,7 @@
         "explanation": "§ 636(b)(1)(A) lets a district judge designate a magistrate judge to hear and decide non-dispositive pretrial matters. Discovery disputes are such matters, so the statute supports the referral.",
         "evidence_excerpt": "a judge may designate a magistrate judge to hear and determine any pretrial matter pending before the court, except a motion for injunctive relief, for judgment on the pleadings, for summary judgment...",
         "source_urls": [
-          "https:/636"
+          "https://www.law.cornell.edu/uscode/text/28/636"
         ],
         "confidence": "high"
       }

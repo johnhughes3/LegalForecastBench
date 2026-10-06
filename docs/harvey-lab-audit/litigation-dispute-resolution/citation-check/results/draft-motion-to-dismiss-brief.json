@@ -79,7 +79,7 @@
         "explanation": "28 U.S.C. § 1332(a) grants district courts original jurisdiction over civil actions where the matter in controversy exceeds $75,000, exclusive of interest and costs, and is between citizens of different States. The complaint's paragraph tracks the statutory language almost word for word. Whether complete diversity actually exists on the scenario's facts is a separate, substantive question (the defense research memo, Section XV, flags that both parties appear to share Delaware and Texas citizenship); that is not a citation defect.",
         "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -106,8 +106,8 @@
         "explanation": "§ 1391(b) is the general venue provision and supports venue in the Western District of Texas: under (b)(1) venue lies in a district where any defendant resides if all defendants reside in that State, and the sole defendant is pleaded as headquartered in Austin, within the district. Technical note, not a citation defect: § 1391(a)(1) governs venue of actions \"brought in\" district courts, and the complaint's own para. 14 says the action was removed from state court, where venue is fixed by § 1441(a)'s \"district and division embracing the place where such action is pending\" language. The citation is nonetheless a conventional and accurate reference for venue in the district.",
         "evidence_excerpt": "(b) Venue in General.— A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located;",
         "source_urls": [
-          "https:/1391",
-          "https:/1441"
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/1441"
         ],
         "confidence": "high"
       }
@@ -134,7 +134,7 @@
         "explanation": "The complaint cites § 1332(a) only to identify the jurisdictional basis the defendant invoked on removal. § 1332(a) is the diversity-jurisdiction provision, and the notice of removal in the record does invoke it (Notice of Removal paras. 2, 8). The citation is accurate for that descriptive purpose.",
         "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1240,7 +1240,7 @@
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
-          "https:/17921"
+          "https://www.law.cornell.edu/uscode/text/42/17921"
         ],
         "confidence": "high"
       }
@@ -1296,8 +1296,8 @@
         "evidence_excerpt": "Protected health information means individually identifiable health information: (1) Except as provided in paragraph (2) of this definition, that is: (i) Transmitted by electronic media; (ii) Maintained in electronic media; or (iii) Transmitted or maintained in any other form or medium.",
         "source_urls": [
           "https://www.ecfr.gov/current/title-45/section-160.103",
-          "https:/160.103",
-          "https:/17921"
+          "https://www.law.cornell.edu/cfr/text/45/160.103",
+          "https://www.law.cornell.edu/uscode/text/42/17921"
         ],
         "confidence": "high"
       }
@@ -1357,7 +1357,7 @@
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
-          "https:/17921"
+          "https://www.law.cornell.edu/uscode/text/42/17921"
         ],
         "confidence": "high"
       }
@@ -1444,7 +1444,7 @@
         "evidence_excerpt": "2020 CFR § 2.101: \"Commercial computer software means any computer software that is a commercial item. Commercial item means— (1) Any item, other than real property, that is of a type customarily used by the general public...\" Current § 2.101: \"Commercial computer software means any computer software that is a commercial product or commercial service. Commercial product means— (1) A product, other than real property...\" 86 FR 61017: \"final rule amending the Federal Acquisition Regulation (FAR) ... to change the definition of 'commercial item.' DATES: Effective December 6, 2021.\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2020-title48-vol1/xml/CFR-2020-title48-vol1-sec2-101.xml",
-          "https:/2.101",
+          "https://www.law.cornell.edu/cfr/text/48/2.101",
           "https://www.govinfo.gov/content/pkg/FR-2021-11-04/html/2021-22144.htm"
         ],
         "confidence": "medium"
@@ -1801,7 +1801,7 @@
         "evidence_excerpt": "Twombly, 550 U.S. at 548, 550: \"Liability under § 1 of the Sherman Act, 15 U. S. C. § 1, requires a 'contract, combination ... , or conspiracy, in restraint of trade or commerce.'\" ... \"In this action against petitioners, a group of ILECs, plaintiffs seek treble damages and declaratory and injunctive relief for claimed violations of § 1 of the Sherman Act\". 15 U.S.C. § 1: \"Every contract, combination in the form of trust or otherwise, or conspiracy, in restraint of trade or commerce among the several States, or with foreign nations, is declared to be illegal.\"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/145730/bell-atlantic-corp-v-twombly/",
-          "https:/1"
+          "https://www.law.cornell.edu/uscode/text/15/1"
         ],
         "confidence": "high"
       }
@@ -3186,7 +3186,7 @@
         "evidence_excerpt": "\"Castrol Inc. (Castrol), a major motor oil manufacturer and distributor of its products, sued in the United States District Court for the District of New Jersey, alleging that Pennzoil Company and Pennzoil Products Company (Pennzoil) advertised its motor oil in violation of section 43(a) of the Lanham Act when it claimed that its product 'outperforms any leading motor oil against viscosity breakdown.'\"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/601792/castrol-inc-v-pennzoil-company-and-pennzoil-products-company/",
-          "https:/1125"
+          "https://www.law.cornell.edu/uscode/text/15/1125"
         ],
         "confidence": "high"
       }
@@ -4114,7 +4114,7 @@
         "explanation": "§ 1332(a) grants original jurisdiction over civil actions between \"citizens of different States\" where more than $75,000 is in controversy, and it is the basis for diversity removal. The words \"complete diversity\" are not in the statute, but the requirement is the settled construction of it: the Fifth Circuit in Harvey states that Strawbridge v. Curtiss established the rule of complete diversity for cases arising under § 1332, requiring all persons on one side to be citizens of different states than all persons on the other. The memo's statement is supported.",
         "evidence_excerpt": "§ 1332(a): \"...and is between— (1) citizens of different States;\". Harvey: \"In Strawbridge v. Curtiss, 7 U.S. (3 Cranch) 267, 2 L.Ed. 435 (1806), the Supreme Court established the rule of complete diversity for cases arising under 28 U.S.C. § 1332. ... Complete diversity 'requires that all persons on one side of the controversy be citizens of different states than all persons on the other side.'\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.ca5.uscourts.gov/Opinions/pub/07/07-31106-CV0.wpd.pdf"
         ],
         "confidence": "high"
@@ -4142,7 +4142,7 @@
         "explanation": "§ 1332(c)(1) deems a corporation a citizen of every State by which it has been incorporated and of the State where it has its principal place of business. That directly supports the memo's statement that a Delaware corporation with its principal place of business in Austin, Texas is a citizen of both Delaware and Texas for diversity purposes.",
         "evidence_excerpt": "(1) a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -4251,7 +4251,7 @@
         "evidence_excerpt": "Rule 12(h)(3): \"If the court determines at any time that it lacks subject-matter jurisdiction, the court must dismiss the action.\" 28 U.S.C. 1447(c): \"If at any time before final judgment it appears that the district court lacks subject matter jurisdiction, the case shall be remanded.\"",
         "source_urls": [
           "https://www.law.cornell.edu/rules/frcp/rule_12",
-          "https:/1447"
+          "https://www.law.cornell.edu/uscode/text/28/1447"
         ],
         "confidence": "high"
       }
@@ -4699,7 +4699,7 @@
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
-          "https:/17931",
+          "https://www.law.cornell.edu/uscode/text/42/17931",
           "https://www.ecfr.gov/current/title-45/section-164.312"
         ],
         "confidence": "high"
@@ -4727,7 +4727,7 @@
         "explanation": "The Statement of Work names HIPAA and HITECH without citation as healthcare data regulations governing data handling, storage, security settings and de-identification. Both statutes exist under those names. HITECH section 13401 applies the HIPAA Security Rule sections to business associates, and the HIPAA Privacy Rule at 45 C.F.R. § 164.514(a)-(b) sets the de-identification standard, so the SOW's references to HIPAA/HITECH data-handling requirements and to data 'de-identified ... in compliance with applicable HIPAA regulations' are accurate. The citation supplied here is a completion of an uncited reference, not a correction.",
         "evidence_excerpt": "45 C.F.R. § 164.514: \"De-identification of protected health information. Health information that does not identify an individual and with respect to which there is no reasonable basis to believe that the information can be used to identify an individual is not individually identifiable health information.\" Pub. L. 111-5 § 13401(a): \"Sections 164.308, 164.310, 164.312, and 164.316 of title 45, Code of Federal Regulations, shall apply to a business associate of a covered entity in the same manner that such sections apply to the covered entity.\"",
         "source_urls": [
-          "https:/164.514",
+          "https://www.law.cornell.edu/cfr/text/45/164.514",
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm"
         ],
@@ -5825,7 +5825,7 @@
         "evidence_excerpt": "Sections 164.308, 164.310, 164.312, and 164.316 of title 45, Code of Federal Regulations, shall apply to a business associate of a covered entity in the same manner that such sections apply to the covered entity.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
-          "https:/17931",
+          "https://www.law.cornell.edu/uscode/text/42/17931",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
           "https://www.ecfr.gov/current/title-45/section-164.312",
           "https://www.ecfr.gov/current/title-45/section-164.308"
@@ -5928,7 +5928,7 @@
         "explanation": "The answer recites the complaint's allegation that jurisdiction rests on § 1332(a), based on diversity of citizenship and an amount in controversy exceeding $75,000. That tracks the statutory text directly: original jurisdiction where the matter in controversy exceeds $75,000, exclusive of interest and costs, and the action is between citizens of different States.",
         "evidence_excerpt": "\"(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -6221,7 +6221,7 @@
         "explanation": "The statute exists under that name (Pub. L. 104-67, Dec. 22, 1995, 109 Stat. 737). It added the forward-looking statement safe harbor, including a statutory definition of \"forward-looking statement\" at 15 U.S.C. § 78u-5(i)(1). The slide's reference to \"forward-looking statements within the meaning of\" the Act is therefore accurate as a citation. One caveat on effect, not accuracy: the safe harbor by its terms applies only to statements by issuers subject to Exchange Act reporting requirements and persons acting for them, in private securities actions. In a commercial sales presentation it is boilerplate and does not itself govern the fraud or DTPA claims.",
         "evidence_excerpt": "The term \"forward-looking statement\" means— (A) a statement containing a projection of revenues, income (including income loss), earnings (including earnings loss) per share ... (June 6, 1934, ch. 404, title I, § 21E, as added Pub. L. 104–67, title I, § 102(b), Dec. 22, 1995, 109 Stat. 753.)",
         "source_urls": [
-          "https:/78u-5",
+          "https://www.law.cornell.edu/uscode/text/15/78u-5",
           "https://www.law.cornell.edu/topn/private_securities_litigation_reform_act_of_1995"
         ],
         "confidence": "high"
@@ -6305,7 +6305,7 @@
         "explanation": "§ 1332(a) is the correct statute for diversity jurisdiction, and the complete-diversity requirement is the settled construction of its \"citizens of different States\" language (Harvey, citing Strawbridge). The rule that an LLC's citizenship is traced through all its members is not in the statutory text; it is case law applying § 1332, which Harvey adopts for the Fifth Circuit. The rubric passage cites the statute for complete diversity and states the LLC rule as a legal requirement without attributing it to the statute's text, so the citation supports the proposition.",
         "evidence_excerpt": "§ 1332(a): \"...and is between— (1) citizens of different States;\". Harvey: \"the Supreme Court established the rule of complete diversity for cases arising under 28 U.S.C. § 1332\" and \"the citizenship of a LLC is determined by the citizenship of all of its members.\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.ca5.uscourts.gov/Opinions/pub/07/07-31106-CV0.wpd.pdf"
         ],
         "confidence": "high"
@@ -7075,7 +7075,7 @@
           "https://www.ecfr.gov/current/title-45/section-164.306",
           "https://www.ecfr.gov/current/title-45/section-164.304",
           "https://www.ecfr.gov/current/title-45/section-164.312",
-          "https:/1320d-2",
+          "https://www.law.cornell.edu/uscode/text/42/1320d-2",
           "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm"
         ],
@@ -7105,7 +7105,7 @@
         "evidence_excerpt": "Each person described in section 1172(a) who maintains or transmits health information shall maintain reasonable and appropriate administrative, technical, and physical safeguards--",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
-          "https:/1320d-2",
+          "https://www.law.cornell.edu/uscode/text/42/1320d-2",
           "https://www.ecfr.gov/current/title-45/section-164.308",
           "https://www.ecfr.gov/current/title-45/section-164.310",
           "https://www.ecfr.gov/current/title-45/section-164.312",
@@ -7222,7 +7222,7 @@
         "explanation": "§ 1332 is the diversity statute, and \"as required for an LLC under § 1332\" is a fair shorthand for the statute as the courts construe it. The member-tracing rule is not in the statutory text (which does not mention LLCs or members); it comes from case law applying § 1332, including Harvey v. Grey Wolf Drilling Co. in the Fifth Circuit, which holds that an LLC's citizenship is determined by the citizenship of all of its members and that § 1332(c)(1) does not apply to unincorporated entities. On a reasonable reading the proposition is supported; the only looseness is attributing a judicial rule to the statute itself.",
         "evidence_excerpt": "Harvey: \"like limited partnerships and other unincorporated associations or entities, the citizenship of a LLC is determined by the citizenship of all of its members. ... We now join the other circuits in this holding.\" and \"The plain language of Section § 1332(c)(1) is simply not applicable to unincorporated associations.\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.ca5.uscourts.gov/Opinions/pub/07/07-31106-CV0.wpd.pdf"
         ],
         "confidence": "high"
@@ -7326,7 +7326,7 @@
         "explanation": "26 C.F.R. § 1.704-1(b)(2)(iv) is the 'Maintenance of capital accounts' paragraph of the section 704(b) regulations. Its basic rules provide that a partner's capital account is increased by contributions and allocations of income and gain and decreased by distributions and allocations of loss and deduction, which matches the operating agreement's Section 3.4 (credits for Capital Contributions and Net Profits; debits for distributions and Net Losses). A standard and accurate drafting reference.",
         "evidence_excerpt": "\"(iv) Maintenance of capital accounts—(a) In general. ... unless the capital accounts of the partners are determined and maintained throughout the full term of the partnership in accordance with the capital accounting rules of this paragraph (b)(2)(iv).\"",
         "source_urls": [
-          "https:/1.704-1"
+          "https://www.law.cornell.edu/cfr/text/26/1.704-1"
         ],
         "confidence": "high"
       }
@@ -7353,7 +7353,7 @@
         "explanation": "26 U.S.C. 7704 (Internal Revenue Code of 1986) is headed \"Certain publicly traded partnerships treated as corporations\" and provides that, subject to subsection (c), a publicly traded partnership is treated as a corporation. The operating agreement's transfer proviso describes the section accurately.",
         "evidence_excerpt": "For purposes of this title, except as provided in subsection (c), a publicly traded partnership shall be treated as a corporation.",
         "source_urls": [
-          "https:/7704"
+          "https://www.law.cornell.edu/uscode/text/26/7704"
         ],
         "confidence": "high"
       }
@@ -7410,7 +7410,7 @@
         "source_urls": [
           "https://www.txwd.uscourts.gov/court-information/lcr-civil-rules/",
           "https://www.law.cornell.edu/rules/frcp/rule_83",
-          "https:/2071"
+          "https://www.law.cornell.edu/uscode/text/28/2071"
         ],
         "confidence": "high"
       }
@@ -8057,8 +8057,8 @@
         "explanation": "Both provisions say what they are cited for. § 1332(a) confers original jurisdiction over civil actions between citizens of different States where more than $75,000 is in controversy; § 1441(a) permits a defendant to remove a state-court civil action over which the district courts have original jurisdiction to the district and division embracing the place where it is pending. Substantive caveat, not a citation defect: the notice itself pleads that Meridian is a citizen of Texas (paras. 11, 15) and the action was brought in Texas state court, and § 1441(b)(2) on the same page bars removal based solely on § 1332(a) where a properly joined and served defendant is a citizen of the forum State. The notice's statement that complete diversity exists because Delaware citizenship is not shared is also legally doubtful on its own pleaded facts (both sides are pleaded as Texas citizens). The statutes are cited accurately for the rules stated; the application of those rules to the facts is flawed.",
         "evidence_excerpt": "any civil action brought in a State court of which the district courts of the United States have original jurisdiction, may be removed by the defendant or the defendants, to the district court of the United States for the district and division embracing the place where such action is pending.",
         "source_urls": [
-          "https:/1332",
-          "https:/1441"
+          "https://www.law.cornell.edu/uscode/text/28/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1441"
         ],
         "confidence": "high"
       }
@@ -8167,7 +8167,7 @@
         "explanation": "§ 1404(a) authorizes a district court to transfer a civil action to any other district or division where it might have been brought or to which all parties have consented. The statute expressly covers transfer between divisions, so it supports a reservation of the right to seek transfer from the San Antonio Division to the Austin Division.",
         "evidence_excerpt": "(a) For the convenience of parties and witnesses, in the interest of justice, a district court may transfer any civil action to any other district or division where it might have been brought or to any district or division to which all parties have consented.",
         "source_urls": [
-          "https:/1404"
+          "https://www.law.cornell.edu/uscode/text/28/1404"
         ],
         "confidence": "high"
       }
@@ -8194,7 +8194,7 @@
         "explanation": "The notice's paraphrase (a corporation is deemed a citizen of the state in which it is incorporated and the state where it has its principal place of business) matches the substance of § 1332(c)(1). The statute's wording is slightly broader (\"every State and foreign state by which it has been incorporated\"), but the paraphrase is accurate for a corporation incorporated in a single State.",
         "evidence_excerpt": "(1) a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -8250,7 +8250,7 @@
         "explanation": "28 U.S.C. § 1332 is the federal diversity-jurisdiction statute, and the notice of removal cites it only as the framework under which Arcadia's citizenship is assessed, so the citation is accurate for that use. The statute's text does not itself say how an LLC's citizenship is determined (it addresses corporations in (c)(1) and, for class actions only, unincorporated associations in (d)(10)). The Fifth Circuit's rule is that an LLC takes the citizenship of all of its members (Harvey v. Grey Wolf Drilling Co., No. 07-31106, slip op. at 5-7). The paragraph's conclusion, drawn from the state of organization and one managing member's domicile, is therefore an incomplete analysis in the fictional removal papers, not a mis-citation. Provenance: the CourtListener tools failed to connect this session, so I read the statute on Cornell LII and Harvey on the Fifth Circuit's own site.",
         "evidence_excerpt": "\"(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\" (§ 1332(a)). Harvey: \"the citizenship of a LLC is determined by the citizenship of all of its members.\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.ca5.uscourts.gov/Opinions/pub/07/07-31106-CV0.wpd.pdf"
         ],
         "confidence": "high"
@@ -8278,7 +8278,7 @@
         "explanation": "§ 1332(a) is cited, together with Strawbridge v. Curtiss, for the complete-diversity requirement. The statute requires the action to be between \"citizens of different States,\" and Harvey confirms that Strawbridge established the complete-diversity rule for cases under § 1332, so the citation supports the requirement. Separately, the paragraph's application is wrong on its own stated facts: it says Meridian is a citizen of Delaware and Texas and Arcadia a citizen of Texas, which is shared Texas citizenship and defeats complete diversity. That is a flaw in the fictional notice's reasoning, not in the citation.",
         "evidence_excerpt": "§ 1332(a): \"...and is between— (1) citizens of different States;\". Harvey: \"Complete diversity 'requires that all persons on one side of the controversy be citizens of different states than all persons on the other side.'\"",
         "source_urls": [
-          "https:/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
           "https://www.ca5.uscourts.gov/Opinions/pub/07/07-31106-CV0.wpd.pdf"
         ],
         "confidence": "high"
@@ -8333,7 +8333,7 @@
         "explanation": "§ 1332(a) sets the amount-in-controversy threshold exactly as the notice states it: the matter in controversy must exceed $75,000, exclusive of interest and costs.",
         "evidence_excerpt": "\"(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -8522,7 +8522,7 @@
         "explanation": "Same citation and proposition as ref 257, repeated in the notice's reservation-of-rights paragraph. § 1404(a) expressly permits transfer to another division, including one to which all parties have consented, which fits a transfer to the Austin Division under the parties' forum selection clause.",
         "evidence_excerpt": "(a) For the convenience of parties and witnesses, in the interest of justice, a district court may transfer any civil action to any other district or division where it might have been brought or to any district or division to which all parties have consented.",
         "source_urls": [
-          "https:/1404"
+          "https://www.law.cornell.edu/uscode/text/28/1404"
         ],
         "confidence": "high"
       }
@@ -8560,8 +8560,8 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds. The Notice itself pleads that Meridian is incorporated in Delaware with its principal place of business in Austin, so it is 'a citizen of both Delaware and Texas' (paras. 10-11, 15). It pleads that Arcadia is a Texas citizen (para. 14; its managing member is domiciled in Texas) and that the suit was filed in Bexar County, Texas. Under 28 U.S.C. § 1332(c)(1), a corporation is 'deemed to be a citizen of every State ... by which it has been incorporated and of the State ... where it has its principal place of business.' That makes both parties Texas citizens, so the case is not between 'citizens of different States' under § 1332(a)(1). Para. 15's reasoning, that diversity exists because Meridian's Delaware citizenship is not shared, does not follow from that text. Separately, § 1441(b)(2) says a diversity-only action 'may not be removed if any of the parties in interest properly joined and served as defendants is a citizen of the State in which such action is brought.' The statutes are correctly identified, but on the facts the Notice recites they do not make removal proper. The statement in para. 25 is therefore unsupported by the cited authority.",
         "source_urls": [
-          "https:/1332",
-          "https:/1441"
+          "https://www.law.cornell.edu/uscode/text/28/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1441"
         ]
       }
     },
@@ -9225,7 +9225,7 @@
         "explanation": "The scheduling order says jurisdiction is premised on diversity of citizenship under § 1332(a). That subsection is the diversity-of-citizenship grant of original jurisdiction, so the citation is accurate for this descriptive statement.",
         "evidence_excerpt": "\"(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\"",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }

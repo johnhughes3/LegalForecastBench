@@ -359,8 +359,8 @@
         "revised_status": "MISQUOTED",
         "explanation": "The finding holds. The Vasquez report (vasquez-expert-report.docx.md, line 191) attributes a quotation to Reedley's email ('and I quote from the document'). That sentence does not appear in the record's email chain (GF-DOC-004471-4479). I read Reedley's October 7, 2019 email in full. It covers the same substance in different words: 'this architecture constitutes a single-point-of-failure design'; 'This single-point-of-failure architecture is inconsistent with the control reliability requirements of ANSI B11.2-2013'; 'I have reviewed four (4) field service reports'; and 'consistent with the dual-valve redundancy concepts described in ANSI B11.2-2013.' The phrases 'single-valve interlock architecture', 'B11.2 redundancy expectations' and 'manifested in at least four field incidents' appear nowhere in the email. The paraphrase is fair, so the substance is supported, but presenting it as a verbatim quotation is wrong. The plaintiff brief quotes a different 'Sandra — I'm writing to flag...' version, which also lacks the sentence. B11.2 itself is a real ANSI standard.",
         "source_urls": [
-          "file://greenfield-engineering-emails.eml.md",
-          "file://vasquez-expert-report.docx.md",
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/assess-settlement-value-range/greenfield-engineering-emails.eml.md",
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/assess-settlement-value-range/vasquez-expert-report.docx.md",
           "https://www.b11standards.org/storeitems/ansi-b112-2013-r2020"
         ]
       }
@@ -855,7 +855,7 @@
         "explanation": "No real authority found. CourtListener opinion and RECAP searches for 'Ironhorse Machinery' and caseName:(Petersen AND Ironhorse) returned 0 results. A web search for 'Petersen v. Ironhorse' found nothing relevant. The case is a fictional comparable built into the task record: it appears in comparable-outcomes-summary.xlsx (B2/C1), in the defense brief, and in task.json. The brief repeats those record facts consistently, but no real case exists to verify.",
         "source_urls": [
           "https://www.courtlistener.com/?q=%22Ironhorse+Machinery%22",
-          "file://comparable-outcomes-summary.xlsx.md"
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/assess-settlement-value-range/comparable-outcomes-summary.xlsx.md"
         ]
       }
     },
@@ -891,7 +891,7 @@
         "explanation": "No real authority found. CourtListener opinion and RECAP searches for 'Titan Hydraulics' and caseName:(Garza AND Titan) returned no matching case. A web search for 'Garza v. Titan Hydraulics' found nothing. The case is a fictional comparable from the task's spreadsheet (comparable-outcomes-summary.xlsx B4/E1) and task.json rubric. It is consistent with the record, but it is not a real authority.",
         "source_urls": [
           "https://www.courtlistener.com/?q=%22Titan+Hydraulics%22",
-          "file://comparable-outcomes-summary.xlsx.md"
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/assess-settlement-value-range/comparable-outcomes-summary.xlsx.md"
         ]
       }
     },
@@ -927,7 +927,7 @@
         "explanation": "No real authority found. A CourtListener RECAP search for 'Steelform' returned only unrelated California 'Steelform Contract' dockets, and caseName:(Novak AND Steelform) returned 0 results. A web search for 'Novak v. Steelform' found nothing. The case is a fictional comparable from the task record (comparable-outcomes-summary.xlsx B3/D1, the defense brief, and task.json), and no real case exists.",
         "source_urls": [
           "https://www.courtlistener.com/?q=Steelform&type=r",
-          "file://comparable-outcomes-summary.xlsx.md"
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/assess-settlement-value-range/comparable-outcomes-summary.xlsx.md"
         ]
       }
     },
@@ -2102,7 +2102,7 @@
         "explanation": "29 C.F.R. Part 1910, Subpart O exists and is titled 'Machinery and Machine Guarding' (§§ 1910.211-1910.219). The expert cites it only to say he is familiar with it, and the citation is accurate.",
         "evidence_excerpt": "Subpart O - Machinery and Machine Guarding ... § 1910.211 Definitions. ... § 1910.219 Mechanical power-transmission apparatus.",
         "source_urls": [
-          "https:/part-1910/subpart-O"
+          "https://www.law.cornell.edu/cfr/text/29/part-1910/subpart-O"
         ],
         "confidence": "high"
       }
@@ -2158,7 +2158,7 @@
         "explanation": "§ 1910.217 is titled 'Mechanical power presses', and Subpart O ('Machinery and Machine Guarding') covers §§ 1910.211-1910.219 (§ 1910.214 is reserved). Both titles and the section range are correct, and the authorities are listed only as materials reviewed. Context: elsewhere (para. at line 185) the report itself says § 1910.217 is aimed at mechanical presses and uses it only as a benchmark for the hydraulic GP-7500. That is not a defect in this citation.",
         "evidence_excerpt": "§ 1910.217 Mechanical power presses.",
         "source_urls": [
-          "https:/part-1910/subpart-O"
+          "https://www.law.cornell.edu/cfr/text/29/part-1910/subpart-O"
         ],
         "confidence": "high"
       }

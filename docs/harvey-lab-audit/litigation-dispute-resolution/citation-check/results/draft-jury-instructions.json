@@ -32,7 +32,7 @@
         "explanation": "42 U.S.C. § 2000e-3(a) is Title VII's anti-retaliation provision, so the cite for a Title VII retaliation count is correct.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter.",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -86,7 +86,7 @@
         "explanation": "Title VII bars discrimination in the 'terms, conditions, or privileges of employment' (42 U.S.C. § 2000e-2(a)(1)). The Supreme Court in Meritor held that a hostile or abusive work environment violates Title VII. Citing Title VII for a hostile-work-environment count is correct.",
         "evidence_excerpt": "Meritor: 'courts have uniformly held, and we agree, that a plaintiff may establish a violation of Title VII by proving that discrimination based on sex has created a hostile or abusive work environment.'",
         "source_urls": [
-          "https:/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
           "https://www.courtlistener.com/opinion/9430583/meritor-savings-bank-fsb-v-vinson/"
         ],
         "confidence": "high"
@@ -114,7 +114,7 @@
         "explanation": "Section 1331 gives district courts original jurisdiction over civil actions arising under federal law, which includes Title VII claims.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -141,7 +141,7 @@
         "explanation": "Section 1367(a) gives supplemental jurisdiction over related claims that form part of the same case or controversy, which covers the state-law claims here.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -195,7 +195,7 @@
         "explanation": "Section 2000e-3(a) makes it unlawful to discriminate against an employee because she has opposed any practice that Title VII makes unlawful (the opposition clause). An internal complaint of sex-based pay discrimination fits within that clause. The statute supports the proposition.",
         "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -690,7 +690,7 @@
         "explanation": "The quotation accurately reproduces the opposition and participation clauses of the Title VII anti-retaliation provision.",
         "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -771,7 +771,7 @@
         "explanation": "Section 2000e-2(m) sets the motivating-factor standard for discrimination based on race, color, religion, sex, or national origin (status-based claims), as the order says.",
         "evidence_excerpt": "an unlawful employment practice is established when the complaining party demonstrates that race, color, religion, sex, or national origin was a motivating factor for any employment practice, even though other factors also motivated the practice.",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -854,7 +854,7 @@
         "explanation": "The statute's opposition clause protects employees who oppose practices that Title VII makes unlawful. Treating an internal complaint about sex-based pay discrimination as opposition activity is a reasonable reading.",
         "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -1680,7 +1680,7 @@
         "explanation": "Both citations are accurate as cited for the claims. Section 2000e-3(a) is Title VII's anti-retaliation provision. ORC § 4113.52 is Ohio's whistleblower statute: division (B) bars employers from taking disciplinary or retaliatory action against employees who make authorized reports.",
         "evidence_excerpt": "ORC 4113.52 (B): employers prohibited from taking disciplinary or retaliatory action against persons who make reports authorized under divisions (A)(1) or (A)(2) ... 42 U.S.C. 2000e-3(a): 'It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice'",
         "source_urls": [
-          "https:/2000e-3",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
           "https://codes.ohio.gov/ohio-revised-code/section-4113.52"
         ],
         "confidence": "high"
@@ -1946,7 +1946,7 @@
         "evidence_excerpt": "Rasimas: 'the burden of producing sufficient evidence to establish the amount of interim earnings or lack of diligence shifts to the defendant ... The Defendant may satisfy his burden only if he establishes that: 1) there were substantially equivalent positions which were available; and 2) the claimant failed to use reasonable care and diligence in seeking such positions.' 42 U.S.C. 2000e-5(g)(1): 'Interim earnings or amounts earnable with reasonable diligence by the person or persons discriminated against shall operate to reduce the back pay otherwise allowable.'",
         "source_urls": [
           "https://www.courtlistener.com/opinion/423554/rasimas-v-michigan-department-of-mental-health/",
-          "https:/2000e-5"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
         ],
         "confidence": "high"
       },
@@ -1955,7 +1955,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The cited sentence's general duty of reasonable diligence is accurate. 42 U.S.C. § 2000e-5(g)(1): 'Interim earnings or amounts earnable with reasonable diligence by the person or persons discriminated against shall operate to reduce the back pay otherwise allowable.' But the section uses this authority to place the burden on the plaintiff (Proposed Instruction No. 4: 'Plaintiff bears the burden of proving that she made reasonable efforts to mitigate'; and 'appropriately places the burden on Plaintiff'). Sixth Circuit Title VII law puts that burden on the defendant. Rasimas, 714 F.2d 614: 'the burden of producing sufficient evidence to establish the amount of interim earnings or lack of diligence shifts to the defendant', and 'The Defendant may satisfy his burden only if he establishes that: 1) there were substantially equivalent positions which were available; and 2) the claimant failed to use reasonable care and diligence...' The cited sentence is defensible on its own. The finding is fair because the authority is invoked to support the misallocated burden. Ohio law was not separately checked.",
         "source_urls": [
-          "https:/2000e-5",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5",
           "https://www.courtlistener.com/opinion/423554/rasimas-v-michigan-department-of-mental-health/"
         ]
       }
@@ -2107,7 +2107,7 @@
         "explanation": "Section 2000e-2(m) sets the motivating-factor standard for status-based discrimination claims, as the brief says.",
         "evidence_excerpt": "race, color, religion, sex, or national origin was a motivating factor for any employment practice, even though other factors also motivated the practice.",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -2266,7 +2266,7 @@
         "explanation": "Section 1981a(b)(1) sets the punitive damages standard of malice or reckless indifference to federally protected rights, as the brief says.",
         "evidence_excerpt": "if the complaining party demonstrates that the respondent engaged in a discriminatory practice or discriminatory practices with malice or with reckless indifference to the federally protected rights of an aggrieved individual.",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -2321,7 +2321,7 @@
         "explanation": "Section 1981a(b)(3) caps the combined total of compensatory and punitive damages according to employer size. Section 1981a(c)(2) bars informing the jury of these caps, which is consistent with applying them after the verdict.",
         "evidence_excerpt": "The sum of the amount of compensatory damages awarded under this section for future pecuniary losses, emotional pain, ... and the amount of punitive damages awarded under this section, shall not exceed, for each complaining party— (A) ... more than 14 and fewer than 101 employees ... $50,000",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -2384,7 +2384,7 @@
         "evidence_excerpt": "Nassar: \"Title VII retaliation claims must be proved according to traditional principles of but-for causation\"; § 1981a(b)(3): \"The sum of the amount of compensatory damages awarded under this section for future pecuniary losses, emotional pain... and the amount of punitive damages awarded under this section, shall not exceed, for each complaining party—\"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/931121/university-of-tex-southwestern-medical-center-v-nassar/",
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -2455,7 +2455,7 @@
         "explanation": "Section 1981a(b)(3)(C) sets a $200,000 combined cap for employers with more than 200 and fewer than 501 employees. The case documents do not state Creston's headcount, so the tier is assumed rather than shown in the record. Non-disclosure to the jury is required by § 1981a(c)(2).",
         "evidence_excerpt": "(C) in the case of a respondent who has more than 200 and fewer than 501 employees in each of 20 or more calendar weeks in the current or preceding calendar year, $200,000",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -2482,7 +2482,7 @@
         "explanation": "Section 1981a(b)(3) sets the cap, and § 1981a(c)(2) directs that the jury not be told about it. That supports the rubric's point that the court applies the cap after the verdict and does not disclose it to the jury.",
         "evidence_excerpt": "the court shall not inform the jury of the limitations described in subsection (b)(3).",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -2824,7 +2824,7 @@
         "explanation": "The rubric gives no citation. The Title VII punitive damages standard is in 42 U.S.C. § 1981a(b)(1), which requires discrimination 'with malice or with reckless indifference to the federally protected rights of an aggrieved individual.' The rubric's description is accurate.",
         "evidence_excerpt": "\"A complaining party may recover punitive damages under this section ... if the complaining party demonstrates that the respondent engaged in a discriminatory practice or discriminatory practices with malice or with reckless indifference to the federally protected rights of an aggrieved individual.\"",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -2905,8 +2905,8 @@
         "explanation": "General reference to statutes with anti-retaliation provisions. Title VII bars retaliation at 42 U.S.C. § 2000e-3(a). OSHA § 11(c) bars retaliation at 29 U.S.C. § 660(c)(1). The Ohio Revised Code contains anti-retaliation provisions, including the whistleblower statute at R.C. 4113.52(B). Saying the policy is consistent with these laws is a fair, generic description.",
         "evidence_excerpt": "42 U.S.C. § 2000e-3(a): \"It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter\"; 29 U.S.C. § 660(c)(1): \"No person shall discharge or in any manner discriminate against any employee because such employee has filed any complaint\"; R.C. 4113.52(B): \"no employer shall take any disciplinary or retaliatory action against a person for making any report\"",
         "source_urls": [
-          "https:/2000e-3",
-          "https:/660",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
+          "https://www.law.cornell.edu/uscode/text/29/660",
           "https://codes.ohio.gov/ohio-revised-code/section-4113.52"
         ],
         "confidence": "high"

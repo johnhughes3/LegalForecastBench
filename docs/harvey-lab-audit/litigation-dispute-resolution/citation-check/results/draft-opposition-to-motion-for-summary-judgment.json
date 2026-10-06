@@ -42,8 +42,8 @@
         "explanation": "The brief says Count I arises under 31 U.S.C. § 5328 and is based on a 2023 FinCEN report. Section 5328 was repealed effective January 1, 2021 (Pub. L. 116-283, div. F, § 6314(b)). The BSA anti-retaliation protection in force in 2023 is 31 U.S.C. § 5323(g)(1): \"No employer may ... discharge ... or in any other manner discriminate against a whistleblower ...\". The statute named is real but repealed, so this is the wrong provision for the claim.",
         "evidence_excerpt": "31 U.S. Code § 5328 - Repealed. Pub. L. 116-283, div. F, title LXIII, § 6314(b), Jan. 1, 2021",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ],
         "confidence": "high"
       },
@@ -52,8 +52,8 @@
         "revised_status": "WRONG_CITATION_REAL_CASE",
         "explanation": "Finding holds. LII shows the section as repealed: '31 U.S. Code § 5328 - Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021, 134 Stat. 4603'. The BSA anti-retaliation protection in force for the 2023 FinCEN report and termination is 31 U.S.C. § 5323(g)(1): 'No employer may, directly or indirectly, discharge, demote, suspend, threaten, blacklist, harass, or in any other manner discriminate against a whistleblower...'. One mitigating point: the brief is describing the plaintiff's complaint, and the defendants' SUMF ¶44 says the Complaint itself pleads § 5328, so the brief may be repeating the pleading accurately. Even so, the provision cited as the basis of Count I is a repealed section; the operative one is § 5323(g).",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ]
       }
     },
@@ -79,7 +79,7 @@
         "explanation": "18 U.S.C. § 1514A is the Sarbanes-Oxley whistleblower anti-retaliation provision; citing it as the statutory basis of a SOX retaliation count is accurate.",
         "evidence_excerpt": "No company with a class of securities registered under section 12 ... may discharge, demote, suspend, threaten, harass, or in any other manner discriminate against an employee ... because of any lawful act done by the employee",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -106,7 +106,7 @@
         "explanation": "Read in isolation, the sentence correctly states that § 1514A covers companies with § 12-registered securities or § 15(d) reporting obligations. But it is offered as a complete description of coverage, to support the conclusion that the Bank, a wholly owned subsidiary of a NASDAQ-listed parent, falls outside the statute. It leaves out the statute's express extension to 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company' (and to NRSROs). Read as exhaustive, as the brief intends, it misstates the statute's reach.",
         "evidence_excerpt": "No company with a class of securities registered under section 12 ... or that is required to file reports under section 15(d) ... including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "medium"
       },
@@ -115,7 +115,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "Finding holds. The current text of 18 U.S.C. § 1514A(a) reads: 'No company with a class of securities registered under section 12 ... or that is required to file reports under section 15(d) ... including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company, or nationally recognized statistical rating organization ...'. The brief presents the § 12/§ 15(d) description as the whole of the statute's coverage in order to exclude a wholly owned subsidiary of a NASDAQ-listed parent. Its block quote uses an ellipsis that drops the subsidiary clause, and it later says flatly that the statutory text does not 'reference subsidiaries and affiliates.' Read as the brief uses it, the sentence misstates the statute's reach.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -287,7 +287,7 @@
         "evidence_excerpt": "summary judgment will not lie if the dispute about a material fact is \"genuine,\" that is, if the evidence is such that a reasonable jury could return a verdict for the nonmoving party.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/",
-          "https:/242"
+          "https://www.law.cornell.edu/supremecourt/text/477/242"
         ],
         "confidence": "high"
       }
@@ -347,7 +347,7 @@
         "evidence_excerpt": "Rule 56(e) itself provides that a party opposing a properly supported motion for summary judgment may not rest upon mere allegation or denials of his pleading, but must set forth specific facts showing that there is a genuine issue for trial.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/",
-          "https:/242"
+          "https://www.law.cornell.edu/supremecourt/text/477/242"
         ],
         "confidence": "high"
       }
@@ -559,7 +559,7 @@
         "evidence_excerpt": "at the summary judgment stage the judge's function is not himself to weigh the evidence and determine the truth of the matter but to determine whether there is a genuine issue for trial. [249] ... Credibility determinations, the weighing of the evidence, and the drawing of legitimate inferences from the facts are jury functions, not those of a judge [255]",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/",
-          "https:/242"
+          "https://www.law.cornell.edu/supremecourt/text/477/242"
         ],
         "confidence": "high"
       }
@@ -590,7 +590,7 @@
         "evidence_excerpt": "The mere existence of a scintilla of evidence in support of the plaintiff's position will be insufficient; there must be evidence on which the jury could reasonably find for the plaintiff.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/",
-          "https:/242"
+          "https://www.law.cornell.edu/supremecourt/text/477/242"
         ],
         "confidence": "high"
       }
@@ -617,8 +617,8 @@
         "explanation": "The brief calls § 5328 the BSA's whistleblower protection provision. That was true before 2021, but the AMLA repealed § 5328 effective January 1, 2021 (Pub. L. 116-283, § 6314(b)) and moved the protections to 31 U.S.C. § 5323(g). For a termination in 2023, the operative provision is § 5323(g). The brief's later statement that § 5328 \"provides administrative complaint procedures and remedies\" in fact describes § 5323(g)(2)-(3), not the repealed section.",
         "evidence_excerpt": "The page directs readers to \"section 5323 of this title\" ... § 5323(g)(1): \"No employer may, directly or indirectly, discharge, demote, suspend, threaten, blacklist, harass, or in any other manner discriminate against a whistleblower...\"",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ],
         "confidence": "high"
       },
@@ -627,8 +627,8 @@
         "revised_status": "WRONG_CITATION_REAL_CASE",
         "explanation": "Finding holds. LII: '31 U.S. Code § 5328 - Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021'. The brief calls § 5328 'the BSA's whistleblower protection provision' for a 2023 termination, but the operative provision is 31 U.S.C. § 5323(g). The brief also says elsewhere that § 5328 'provides administrative complaint procedures and remedies.' That describes § 5323(g)(2)-(3), not the repealed section: LII summarizes (g)(2) as a complaint 'with the Secretary of Labor' with a district-court action available after 180 days. The statute is real, but the section cited is wrong.",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ]
       }
     },
@@ -780,9 +780,9 @@
         "explanation": "31 U.S.C. § 5328 was repealed effective Jan. 1, 2021, by Pub. L. 116-283, div. F, § 6314(b). The brief's facts arise in 2023, so the cited provision was no longer in force. Even before repeal, former § 5328(a) protected information given to 'the Secretary of the Treasury, the Attorney General, or any Federal supervisory agency.' It did not mention a 'federal law enforcement agency.' Because FinCEN is a Treasury bureau, a report to FinCEN arguably fell within the old text. The parenthetical's wording matches the current anti-retaliation provision, § 5323(g)(1)(A), which covers reports to the Secretary, the Attorney General, or 'a Federal regulatory or law enforcement agency.' The proposition is substantively right, but the section number points to a repealed statute.",
         "evidence_excerpt": "LII: '31 U.S. Code § 5328 - Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021 ... related to whistleblower protections. See section 5323 of this title.' Current § 5323(g)(1)(A): 'providing information in accordance with this section to—the Secretary or the Attorney General; a Federal regulatory or law enforcement agency ...'",
         "source_urls": [
-          "https:/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5328",
           "https://www.govinfo.gov/content/pkg/USCODE-2018-title31/html/USCODE-2018-title31-subtitleIV-chap53-subchapII-sec5328.htm",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ],
         "confidence": "high"
       },
@@ -791,9 +791,9 @@
         "revised_status": "WRONG_CITATION_REAL_CASE",
         "explanation": "The finding largely holds. LII shows 31 U.S.C. § 5328 as 'Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021' and refers readers to § 5323. The 2018 govinfo text of former § 5328(a) protected an employee who 'provided information to the Secretary of the Treasury, the Attorney General, or any Federal supervisory agency.' It does not say 'federal law enforcement agency.' That wording matches current § 5323(g)(1)(A): '(i) the Secretary or the Attorney General; (ii) a Federal regulatory or law enforcement agency.' Two mitigating points: the record documents (the SUMF and the MSJ brief) treat § 5328 as the pleaded claim, and a report to FinCEN, a Treasury bureau, would arguably have been covered by the old text. Even so, citing § 5328(a) for 2023 conduct points to a repealed section, and the parenthetical describes the successor provision. The correct current cite is 31 U.S.C. § 5323(g)(1)(A).",
         "source_urls": [
-          "https:/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5328",
           "https://www.govinfo.gov/content/pkg/USCODE-2018-title31/html/USCODE-2018-title31-subtitleIV-chap53-subchapII-sec5328.htm",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ]
       }
     },
@@ -1252,7 +1252,7 @@
         "explanation": "Identifying § 1514A as the basis of Count II is accurate. The brief uses it to argue that the Bank is outside coverage because the Bank itself has no § 12 or § 15(d) securities. Since the Dodd-Frank amendment (Pub. L. 111-203, § 929A, 2010), § 1514A(a) expressly covers 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements' of a covered company. The record says the Bank is a wholly owned subsidiary of a NASDAQ-listed holding company. The brief also claims that if Congress had meant to cover subsidiaries, 'the statutory text would reference subsidiaries and affiliates.' The text does exactly that.",
         "evidence_excerpt": "or that is required to file reports under section 15(d) ... including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       },
@@ -1261,7 +1261,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "Read on its own, the citing sentence correctly identifies § 1514A as the statute behind Count II. The recorded proposition, though, is that the Bank is outside coverage, and the brief's very next sentence says the claim fails because the Bank 'does not fall within the scope of § 1514A's coverage.' The current text of § 1514A(a) contradicts that. It reaches any covered company 'including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company'; LII's amendment note says Pub. L. 111-203 (2010) added this language. The record admits the Bank is a wholly owned subsidiary of NASDAQ-listed Ridgeline Financial Group (SUMF ¶ 2). Taken as the coverage argument, the finding holds; for the bare identification of the claim alone, the cite would be accurate.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -1289,7 +1289,7 @@
         "explanation": "The block quote is accurate in the words it keeps, and the 15 U.S.C. §§ 78l and 78o(d) cross-references are correct. But the ellipsis cuts out the subsidiary/affiliate coverage clause, which bears directly on the issue in dispute. The brief then cites the trimmed quote for the claim that coverage is 'explicitly limited' to companies with their own registered securities or reporting obligations. The full text contradicts that claim. This is a material misrepresentation through selective quotation.",
         "evidence_excerpt": "\"(15 U.S.C. 78o(d)) including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company, or nationally recognized statistical rating organization ... may discharge, demote, suspend, threaten, harass, or in any other manner discriminate against an employee...\"",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       },
@@ -1298,7 +1298,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "LII's text of § 1514A(a) reads: 'No company with a class of securities registered under section 12 ... (15 U.S.C. 78l), or that is required to file reports under section 15(d) ... (15 U.S.C. 78o(d)) including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company, or nationally recognized statistical rating organization ... may discharge, demote ...' The words the brief keeps are accurate, and so are the cross-references to 78l and 78o(d). But the brief's ellipsis removes exactly the subsidiary/affiliate clause, and the brief then says coverage is 'explicitly limited' to companies with their own registrations. The omitted text contradicts that. Because the words quoted are genuine, the problem is the use made of the provision, not a misquotation: MISCHARACTERIZED.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -1324,8 +1324,8 @@
         "explanation": "Sections 12 and 15(d) of the Exchange Act exist and are the registration and reporting provisions that § 1514A(a) cross-references. Whether the Bank has § 12-registered securities or § 15(d) reporting obligations is a record fact that the statute cannot confirm. Note that lacking such registration does not by itself take the Bank outside § 1514A, because of the statute's subsidiary clause (see ref 39).",
         "evidence_excerpt": "15 U.S. Code § 78l - Registration requirements for securities ... registered under section 12 of the Securities Exchange Act of 1934 (15 U.S.C. 78l), or that is required to file reports under section 15(d) of the Securities Exchange Act of 1934 (15 U.S.C. 78o(d))",
         "source_urls": [
-          "https:/78l",
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/15/78l",
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -1354,7 +1354,7 @@
         "explanation": "The quoted fragment does appear in the statute. The brief, however, argues that the statutory text does not reference subsidiaries and affiliates and that Congress would have said so if it meant to cover them. That is false: § 1514A(a), as amended by Dodd-Frank, expressly covers 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company.' The citation is used for a proposition the text contradicts.",
         "evidence_excerpt": "\"No company with a class of securities registered under section 12 ... including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company...\"",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       },
@@ -1363,7 +1363,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The fragment 'company with a class of securities registered under section 12' does appear in § 1514A(a). The brief, however, argues that if Congress had meant to cover subsidiaries, 'the statutory text would reference subsidiaries and affiliates.' The statute does exactly that. LII's text includes 'including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company,' and the amendment note says Pub. L. 111-203 (2010) added it. The text is cited for a proposition it directly contradicts.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -1389,7 +1389,7 @@
         "explanation": "18 U.S.C. § 1514A is the real SOX whistleblower anti-retaliation provision. But its coverage clause expressly reaches 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements' of a company with section 12-registered securities or section 15(d) reporting obligations. The brief admits the Bank is a wholly owned subsidiary of NASDAQ-listed Ridgeline Financial Group. The statute therefore does not support the conclusion that the Bank is categorically 'not a covered company'; on its text, it points the other way.",
         "evidence_excerpt": "\"...required to file reports under section 15(d) of the Securities Exchange Act of 1934 (15 U.S.C. 78o(d)) including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company...\"",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       },
@@ -1398,7 +1398,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "§ 1514A is real and is the right statute. But its current text expressly covers 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements' of a § 12-registered or § 15(d)-reporting company (LII). The defendants' own SUMF ¶ 2 and brief admit the Bank is a wholly owned subsidiary of the NASDAQ-listed Ridgeline Financial Group. The statute therefore does not support the conclusion that the Bank is categorically 'not a covered company.' Whether its financials are in fact consolidated is a factual question, but the categorical legal claim is contrary to the text.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -1480,10 +1480,10 @@
         "explanation": "The BSA is a broad regulatory framework, and the subchapter now runs through § 5336, not § 5332. The citation is defective in three ways. (1) § 5328 was repealed effective Jan. 1, 2021, before the 2023 events. (2) The former § 5328 never provided 'administrative complaint procedures.' Subsection (b) authorized only a civil action in district court. The current § 5323(g) does provide a Department of Labor complaint procedure. (3) The current statute contradicts the field-preemption argument. § 5323(g)(5) expressly preserves whistleblower remedies under any federal or state law, which is inconsistent with Congress occupying the field.",
         "evidence_excerpt": "Former § 5328(b): 'Any employee or former employee ... may file a civil action in the appropriate United States district court before the end of the 2-year period ...' LII: '§ 5328 - Repealed. Pub. L. 116–283 ... Jan. 1, 2021.' § 5323(g)(5): 'Nothing in this section shall be deemed to diminish the rights, privileges, or remedies of any whistleblower under any Federal or State law or under any collective bargaining agreement.'",
         "source_urls": [
-          "https:/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5328",
           "https://www.govinfo.gov/content/pkg/USCODE-2018-title31/html/USCODE-2018-title31-subtitleIV-chap53-subchapII-sec5328.htm",
-          "https:/5323",
-          "https:/subtitle-IV/chapter-53/subchapter-II"
+          "https://www.law.cornell.edu/uscode/text/31/5323",
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-IV/chapter-53/subchapter-II"
         ],
         "confidence": "high"
       },
@@ -1492,9 +1492,9 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "I confirmed each of the first reviewer's points. (1) LII shows 31 U.S.C. § 5328 as repealed by 'Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021, 134 Stat. 4603', which predates the 2023 events. (2) The 2018 govinfo text of the former § 5328 provides only a civil action: subsection (b) says the employee 'may file a civil action in the appropriate United States district court before the end of the 2-year period.' It contains no administrative complaint procedure, so the brief's description of § 5328 as providing 'administrative complaint procedures' is wrong even as to the old section. (3) The Department of Labor complaint procedure now sits in § 5323(g)(2)(A) ('filing a complaint with the Secretary of Labor'). § 5323(g)(5) provides that 'Nothing in this section shall be deemed to diminish the rights, privileges, or remedies of any whistleblower under any Federal or State law,' which cuts against the field-preemption argument. The range §§ 5311-5332 is a minor issue: it matched the pre-AMLA subchapter, though the subchapter now runs further. Overall, the BSA citation is used for a whistleblower scheme and a preemptive effect that the cited section does not provide. MISCHARACTERIZED holds; the correct current cite for the remedy is § 5323(g).",
         "source_urls": [
-          "https:/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5328",
           "https://www.govinfo.gov/content/pkg/USCODE-2018-title31/html/USCODE-2018-title31-subtitleIV-chap53-subchapII-sec5328.htm",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ]
       }
     },
@@ -1520,7 +1520,7 @@
         "explanation": "§ 1514A(b) does provide for a complaint to the Secretary of Labor and an action 'for de novo review' in district court. But the district-court action is not ordinary review that follows the agency proceedings. It is a kick-out option available only if the Secretary has not issued a final decision within 180 days and the delay is not due to the claimant's bad faith. Calling the scheme 'comprehensive' for field-preemption purposes is also undercut by § 1514A(d), which says nothing in the section diminishes an employee's remedies under any Federal or State law.",
         "evidence_excerpt": "(B) if the Secretary has not issued a final decision within 180 days of the filing of the complaint ... bringing an action at law or equity for de novo review in the appropriate district court",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -1609,7 +1609,7 @@
         "explanation": "Same problem as ref 43. § 1514A(a) expressly covers subsidiaries and affiliates whose financial information is included in the covered parent's consolidated financial statements. Citing the statute for the claim that a wholly owned subsidiary of a publicly traded holding company falls outside its scope contradicts the statute's text.",
         "evidence_excerpt": "\"including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company\"",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       },
@@ -1618,7 +1618,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The current text of § 1514A(a) on LII reads: \"No company with a class of securities registered under section 12 ... or that is required to file reports under section 15(d) ... including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company ...\" The defendants' brief quotes § 1514A(a) with an ellipsis that drops the subsidiary clause. It then asserts that the statute \"would reference subsidiaries and affiliates\" if Congress meant to cover them, and cites the statute for the claim that the wholly owned bank subsidiary of a NASDAQ-listed holding company is outside its scope. The statute's text says the opposite. Citing it for that proposition mischaracterizes it, so the finding holds.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -1681,7 +1681,7 @@
         "explanation": "31 U.S.C. § 5311 is the declaration of purpose for subchapter II of chapter 53. The statutory note says this subchapter is popularly known as the Bank Secrecy Act. So \"31 U.S.C. § 5311 et seq.\" is a correct way to cite the BSA's reporting and record-keeping obligations.",
         "evidence_excerpt": "This subchapter and chapter 21 (§ 1951 et seq.) of Title 12, Banks and Banking, are each popularly known as the 'Bank Secrecy Act'.",
         "source_urls": [
-          "https:/5311"
+          "https://www.law.cornell.edu/uscode/text/31/5311"
         ],
         "confidence": "high"
       }
@@ -1708,7 +1708,7 @@
         "explanation": "31 C.F.R. § 1020.320 is FinCEN's rule on suspicious-activity reports by banks, which is the SAR filing requirement for banks.",
         "evidence_excerpt": "\"§ 1020.320 Reports by banks of suspicious transactions.\" (a)(1): \"Every bank shall file with the Treasury Department, to the extent and in the manner required by this section, a report of any suspicious transaction relevant to a possible violation of law or regulation.\"",
         "source_urls": [
-          "https:/1020.320"
+          "https://www.law.cornell.edu/cfr/text/31/1020.320"
         ],
         "confidence": "high"
       }
@@ -1813,7 +1813,7 @@
         "evidence_excerpt": "it involves or aggregates at least $5,000 in funds or other assets, and the bank knows, suspects, or has reason to suspect that:",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2024-title31-vol3/xml/CFR-2024-title31-vol3-sec1020-320.xml",
-          "https:/5318"
+          "https://www.law.cornell.edu/uscode/text/31/5318"
         ],
         "confidence": "high"
       }
@@ -1840,7 +1840,7 @@
         "explanation": "The section is cited correctly for the SAR filing requirement that applies to banks, including national banks. The CDD requirements mentioned in the same sentence are referred to generally, not cited to this section.",
         "evidence_excerpt": "\"Every bank shall file with the Treasury Department ... a report of any suspicious transaction relevant to a possible violation of law or regulation.\"",
         "source_urls": [
-          "https:/1020.320"
+          "https://www.law.cornell.edu/cfr/text/31/1020.320"
         ],
         "confidence": "high"
       }
@@ -1909,7 +1909,7 @@
         "evidence_excerpt": "(ii) The transaction is designed to evade any requirements of this chapter or of any other regulations promulgated under the Bank Secrecy Act; or (iii) The transaction has no business or apparent lawful purpose or is not the sort in which the particular customer would normally be expected to engage...",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2024-title31-vol3/xml/CFR-2024-title31-vol3-sec1020-320.xml",
-          "https:/5318"
+          "https://www.law.cornell.edu/uscode/text/31/5318"
         ],
         "confidence": "medium"
       },
@@ -1918,7 +1918,7 @@
         "revised_status": "MISQUOTED",
         "explanation": "The finding holds. The legal framework is accurate. 31 C.F.R. § 1020.320(a)(2) requires a report when a transaction 'involves or aggregates at least $5,000 in funds or other assets, and the bank knows, suspects, or has reason to suspect that' it meets one of the grounds. The expert report, however, presents the three grounds as a block quotation, and the second one is not the regulation's language. The report quotes it as 'is designed, whether through structuring or other means, to evade any requirement of the Bank Secrecy Act or its implementing regulations'. The bank rule, § 1020.320(a)(2)(ii), actually reads: 'The transaction is designed to evade any requirements of this chapter or of any other regulations promulgated under the Bank Secrecy Act.' It contains no structuring clause. Ground (i) also drops the parenthetical '(including, without limitation, the ownership, nature, source, location, or control of such funds or assets)' without an ellipsis and changes 'activities' to 'activity'. Ground (iii) is close to the regulation. Because the meaning is preserved but the quoted words do not appear in the bank rule, MISQUOTED (not a substantive mischaracterization) is the right status.",
         "source_urls": [
-          "https:/1020.320"
+          "https://www.law.cornell.edu/cfr/text/31/1020.320"
         ]
       }
     },
@@ -1973,7 +1973,7 @@
         "evidence_excerpt": "(2) A transaction requires reporting under the terms of this section if it is conducted or attempted by, at, or through the bank, it involves or aggregates at least $5,000 in funds or other assets, and the bank knows, suspects, or has reason to suspect that: (i)...(ii)...(iii)...",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/CFR-2024-title31-vol3/xml/CFR-2024-title31-vol3-sec1020-320.xml",
-          "https:/5318"
+          "https://www.law.cornell.edu/uscode/text/31/5318"
         ],
         "confidence": "high"
       }
@@ -2000,8 +2000,8 @@
         "explanation": "This is a mixed citation. 31 U.S.C. § 5318(g) (reporting of suspicious transactions) and 31 C.F.R. § 1020.320 (reports by banks of suspicious transactions; $5,000 threshold; 'knows, suspects, or has reason to suspect') are real and support the SAR-obligation framework for Opinion 2. The red-flag opinion, however, rests on FinCEN Advisory FIN-2023-A001, which does not exist in FinCEN's advisory list. I classified the row by its fabricated component.",
         "evidence_excerpt": "31 C.F.R. § 1020.320(a)(2): 'A transaction requires reporting under the terms of this section if it is conducted or attempted by, at, or through the bank, it involves or aggregates at least $5,000 in funds or other assets, and the bank knows, suspects, or has reason to suspect that:' 31 U.S.C. § 5318(g)(1): 'The Secretary may require any financial institution ... to report any suspicious transaction relevant to a possible violation of law or regulation.'",
         "source_urls": [
-          "https:/1020.320",
-          "https:/5318",
+          "https://www.law.cornell.edu/cfr/text/31/1020.320",
+          "https://www.law.cornell.edu/uscode/text/31/5318",
           "https://www.fincen.gov/resources/advisoriesbulletinsfact-sheets/advisories"
         ],
         "confidence": "medium"
@@ -2013,7 +2013,7 @@
         "source_urls": [
           "https://www.fincen.gov/resources/advisoriesbulletinsfact-sheets/advisories?page=0",
           "https://www.fincen.gov/resources/advisoriesbulletinsfact-sheets/advisories",
-          "https:/1020.320"
+          "https://www.law.cornell.edu/cfr/text/31/1020.320"
         ]
       }
     },
@@ -2222,7 +2222,7 @@
         "explanation": "The factual premise is correct. Neither the repealed § 5328(c) nor the current § 5323(g)(3)(C) lists punitive damages. The current statute provides reinstatement, double back pay with interest, and compensatory damages including fees and costs. The defects are that the brief gives no citation and its frame is the repealed § 5328. The brief also infers that Congress 'deliberately calibrated' the remedies so that state punitive damages would conflict. The current statute undercuts that inference: § 5323(g)(5) says nothing in the section diminishes a whistleblower's remedies 'under any Federal or State law.'",
         "evidence_excerpt": "§ 5323(g)(3)(C): '(i) reinstatement with the same seniority status ... (ii) 2 times the amount of back pay otherwise owed to the individual, with interest; (iii) the payment of compensatory damages, which shall include compensation for litigation costs, expert witness fees, and reasonable attorneys' fees.' § 5323(g)(5): 'Nothing in this section shall be deemed to diminish the rights, privileges, or remedies of any whistleblower under any Federal or State law ...' Former § 5328(c): 'reinstate the employee ...; pay compensatory damages; or take other appropriate actions.'",
         "source_urls": [
-          "https:/5323",
+          "https://www.law.cornell.edu/uscode/text/31/5323",
           "https://www.govinfo.gov/content/pkg/USCODE-2018-title31/html/USCODE-2018-title31-subtitleIV-chap53-subchapII-sec5328.htm"
         ],
         "confidence": "medium"
@@ -2250,7 +2250,7 @@
         "explanation": "The brief argues that SOX's whistleblower provision does not reach subsidiaries of public companies, and that if Congress had meant to cover them 'the statutory text would reference subsidiaries and affiliates'. The current text of § 1514A(a), as amended by Dodd-Frank, expressly covers 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company'. The brief also uses the SOX remedial scheme for a conflict-preemption argument against Colorado tort claims. § 1514A(d) says the section does not diminish employee rights or remedies under any federal or state law. The statute therefore contradicts both propositions it is cited for.",
         "evidence_excerpt": "§ 1514A(a): \"...including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company...\"; § 1514A(d): \"Nothing in this section shall be deemed to diminish the rights, privileges, or remedies of any employee under any Federal or State law, or under any collective bargaining agreement.\"",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       },
@@ -2259,7 +2259,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds. The defendants' brief says that § 1514A reaches only companies that themselves have registered securities, and that if Congress had meant to cover subsidiaries 'the statutory text would reference subsidiaries and affiliates.' The current text of 18 U.S.C. § 1514A(a) reads: 'No company with a class of securities registered under section 12 ... or that is required to file reports under section 15(d) ... including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company ... may discharge ...'. The brief also relies on the SOX remedial scheme to argue that Colorado tort claims are preempted. § 1514A(d) says: 'Nothing in this section shall be deemed to diminish the rights, privileges, or remedies of any employee under any Federal or State law.' The statute therefore contradicts both propositions it is cited for.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ]
       }
     },
@@ -2367,7 +2367,7 @@
         "evidence_excerpt": "a party opposing a properly supported motion for summary judgment \" 'may not rest upon the mere allegations or denials of his pleading, but . . . must set forth specific facts showing that there is a genuine issue for trial.' \"",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/",
-          "https:/242"
+          "https://www.law.cornell.edu/supremecourt/text/477/242"
         ],
         "confidence": "high"
       }
@@ -2394,7 +2394,7 @@
         "explanation": "This is a general reference to the Bank Secrecy Act (31 U.S.C. subchapter II of chapter 53, beginning at § 5311) as the source of SAR-filing obligations. The authority exists, and the reference is a factual statement about the bank's internal review, not a legal proposition attributed to particular statutory text.",
         "evidence_excerpt": "This subchapter ... [is] popularly known as the 'Bank Secrecy Act'.",
         "source_urls": [
-          "https:/5311"
+          "https://www.law.cornell.edu/uscode/text/31/5311"
         ],
         "confidence": "medium"
       }
@@ -2421,7 +2421,7 @@
         "explanation": "COBRA is a real statute, and its ERISA continuation-coverage provisions, including the administrator's duty to notify qualified beneficiaries of their continuation rights, are codified at 29 U.S.C. § 1161 et seq. The brief names the statute only to describe a factual matter (benefits continuation information given at termination), and the reference is accurate.",
         "evidence_excerpt": "29 U.S.C. § 1166(a)(4): \"the administrator shall notify...any qualified beneficiary with respect to such event, of such beneficiary's rights under this subsection.\"",
         "source_urls": [
-          "https:/1166"
+          "https://www.law.cornell.edu/uscode/text/29/1166"
         ],
         "confidence": "medium"
       }
@@ -2448,8 +2448,8 @@
         "explanation": "Section 12 of the Exchange Act (15 U.S.C. § 78l) is the securities-registration provision and is correctly identified. The Bank's non-registration is a factual assertion from the record that the statute cannot confirm. The inference drawn from it, that the Bank is therefore not covered by SOX, does not follow, because § 1514A(a) separately covers subsidiaries whose financials are consolidated into a § 12 or § 15(d) parent's statements.",
         "evidence_excerpt": "15 U.S. Code § 78l - Registration requirements for securities",
         "source_urls": [
-          "https:/78l",
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/15/78l",
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "medium"
       }
@@ -2476,8 +2476,8 @@
         "explanation": "Section 15(d) (15 U.S.C. § 78o(d)) exists and imposes periodic reporting duties on issuers with effective Securities Act registration statements. SOX § 806 (18 U.S.C. § 1514A(a)) uses Exchange Act § 12 registration or § 15(d) reporting as its coverage test, so the SUMF describes the statutory structure correctly. Whether the Bank actually files reports is a factual assertion the statute cannot confirm. Note: § 1514A also covers subsidiaries and affiliates whose financial information is included in a covered parent's consolidated financial statements. The Bank's own non-reporting status therefore does not by itself resolve SOX coverage.",
         "evidence_excerpt": "(d) Supplementary and periodic information ... each issuer which shall after such date file a registration statement which has become effective pursuant to the Securities Act of 1933 ... shall file with the Commission ... such supplementary and periodic information, documents, and reports ...; 18 U.S.C. 1514A(a): \"No company with a class of securities registered under section 12 ... or that is required to file reports under section 15(d) of the Securities Exchange Act of 1934 (15 U.S.C. 78o(d))\"",
         "source_urls": [
-          "https:/78o",
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/15/78o",
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -2504,8 +2504,8 @@
         "explanation": "31 U.S.C. § 5328 was the BSA whistleblower-protection provision, but the Anti-Money Laundering Act of 2020 repealed it (Pub. L. 116-283, div. F, § 6314(b), Jan. 1, 2021). The scenario's protected activity and termination happened in 2023, after the repeal. The anti-retaliation protection that applied then is 31 U.S.C. § 5323(g), headed \"Whistleblower incentives and protections.\" It has its own enforcement scheme: a complaint to the Secretary of Labor, then a district-court action if the Secretary has not issued a final decision within 180 days. The SUMF may be accurately describing what the complaint pleads, but the statute it names was not in force.",
         "evidence_excerpt": "31 U.S. Code § 5328 - Repealed. Pub. L. 116-283, div. F, title LXIII, § 6314(b), Jan. 1, 2021, 134 Stat. 4603 ... related to whistleblower protections.",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ],
         "confidence": "high"
       },
@@ -2514,8 +2514,8 @@
         "revised_status": "WRONG_CITATION_REAL_CASE",
         "explanation": "The finding holds. LII lists 31 U.S.C. § 5328 as 'Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021,' and notes that related whistleblower material is now in § 5323. Current § 5323(g), 'Protection of Whistleblowers,' bars any employer from discharging or discriminating against a whistleblower. It is enforced by a complaint to the Secretary of Labor, followed by a district-court action if there is no final decision within 180 days. All the conduct at issue (the 2023 memo, the FinCEN report and the September 22, 2023 termination) came after the repeal, so the applicable BSA anti-retaliation provision is § 5323(g), not § 5328. The SUMF may accurately describe how the complaint was pleaded, but the statute it names was no longer in force. The authority is real but the section is wrong, which fits WRONG_CITATION_REAL_CASE (or, arguably, MISCHARACTERIZED as citing a repealed provision as the operative law).",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ]
       }
     },
@@ -2541,7 +2541,7 @@
         "explanation": "§ 1514A is SOX's whistleblower protection provision; identifying it as the basis of the SOX retaliation cause of action is correct.",
         "evidence_excerpt": "may discharge, demote, suspend, threaten, harass, or in any other manner discriminate against an employee in the terms and conditions of employment because of any lawful act done by the employee",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -2568,7 +2568,7 @@
         "explanation": "The termination letter names COBRA accurately as the source of the employee's continuation-coverage rights. Under COBRA, the plan administrator must notify qualified beneficiaries of those rights, which matches the letter's statement that the information will come separately from the benefits administrator.",
         "evidence_excerpt": "29 U.S.C. § 1166(a)(4): \"the administrator shall notify...any qualified beneficiary with respect to such event, of such beneficiary's rights under this subsection.\"",
         "source_urls": [
-          "https:/1166"
+          "https://www.law.cornell.edu/uscode/text/29/1166"
         ],
         "confidence": "medium"
       }
@@ -2595,7 +2595,7 @@
         "explanation": "28 U.S.C. § 1746 allows an unsworn declaration made under penalty of perjury to stand in for a sworn statement. The declarant's language, 'true and correct', tracks the statutory form for declarations executed within the United States.",
         "evidence_excerpt": "\"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)\"",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -2624,7 +2624,7 @@
         "explanation": "31 U.S.C. § 5318(g) is the BSA provision on reporting suspicious transactions, implemented by 31 C.F.R. § 1020.320. It is correctly cited as the SAR-filing statute.",
         "evidence_excerpt": "(g)(1) The Secretary may require any financial institution, and any director, officer, employee, or agent of any financial institution, to report any suspicious transaction relevant to a possible violation of law or regulation.",
         "source_urls": [
-          "https:/5318"
+          "https://www.law.cornell.edu/uscode/text/31/5318"
         ],
         "confidence": "high"
       }
@@ -2680,8 +2680,8 @@
         "explanation": "The Bank Secrecy Act begins at 31 U.S.C. § 5311 (Declaration of purpose) in subchapter II of chapter 53. Suspicious-activity reporting obligations come from § 5318(g) and FinCEN's implementing regulations. The declaration cites the Act generally as the source of the Bank's SAR obligations, which is accurate. Whether the bank's decision not to file was inconsistent with those obligations is the declarant's factual opinion, not a statement of law the citation must establish.",
         "evidence_excerpt": "31 U.S.C. § 5318(g)(1): 'The Secretary may require any financial institution, and any director, officer, employee, or agent of any financial institution, to report any suspicious transaction relevant to a possible violation of law or regulation.' Subchapter II first section: '§ 5311 - Declaration of purpose.'",
         "source_urls": [
-          "https:/5318",
-          "https:/subtitle-IV/chapter-53/subchapter-II"
+          "https://www.law.cornell.edu/uscode/text/31/5318",
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-IV/chapter-53/subchapter-II"
         ],
         "confidence": "high"
       }
@@ -2708,7 +2708,7 @@
         "explanation": "28 U.S.C. § 1746 authorizes declarations under penalty of perjury in place of sworn affidavits. The citation is correct and fits its use here.",
         "evidence_excerpt": "\"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct.\"",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -2789,7 +2789,7 @@
         "explanation": "The statute's text supports the rubric's proposition: § 1514A(a) reaches 'any subsidiary or affiliate whose financial information is included in the consolidated financial statements' of a § 12 or § 15(d) company (added in 2010 by Dodd-Frank § 929A). One nuance: coverage depends on the subsidiary's financials being included in the parent's consolidated statements. That is likely for a wholly owned bank subsidiary, but it is a factual condition.",
         "evidence_excerpt": "including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -2843,7 +2843,7 @@
         "explanation": "The text of § 1514A(a) does support the argument that SOX whistleblower protection covers employees of subsidiaries of publicly traded companies. It expressly includes subsidiaries and affiliates whose financial information is consolidated into the covered company's financial statements.",
         "evidence_excerpt": "\"including any subsidiary or affiliate whose financial information is included in the consolidated financial statements of such company\"",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -2871,7 +2871,7 @@
         "evidence_excerpt": "Credibility determinations, the weighing of the evidence, and the drawing of legitimate inferences from the facts are jury functions, not those of a judge, whether he is ruling on a motion for summary judgment or for a directed verdict.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/",
-          "https:/242"
+          "https://www.law.cornell.edu/supremecourt/text/477/242"
         ],
         "confidence": "high"
       }
@@ -2925,8 +2925,8 @@
         "explanation": "31 U.S.C. § 5328 was the old BSA whistleblower-protection section, but Pub. L. 116-283 § 6314(b) repealed it effective January 1, 2021. The same law moved BSA anti-retaliation protection to 31 U.S.C. § 5323(g). Every retaliation event in this scenario happened in 2023, so a BSA whistleblower retaliation claim would arise under § 5323(g), not the repealed § 5328.",
         "evidence_excerpt": "31 U.S. Code § 5328 - Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021 ... related to whistleblower protections. See section 5323 of this title. / § 5323(g)(1): 'No employer may, directly or indirectly, discharge, demote, suspend, threaten, blacklist, harass, or in any other manner discriminate against a whistleblower...'",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ],
         "confidence": "high"
       },
@@ -2935,8 +2935,8 @@
         "revised_status": "WRONG_CITATION_REAL_CASE",
         "explanation": "The finding holds, for the same reason as ref 82. LII shows § 5328 as 'Repealed. Pub. L. 116–283, div. F, title LXIII, § 6314(b), Jan. 1, 2021,' with the whistleblower protections now in § 5323(g). That subsection prohibits retaliation against a whistleblower and provides a Department of Labor complaint, then a district-court action after 180 days. The rubric item asks the memorandum to address a BSA whistleblower retaliation claim 'under 31 U.S.C. § 5328' for 2023 conduct, but that section was repealed more than two years earlier. The correct current provision is 31 U.S.C. § 5323(g).",
         "source_urls": [
-          "https:/5328",
-          "https:/5323"
+          "https://www.law.cornell.edu/uscode/text/31/5328",
+          "https://www.law.cornell.edu/uscode/text/31/5323"
         ]
       }
     },
@@ -2962,7 +2962,7 @@
         "explanation": "18 U.S.C. § 1514A is the SOX civil action against retaliation in fraud cases. It is the correct authority for a SOX whistleblower retaliation claim. Its subsection (b) supplies the enforcement procedure and burdens of proof by incorporating 49 U.S.C. § 42121(b), which is the source of the prima facie framework.",
         "evidence_excerpt": "Section heading: \"Civil action to protect against retaliation in fraud cases\"; (b) enforcement action governed by section 42121(b) of title 49, including burdens of proof.",
         "source_urls": [
-          "https:/1514A"
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
         ],
         "confidence": "high"
       }
@@ -2989,7 +2989,7 @@
         "explanation": "§ 5318(g) is the BSA's SAR provision. It is correctly cited as the source of SAR-filing obligations, which become mandatory for banks through 31 C.F.R. § 1020.320.",
         "evidence_excerpt": "The Secretary may require any financial institution ... to report any suspicious transaction relevant to a possible violation of law or regulation.",
         "source_urls": [
-          "https:/5318"
+          "https://www.law.cornell.edu/uscode/text/31/5318"
         ],
         "confidence": "high"
       }
@@ -3099,8 +3099,8 @@
         "explanation": "The Bank Secrecy Act (31 U.S.C. § 5311 et seq., including § 5318(g)) and FinCEN's implementing regulation, 31 C.F.R. § 1020.320, exist and require banks to report suspicious transactions of at least $5,000 when the bank knows, suspects, or has reason to suspect illicit activity. The witness's opinion that not filing was inconsistent with those obligations is a fact-dependent opinion that rests on real authority. The generic reference to 'FinCEN guidance' cannot be checked further.",
         "evidence_excerpt": "31 C.F.R. § 1020.320(a)(1): 'Every bank shall file with the Treasury Department, to the extent and in the manner required by this section, a report of any suspicious transaction relevant to a possible violation of law or regulation.'",
         "source_urls": [
-          "https:/1020.320",
-          "https:/5318"
+          "https://www.law.cornell.edu/cfr/text/31/1020.320",
+          "https://www.law.cornell.edu/uscode/text/31/5318"
         ],
         "confidence": "medium"
       }

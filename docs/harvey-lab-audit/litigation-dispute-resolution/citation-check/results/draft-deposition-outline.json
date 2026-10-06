@@ -39,8 +39,8 @@
         "explanation": "Title VII is codified starting at 42 U.S.C. § 2000e (definitions), followed by §§ 2000e-1 and onward. It prohibits national origin discrimination (§ 2000e-2) and retaliation (§ 2000e-3). Citing it as '42 U.S.C. § 2000e et seq.' is the standard form.",
         "evidence_excerpt": "§ 2000e-2(m): \"race, color, religion, sex, or national origin was a motivating factor for any employment practice\"",
         "source_urls": [
-          "https:/2000e",
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -67,7 +67,7 @@
         "explanation": "§ 1981 guarantees all persons the same right to make and enforce contracts, defined to include termination and the terms and conditions of the contractual relationship. It is the standard basis for race and ethnicity discrimination claims in employment. The complaint frames the claim as race and ethnicity discrimination rather than national-origin discrimination, which suits § 1981.",
         "evidence_excerpt": "§ 1981(b): \"the term 'make and enforce contracts' includes the making, performance, modification, and termination of contracts, and the enjoyment of all benefits, privileges, terms, and conditions of the contractual relationship.\"",
         "source_urls": [
-          "https:/1981"
+          "https://www.law.cornell.edu/uscode/text/42/1981"
         ],
         "confidence": "high"
       }
@@ -94,8 +94,8 @@
         "explanation": "§ 1331 grants original jurisdiction over civil actions arising under federal law, which covers Title VII and § 1981. § 1343(a)(4) grants jurisdiction over actions for relief under any Act of Congress protecting civil rights. Both support subject-matter jurisdiction here.",
         "evidence_excerpt": "§ 1331: \"The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.\" § 1343(a)(4): \"To recover damages or to secure equitable or other relief under any Act of Congress providing for the protection of civil rights\"",
         "source_urls": [
-          "https:/1331",
-          "https:/1343"
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/28/1343"
         ],
         "confidence": "high"
       }
@@ -122,8 +122,8 @@
         "explanation": "Title VII, codified at 42 U.S.C. § 2000e et seq., is a federal statute. A claim arising under it supports federal-question jurisdiction, and the cite form is standard.",
         "evidence_excerpt": "§ 2000e-5(k): \"In any action or proceeding under this subchapter the court...\"",
         "source_urls": [
-          "https:/2000e",
-          "https:/2000e-5"
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
         ],
         "confidence": "high"
       }
@@ -150,8 +150,8 @@
         "explanation": "§ 1981 is a federal statute, so a claim under it arises under federal law for § 1331 purposes. It is correctly cited as one of the federal claims supporting original jurisdiction.",
         "evidence_excerpt": "§ 1981(a): \"All persons within the jurisdiction of the United States shall have the same right in every State and Territory to make and enforce contracts...\"",
         "source_urls": [
-          "https:/1981",
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -178,7 +178,7 @@
         "explanation": "§ 1367(a) grants supplemental jurisdiction over claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. The complaint pleads this only generically: 'any and all state law claims that may be related.' It does not appear to assert any state-law count, but that is a drafting point, not a citation defect.",
         "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\"",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -205,7 +205,7 @@
         "explanation": "The 'same case or controversy under Article III' standard for supplemental jurisdiction comes from 28 U.S.C. § 1367(a), which refers to Article III. The complaint's reference to Article III is accurate as used in that statutory standard.",
         "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\"",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -232,7 +232,7 @@
         "explanation": "§ 1391(b)(2) makes venue proper in a district where a substantial part of the events or omissions giving rise to the claim occurred, which matches the Phoenix allegations. The (b)(2) pincite would be more precise. Title VII also has its own venue provision in 42 U.S.C. § 2000e-5(f)(3). I did not read its venue text, so I did not check it. On the pleaded facts, § 1391(b) properly supports venue for the § 1981 claim.",
         "evidence_excerpt": "§ 1391(b)(2): \"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated\"",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -259,7 +259,7 @@
         "explanation": "§ 1981 contains no administrative-exhaustion requirement. Johnson v. Railway Express Agency, 421 U.S. 454 (1975), held that § 1981 is a remedy separate from and independent of Title VII's administrative procedures, and that a § 1981 action may be filed at any time after accrual without first going to the EEOC.",
         "evidence_excerpt": "Johnson, 421 U.S. at 465-66: \"Congress clearly has retained § 1981 as a remedy against private employment discrimination separate from and independent of the more elaborate and time-consuming procedures of Title VII.\" Id. at 461: \"the remedies available under Title VII and under § 1981 ... are separate, distinct, and independent.\"",
         "source_urls": [
-          "https:/1981",
+          "https://www.law.cornell.edu/uscode/text/42/1981",
           "https://www.courtlistener.com/opinion/109254/johnson-v-railway-express-agency-inc/"
         ],
         "confidence": "high"
@@ -289,7 +289,7 @@
         "explanation": "Section 2000e(b) defines 'employer' as a person in an industry affecting commerce with fifteen or more employees for each working day in each of twenty or more calendar weeks in the current or preceding calendar year. The complaint's paraphrase matches.",
         "evidence_excerpt": "\"a person engaged in an industry affecting commerce who has fifteen or more employees for each working day in each of twenty or more calendar weeks in the current or preceding calendar year\"",
         "source_urls": [
-          "https:/2000e"
+          "https://www.law.cornell.edu/uscode/text/42/2000e"
         ],
         "confidence": "high"
       }
@@ -316,7 +316,7 @@
         "explanation": "Section 2000e-3(a) bars discrimination against an employee who has 'opposed any practice made an unlawful employment practice'. A written internal complaint of national-origin discrimination is opposition activity under that provision. One note: the text of § 1981 does not mention retaliation, so the paragraph's parallel reference to § 1981 depends on case law that I did not check here. The § 2000e-3(a) citation being checked is accurate and supports the point.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -343,7 +343,7 @@
         "explanation": "42 U.S.C. § 1981 guarantees the equal right to make and enforce contracts. Its text does not mention retaliation, but the Supreme Court held in CBOCS West, Inc. v. Humphries, 553 U.S. 442 (2008), that § 1981 covers retaliation claims. Citing the statute to say that complaining about discrimination is protected activity under § 1981 is therefore a fair reading.",
         "evidence_excerpt": "\"We consequently hold that 42 U.S.C. §1981 encompasses claims of retaliation.\" (CBOCS West v. Humphries); § 1981(a): \"All persons ... shall have the same right ... to make and enforce contracts\"",
         "source_urls": [
-          "https:/1981",
+          "https://www.law.cornell.edu/uscode/text/42/1981",
           "https://www.law.cornell.edu/supct/html/06-1431.ZO.html"
         ],
         "confidence": "high"
@@ -402,7 +402,7 @@
         "explanation": "The count heading uses the correct statute and the standard cite form. Title VII (42 U.S.C. § 2000e et seq.) prohibits national origin discrimination.",
         "evidence_excerpt": "§ 2000e-2(m): \"race, color, religion, sex, or national origin was a motivating factor for any employment practice\"",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -429,7 +429,7 @@
         "explanation": "Section 2000e-2(m) provides that an unlawful employment practice is established when national origin, among other protected traits, was a motivating factor for an employment practice. The complaint invokes it correctly.",
         "evidence_excerpt": "\"an unlawful employment practice is established when the complaining party demonstrates that race, color, religion, sex, or national origin was a motivating factor for any employment practice, even though other factors also motivated the practice.\"",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -456,7 +456,7 @@
         "explanation": "42 U.S.C. § 2000e-3(a) is Title VII's anti-retaliation provision, the correct statutory basis for a Title VII retaliation count.",
         "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -483,7 +483,7 @@
         "explanation": "The opposition clause of § 2000e-3(a) protects an employee who 'opposed any practice made an unlawful employment practice'. A complaint opposing national-origin discrimination fits that language.",
         "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -510,7 +510,7 @@
         "explanation": "§ 1981 gives everyone the same right to make and enforce contracts as white citizens enjoy, and § 1981(b) extends that right to the terms and conditions of the contractual relationship. Employment discrimination based on race is actionable under it. Using it as the basis for a count of race and ethnicity discrimination is proper.",
         "evidence_excerpt": "\"All persons within the jurisdiction of the United States shall have the same right in every State and Territory to make and enforce contracts ... as is enjoyed by white citizens\"",
         "source_urls": [
-          "https:/1981"
+          "https://www.law.cornell.edu/uscode/text/42/1981"
         ],
         "confidence": "high"
       }
@@ -539,7 +539,7 @@
         "explanation": "§ 1981(b) defines \"make and enforce contracts\" to include the making, performance, modification and termination of contracts, and the enjoyment of all benefits, privileges, terms and conditions of the contractual relationship. The complaint's paraphrase tracks the statute almost word for word.",
         "evidence_excerpt": "\"For purposes of this section, the term 'make and enforce contracts' includes the making, performance, modification, and termination of contracts, and the enjoyment of all benefits, privileges, terms, and conditions of the contractual relationship.\"",
         "source_urls": [
-          "https:/1981"
+          "https://www.law.cornell.edu/uscode/text/42/1981"
         ],
         "confidence": "high"
       }
@@ -566,7 +566,7 @@
         "explanation": "42 U.S.C. § 1981a(b)(3) sets the caps on compensatory and punitive damages for Title VII claims brought under § 1981a. The citation correctly identifies the source of the caps. Section 1981a(b)(4) separately provides that nothing in the section limits relief available under § 1981, so § 1981 damages are not subject to those caps. That subsection is the more direct support for the proposition, but the cite to (b)(3) for 'the statutory caps applicable to Title VII claims' is accurate.",
         "evidence_excerpt": "(b)(3): \"The sum of the amount of compensatory damages awarded under this section ... and the amount of punitive damages awarded under this section, shall not exceed, for each complaining party—\"; (b)(4): \"Nothing in this section shall be construed to limit the scope of, or the relief available under, section 1981 of this title.\"",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -593,8 +593,8 @@
         "explanation": "Compensatory damages for emotional distress are available under Title VII through 42 U.S.C. § 1981a. Section 1981a(b)(3) lists 'emotional pain, suffering, inconvenience, mental anguish' as recoverable, subject to caps. Under § 1981, Johnson v. Railway Express Agency, 421 U.S. 454, 460, confirms compensatory damages are available. One nuance: § 1981a(a)(1) allows Title VII compensatory damages only where the plaintiff 'cannot recover under section 1981', which bars double recovery. The complaint's statement of available remedies is still accurate.",
         "evidence_excerpt": "§ 1981a(b)(3): \"future pecuniary losses, emotional pain, suffering, inconvenience, mental anguish, loss of enjoyment of life, and other nonpecuniary losses\"; Johnson, 421 U.S. at 460: \"An individual who establishes a cause of action under § 1981 is entitled to both equitable and legal relief, including compensatory and, under certain circumstances, punitive damages.\"",
         "source_urls": [
-          "https:/1981a",
-          "https:/1981",
+          "https://www.law.cornell.edu/uscode/text/42/1981a",
+          "https://www.law.cornell.edu/uscode/text/42/1981",
           "https://www.courtlistener.com/opinion/109254/johnson-v-railway-express-agency-inc/"
         ],
         "confidence": "high"
@@ -622,7 +622,7 @@
         "explanation": "§ 1981a(a)(1) and (b)(1) allow punitive damages in Title VII cases. § 1981a(b)(3) caps the combined compensatory and punitive damages at $50,000 to $300,000, depending on employer size. § 1981a(b)(4) says nothing in the section limits relief under § 1981, so § 1981 damages are not capped. This matches the proposition.",
         "evidence_excerpt": "(b)(3): \"... the amount of punitive damages awarded under this section, shall not exceed ... (D) $300,000\"; (b)(4): \"Nothing in this section shall be construed to limit the scope of, or the relief available under, section 1981 of this title.\"",
         "source_urls": [
-          "https:/1981a"
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
         ],
         "confidence": "high"
       }
@@ -649,7 +649,7 @@
         "explanation": "Section 2000e-5(k) authorizes the court, in its discretion, to award the prevailing party in a Title VII action a reasonable attorney's fee, including expert fees, as part of the costs.",
         "evidence_excerpt": "\"In any action or proceeding under this subchapter the court, in its discretion, may allow the prevailing party, other than the Commission or the United States, a reasonable attorney's fee (including expert fees) as part of the costs\"",
         "source_urls": [
-          "https:/2000e-5"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
         ],
         "confidence": "high"
       }
@@ -676,7 +676,7 @@
         "explanation": "§ 1988(b) lets the court award a reasonable attorney's fee, as part of costs, to the prevailing party in actions to enforce §§ 1981, 1981a, 1982, 1983 and other listed statutes. That supports a fee award for the § 1981 claim. (The fee is discretionary, which the complaint's paragraph doesn't need to say.)",
         "evidence_excerpt": "\"the court, in its discretion, may allow the prevailing party, other than the United States, a reasonable attorney's fee as part of the costs\" (applies to proceedings to enforce sections 1981, 1981a, 1982, 1983 ...)",
         "source_urls": [
-          "https:/1988"
+          "https://www.law.cornell.edu/uscode/text/42/1988"
         ],
         "confidence": "high"
       }
@@ -703,8 +703,8 @@
         "explanation": "Both citations are correct: Title VII at 42 U.S.C. § 2000e et seq., and § 1981. The § 1981 claim is pleaded as race and ethnicity discrimination, and § 1981(b) covers the termination of contracts. A declaratory-judgment prayer under these statutes is ordinary pleading.",
         "evidence_excerpt": "§ 1981(b): \"the term 'make and enforce contracts' includes the making, performance, modification, and termination of contracts\"",
         "source_urls": [
-          "https:/1981",
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -731,8 +731,8 @@
         "explanation": "§ 2000e-5(k) lets the court award a Title VII prevailing party a reasonable attorney's fee, expressly including expert fees, as part of costs. § 1988(b) authorizes fees for § 1981 actions, and § 1988(c) allows expert fees in §§ 1981 and 1981a actions. Together they support a request for attorney's fees, expert fees and costs. Asking for 'non-taxable costs' is a common way to frame a prayer for relief, not something these statutes expressly grant, but that does not undercut the citation.",
         "evidence_excerpt": "§ 2000e-5(k): \"the court, in its discretion, may allow the prevailing party ... a reasonable attorney's fee (including expert fees) as part of the costs\"; § 1988(c): court \"may include expert fees as part of the attorney's fee\" in §§ 1981/1981a actions",
         "source_urls": [
-          "https:/2000e-5",
-          "https:/1988"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5",
+          "https://www.law.cornell.edu/uscode/text/42/1988"
         ],
         "confidence": "high"
       }
@@ -813,7 +813,7 @@
         "explanation": "18 U.S.C. § 1001 exists and punishes knowing and willful false statements. But § 1001(b) expressly exempts a party to a judicial proceeding for statements submitted to a judge in that proceeding. A plaintiff's verification of a complaint filed in federal court therefore falls within the exemption, and § 1001 is not the source of criminal exposure. The verification already invokes 'penalty of perjury'; the governing provisions are the perjury statute (18 U.S.C. § 1621) and 28 U.S.C. § 1746.",
         "evidence_excerpt": "§ 1001(b): \"Subsection (a) does not apply to a party to a judicial proceeding, or that party's counsel, for statements, representations, writings or documents submitted by such party or counsel to a judge or magistrate in that proceeding.\"",
         "source_urls": [
-          "https:/1001"
+          "https://www.law.cornell.edu/uscode/text/18/1001"
         ],
         "confidence": "high"
       },
@@ -822,7 +822,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds. The citation appears in the plaintiff's verification of a First Amended Complaint filed in the U.S. District Court for the District of Arizona (Case No. 2:24-cv-03841-DLR): \"I understand that a willful false statement may subject me to criminal penalties under 18 U.S.C. § 1001.\" Section 1001(a) does criminalize knowing and willful false statements \"in any matter within the jurisdiction of the ... judicial branch.\" But § 1001(b), which I read on LII, says: \"Subsection (a) does not apply to a party to a judicial proceeding, or that party's counsel, for statements, representations, writings or documents submitted by such party or counsel to a judge or magistrate in that proceeding.\" The plaintiff is a party, and she is verifying a pleading she submitted in her own federal case, so on the statute's plain text § 1001(a) does not reach this statement. I found no alternative reading under which § 1001 is the source of her criminal exposure. The verification also invokes 'penalty of perjury'; the provisions that actually apply are the perjury statute (18 U.S.C. § 1621, plus 28 U.S.C. § 1746 for unsworn declarations). One limit on my check: I did not pull case law on whether a pleading filed with the clerk counts as 'submitted ... to a judge'; this conclusion rests on the statutory text alone. The statute is real and correctly cited, but it is invoked for a consequence it expressly excludes in this setting, so MISCHARACTERIZED is the right status. Note that this citation is in a supplied case document (the complaint), not in a model's work product.",
         "source_urls": [
-          "https:/1001"
+          "https://www.law.cornell.edu/uscode/text/18/1001"
         ]
       }
     },
@@ -848,7 +848,7 @@
         "explanation": "The EEO policy correctly identifies Title VII of the Civil Rights Act of 1964, as amended, at 42 U.S.C. § 2000e et seq. Saying the policy was adopted in compliance with it makes no legal claim that needs a pin cite.",
         "evidence_excerpt": "§ 2000e(b): \"a person engaged in an industry affecting commerce who has fifteen or more employees...\"",
         "source_urls": [
-          "https:/2000e"
+          "https://www.law.cornell.edu/uscode/text/42/2000e"
         ],
         "confidence": "high"
       }
@@ -875,7 +875,7 @@
         "explanation": "§ 1981 is a real federal anti-discrimination statute (Equal rights under the law) that applies to private employers through § 1981(c). Listing it among the laws an EEO policy is meant to comply with is accurate.",
         "evidence_excerpt": "\"(c) ... The rights protected by this section are protected against impairment by nongovernmental discrimination and impairment under color of State law.\"",
         "source_urls": [
-          "https:/1981"
+          "https://www.law.cornell.edu/uscode/text/42/1981"
         ],
         "confidence": "high"
       }
@@ -902,7 +902,7 @@
         "explanation": "29 U.S.C. § 621 is the first section (findings and purpose) of the Age Discrimination in Employment Act of 1967, and the ADEA's short title confirms the name. Citing it as 29 U.S.C. § 621 et seq. is the standard form, and listing the Act as a law the EEO policy complies with is accurate.",
         "evidence_excerpt": "§ 621: \"Congressional statement of findings and purpose\"; short title: may be cited as the \"Age Discrimination in Employment Act of 1967\"",
         "source_urls": [
-          "https:/621"
+          "https://www.law.cornell.edu/uscode/text/29/621"
         ],
         "confidence": "high"
       }
@@ -929,7 +929,7 @@
         "explanation": "42 U.S.C. § 12101 is the findings-and-purpose section that opens chapter 126 (the ADA of 1990); '§ 12101 et seq.' is the standard cite for the Act, and Title I covers employment. Citing it as a law the EEO policy complies with is accurate.",
         "evidence_excerpt": "42 U.S. Code § 12101 - Findings and purpose ... (a) The Congress finds that—",
         "source_urls": [
-          "https:/12101"
+          "https://www.law.cornell.edu/uscode/text/42/12101"
         ],
         "confidence": "high"
       }
@@ -983,7 +983,7 @@
         "explanation": "USERRA (38 U.S.C. § 4301 et seq.) exists. Section 4311(a) bars employers from discriminating in employment based on uniformed-service membership or service, so it is properly listed among the laws an EEO policy complies with.",
         "evidence_excerpt": "\"A person who is a member of ... a uniformed service shall not be denied initial employment, reemployment, retention in employment, promotion, or any benefit of employment by an employer on the basis of that membership...\"",
         "source_urls": [
-          "https:/4311"
+          "https://www.law.cornell.edu/uscode/text/38/4311"
         ],
         "confidence": "high"
       }
@@ -1064,7 +1064,7 @@
         "explanation": "Section 2000e-3(a) makes retaliation for opposing discrimination, or for participating in proceedings, an unlawful employment practice. The policy's statement that retaliation is unlawful under Title VII is accurate.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -1091,10 +1091,10 @@
         "explanation": "Title VII, 42 U.S.C. § 1981, the ADEA (29 U.S.C. § 623), and the ADA (42 U.S.C. § 12112) all exist and prohibit employment discrimination on the respective protected bases. Disparate treatment and hostile work environment claims are recognized under these statutes, so they are appropriate supervisory-training topics. The policy cites them generically, and no pin cite or quotation is at issue.",
         "evidence_excerpt": "ADEA § 623(a)(1): \"...otherwise discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's age\"; ADA § 12112(a): \"No covered entity shall discriminate against a qualified individual on the basis of disability...\"; § 1981(a): \"All persons ... shall have the same right ... to make and enforce contracts...\"",
         "source_urls": [
-          "https:/2000e-2",
-          "https:/1981",
-          "https:/623",
-          "https:/12112"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/uscode/text/29/623",
+          "https://www.law.cornell.edu/uscode/text/42/12112"
         ],
         "confidence": "high"
       }
@@ -1148,7 +1148,7 @@
         "explanation": "This is a topic tag naming Title VII as the governing statute. Title VII exists and is the statute the complaint sues under: Count I is national-origin discrimination and Count II is retaliation under § 2000e-3(a), whose text I read.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -1175,7 +1175,7 @@
         "explanation": "The Bank Secrecy Act exists and is codified at 31 U.S.C. § 5311 et seq.; its declared purposes include preventing money laundering through financial-institution programs. The review mentions it only to describe a training module the plaintiff completed, and it makes no legal claim.",
         "evidence_excerpt": "prevent the laundering of money and the financing of terrorism through the establishment by financial institutions of reasonably designed risk-based programs",
         "source_urls": [
-          "https:/5311"
+          "https://www.law.cornell.edu/uscode/text/31/5311"
         ],
         "confidence": "high"
       }
@@ -1202,7 +1202,7 @@
         "explanation": "The Community Reinvestment Act of 1977 exists and is codified at 12 U.S.C. § 2901 et seq. The review mentions it only to describe a training refresher the plaintiff completed, and it makes no legal claim.",
         "evidence_excerpt": "It is the purpose of this chapter to require each appropriate Federal financial supervisory agency to use its authority when examining financial institutions, to encourage such institutions to help meet the credit needs of the local communities",
         "source_urls": [
-          "https:/2901"
+          "https://www.law.cornell.edu/uscode/text/12/2901"
         ],
         "confidence": "high"
       }
@@ -1271,7 +1271,7 @@
         "explanation": "Title VII (42 U.S.C. § 2000e-2(a)(1)) prohibits employment discrimination because of national origin. The email's general assertion that national-origin-based comments by a supervisor violate federal law including Title VII is a correct general statement of the statute's scope (whether the facts meet the standard is a merits question, not a citation defect).",
         "evidence_excerpt": "\"to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's race, color, religion, sex, or national origin\"",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }

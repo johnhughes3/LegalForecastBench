@@ -172,7 +172,7 @@
         "explanation": "The Stored Communications Act is 18 U.S.C. ch. 121, beginning at § 2701. The rubric only names it as a possible privacy issue when an entity is compelled to produce employees' personal email and messages, which is a reasonable reference. Note that the Act's disclosure limits mainly bind communication service providers.",
         "evidence_excerpt": "18 U.S. Code § 2701 - Unlawful access to stored communications ... intentionally accesses without authorization a facility through which an electronic communication service is provided",
         "source_urls": [
-          "https:/2701"
+          "https://www.law.cornell.edu/uscode/text/18/2701"
         ],
         "confidence": "high"
       }
@@ -255,7 +255,7 @@
         "explanation": "Rule 204A-1 requires registered investment advisers to establish, maintain and enforce a written code of ethics, so a code 'adopted pursuant to' the rule is an accurate description.",
         "evidence_excerpt": "\"If you are an investment adviser registered or required to be registered under section 203 of the Act, you must establish, maintain and enforce a written code of ethics\"",
         "source_urls": [
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ],
         "confidence": "high"
       }
@@ -282,8 +282,8 @@
         "explanation": "Section 204A of the Advisers Act (15 U.S.C. § 80b-4a) requires advisers to keep and enforce written policies reasonably designed to prevent misuse of material, nonpublic information. Rule 204A-1 (17 C.F.R. § 275.204A-1) requires registered advisers to adopt a written code of ethics. Both support the stated purpose of the code.",
         "evidence_excerpt": "15 U.S.C. 80b-4a: policies \"reasonably designed ... to prevent the misuse in violation of this chapter or the Securities Exchange Act of 1934 ... of material, nonpublic information\"; Rule 204A-1(a): \"you must establish, maintain and enforce a written code of ethics\"",
         "source_urls": [
-          "https:/80b-4a",
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/uscode/text/15/80b-4a",
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ],
         "confidence": "high"
       }
@@ -310,8 +310,8 @@
         "explanation": "Section 2(a)(36) of the Investment Company Act (15 U.S.C. 80a-2(a)(36)) does define 'security', so the Code's cross-reference is accurate. Side note: Rule 204A-1(e)(10), the adviser code rule, defines 'reportable security' by reference to Advisers Act section 202(a)(18), not ICA 2(a)(36). Even so, the ICA definition is real and substantively equivalent, so the citation is not wrong.",
         "evidence_excerpt": "\"Security\" means any note, stock, treasury stock, security future, bond, debenture, evidence of indebtedness...",
         "source_urls": [
-          "https:/80a-2",
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/uscode/text/15/80a-2",
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ],
         "confidence": "high"
       }
@@ -338,9 +338,9 @@
         "explanation": "All three statutes exist under the stated short titles (15 U.S.C. 80b-20, 77a, 78a). The Code's instruction to comply with them is a general compliance statement that the statutes support.",
         "evidence_excerpt": "\"This subchapter may be cited as the 'Investment Advisers Act of 1940'.\"; \"This subchapter may be cited as the 'Securities Act of 1933'.\"; \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
         "source_urls": [
-          "https:/80b-20",
-          "https:/77a",
-          "https:/78a"
+          "https://www.law.cornell.edu/uscode/text/15/80b-20",
+          "https://www.law.cornell.edu/uscode/text/15/77a",
+          "https://www.law.cornell.edu/uscode/text/15/78a"
         ],
         "confidence": "high"
       }
@@ -367,7 +367,7 @@
         "explanation": "Section 10(b) and Rule 10b-5 are the prohibitions on insider trading. The penalty amounts stated (up to 20 years and $5,000,000 for individuals) are correct. However, those penalties come from Exchange Act § 32(a), 15 U.S.C. § 78ff(a), not from § 10(b) or Rule 10b-5 themselves. Saying the penalties arise \"under\" § 10(b) is a loose attribution.",
         "evidence_excerpt": "shall upon conviction be fined not more than $5,000,000, or imprisoned not more than 20 years, or both",
         "source_urls": [
-          "https:/78ff"
+          "https://www.law.cornell.edu/uscode/text/15/78ff"
         ],
         "confidence": "high"
       }
@@ -421,8 +421,8 @@
         "explanation": "Section 204 of the Advisers Act (15 U.S.C. § 80b-4) requires advisers to make and keep records the SEC prescribes. Rule 204-2(a) (17 C.F.R. § 275.204-2(a)) lists the required books and records, and Rule 204-2(e) sets their retention periods. The citation fits the retention section of a code of ethics.",
         "evidence_excerpt": "Rule 204-2(a): \"Every investment adviser registered or required to be registered under section 203 of the Act shall make and keep true, accurate and current the following books and records...\"; (e)(1): records \"shall be maintained and preserved in an easily accessible place for a period of not less than five years...\"",
         "source_urls": [
-          "https:/80b-4",
-          "https:/275.204-2"
+          "https://www.law.cornell.edu/uscode/text/15/80b-4",
+          "https://www.law.cornell.edu/cfr/text/17/275.204-2"
         ],
         "confidence": "high"
       }
@@ -449,8 +449,8 @@
         "explanation": "Both statutes exist under the stated short titles. A governing-law clause that points to applicable federal securities laws is a reasonable reference to them.",
         "evidence_excerpt": "\"This subchapter may be cited as the 'Investment Advisers Act of 1940'.\"; \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
         "source_urls": [
-          "https:/80b-20",
-          "https:/78a"
+          "https://www.law.cornell.edu/uscode/text/15/80b-20",
+          "https://www.law.cornell.edu/uscode/text/15/78a"
         ],
         "confidence": "high"
       }
@@ -477,7 +477,7 @@
         "explanation": "The sentence says the pre-clearance requirement comes from the firm's Code of Ethics and uses Rule 204A-1 only for the term 'access persons'. The rule defines access persons in (e)(1) and requires advisers to adopt and enforce a code. That reading is accurate. The rule itself requires pre-approval only for IPOs and limited offerings, and the sentence does not say otherwise.",
         "evidence_excerpt": "\"you must establish, maintain and enforce a written code of ethics\"; (e)(1) access person = supervised person with access to nonpublic client securities information or involved in making recommendations",
         "source_urls": [
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ],
         "confidence": "high"
       }
@@ -504,7 +504,7 @@
         "explanation": "Rule 204A-1(e)(1) defines 'access person', and the sentence ties the pre-clearance obligation to the firm's Code. This is accurate.",
         "evidence_excerpt": "Access Person Definition (e)(1): supervised persons with access to nonpublic client securities information or portfolio holdings, or those involved in making securities recommendations.",
         "source_urls": [
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ],
         "confidence": "high"
       }
@@ -558,7 +558,7 @@
         "explanation": "The audit finding says trades were executed without prior written pre-clearance 'as required by the Code of Ethics and Rule 204A-1'. The rule requires pre-approval only for acquisitions in an initial public offering or a limited offering (204A-1(c)). It does not require pre-clearance of all personal securities transactions. The trades at issue were ordinary personal trades, including in publicly listed NASDAQ stock. The rule does require the adviser to 'enforce' its code, which partly mitigates the error, but saying the rule itself requires general pre-clearance overstates it.",
         "evidence_excerpt": "\"Your code of ethics must require your access persons to obtain your approval before they directly or indirectly acquire beneficial ownership in any security in an initial public offering or in a limited offering.\"",
         "source_urls": [
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ],
         "confidence": "medium"
       },
@@ -567,7 +567,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds. The audit report (clearwater-audit-report.docx.md, Key Findings) says senior personnel's trades were 'executed without prior written pre-clearance as required by the Code of Ethics and Rule 204A-1 under the Investment Advisers Act.' I read the rule text on LII (17 CFR 275.204A-1). Its only pre-approval requirement is in paragraph (c): 'Your code of ethics must require your access persons to obtain your approval before they directly or indirectly acquire beneficial ownership in any security in an initial public offering or in a limited offering.' Paragraph (a)(3) requires access persons to report their personal securities transactions and holdings, and the adviser to review them; it does not require pre-clearance. The broad rule that every transaction in a Covered Security needs pre-clearance comes from the firm's own Code (code-of-ethics.docx.md Section IV.A: 'All Access Persons must obtain written pre-clearance approval ... before executing any transaction in a Covered Security'), not from the rule. Nothing in the documents says the 2023 trades were IPO or limited-offering acquisitions; a search for 'IPO', 'initial public', 'limited offering' and 'private placement' found nothing. Two points cut the other way. Paragraph (a) of the rule requires an adviser to 'establish, maintain and enforce a written code of ethics,' so failing to enforce the Code's pre-clearance provision is a real Rule 204A-1 compliance problem. And the report elsewhere attributes the general pre-clearance requirement to the Code (Section III.A). Read fairly, the sentence still says the rule itself requires pre-clearance of these ordinary trades, and it does not. That makes this a mild mischaracterization rather than a fabrication. If the reader takes 'as required by' to mean 'required by the Code, which the rule obliges the adviser to enforce,' VERIFIED_MINOR_DEFECT would be a defensible alternative. The eCFR fetch redirected to an unblock page, so LII was the text actually read.",
         "source_urls": [
-          "https:/275.204A-1"
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
         ]
       }
     },
@@ -674,7 +674,7 @@
         "explanation": "18 U.S.C. § 401(3) gives federal courts power to punish by fine or imprisonment disobedience of their lawful writ, process, or order, which covers noncompliance with a grand jury subpoena. Fed. R. Crim. P. 17(g), which the same sentence pairs with it, separately authorizes contempt against a witness who disobeys a subpoena.",
         "evidence_excerpt": "A court of the United States shall have power to punish by fine or imprisonment, or both, at its discretion, such contempt of its authority ... as— ... (3) Disobedience or resistance to its lawful writ, process, order, rule, decree, or command.",
         "source_urls": [
-          "https:/401",
+          "https://www.law.cornell.edu/uscode/text/18/401",
           "https://www.law.cornell.edu/rules/frcrmp/rule_17"
         ],
         "confidence": "high"
@@ -703,7 +703,7 @@
         "evidence_excerpt": "Rule 17(g): \"The court (other than a magistrate judge) may hold in contempt a witness who, without adequate excuse, disobeys a subpoena issued by a federal court in that district.\"",
         "source_urls": [
           "https://www.law.cornell.edu/rules/frcrmp/rule_17",
-          "https:/401"
+          "https://www.law.cornell.edu/uscode/text/18/401"
         ],
         "confidence": "high"
       }
@@ -730,7 +730,7 @@
         "explanation": "Both authorities support contempt for noncompliance. Under 18 U.S.C. § 401(3), disobedience of lawful process is punishable as contempt. Rule 17(g) lets the court hold in contempt a witness who disobeys a subpoena without adequate excuse. 'Inherent powers of the Court' is a general reference, not a cited authority.",
         "evidence_excerpt": "Rule 17(g): \"The court (other than a magistrate judge) may hold in contempt a witness who, without adequate excuse, disobeys a subpoena issued by a federal court in that district.\"",
         "source_urls": [
-          "https:/401",
+          "https://www.law.cornell.edu/uscode/text/18/401",
           "https://www.law.cornell.edu/rules/frcrmp/rule_17"
         ],
         "confidence": "high"
@@ -758,7 +758,7 @@
         "explanation": "28 U.S.C. § 1821 provides witness fees (an attendance fee per day) and travel/mileage allowances for a witness 'in attendance at any court of the United States.' The statute does not say 'grand jury' expressly, but courts apply it to grand jury witnesses. For example, In re Grand Jury Matter (Witness RW), 697 F.2d 103 (3d Cir. 1982), applied § 1821(b) to a grand jury witness's fee claim (cited in Demarest v. Manspeaker, 498 U.S. 184).",
         "evidence_excerpt": "\"a witness in attendance at any court of the United States ... shall be paid the fees and allowances provided by this section.\" ... \"A witness shall be paid an attendance fee of $40 per day for each day's attendance.\" ... travel allowance \"shall be paid to each witness who travels by privately owned vehicle.\"",
         "source_urls": [
-          "https:/1821",
+          "https://www.law.cornell.edu/uscode/text/28/1821",
           "https://www.courtlistener.com/opinion/412714/in-re-grand-jury-matter-witness-rw/"
         ],
         "confidence": "high"
@@ -787,7 +787,7 @@
         "evidence_excerpt": "\"The federal courts are not subject to the Americans with Disabilities Act\" (E.D.N.Y. accessibility page); 42 U.S.C. § 12131(1): public entity means \"any State or local government; any department, agency ... of a State or States or local government ...\"",
         "source_urls": [
           "https://www.nyed.uscourts.gov/accessibility",
-          "https:/12131"
+          "https://www.law.cornell.edu/uscode/text/42/12131"
         ],
         "confidence": "medium"
       }

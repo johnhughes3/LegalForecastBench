@@ -36,7 +36,7 @@
         "explanation": "18 U.S.C. § 1836(b)(3) authorizes injunctions, damages for actual loss and unjust enrichment (the DTSA's version of disgorgement), exemplary damages of up to 2x for willful and malicious misappropriation, and attorney's fees. That supports the list of remedies sought. Using 'et seq.' fits, since the DTSA provisions continue into § 1839 (definitions).",
         "evidence_excerpt": "Remedies: injunctions to prevent actual or threatened misappropriation; damages for actual loss and unjust enrichment; exemplary damages up to twice the damages for willful and malicious misappropriation; attorney's fees (summary of § 1836(b)(3) from the fetched page, not verbatim).",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -92,7 +92,7 @@
         "explanation": "§ 1836(b)(1) gives the owner of a misappropriated trade secret a civil action, which supports the DTSA misappropriation claim.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -146,7 +146,7 @@
         "explanation": "Section 1331 grants district courts original jurisdiction over civil actions arising under federal law. A claim under the Defend Trade Secrets Act, 18 U.S.C. § 1836, arises under federal law, so the citation supports the proposition.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -173,7 +173,7 @@
         "explanation": "§ 1836(b)(1) creates a private civil cause of action, and § 1836(c) gives district courts original jurisdiction over actions brought under the section. That supports federal-question jurisdiction.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\" / \"The district courts of the United States shall have original jurisdiction of civil actions brought under this section.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -200,7 +200,7 @@
         "explanation": "Section 1367(a) reaches claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. The 'common nucleus of operative fact' test is the case-law gloss on that language. The complaint's use of 'same case or controversy' tracks the statute.",
         "evidence_excerpt": "in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related ... that they form part of the same case or controversy",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -227,8 +227,8 @@
         "explanation": "§ 1331 grants original jurisdiction over civil actions arising under federal law, which covers the DTSA claim. § 1367(a) grants supplemental jurisdiction over related claims that form part of the same case or controversy, which covers the state-law claims. Citing them together as the primary jurisdictional basis is accurate.",
         "evidence_excerpt": "\"The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.\" / \"...the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy...\"",
         "source_urls": [
-          "https:/1331",
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -255,7 +255,7 @@
         "explanation": "Section 1332(a) grants diversity jurisdiction when the amount in controversy exceeds $75,000 and the parties are citizens of different states. The rule that an LLC takes the citizenship of its members comes from case law, not the statute's text. The complaint cites § 1332(a) only as the jurisdictional basis, which is accurate.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -282,9 +282,9 @@
         "explanation": "All three statutes are cited accurately. The complaint is right that complete diversity is missing because both Vasquez and Greenfield are Massachusetts citizens, and right that the primary basis is § 1331 plus § 1367(a). The weak point is the claim that § 1332(a) is still an 'alternative basis' for the claims against Canopy Ridge in this same action. Under Exxon Mobil v. Allapattah, a failure of complete diversity defeats diversity jurisdiction over every claim in the action, not just claims against the non-diverse defendant. A second, separate problem: the complaint alleges only that Canopy Ridge's LLC members 'include' non-Delaware, non-Massachusetts citizens, which does not establish the citizenship of all members. The statutes are cited correctly, but they do not support the claim-by-claim alternative-diversity theory.",
         "evidence_excerpt": "§ 1332(a): \"the matter in controversy exceeds the sum or value of $75,000 ... and is between—(1) citizens of different States.\" Exxon Mobil v. Allapattah: \"A failure of complete diversity, unlike the failure of some claims to meet the requisite amount in controversy, contaminates every claim in the action.\"",
         "source_urls": [
-          "https:/1332",
-          "https:/1331",
-          "https:/1367",
+          "https://www.law.cornell.edu/uscode/text/28/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/28/1367",
           "https://www.law.cornell.edu/supct/html/04-70.ZO.html"
         ],
         "confidence": "medium"
@@ -312,7 +312,7 @@
         "explanation": "Section 1391(b)(2) makes venue proper where a substantial part of the events or omissions giving rise to the claim occurred. The complaint paraphrases the statute closely.",
         "evidence_excerpt": "a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -339,7 +339,7 @@
         "explanation": "Section 1391(b)(1) makes venue proper in a district where any defendant resides, provided all defendants reside in the same state. Under § 1391(c)(2), an entity defendant resides wherever it is subject to personal jurisdiction. The citation fits the proposition that venue is proper because defendants reside in the district.",
         "evidence_excerpt": "a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -366,7 +366,7 @@
         "explanation": "§ 1839(3) defines 'trade secret' using the independent-economic-value test (not generally known and not readily ascertainable) plus reasonable secrecy measures. The complaint tracks that language accurately.",
         "evidence_excerpt": "the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person who can obtain economic value from the disclosure or use of the information",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -420,7 +420,7 @@
         "explanation": "Section 1839(3)(A) is the DTSA's reasonable-measures element. The cite points to the right subparagraph; whether Greenfield's measures satisfy it is a factual claim in the scenario.",
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -476,7 +476,7 @@
         "explanation": "Section 1836(b)(1) lets the owner of a misappropriated trade secret bring a civil action if the secret is related to a product or service used, or intended for use, in interstate or foreign commerce.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -503,7 +503,7 @@
         "explanation": "The count heading correctly identifies 18 U.S.C. § 1836 as the DTSA civil-action provision for trade secret misappropriation.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -530,7 +530,7 @@
         "explanation": "§ 1839(3) requires (A) reasonable measures to keep the information secret and (B) independent economic value, actual or potential, from not being generally known. The complaint's two-element pleading matches the statute.",
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -557,7 +557,7 @@
         "explanation": "§ 1839(5) defines 'misappropriation' to include acquiring a trade secret by a person who knows or has reason to know it was acquired by improper means, and disclosing or using one acquired by improper means. That supports alleging that Vasquez misappropriated by downloading to USB without authorization.",
         "evidence_excerpt": "(A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who— (i) used improper means to acquire knowledge of the trade secret",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -584,7 +584,7 @@
         "explanation": "§ 1839(5)(A) and (B)(ii)(I) cover acquiring a trade secret, or using one, when the person knows it was obtained by improper means or came through a person who used improper means. That supports the allegation against Canopy Ridge as the entity that acquired the secrets through Vasquez.",
         "evidence_excerpt": "at the time of disclosure or use, knew or had reason to know that the knowledge of the trade secret was— (I) derived from or through a person who had used improper means to acquire the trade secret",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -611,7 +611,7 @@
         "explanation": "Section 1836(b)(3) lists all of the remedies the complaint claims: injunctions in (A); actual-loss damages and unjust-enrichment damages in (B); exemplary damages for willful and malicious misappropriation in (C); and attorney's fees in (D). Fees under (D) are limited to bad faith or willful and malicious misappropriation, which matches the complaint's theory.",
         "evidence_excerpt": "(3) Remedies.— In a civil action brought under this subsection ... a court may— (A) grant an injunction ... (B) award— (i)(I) damages for actual loss ... (II) damages for any unjust enrichment ... (C) ... exemplary damages ... (D) ... award reasonable attorney's fees to the prevailing party.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -667,7 +667,7 @@
         "explanation": "Section 1367(a) supports supplemental jurisdiction over a related state-law trade secrets claim brought alongside the federal DTSA claim.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -721,7 +721,7 @@
         "explanation": "Both statutes exist. Under 18 U.S.C. § 1838, the DTSA does not preempt or displace state trade-secret remedies, so a plaintiff may plead claims under both the DTSA and the MTSA for the same acts. Section 42F of the MTSA supersedes only conflicting Massachusetts law; it says nothing that limits parallel federal claims. Calling the remedies \"additional and complementary\" is a fair characterization, though neither statute uses that phrase.",
         "evidence_excerpt": "18 U.S.C. § 1838: \"this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by ... State ... law for the misappropriation of a trade secret\"",
         "source_urls": [
-          "https:/1838",
+          "https://www.law.cornell.edu/uscode/text/18/1838",
           "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42F"
         ],
         "confidence": "medium"
@@ -790,7 +790,7 @@
         "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to twice the damages awarded under subparagraph (B) when a trade secret is willfully and maliciously misappropriated. The cite is exact.",
         "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -885,8 +885,8 @@
         "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153) added the private civil action at 18 U.S.C. § 1836(b) and amended § 1839, so '18 U.S.C. § 1836 et seq.' is the conventional cite. The statutory trade-secret definition the contract borrows is at § 1839(3), which falls within 'et seq.'",
         "evidence_excerpt": "Pub. L. 114–153, § 2(a), added subsecs. (b) to (d) ... Amendment by Pub. L. 114–153 applicable with respect to any misappropriation of a trade secret (as defined in section 1839 of this title)",
         "source_urls": [
-          "https:/1836",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -913,7 +913,7 @@
         "explanation": "The letter's reservation of the right to sue for misappropriation under the DTSA is supported by the civil action § 1836(b)(1) creates for trade secret owners. 'Et seq.' is appropriate.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -968,7 +968,7 @@
         "explanation": "18 U.S.C. § 1839(3) defines 'trade secret' to require (A) reasonable measures to keep the information secret and (B) independent economic value from not being generally known. That matches the forensic report's use of the cite. Whether the particular files qualify is a factual question for the scenario.",
         "evidence_excerpt": "(3) the term \"trade secret\" means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to...",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1077,7 +1077,7 @@
         "explanation": "18 U.S.C. § 1836 ('Civil proceedings') is the DTSA private civil cause of action for misappropriation of trade secrets; citing it for DTSA misappropriation claims is accurate.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1131,7 +1131,7 @@
         "explanation": "Section 1833(b)(3)(A) requires employers to give notice of whistleblower immunity in any employee contract governing trade secrets; (b)(3)(C) says a non-compliant employer may not be awarded exemplary damages or attorney fees under § 1836(b)(3)(C)-(D) against an employee who did not get notice. The statute sets no other penalty, so injunctive relief under § 1836(b)(3)(A) is unaffected. That supports the rubric's proposition. The general cite to § 1833(b) is adequate; (b)(3)(C) is the precise pin.",
         "evidence_excerpt": "If an employer does not comply with the notice requirement in subparagraph (A), the employer may not be awarded exemplary damages or attorney fees under subparagraph (C) or (D) of section 1836(b)(3) in an action against an employee to whom notice was not provided.",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -1158,7 +1158,7 @@
         "explanation": "§ 1836 creates a federal civil action and § 1836(c) gives district courts original jurisdiction, supporting federal-question jurisdiction based on the DTSA.",
         "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1185,7 +1185,7 @@
         "explanation": "Section 1367 provides supplemental jurisdiction over related claims that form part of the same case or controversy. That covers state-law claims that accompany a federal claim.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -1320,7 +1320,7 @@
         "explanation": "Both statutes support the rubric's parenthetical. The DTSA definition in § 1839(3)(B) requires independent economic value from not being generally known or readily ascertainable. The Massachusetts definition in ch. 93, § 42(4)(i) requires economic advantage, actual or potential, from not being generally known or readily ascertainable. That is substantively the same element, though worded as 'economic advantage' rather than 'independent economic value.' The rubric names the statute only generically, with no section number.",
         "evidence_excerpt": "DTSA § 1839(3)(B): \"the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person\"; Mass. § 42(4): \"(i) at the time of the alleged misappropriation, provided economic advantage, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, others\"",
         "source_urls": [
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
         ],
         "confidence": "high"
@@ -1348,7 +1348,7 @@
         "explanation": "The rubric's premise holds: § 1836 lets a court grant an injunction against actual or threatened misappropriation, but it creates no presumption of irreparable harm. The only 'irreparable' language is in the ex parte civil-seizure provision (§ 1836(b)(2)), which requires a finding of irreparable injury before a seizure order; it does not presume one.",
         "evidence_excerpt": "a court may grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable ... [seizure provision:] an immediate and irreparable injury will occur if such seizure is not ordered",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1402,7 +1402,7 @@
         "explanation": "28 U.S.C. § 1746 permits unsworn declarations subscribed under penalty of perjury to substitute for sworn declarations, using the prescribed form for declarations executed in the United States. That supports the preamble's invocation. Whether the closing 'true and correct' form language is used would have to be checked against the declaration's signature block. The citation itself is accurate.",
         "evidence_excerpt": "\"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)\".",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -1458,7 +1458,7 @@
         "explanation": "The report only disclaims a legal opinion on whether information is a 'trade secret' under the DTSA. The DTSA exists and defines 'trade secret' in § 1839(3), so the reference is accurate. No section was cited, which is fine for a non-legal valuation report.",
         "evidence_excerpt": "the term \"trade secret\" means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1669,7 +1669,7 @@
         "explanation": "Section 1836(b)(3)(A)(i) authorizes an injunction 'on such terms as the court deems reasonable' to prevent actual or threatened misappropriation. It says nothing about presuming irreparable harm. The 'See' cite therefore fairly supports the argument from the statute's silence that the DTSA creates no statutory presumption. Ordinary equitable preliminary-injunction standards would apply; that conclusion comes from case law, not from this provision.",
         "evidence_excerpt": "(A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable, provided the order does not— (I) prevent a person from entering into an employment relationship...",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "medium"
       }
@@ -1723,7 +1723,7 @@
         "explanation": "Section 1746 allows an unsworn declaration signed under penalty of perjury to take the place of a sworn affidavit in federal matters. That is the purpose for which it is invoked here.",
         "evidence_excerpt": "such matter may, with like force and effect, be supported ... by the unsworn declaration ... which is subscribed by him, as true under penalty of perjury, and dated",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }

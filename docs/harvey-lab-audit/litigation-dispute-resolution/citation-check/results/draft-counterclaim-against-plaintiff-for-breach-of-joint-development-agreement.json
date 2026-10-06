@@ -35,7 +35,7 @@
         "explanation": "18 U.S.C. § 1836 et seq. is the DTSA civil remedy. § 1836(b)(1) authorizes a trade-secret owner's civil action for misappropriation, which is the basis the complaint asserts.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -62,8 +62,8 @@
         "explanation": "§ 1331 gives district courts original jurisdiction over civil actions arising under federal law. A DTSA claim arises under federal law, and 18 U.S.C. § 1836(c) also separately grants district courts original jurisdiction over DTSA civil actions.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -90,7 +90,7 @@
         "explanation": "The DTSA, codified at 18 U.S.C. § 1836, is a federal statute that creates a federal civil cause of action, so a claim under it arises under federal law. The proposition is accurate.",
         "evidence_excerpt": "18 U.S. Code § 1836 - Civil proceedings ... An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -117,7 +117,7 @@
         "explanation": "§ 1367(a) grants supplemental jurisdiction over claims so related to claims within the court's original jurisdiction that they form part of the same Article III case or controversy. That supports jurisdiction over the state-law MNDA claim alongside the DTSA claim. The more precise cite would be § 1367(a).",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -144,7 +144,7 @@
         "explanation": "Article III, § 2 extends the judicial power to 'cases' and 'controversies'. Section 1367(a) grants supplemental jurisdiction over claims that 'form part of the same case or controversy under Article III'. The complaint invokes Article III correctly as the constitutional measure for supplemental jurisdiction.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.",
         "source_urls": [
-          "https:/1367",
+          "https://www.law.cornell.edu/uscode/text/28/1367",
           "https://www.law.cornell.edu/constitution/articleiii"
         ],
         "confidence": "high"
@@ -172,7 +172,7 @@
         "explanation": "§ 1332(a) gives district courts jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000, exclusive of interest and costs. The \"complete diversity\" requirement is a long-standing judicial reading of this provision, and the complaint describes it accurately.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -199,7 +199,7 @@
         "explanation": "Section 1391(b)(1) lays venue where any defendant resides if all defendants reside in the forum state. Section 1391(b)(2) lays venue where a substantial part of the events or omissions occurred. The complaint names a single defendant, Vantage, with its principal place of business in Austin, and alleges that the key events happened in the District. Both subsections support venue as pleaded.",
         "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -226,7 +226,7 @@
         "explanation": "Under § 1391(c)(2), an entity defendant is deemed to reside in any district where it is subject to the court's personal jurisdiction, which is the test the complaint invokes. The complaint also mentions Vantage's principal place of business. Under (c)(2) that criterion applies only to plaintiffs, but here it is surplus factual support and does no harm. The more precise pin cite is (c)(2).",
         "evidence_excerpt": "an entity ... shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -253,7 +253,7 @@
         "explanation": "Section 1836(b)(1) authorizes a trade secret owner's civil action if the trade secret relates to a product or service used in, or intended for use in, interstate or foreign commerce. The complaint's jurisdictional allegation tracks this language.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -280,7 +280,7 @@
         "explanation": "18 U.S.C. § 1836, titled 'Civil proceedings', is the DTSA provision that creates the civil action for misappropriation of trade secrets. It is the correct cite for a DTSA misappropriation count.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -309,7 +309,7 @@
         "explanation": "§ 1839(3) defines \"trade secret\" to cover scientific, technical, and engineering information, including formulas, processes, and techniques, provided the reasonable-measures and independent-economic-value requirements are met. The complaint correctly cites it as the governing definition.",
         "evidence_excerpt": "all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -336,7 +336,7 @@
         "explanation": "The secrecy-measures requirement is real, but it sits in § 1839(3)(A), not (3)(B). Subparagraph (B) is the independent-economic-value requirement. The subparagraph pin is wrong, though the proposition (that the DTSA requires reasonable secrecy measures) is correct under (3)(A).",
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -365,7 +365,7 @@
         "explanation": "§ 1839(5) defines \"misappropriation\" (acquisition by improper means, or disclosure or use without consent). It is the correct definitional provision for alleging that Vantage misappropriated the trade secret.",
         "evidence_excerpt": "the term 'misappropriation' means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -392,7 +392,7 @@
         "explanation": "Section 1836(b)(1) contains the requirement that the trade secret relate to a product or service used in, or intended for use in, interstate or foreign commerce. The complaint's paraphrase is nearly verbatim.",
         "evidence_excerpt": "if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -419,7 +419,7 @@
         "explanation": "Section 1836(b)(3)(B) provides for damages for actual loss and for unjust enrichment not counted in actual loss, or, in lieu of those, a reasonable royalty. This matches the complaint's list of damages.",
         "evidence_excerpt": "(B) award— (i)(I) damages for actual loss caused by the misappropriation of the trade secret; and (II) damages for any unjust enrichment ... not addressed in computing damages for actual loss; or (ii) in lieu of damages measured by any other methods, ... a reasonable royalty",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -446,7 +446,7 @@
         "explanation": "Section 1836(b)(3)(C) provides for exemplary damages of not more than 2 times the (B) damages for willful and malicious misappropriation.",
         "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -473,7 +473,7 @@
         "explanation": "§ 1836(b)(3)(D) permits an award of reasonable attorney's fees to the prevailing party when the trade secret was willfully and maliciously misappropriated, which supports the complaint's fee demand. The provision says \"attorney's fees\" and does not mention costs; costs come from general law (e.g., FRCP 54(d)). That gap is too small to change the status.",
         "evidence_excerpt": "or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -500,7 +500,7 @@
         "explanation": "Section 1836(b)(3)(A)(i) lets the court grant an injunction to prevent any actual or threatened misappropriation, subject to limits on restraining employment. That supports the proposition.",
         "evidence_excerpt": "(A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -554,7 +554,7 @@
         "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under subparagraph (B) when misappropriation is willful and malicious. That matches the prayer for relief.",
         "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -581,7 +581,7 @@
         "explanation": "Section 1836(b)(3)(D) authorizes reasonable attorney's fees for the prevailing party in three cases: a bad-faith claim, a bad-faith motion over an injunction, or willful and malicious misappropriation. Since the complaint alleges willful and malicious misappropriation, the fee request is supported. However, (D) says nothing about 'costs of suit,' so the citation only partly covers what it is cited for. Costs come from other sources, and the separate Texas cite (Tex. Civ. Prac. & Rem. Code § 38.001) was not checked here.",
         "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -689,7 +689,7 @@
         "explanation": "§ 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under (b)(3)(B) when misappropriation is willful and malicious. Calling the (b)(3)(B) damages 'compensatory damages' is a fair paraphrase.",
         "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -759,7 +759,7 @@
         "explanation": "Section 1836(c) gives the federal district courts original jurisdiction over DTSA civil actions, and the claim also arises under federal law for purposes of 28 U.S.C. § 1331. That supports federal jurisdiction over a DTSA counterclaim.",
         "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -786,7 +786,7 @@
         "explanation": "Section 271 defines patent infringement, so an infringement claim under it arises under federal patent law. The rubric cites it as one possible basis for jurisdiction, alongside the DTSA and diversity. The jurisdictional grant itself is 28 U.S.C. §§ 1331/1338, but citing the substantive statute the claim arises under is a reasonable reading. The citation is accurate.",
         "evidence_excerpt": "whoever without authority makes, uses, offers to sell, or sells any patented invention, within the United States ... during the term of the patent therefor, infringes the patent.",
         "source_urls": [
-          "https:/271"
+          "https://www.law.cornell.edu/uscode/text/35/271"
         ],
         "confidence": "high"
       }
@@ -840,7 +840,7 @@
         "explanation": "Section 1836(b)(1) gives a trade secret owner a civil action for misappropriation. That makes it the correct authority for a separate DTSA misappropriation counterclaim count.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -894,7 +894,7 @@
         "explanation": "35 U.S.C. § 271, titled 'Infringement of patent', is the substantive basis for a patent infringement count. It is the correct statute for a counterclaim count alleging that the LumiSense 400 infringes.",
         "evidence_excerpt": "35 U.S. Code § 271 - Infringement of patent ... whoever without authority makes, uses, offers to sell, or sells any patented invention ... infringes the patent.",
         "source_urls": [
-          "https:/271"
+          "https://www.law.cornell.edu/uscode/text/35/271"
         ],
         "confidence": "high"
       }
@@ -1002,7 +1002,7 @@
         "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to 2x for willful and malicious misappropriation. One small looseness: the statute measures the multiple against all damages awarded under (B), which includes unjust enrichment or a reasonable royalty, not just 'actual damages.' The rubric's colloquial phrasing does not change the substance.",
         "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1029,7 +1029,7 @@
         "explanation": "18 U.S.C. § 1836(b)(3)(D) authorizes a court to award reasonable attorney's fees to the prevailing party where, among other things, the trade secret was willfully and maliciously misappropriated. That matches the rubric's description of the DTSA fee-shifting provision.",
         "evidence_excerpt": "if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1126,7 +1126,7 @@
         "explanation": "18 U.S.C. § 1836 is the DTSA civil-proceedings section. Subsection (b)(1) creates the private cause of action a trade-secret owner uses for misappropriation, so it is the right cite for describing the complaint's DTSA claim.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1207,8 +1207,8 @@
         "explanation": "§ 1836(b)(1) creates the cause of action and supplies the interstate-commerce requirement. The other listed elements (existence of a trade secret, reasonable measures to keep it secret, misappropriation) come from the definitions in 18 U.S.C. § 1839(3) and (5), which apply to § 1836. Citing § 1836 for a DTSA counterclaim and summarizing its elements this way is a reasonable paraphrase. A more complete cite would add § 1839.",
         "evidence_excerpt": "§1836(b)(1): \"if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce\"; §1839(3)(A): \"the owner thereof has taken reasonable measures to keep such information secret\"",
         "source_urls": [
-          "https:/1836",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1235,7 +1235,7 @@
         "explanation": "§ 1836(b)(3)(C) allows exemplary damages up to 2 times the (b)(3)(B) damages for willful and malicious misappropriation. Calling the base 'actual damages' is a loose paraphrase: the (b)(3)(B) base also covers unjust enrichment or a reasonable royalty. The substance is still correct.",
         "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1262,7 +1262,7 @@
         "explanation": "§ 1836(b)(3)(D) allows reasonable attorney's fees to the prevailing party on any of three grounds. One of them is that the trade secret was willfully and maliciously misappropriated, which is the ground the memo relies on.",
         "evidence_excerpt": "if a claim of the misappropriation is made in bad faith, ... a motion to terminate an injunction is made or opposed in bad faith, or the trade secret was willfully and maliciously misappropriated",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1424,7 +1424,7 @@
         "explanation": "Same provision as ref 45. § 1836(b)(3)(C) caps exemplary damages at 2 times the (b)(3)(B) damages when misappropriation is willful and malicious. 'Actual damages' is a loose but acceptable paraphrase of the (b)(3)(B) award.",
         "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1451,7 +1451,7 @@
         "explanation": "18 U.S.C. § 1836(b)(3)(D) authorizes a court to award reasonable attorney's fees to the prevailing party where, among other grounds, the trade secret was willfully and maliciously misappropriated. That matches the memo's statement.",
         "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }

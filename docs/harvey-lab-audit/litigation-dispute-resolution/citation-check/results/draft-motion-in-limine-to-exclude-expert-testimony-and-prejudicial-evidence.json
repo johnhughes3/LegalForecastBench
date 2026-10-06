@@ -1988,7 +1988,7 @@
         "explanation": "29 U.S.C. § 666(l) (OSH Act § 17(l)) covers how civil penalties are paid and recovered. Penalties for violating posting requirements are in § 666(i) (§ 17(i)), so the subsection letter is wrong.",
         "evidence_excerpt": "(i) Violation of posting requirements: Any employer who violates any of the posting requirements, as prescribed under the provisions of this chapter, shall be assessed a civil penalty of up to $7,000 for each violation. ... (l) Procedure for payment of civil penalties: Civil penalties owed under this chapter shall be paid to the Secretary for deposit into the Treasury",
         "source_urls": [
-          "https:/666"
+          "https://www.law.cornell.edu/uscode/text/29/666"
         ],
         "confidence": "high"
       },
@@ -1997,7 +1997,7 @@
         "revised_status": "WRONG_CITATION_REAL_CASE",
         "explanation": "Finding holds. 29 U.S.C. § 666(l), OSH Act § 17(l), reads: '(l) Procedure for payment of civil penalties. Civil penalties owed under this chapter shall be paid to the Secretary for deposit into the Treasury ... and may be recovered in a civil action ...' The penalty for violating a posting requirement is in § 666(i), OSH Act § 17(i): '(i) Violation of posting requirements. Any employer who violates any of the posting requirements, as prescribed under the provisions of this chapter, shall be assessed a civil penalty of up to $7,000 for each violation.' The statute is right and only the subsection letter is wrong ((l) for (i)), all within the same section. For that reason I treat it as a garbled citation rather than a mischaracterized authority.",
         "source_urls": [
-          "https:/666"
+          "https://www.law.cornell.edu/uscode/text/29/666"
         ]
       }
     },

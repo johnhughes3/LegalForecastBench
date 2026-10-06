@@ -580,7 +580,7 @@
         "explanation": "28 U.S.C. § 1332 gives district courts diversity jurisdiction. It is correctly cited as the basis for the court's diversity jurisdiction.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1270,7 +1270,7 @@
         "explanation": "Section 1332(a) sets the amount-in-controversy threshold above $75,000 and requires that the parties be citizens of different States. The 'complete diversity' requirement is the long-standing judicial reading of that text, so it is fairly attributed to § 1332.",
         "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -1297,7 +1297,7 @@
         "explanation": "28 U.S.C. § 1331 is the general federal-question jurisdiction statute, which is exactly what the pretrial order uses it as an example of.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -1324,7 +1324,7 @@
         "explanation": "28 U.S.C. § 1391, titled 'Venue generally', governs venue in civil actions in federal district courts and sets out the bases for proper venue.",
         "evidence_excerpt": "(1) this section shall govern the venue of all civil actions brought in district courts of the United States",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -1931,7 +1931,7 @@
         "explanation": "28 U.S.C. § 1332 is the diversity-jurisdiction statute, so it is the correct basis for a jurisdictional statement that relies on diversity.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000 ... and is between—(1) citizens of different States",
         "source_urls": [
-          "https:/1332"
+          "https://www.law.cornell.edu/uscode/text/28/1332"
         ],
         "confidence": "high"
       }
@@ -2370,7 +2370,7 @@
         "explanation": "This is a choice-of-law clause inside the fictional EDA, not a citation to a legal authority. The clause does what it is cited for: Pennsylvania law governs, without regard to conflict-of-laws principles, and the parties submit to the exclusive jurisdiction of the federal and state courts in the Western District of Pennsylvania (Allegheny County, Pittsburgh). There is no external authority to check.",
         "evidence_excerpt": "This Agreement shall be governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania, without regard to its conflict of laws principles ... exclusive jurisdiction of the federal and state courts located in the Western District of Pennsylvania, Allegheny County, Pittsburgh, Pennsylvania",
         "source_urls": [
-          "file://exclusive-distribution-agreement.docx.md"
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/draft-pretrial-statement/exclusive-distribution-agreement.docx.md"
         ],
         "confidence": "medium"
       }

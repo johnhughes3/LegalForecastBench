@@ -89,8 +89,8 @@
         "explanation": "Section 1331 gives district courts original jurisdiction over civil actions arising under federal law. A civil claim under the DTSA, 18 U.S.C. § 1836(b), arises under a federal statute, so the citation supports the complaint's jurisdictional allegation. The DTSA also has its own grant at § 1836(c), which the complaint does not cite; that is an omission, not an error.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -145,7 +145,7 @@
         "explanation": "Section 1367(a) grants supplemental jurisdiction over claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. The complaint invokes it for exactly that: state-law contract, CUTSA, tortious interference and fiduciary duty claims arising from the same facts as the federal DTSA claim. The pin cite to subsection (a) is correct.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -199,7 +199,7 @@
         "explanation": "Section 1391(b)(2) permits venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. The complaint cites it for that proposition and lists the Connecticut events it relies on: employment at the Stamford headquarters, execution of the agreement there, and the file downloads. The pin cite is correct.",
         "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -226,7 +226,7 @@
         "explanation": "Section 1391(b)(1) is the residence-based venue provision, so the pin cite is right. The complaint states the rule incompletely. Venue under (b)(1) lies where any defendant resides only \"if all defendants are residents of the State in which the district is located.\" The complaint relies solely on Whitaker's Connecticut residence and says nothing about co-defendant Lodestar, which it pleads as a Delaware LLC with principal offices in New York (¶ 19). Subsection (b)(1) is therefore satisfied only if Lodestar is deemed a Connecticut resident under § 1391(c)(2), meaning it is subject to personal jurisdiction in the District for this action. The complaint does not allege that in its venue paragraphs. Venue is independently supported under (b)(2) (¶ 25), and the motion to dismiss does not appear to contest venue.",
         "evidence_excerpt": "A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located;",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "medium"
       }
@@ -254,7 +254,7 @@
         "evidence_excerpt": "(5) the term \"misappropriation\" means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who— (i) used improper means to acquire knowledge of the trade secret;",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1839.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "medium"
       }
@@ -308,7 +308,7 @@
         "explanation": "Both statutes exist and are correctly cited for a trade secret misappropriation count. 18 U.S.C. § 1836(b)(1) creates the private civil action for misappropriation; subsections (b) to (d) were added by the Defend Trade Secrets Act of 2016, Pub. L. 114-153. Conn. Gen. Stat. § 35-50 is the first section of chapter 625 (§§ 35-50 to 35-58), Connecticut's Uniform Trade Secrets Act. The statute's own short title is 'Uniform Trade Secrets Act' without 'Connecticut'; Connecticut courts routinely call it the Connecticut Uniform Trade Secrets Act (CUTSA), General Statutes § 35-50 et seq., so this is not a defect.",
         "evidence_excerpt": "18 U.S.C. § 1836(b)(1): \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\" Pub. L. 114-153 § 1: \"This Act may be cited as the ``Defend Trade Secrets Act of 2016''.\" Conn. Gen. Stat. § 35-50: \"This chapter may be cited as the Uniform Trade Secrets Act.\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
@@ -340,7 +340,7 @@
         "evidence_excerpt": "(3) the term \"trade secret\" means all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures, programs, or codes ... if— (A) the owner thereof has taken reasonable measures to keep such information secret",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1839.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -399,7 +399,7 @@
         "evidence_excerpt": "(1) In general.—An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -427,7 +427,7 @@
         "evidence_excerpt": "a court may— (A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable ... (ii) if determined appropriate by the court, requiring affirmative actions to be taken to protect the trade secret",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -482,7 +482,7 @@
         "evidence_excerpt": "(B) award— (i)(I) damages for actual loss caused by the misappropriation of the trade secret; and (II) damages for any unjust enrichment caused by the misappropriation of the trade secret that is not addressed in computing damages for actual loss; or (ii) in lieu of damages measured by any other methods, the damages caused by the misappropriation measured by imposition of liability for a reasonable royalty",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -545,7 +545,7 @@
         "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -607,7 +607,7 @@
         "explanation": "Graded on the DTSA citation given for this ref. 18 U.S.C. § 1836(b)(3)(D) authorizes reasonable attorney's fees to the prevailing party where the trade secret was willfully and maliciously misappropriated, as paragraph 178 says. Note that the same sentence of the complaint pairs it with Conn. Gen. Stat. § 35-52(c), which is the wrong CUTSA provision (the correct one is § 35-53(b)); that defect is recorded under ref 23. The paragraph's companion cite to § 35-52(b) for exemplary damages is likewise wrong (see ref 22).",
         "evidence_excerpt": "§ 1836(b)(3)(D): \"if a claim of the misappropriation is made in bad faith, which may be established by circumstantial evidence, a motion to terminate an injunction is made or opposed in bad faith, or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
         "confidence": "high"
@@ -670,7 +670,7 @@
         "explanation": "The DTSA half is correct: § 1836(b)(3)(C) allows exemplary damages of not more than 2 times the damages awarded under subparagraph (B) for willful and malicious misappropriation. Strictly, the base is the subparagraph (B) award, which includes unjust enrichment or a royalty and not only 'actual damages'; that is a loose paraphrase, not a real defect. The CUTSA half is mis-cited. Conn. Gen. Stat. § 35-52(b) is part of the injunctive relief section and deals with conditioning future use on a reasonable royalty. CUTSA's punitive damages provision (not exceeding twice the subsection (a) award, on a finding of wilful and malicious misappropriation) is § 35-53(b). The substance is right, but the section number is wrong.",
         "evidence_excerpt": "§ 1836(b)(3)(C): \"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)\". Conn. Gen. Stat. § 35-52(b): \"If the court determines that it would be unreasonable to prohibit future use, an injunction may condition future use upon payment of a reasonable royalty\". § 35-53(b): \"the court may award punitive damages in an amount not exceeding twice any award made under subsection (a)\".",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
         "confidence": "high"
@@ -681,7 +681,7 @@
         "explanation": "The DTSA half was not re-read here; the first reviewer verified it on LII. The CUTSA half is mis-cited, as confirmed from CGA text. § 35-52(b) is the royalty-conditioned injunction provision. Punitive damages \"not exceeding twice any award made under subsection (a)\" for wilful and malicious misappropriation are in § 35-53(b). The substance is right, the section number wrong.",
         "source_urls": [
           "https://www.cga.ct.gov/current/pub/chap_625.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ]
       }
     },
@@ -707,7 +707,7 @@
         "explanation": "The DTSA half is correct: § 1836(b)(3)(D) authorizes reasonable attorney's fees to the prevailing party where the trade secret was willfully and maliciously misappropriated. The CUTSA half is mis-cited. Conn. Gen. Stat. § 35-52 is the injunctive relief section, and its subsection (c) concerns court-ordered affirmative acts to protect a trade secret, not fees. CUTSA's fee provision for wilful and malicious misappropriation is § 35-53(b); § 35-54 separately covers bad-faith claims. The rule exists in CUTSA, but at a different section than the one cited. Separately, neither § 1836(b)(3)(D) nor § 35-53(b) mentions 'costs'; both speak only of reasonable attorney's fees.",
         "evidence_excerpt": "§ 1836(b)(3)(D): \"or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.\" Conn. Gen. Stat. § 35-52(c): \"In appropriate circumstances, affirmative acts to protect a trade secret may be compelled by court order.\" § 35-53(b): \"if the court finds wilful and malicious misappropriation, the court may award punitive damages in an amount not exceeding twice any award made under subsection (a) and may award reasonable attorney's fees to the prevailing party.\"",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
         "confidence": "high"
@@ -718,7 +718,7 @@
         "explanation": "As with ref 22, the DTSA half was not re-read here; the first reviewer verified it on LII. The CUTSA half is mis-cited. § 35-52(c) concerns only court-compelled \"affirmative acts to protect a trade secret.\" The fee authority is § 35-53(b) (\"may award reasonable attorney's fees to the prevailing party\" on wilful and malicious misappropriation), with § 35-54 covering bad-faith claims. As the first reviewer noted, neither CUTSA provision mentions costs.",
         "source_urls": [
           "https://www.cga.ct.gov/current/pub/chap_625.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ]
       }
     },
@@ -744,7 +744,7 @@
         "explanation": "28 U.S.C. § 1746 exists and is titled \"Unsworn declarations under penalty of perjury.\" It allows any matter that federal law requires or permits to be supported by a sworn verification to be supported instead by an unsworn written declaration subscribed as true under penalty of perjury and dated, in substantially the statutory form. That is exactly what the CEO's verification of the complaint invokes. Two observations that do not affect the citation's accuracy: the verification uses the form (1) wording (\"under the laws of the United States of America\"), which the statute assigns to declarations executed outside the United States, although this one was executed in Stamford, Connecticut; and the verification is qualified \"to the best of my knowledge, information, and belief.\" The statute requires only substantial conformity to the form. The official uscode.house.gov site was under maintenance, so the text was read on Cornell LII.",
         "evidence_excerpt": "such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated, in substantially the following form",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -1718,7 +1718,7 @@
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person who can obtain economic value from the disclosure or use of the information",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1839.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1749,7 +1749,7 @@
         "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1839.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1780,7 +1780,7 @@
         "evidence_excerpt": "(5) the term \"misappropriation\" means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who— (i) used improper means to acquire knowledge of the trade secret",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1839.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -1810,7 +1810,7 @@
         "evidence_excerpt": "(6) the term \"improper means\"— (A) includes theft, bribery, misrepresentation, breach or inducement of a breach of a duty to maintain secrecy, or espionage through electronic or other means; and (B) does not include reverse engineering, independent derivation, or any other lawful means of acquisition",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1839.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "medium"
       }
@@ -1870,7 +1870,7 @@
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1899,7 +1899,7 @@
         "source_urls": [
           "https://www.courtlistener.com/docket/5929056/zep-solar-inc-v-westinghouse-solar-inc/",
           "https://www.courtlistener.com/docket/4178596/zep-solar-inc-v-westinghouse-solar-inc/",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "medium"
       },
@@ -1936,7 +1936,7 @@
         "evidence_excerpt": "18 U.S.C. § 1838: \"Except as provided in section 1833(b), this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State, commonwealth, possession, or territory law for the misappropriation of a trade secret\". Conn. Gen. Stat. § 35-57(a): \"the provisions of this chapter supersede any conflicting tort, restitutionary, or other law of this state pertaining to civil liability for misappropriation of a trade secret.\"",
         "source_urls": [
           "https://www.cga.ct.gov/current/pub/chap_625.htm",
-          "https:/1838"
+          "https://www.law.cornell.edu/uscode/text/18/1838"
         ],
         "confidence": "medium"
       }
@@ -3090,7 +3090,7 @@
         "source_urls": [
           "https://www.courtlistener.com/docket/5929056/zep-solar-inc-v-westinghouse-solar-inc/",
           "https://www.courtlistener.com/docket/4178596/zep-solar-inc-v-westinghouse-solar-inc/",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "medium"
       },
@@ -3126,7 +3126,7 @@
         "explanation": "18 U.S.C. § 1836 ('Civil proceedings') exists and § 1836(b)(1) creates the DTSA private civil action for the owner of a misappropriated trade secret, conditioned on the interstate or foreign commerce nexus the memo describes. The Table of Authorities entry is accurate.",
         "evidence_excerpt": "\"(b) Private Civil Actions.— (1) In general.— An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -3153,7 +3153,7 @@
         "explanation": "18 U.S.C. § 1839 exists and is the definitions section of chapter 90 of Title 18, defining 'trade secret' in (3), 'misappropriation' in (5) and 'improper means' in (6). The Table of Authorities entry is accurate. Two small body-text defects, outside the entry itself: the memo drops the words \"such information\" from the reasonable-measures quote, and its parenthetical cites § 1839(3)(A) for the independent-economic-value language that actually sits in § 1839(3)(B).",
         "evidence_excerpt": "\"(3) the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person\"",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -3208,7 +3208,7 @@
         "evidence_excerpt": "Pub. L. 114-153 § 1: \"This Act may be cited as the ``Defend Trade Secrets Act of 2016''.\" Conn. Gen. Stat. § 35-50: \"This chapter may be cited as the Uniform Trade Secrets Act.\" § 35-53(a): \"a complainant may recover damages for the actual loss caused by misappropriation.\"",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
         "confidence": "high"
@@ -3351,8 +3351,8 @@
         "explanation": "The enactment date is right: the DTSA civil remedy was added by Pub. L. 114-153 on May 11, 2016. But the proposition that the DTSA 'occupies the field' and preempts a parallel CUTSA claim is contradicted by the statute's own text. 18 U.S.C. § 1838 says the chapter shall not be construed to preempt or displace state-law remedies for trade secret misappropriation (the only exception is the § 1833(b) whistleblower immunity). The Second Circuit cites § 1838 for exactly that point in Syntel Sterling Best Shores Mauritius Ltd. v. TriZetto Group, 68 F.4th 792 n.23 (2d Cir. 2023), and the Fifth Circuit states \"The DTSA does not preempt state-law remedies\" in Silverthorne v. Sterling Seismic (5th Cir. Jan. 3, 2025). The memo cites no authority for preemption and none exists in the statute.",
         "evidence_excerpt": "18 U.S.C. § 1838: \"Except as provided in section 1833(b), this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State, commonwealth, possession, or territory law for the misappropriation of a trade secret\"",
         "source_urls": [
-          "https:/1838",
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1838",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.courtlistener.com/opinion/9401896/syntel-sterling-best-shores-mauritius-ltd-v-the-trizetto-grp/"
         ],
         "confidence": "high"
@@ -3362,7 +3362,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The statute's text directly contradicts the claim that the DTSA preempts state law or occupies the field. 18 U.S.C. § 1838 (LII) reads: \"Except as provided in section 1833(b), this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State, commonwealth, possession, or territory law for the misappropriation of a trade secret.\" The 2016 enactment date is correct, but the preemption proposition the memo builds on it is contrary to the statute. No authority is cited for it.",
         "source_urls": [
-          "https:/1838"
+          "https://www.law.cornell.edu/uscode/text/18/1838"
         ]
       }
     },
@@ -3511,7 +3511,7 @@
         "explanation": "Complaint ¶ 23 invokes supplemental jurisdiction under 28 U.S.C. § 1367(a) on the ground that the state-law claims form part of the same Article III case or controversy as the federal DTSA claim. That is the statutory test: § 1367(a) grants supplemental jurisdiction over claims 'so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III.' Article III, § 2 extends the judicial power to enumerated 'Cases' and 'Controversies'. The reference to Article III is accurate and used correctly. (Whether the pleaded state claims in fact share a common nucleus with the DTSA claim is a merits question, not a citation issue.)",
         "evidence_excerpt": "28 U.S.C. § 1367(a): \"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\"",
         "source_urls": [
-          "https:/1367",
+          "https://www.law.cornell.edu/uscode/text/28/1367",
           "https://www.archives.gov/founding-docs/constitution-transcript",
           "https://www.law.cornell.edu/constitution/articleiii"
         ],
@@ -3540,7 +3540,7 @@
         "explanation": "Both statutes exist and define 'trade secret' in the terms the complaint tracks. The DTSA definition covers 'all forms and types of financial, business, scientific, technical ... information, including ... formulas, ... methods, techniques, processes, procedures, programs, or codes' that the owner took reasonable measures to keep secret and that derive independent economic value from not being generally known or readily ascertainable. CUTSA likewise covers 'information, including a formula, pattern, compilation, program, device, method, technique, process ...' meeting the same independent-economic-value and reasonable-secrecy-efforts tests. A proprietary revenue-management algorithm (RevMaxPro) falls within the enumerated categories, and para. 44 pleads the independent-economic-value element in the statutory language. Whether it actually qualifies is a fact question, but as a pleading allegation invoking federal and Connecticut law it is accurately grounded.",
         "evidence_excerpt": "18 U.S.C. § 1839(3): \"the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person who can obtain economic value from the disclosure or use of the information\". Conn. Gen. Stat. § 35-51(d): \"'trade secret' means information, including a formula, pattern, compilation, program, device, method, technique, process, drawing, cost data or customer list that: (1) Derives independent economic value, actual or potential ...\"",
         "source_urls": [
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
         "confidence": "high"
@@ -3569,7 +3569,7 @@
         "evidence_excerpt": "Conn. Gen. Stat. § 35-51(d): \"'trade secret' means information, including a formula, pattern, compilation, program, device, method, technique, process, drawing, cost data or customer list that: (1) Derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, other persons who can obtain economic value from its disclosure or use, and (2) is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.\" 18 U.S.C. § 1839(3): \"all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations ...\"",
         "source_urls": [
           "https://www.cga.ct.gov/current/pub/chap_625.htm",
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -3662,7 +3662,7 @@
         "explanation": "Section 1746 allows an unsworn declaration subscribed as true under penalty of perjury, \"in substantially the following form,\" to stand in for a sworn verification. The complaint's verification cites § 1746 and uses that formula, so the statute supports it. One technical point: the phrase \"under the laws of the United States of America\" comes from form (1), for declarations executed outside the United States. This declaration was executed in Stamford, Connecticut, where form (2) omits the phrase. Because the statute requires only substantial conformity and the declaration contains every element of form (2), I do not treat the extra phrase as a defect.",
         "evidence_excerpt": "(1) If executed without the United States: \"I declare (or certify, verify, or state) under penalty of perjury under the laws of the United States of America that the foregoing is true and correct. Executed on (date). (Signature)\". (2) If executed within the United States, its territories, possessions, or commonwealths: \"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct.",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -3690,7 +3690,7 @@
         "explanation": "This is boilerplate press-release language with no specific citation. Federal securities law does define \"forward-looking statement\" and provide a safe harbor for such statements, in 15 U.S.C. § 78u-5, so the general reference points to real law. I read § 78u-5 on LII; the parallel Securities Act provision, § 77z-2, was not separately read. One caveat: under § 78u-5(a) the safe harbor applies only to statements by issuers subject to Exchange Act reporting requirements (and persons acting for them), so it may not actually protect a private LLC such as Lodestar. The disclaimer does not claim otherwise; it only labels the statements as forward-looking.",
         "evidence_excerpt": "§ 78u-5(a): \"This section shall apply only to a forward-looking statement made by—(1) an issuer that, at the time that the statement is made, is subject to the reporting requirements of section 78m(a) of this title or section 78o(d) of this title\"; § 78u-5(i)(1)(B): \"a statement of the plans and objectives of management for future operations, including plans or objectives relating to the products or services of the issuer\"",
         "source_urls": [
-          "https:/78u-5"
+          "https://www.law.cornell.edu/uscode/text/15/78u-5"
         ]
       }
     },
@@ -4006,7 +4006,7 @@
         "explanation": "The memo names the two statutes without sections. Both statutory definitions expressly list compilations: 18 U.S.C. § 1839(3) covers \"patterns, plans, compilations, program devices...\" and Conn. Gen. Stat. § 35-51(d) covers \"a formula, pattern, compilation, program, device, method, technique, process, drawing, cost data or customer list.\" The broader 'compilation theory' (a combination of individually public elements can be secret) is also recognized in controlling case law: Integrated Cash Mgmt. Servs. v. Digital Transactions, 920 F.2d 171, 174 (2d Cir. 1990) (applying New York law; quoted in Broker Genius v. Zalta, 280 F. Supp. 3d 495 (S.D.N.Y. 2017), a case with DTSA and New York claims), and Elm City Cheese Co. v. Federico, 251 Conn. 59, 75-76 (1999) (under CUTSA, individual components \"viewed in conjunction with each other, can be considered a trade secret\"). The proposition is supported.",
         "evidence_excerpt": "§ 1839(3): \"all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas...\"; § 35-51(d): \"information, including a formula, pattern, compilation, program, device, method, technique, process, drawing, cost data or customer list that...\"; Integrated Cash Mgmt.: \"a trade secret can exist in a combination of characteristics and components, each of which, by itself, is in the public domain\"",
         "source_urls": [
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://www.cga.ct.gov/current/pub/chap_625.htm",
           "https://www.courtlistener.com/opinion/8993925/integrated-cash-management-services-inc-v-digital-transactions-inc/",
           "https://www.courtlistener.com/opinion/7898267/elm-city-cheese-co-v-federico/"
@@ -4036,7 +4036,7 @@
         "explanation": "Section 1839(5) defines \"misappropriation\" in two alternative prongs: (A) acquisition of a trade secret by a person who knows or has reason to know it was acquired by improper means, or (B) disclosure or use without consent under listed circumstances. That supports the memo's statement that misappropriation covers both acquisition by improper means and use or disclosure. One nuance: prong (B) is not unconditional. It requires improper acquisition, a duty of secrecy or limited use, or accident/mistake. The memo's follow-on point that use after authorized access is independently actionable rests on the duty-based subclause (B)(ii)(II), which the text supports.",
         "evidence_excerpt": "\"misappropriation\" means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who—",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -4063,7 +4063,7 @@
         "explanation": "This is a research pointer, not a legal proposition. Both pin cites are correct: § 1839(5) defines \"misappropriation\" and § 1839(6) defines \"improper means\" (it includes theft, bribery, misrepresentation, and breach or inducement of a breach of a duty to maintain secrecy, and excludes reverse engineering and independent derivation).",
         "evidence_excerpt": "(6) the term \"improper means\"— (A) includes theft, bribery, misrepresentation, breach or inducement of a breach of a duty to maintain secrecy, or espionage through electronic or other means; and (B) does not include reverse engineering, independent derivation, or any other lawful means of acquisition",
         "source_urls": [
-          "https:/1839"
+          "https://www.law.cornell.edu/uscode/text/18/1839"
         ],
         "confidence": "high"
       }
@@ -4093,7 +4093,7 @@
         "evidence_excerpt": "(b) Private Civil Actions.— (1) In general.—An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -4151,7 +4151,7 @@
         "evidence_excerpt": "§1838. Construction with other laws Except as provided in section 1833(b), this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State, commonwealth, possession, or territory law for the misappropriation of a trade secret, or to affect the otherwise lawful disclosure of information by any Government employee under section 552 of title 5 ... Amendments 2016—Pub. L. 114–153 substituted \"Except as provided in section 1833(b), this chapter\" for \"This chapter\".",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1838.htm",
-          "https:/1838"
+          "https://www.law.cornell.edu/uscode/text/18/1838"
         ],
         "confidence": "high"
       }
@@ -4422,7 +4422,7 @@
         "evidence_excerpt": "(3) Remedies.—In a civil action brought under this subsection with respect to the misappropriation of a trade secret, a court may— (A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable, provided the order does not— (I) prevent a person from entering into an employment relationship, and that conditions placed on such employment shall be based on evidence of threatened misappropriation and not merely on the information the person knows",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -4479,7 +4479,7 @@
         "evidence_excerpt": "(3) Remedies.—In a civil action brought under this subsection with respect to the misappropriation of a trade secret, a court may— (A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable, provided the order does not— (I) prevent a person from entering into an employment relationship, and that conditions placed on such employment shall be based on evidence of threatened misappropriation and not merely on the information the person knows;",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title18/html/USCODE-2023-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -4717,7 +4717,7 @@
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.courtlistener.com/opinion/10382295/double-eagle-alloys-v-hooper/"
         ],
         "confidence": "medium"
@@ -4746,7 +4746,7 @@
         "evidence_excerpt": "Except as provided in section 1833(b), this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State, commonwealth, possession, or territory law for the misappropriation of a trade secret",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1838.htm",
-          "https:/1838"
+          "https://www.law.cornell.edu/uscode/text/18/1838"
         ],
         "confidence": "high"
       }
@@ -4774,7 +4774,7 @@
         "evidence_excerpt": "a court may— (A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -4900,8 +4900,8 @@
         "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153, May 11, 2016) is conventionally cited as 18 U.S.C. § 1836 et seq.; a federal court uses that same form in Broker Genius v. Zalta, 280 F. Supp. 3d 495 (S.D.N.Y. 2017). The operative federal definition of 'trade secret' is at § 1839(3), which falls within the 'et seq.' range. The companion Connecticut reference is also accurate: Conn. Gen. Stat. § 35-50 states the chapter may be cited as the Uniform Trade Secrets Act and § 35-51(d) defines 'trade secret'. The contract definition's incorporation of these statutes is sound.",
         "evidence_excerpt": "Broker Genius: \"the Defend Trade Secrets Act of 2016 ('DTSA'), 18 U.S.C. § 1836, et seq.\"; § 1836 source credit: \"Pub. L. 114–153, § 2(a), (d)(1), May 11, 2016, 130 Stat. 376, 381\"; Conn. Gen. Stat.: \"Sec. 35-50. Citation of chapter. This chapter may be cited as the Uniform Trade Secrets Act.\"",
         "source_urls": [
-          "https:/1836",
-          "https:/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839",
           "https://www.cga.ct.gov/current/pub/chap_625.htm"
         ],
         "confidence": "high"
@@ -4956,7 +4956,7 @@
         "explanation": "18 U.S.C. § 1833(b) provides the immunity exactly as the agreement describes it: no criminal or civil liability under federal or state trade secret law for a disclosure made in confidence to a federal, state or local government official or to an attorney solely to report or investigate a suspected violation of law, or made in a sealed filing in a lawsuit or other proceeding. Section 1833(b)(2) contains the anti-retaliation-lawsuit provision the agreement also recites. Section 1833(b)(3) requires employers to give this notice in agreements governing confidential information, so the citation fits its use.",
         "evidence_excerpt": "\"An individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that— (A) is made— (i) in confidence to a Federal, State, or local government official, either directly or indirectly, or to an attorney; and (ii) solely for the purpose of reporting or investigating a suspected violation of law; or (B) is made in a complaint or other document filed in a lawsuit or other proceeding, if such filing is made under seal.\"",
         "source_urls": [
-          "https:/1833"
+          "https://www.law.cornell.edu/uscode/text/18/1833"
         ],
         "confidence": "high"
       }
@@ -5054,7 +5054,7 @@
         "evidence_excerpt": "§1838. Construction with other laws Except as provided in section 1833(b), this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State, commonwealth, possession, or territory law for the misappropriation of a trade secret",
         "source_urls": [
           "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1838.htm",
-          "https:/1838"
+          "https://www.law.cornell.edu/uscode/text/18/1838"
         ],
         "confidence": "high"
       }
@@ -5082,7 +5082,7 @@
         "evidence_excerpt": "Aleynikov: \"If § 1832(a) was intended to have such a sweep, we would expect to see wording traditionally understood to invoke the full extent of Congress’s regulatory power under the Commerce Clause. ... The Supreme Court observes a distinction between ‘legislation invoking Congress’ full power over activity substantially “affecting ... commerce”’ and legislation which uses more limiting language, such as activities ‘in commerce,’ and thereby does not purport to exercise the full scope of congressional authority.\" || Hydrogen Master Rights: \"The complaint fails to allege any nexus between interstate or foreign commerce and the Confidential Recordings, Hydrogen Technology, Purchase Agreement, or Mutual Cooperation Agreement.\" || 18 U.S.C. § 1836(b)(1): \"...if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
           "https://www.law.cornell.edu/constitution/articlei",
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.courtlistener.com/opinion/627046/united-states-v-aleynikov/",
           "https://www.courtlistener.com/opinion/7323632/hydrogen-master-rights-ltd-v-weston/"
         ],
@@ -5093,7 +5093,7 @@
         "revised_status": "MISCHARACTERIZED",
         "explanation": "The finding holds. The sentence relies on the Commerce Clause, U.S. Const. art. I, § 8, cl. 3, for the claim that the DTSA nexus is \"essentially coextensive with the Commerce Clause\" and \"satisfied in virtually all cases involving multi-state business operations.\" The Clause says nothing about the reach of the DTSA. The memo itself concedes the point needs authority (\"let's cite authority rather than just assert it\"). I searched for supporting cases and found none. A CourtListener keyword search for DTSA + \"interstate\" + \"coextensive\" + \"Commerce Clause\" returned 0 results. A search for \"1836(b)(1)\" with \"Commerce Clause\"/\"full extent\"/\"broadly construed\" turned up only a few appellate DTSA cases, none on point. A semantic search also surfaced nothing saying the nexus reaches the full commerce power.\n\nThe text I read points the other way.\n- The statute is narrower. 18 U.S.C. § 1836(b)(1) requires that the trade secret be \"related to a product or service used in, or intended for use in, interstate or foreign commerce.\" It does not use \"affecting commerce\" wording.\n- In United States v. Aleynikov, 676 F.3d 71 (2d Cir. 2012), the court said: \"The Supreme Court observes a distinction between 'legislation invoking Congress' full power over activity substantially \"affecting ... commerce\"' and legislation which uses more limiting language, such as activities '\"in commerce,\"' and thereby does not purport to exercise the full scope of congressional authority.\" One caveat on this point: Aleynikov construed the pre-2012 EEA wording, which Congress later broadened into the current \"related to a product or service used in, or intended for use in\" form. It is analogical support, not a ruling on the DTSA text.\n- Courts have dismissed DTSA claims for failure to plead the nexus. In Hydrogen Master Rights, Ltd. v. Weston, 228 F. Supp. 3d 320, 338 (D. Del. 2017), the court held: \"The complaint fails to allege any nexus between interstate or foreign commerce and the Confidential Recordings, Hydrogen Technology, Purchase Agreement, or Mutual Cooperation Agreement,\" and dismissed under Rule 12(b)(6). That undercuts \"satisfied in virtually all cases.\"\n- Practitioner commentary (secondary, not relied on as authority) also notes that Congress chose not to legislate to the full extent of its commerce power in the DTSA.\n\nThe nexus is likely easy to plead on these facts (14-state hotel operator). But the Commerce Clause does not support the rule stated, and \"coextensive\" overstates the law. MISCHARACTERIZED is the right status. It is a loose reference rather than a formal citation, and the error is in the proposition, not the identifier.",
         "source_urls": [
-          "https:/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
           "https://www.law.cornell.edu/constitution/articlei",
           "https://www.courtlistener.com/opinion/627046/united-states-v-aleynikov/",
           "https://www.courtlistener.com/opinion/7323632/hydrogen-master-rights-ltd-v-weston/",

@@ -32,7 +32,7 @@
         "explanation": "42 U.S.C. § 1320a-7b(b) is the federal Anti-Kickback Statute ('Illegal remunerations'). Describing a grand jury investigating potential violations of it is accurate.",
         "evidence_excerpt": "(b) Illegal remunerations ... Whoever knowingly and willfully solicits or receives any remuneration (including any kickback, bribe, or rebate)",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -59,8 +59,8 @@
         "explanation": "31 U.S.C. §§ 3729–3733 is the correct span of the False Claims Act: § 3729 (false claims), § 3730 (civil actions), § 3731 (procedure), § 3732 (jurisdiction), § 3733 (civil investigative demands). The cite is accurate. The small problem is substantive. The letter says a grand jury is investigating potential FCA violations, but § 3729 imposes civil liability (a civil penalty plus treble damages), and grand juries investigate crimes. The criminal false-claims statute (18 U.S.C. § 287) would fit a grand jury better, though parallel civil and criminal investigations are common.",
         "evidence_excerpt": "is liable to the United States Government for a civil penalty of not less than $5,000 and not more than $10,000 ... plus 3 times the amount of damages which the Government sustains",
         "source_urls": [
-          "https:/3729",
-          "https:/subtitle-III/chapter-37/subchapter-III"
+          "https://www.law.cornell.edu/uscode/text/31/3729",
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-III/chapter-37/subchapter-III"
         ],
         "confidence": "medium"
       }
@@ -87,7 +87,7 @@
         "explanation": "§ 1519 (Destruction, alteration, or falsification of records in Federal investigations and bankruptcy) criminalizes knowing destruction or concealment of records with intent to obstruct a federal investigation. The cover letter says only that non-compliance 'may' lead to prosecution under it, which is accurate.",
         "evidence_excerpt": "\"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies ... any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... shall be fined under this title, imprisoned not more than 20 years, or both.\"",
         "source_urls": [
-          "https:/1519"
+          "https://www.law.cornell.edu/uscode/text/18/1519"
         ],
         "confidence": "high"
       }
@@ -114,7 +114,7 @@
         "explanation": "The citation correctly identifies the Anti-Kickback Statute. The notice uses it only to identify the subject of the investigation, which needs no further support.",
         "evidence_excerpt": "Whoever knowingly and willfully offers or pays any remuneration (including any kickback, bribe, or rebate) directly or indirectly, overtly or covertly, in cash or in kind to any person to induce such person",
         "source_urls": [
-          "https:/1320a-7b"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
         ],
         "confidence": "high"
       }
@@ -141,8 +141,8 @@
         "explanation": "This is the same cite as ref 1, and the section range is accurate. The paragraph describes a 'pending federal grand jury investigation' into potential FCA violations, but the FCA (§ 3729) imposes civil liability. Calling it the subject of a grand jury investigation is loose, though the cite itself is correct.",
         "evidence_excerpt": "§ 3729. False claims ... § 3730. Civil actions for false claims ... § 3733. Civil investigative demands",
         "source_urls": [
-          "https:/subtitle-III/chapter-37/subchapter-III",
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-III/chapter-37/subchapter-III",
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "medium"
       }
@@ -169,7 +169,7 @@
         "explanation": "§ 1519 covers knowing destruction, alteration, or concealment of records with intent to impede a matter within federal agency jurisdiction, including 'in relation to or contemplation of' such a matter. The Notice says destroying, altering, or concealing relevant documents 'may constitute' obstruction under § 1519. That is accurate.",
         "evidence_excerpt": "\"... alters, destroys, mutilates, conceals ... with the intent to impede, obstruct, or influence the investigation or proper administration of any matter within the jurisdiction of any department or agency of the United States ... or in relation to or contemplation of any such matter\"",
         "source_urls": [
-          "https:/1519"
+          "https://www.law.cornell.edu/uscode/text/18/1519"
         ],
         "confidence": "high"
       }
@@ -196,7 +196,7 @@
         "explanation": "§ 1320a-7b(b)(1) bars knowingly and willfully soliciting or receiving remuneration in return for referrals, and (b)(2) bars offering or paying remuneration to induce them. Both cover items or services payable in whole or in part under a Federal health care program. The phrase 'induce or reward' paraphrases 'to induce' and 'in return for'; the OIG uses the same wording.",
         "evidence_excerpt": "in return for referring an individual to a person for the furnishing or arranging for the furnishing of any item or service for which payment may be made in whole or in part under a Federal health care program",
         "source_urls": [
-          "https:/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
           "https://oig.hhs.gov/fraud/docs/alertsandbulletins/2020/SpecialFraudAlertSpeakerPrograms.pdf"
         ],
         "confidence": "high"
@@ -224,7 +224,7 @@
         "explanation": "§ 3729(a)(1)(A) makes liable any person who knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval. The notice's description is a fair paraphrase of the FCA's core liability provision.",
         "evidence_excerpt": "knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval",
         "source_urls": [
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }
@@ -251,7 +251,7 @@
         "explanation": "18 U.S.C. § 1343 (fraud by wire, radio, or television) makes it a crime to transmit wire communications in interstate or foreign commerce to carry out a scheme to defraud. The notice's summary is a fair paraphrase.",
         "evidence_excerpt": "\"Whoever, having devised or intending to devise any scheme or artifice to defraud ... transmits or causes to be transmitted by means of wire, radio, or television communication in interstate or foreign commerce, any writings, signs, signals, pictures, or sounds for the purpose of executing such scheme or artifice, shall be fined...\"",
         "source_urls": [
-          "https:/1343"
+          "https://www.law.cornell.edu/uscode/text/18/1343"
         ],
         "confidence": "high"
       }
@@ -278,7 +278,7 @@
         "explanation": "18 U.S.C. § 371 criminalizes conspiracy by two or more persons to commit any offense against the United States or to defraud the United States, plus an overt act. The notice's paraphrase is accurate.",
         "evidence_excerpt": "If two or more persons conspire either to commit any offense against the United States, or to defraud the United States, or any agency thereof in any manner or for any purpose, and one or more of such persons do any act to effect the object of the conspiracy...",
         "source_urls": [
-          "https:/371"
+          "https://www.law.cornell.edu/uscode/text/18/371"
         ],
         "confidence": "high"
       }
@@ -305,8 +305,8 @@
         "explanation": "Both statutes cited by name exist and are federal healthcare fraud enforcement statutes: the AKS at 42 U.S.C. § 1320a-7b(b) and the FCA at 31 U.S.C. § 3729 et seq. The notice uses them only to define the preservation scope, which needs no further support.",
         "evidence_excerpt": "31 U.S. Code § 3729 - False claims ... knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval",
         "source_urls": [
-          "https:/1320a-7b",
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }
@@ -333,7 +333,7 @@
         "explanation": "18 U.S.C. § 1519 criminalizes knowingly altering, destroying, concealing or falsifying records with intent to obstruct a federal investigation. That fits the notice's warning that non-compliance may lead to prosecution for obstruction. The notice's parenthetical drops the words 'and bankruptcy' from the official heading, which is harmless here.",
         "evidence_excerpt": "\"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies, or makes a false entry in any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... of any matter within the jurisdiction of any department or agency of the United States ... shall be fined under this title, imprisoned not more than 20 years, or both.\"",
         "source_urls": [
-          "https:/1519"
+          "https://www.law.cornell.edu/uscode/text/18/1519"
         ],
         "confidence": "high"
       }
@@ -360,7 +360,7 @@
         "explanation": "§ 1519 makes it a crime, punishable by up to 20 years, to knowingly destroy, alter, or conceal records with intent to impede a federal investigation, including in contemplation of one. Listing it as a possible remedy ('may include') for spoliation is accurate. The paragraph's opening mentions negligent destruction, but § 1519 requires knowing conduct with intent, so it applies only to the intentional cases. The paragraph presents § 1519 as only one of several possible remedies and does not claim negligence alone violates it.",
         "evidence_excerpt": "\"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies, or makes a false entry in any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... of any matter within the jurisdiction of any department or agency of the United States ... shall be fined under this title, imprisoned not more than 20 years, or both.\"",
         "source_urls": [
-          "https:/1519"
+          "https://www.law.cornell.edu/uscode/text/18/1519"
         ],
         "confidence": "high"
       }
@@ -470,7 +470,7 @@
         "explanation": "§ 501(c)(3) exists and names tax-exempt charitable organizations, with exemption granted by § 501(a). The shorthand '501(c)(3) tax-exempt entity' is accurate usage.",
         "evidence_excerpt": "\"An organization described in subsection (c) or (d) or section 401(a) shall be exempt from taxation under this subtitle\"",
         "source_urls": [
-          "https:/501"
+          "https://www.law.cornell.edu/uscode/text/26/501"
         ],
         "confidence": "high"
       }
@@ -497,7 +497,7 @@
         "explanation": "IRC § 501(c)(3) exists. It describes charitable organizations that are exempt from tax under § 501(a). Here it is used as a shorthand label for the fictional RPAF's tax status, which is accurate usage. Separate governance is a fact of the scenario, not something the statute says.",
         "evidence_excerpt": "\"Corporations, and any community chest, fund, or foundation, organized and operated exclusively for religious, charitable, scientific ... purposes ... no part of the net earnings of which inures to the benefit of any private shareholder or individual\"",
         "source_urls": [
-          "https:/501"
+          "https://www.law.cornell.edu/uscode/text/26/501"
         ],
         "confidence": "high"
       }
@@ -554,8 +554,8 @@
         "explanation": "21 C.F.R. Part 202 ('Prescription Drug Advertising', sole section § 202.1) exists and sets content requirements for prescription-drug advertisements, a category of promotional material. It contains no record-retention requirement or retention period; a text search of § 202.1 for 'retain', 'retention', 'maintain', 'keep', 'preserve' and 'years' found nothing relevant. Part 202 can support keeping promotional materials to show compliance, but it does not supply the 5-year period. The retention schedule's 'regulatory basis' label is therefore loose.",
         "evidence_excerpt": "PRESCRIPTION DRUG ADVERTISING ... § 202.1 Prescription-drug advertisements ... must present a true statement of information in brief summary relating to side effects, contraindications",
         "source_urls": [
-          "https:/part-202",
-          "https:/202.1"
+          "https://www.law.cornell.edu/cfr/text/21/part-202",
+          "https://www.law.cornell.edu/cfr/text/21/202.1"
         ],
         "confidence": "medium"
       }
@@ -610,8 +610,8 @@
         "explanation": "Rules 17a-3 and 17a-4 under the Exchange Act are real SEC record-keeping rules. Rule 17a-3 says which records must be made and Rule 17a-4 says how long they must be kept: at least 6 years for some records, with the first two years in an easily accessible place. Both apply only to exchange members, brokers and dealers. The policy's hedge 'to the extent applicable' accounts for that limit, so citing them for extended retention of financial records holds up.",
         "evidence_excerpt": "§ 240.17a-4: \"Every member, broker or dealer subject to § 240.17a-3 must preserve for a period of not less than 6 years, the first two years in an easily accessible place, all records required to be made pursuant to § 240.17a-3(a)(1) through (3)...\"",
         "source_urls": [
-          "https:/240.17a-4",
-          "https:/240.17a-3"
+          "https://www.law.cornell.edu/cfr/text/17/240.17a-4",
+          "https://www.law.cornell.edu/cfr/text/17/240.17a-3"
         ],
         "confidence": "high"
       }
@@ -638,8 +638,8 @@
         "explanation": "The AKS reaches remuneration that induces referrals, and OIG's 2020 Special Fraud Alert singles out speaker programs. The Physician Payments Sunshine Act (42 U.S.C. § 1320a-7h, enacted as ACA § 6002) requires applicable manufacturers to report payments and transfers of value to covered recipients. Calling HCP engagement 'regulatorily sensitive' under both is accurate. The LII page does not itself print the 'Sunshine Act' popular name, though the name is in common use.",
         "evidence_excerpt": "any applicable manufacturer that provides a payment or other transfer of value to a covered recipient ... shall submit to the Secretary ... the following information",
         "source_urls": [
-          "https:/1320a-7h",
-          "https:/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7h",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
           "https://oig.hhs.gov/fraud/docs/alertsandbulletins/2020/SpecialFraudAlertSpeakerPrograms.pdf"
         ],
         "confidence": "high"
@@ -667,7 +667,7 @@
         "explanation": "The cite names the AKS only, as a 'consideration' behind a 6-year retention period for speaker-program records. The AKS and OIG guidance do bear on speaker programs: OIG issued a Special Fraud Alert on Speaker Programs on Nov. 16, 2020. Neither source mandates a 6-year retention period, but the policy does not claim that. It says only that the period reflects these considerations, which is a reasonable compliance rationale.",
         "evidence_excerpt": "The anti-kickback statute makes it a criminal offense to knowingly and willfully solicit, receive, offer, or pay any remuneration to induce or reward referrals ... (OIG Special Fraud Alert: Speaker Programs, Nov. 2020, as summarized in search results)",
         "source_urls": [
-          "https:/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
           "https://oig.hhs.gov/fraud/docs/alertsandbulletins/2020/SpecialFraudAlertSpeakerPrograms.pdf"
         ],
         "confidence": "medium"
@@ -724,7 +724,7 @@
         "evidence_excerpt": "Once a party reasonably anticipates litigation, it must suspend its routine document retention/destruction policy and put in place a \"litigation hold\" to ensure the preservation of relevant documents.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8754508/zubulake-v-ubs-warburg-llc/",
-          "https:/1519"
+          "https://www.law.cornell.edu/uscode/text/18/1519"
         ],
         "confidence": "medium"
       }
@@ -806,8 +806,8 @@
         "explanation": "This is a rubric criterion asking whether the memo names the AKS and/or FCA as the basis of the investigation. Both statutes exist, and the DOJ notice in the record cites them at 42 U.S.C. § 1320a-7b(b) and 31 U.S.C. §§ 3729-3733.",
         "evidence_excerpt": "Whoever knowingly and willfully solicits or receives any remuneration ... ; 31 U.S. Code § 3729 - False claims",
         "source_urls": [
-          "https:/1320a-7b",
-          "https:/3729"
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/31/3729"
         ],
         "confidence": "high"
       }

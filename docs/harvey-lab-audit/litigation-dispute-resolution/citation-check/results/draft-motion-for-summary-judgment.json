@@ -98,8 +98,8 @@
         "explanation": "Title VII prohibits race discrimination in discharge (§ 2000e-2(a)(1)) and retaliation for opposing unlawful practices (§ 2000e-3(a)). This matches the deponent's description of Counts I and II.",
         "evidence_excerpt": "§ 2000e-2(a)(1): \"to fail or refuse to hire or to discharge any individual ... because of such individual's race\"; § 2000e-3(a): \"because he has opposed any practice made an unlawful employment practice by this subchapter\"",
         "source_urls": [
-          "https:/2000e-2",
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -728,7 +728,7 @@
         "explanation": "42 U.S.C. § 2000e-2 (Title VII § 703, 'Unlawful employment practices') prohibits discharge or other discrimination because of race; it is the proper basis for a disparate-treatment race discrimination claim.",
         "evidence_excerpt": "42 U.S. Code § 2000e-2 - Unlawful employment practices ... to discharge any individual, or otherwise to discriminate ... because of such individual's race, color, religion, sex, or national origin",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -755,7 +755,7 @@
         "explanation": "§ 2000e-3 is Title VII § 704 and contains the anti-retaliation provision, so it properly supports a retaliation count.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -809,7 +809,7 @@
         "explanation": "42 U.S.C. § 2000e(b) defines \"employer\" for Title VII as a person in an industry affecting commerce with fifteen or more employees for each working day in twenty or more calendar weeks in the current or preceding year. The citation is accurate for the allegation that Whitaker is an employer.",
         "evidence_excerpt": "The term 'employer' means a person engaged in an industry affecting commerce who has fifteen or more employees for each working day in each of twenty or more calendar weeks in the current or preceding calendar year",
         "source_urls": [
-          "https:/2000e"
+          "https://www.law.cornell.edu/uscode/text/42/2000e"
         ],
         "confidence": "high"
       }
@@ -863,7 +863,7 @@
         "explanation": "28 U.S.C. § 1331 grants district courts original jurisdiction over civil actions arising under federal law; Title VII counts (42 U.S.C. § 2000e et seq.) arise under federal law, so the citation supports federal-question jurisdiction over Counts I and II.",
         "evidence_excerpt": "\"The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.\"",
         "source_urls": [
-          "https:/1331"
+          "https://www.law.cornell.edu/uscode/text/28/1331"
         ],
         "confidence": "high"
       }
@@ -890,7 +890,7 @@
         "explanation": "§ 1367(a) confers supplemental jurisdiction over state claims forming part of the same case or controversy as claims within original jurisdiction; it supports supplemental jurisdiction over the IHRA count.",
         "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III\"",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -917,7 +917,7 @@
         "explanation": "§ 1391(b)(1) (district where a defendant resides, if all defendants reside in the state) and (b)(2) (district where a substantial part of events occurred) are the correct general venue provisions for the asserted proposition.",
         "evidence_excerpt": "(b)(1) \"a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located\"; (b)(2) \"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred\"",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
@@ -944,7 +944,7 @@
         "explanation": "§ 2000e-5(f)(1) provides that a civil action may be brought within ninety days after notice of right to sue.",
         "evidence_excerpt": "\"within ninety days after the giving of such notice a civil action may be brought against the respondent named in the charge\"",
         "source_urls": [
-          "https:/2000e-5"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
         ],
         "confidence": "high"
       }
@@ -971,7 +971,7 @@
         "explanation": "Title VII's anti-retaliation provision protects opposition to practices it makes unlawful. Seventh Circuit precedent (Hamner, 224 F.3d at 706-07, as applied in Magyar) holds that the plaintiff need not prove an actual violation, only a sincere and reasonable belief. That matches the complaint's 'honest and reasonable belief' paraphrase.",
         "evidence_excerpt": "Magyar, 544 F.3d 766: \"to succeed on a retaliation claim, Houston need not prove that the underlying conduct she perceived as sexual harassment actually was serious enough to constitute a Title VII violation. Instead, she need only show that ... she had a 'sincere and reasonable belief' that she was opposing an unlawful practice.\"",
         "source_urls": [
-          "https:/2000e-3",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
           "https://www.courtlistener.com/opinion/1314119/magyar-v-saint-joseph-regional-medical-center/"
         ],
         "confidence": "high"
@@ -1001,7 +1001,7 @@
         "explanation": "The provision does make it unlawful for an employer to discharge or otherwise discriminate because of race, so the proposition is supported. The only defect is that the quote is cut short without marking the omitted protected classes.",
         "evidence_excerpt": "to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's race, color, religion, sex, or national origin",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -1028,7 +1028,7 @@
         "explanation": "§ 2000e-2(a)(1) prohibits an employer from discharging an individual because of race, so it supports the claim that firing the plaintiff because of race violates Title VII.",
         "evidence_excerpt": "to fail or refuse to hire or to discharge any individual ... because of such individual's race",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -1057,7 +1057,7 @@
         "explanation": "§ 2000e-3(a) is Title VII's anti-retaliation provision covering both opposition and participation activity, as the complaint says.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees or applicants for employment, ... because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter.",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -1084,7 +1084,7 @@
         "explanation": "42 U.S.C. § 2000e-3(a) is Title VII's anti-retaliation provision. Its opposition clause makes it unlawful to discriminate against an employee because the employee opposed a practice made unlawful by the subchapter. The complaint cites it accurately for the allegation that the email was opposition activity. Whether the email actually qualifies as opposition is a factual question, not a citation defect.",
         "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -1193,7 +1193,7 @@
         "explanation": "42 U.S.C. § 2000e et seq. is Title VII (Subchapter VI, Equal Employment Opportunities). 775 ILCS 5/2-102 is the IHRA employment civil-rights-violation provision, which bars discharge on the basis of unlawful discrimination. Count III is IHRA race discrimination only, so § 2-102 is the right section for the declaratory-judgment request. IHRA retaliation would fall under § 6-101, but no IHRA retaliation claim is pleaded.",
         "evidence_excerpt": "775 ILCS 5/2-102(A): \"For any employer to refuse to hire, to segregate, or to act with respect to recruitment, hiring, promotion, renewal of employment, selection for training or apprenticeship, discharge, discipline, tenure or terms, privileges or conditions of employment on the basis of unlawful discrimination or citizenship status.\"",
         "source_urls": [
-          "https:/2000e",
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
           "https://law.onecle.com/illinois/775ilcs5/2-102.html"
         ],
         "confidence": "high"
@@ -1221,7 +1221,7 @@
         "explanation": "The Title VII half is correct: § 2000e-5(k) authorizes a reasonable attorney's fee to the prevailing party. The IHRA half is wrong. 775 ILCS 5/10-102(C)(2) does allow attorney fees, but § 10-101 limits Article 10 to civil actions arising under Article 3 (real estate transactions). Count III is an employment claim under § 2-102, so § 10-102 does not apply to it. Fees in an employment civil action come through § 8-111(A)(4), which lets the circuit court or jury award the remedies in § 8A-104, including (G) attorneys' fees.",
         "evidence_excerpt": "Sec. 10-101: \"With the exception of Sections 10-104 and 10-105, this Article shall apply solely to civil actions arising under Article 3 of this Act.\" Sec. 8-111(A)(4): \"Upon the finding of a civil rights violation, the circuit court or jury may award any of the remedies set forth in Section 8A-104 or 8B-104.\" Sec. 8A-104(G): \"Attorneys Fees; Costs. Pay to the complainant all or a portion of the costs of maintaining the action, including reasonable attorney fees\"",
         "source_urls": [
-          "https:/2000e-5",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5",
           "https://www.ilga.gov/legislation/ILCS/details?MajorTopic=&Chapter=&ActName=Illinois+Human+Rights+Act.&ActID=2266&ChapterID=64&ChapAct=775+ILCS+5/&SeqStart=10500000&SeqEnd=&Print=True",
           "https://www.ilga.gov/legislation/ILCS/details?MajorTopic=&Chapter=&ActName=Illinois+Human+Rights+Act.&ActID=2266&ChapterID=64&SeqStart=&ChapAct=FullText"
         ],
@@ -1289,7 +1289,7 @@
         "explanation": "§ 1746 permits an unsworn declaration subscribed as true under penalty of perjury to substitute for a sworn verification; it supports verifying the complaint under penalty of perjury.",
         "evidence_excerpt": "\"such matter may, with like force and effect, be supported ... by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated\"",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -1370,7 +1370,7 @@
         "explanation": "42 U.S.C. § 2000e et seq. (Subchapter VI, 'Equal Employment Opportunities', starting with § 2000e Definitions) is the standard codification of Title VII and covers race discrimination claims.",
         "evidence_excerpt": "Subchapter VI: EQUAL EMPLOYMENT OPPORTUNITIES ... § 2000e – Definitions ... § 2000e–2 – Unlawful employment practices",
         "source_urls": [
-          "https:/chapter-21/subchapter-VI"
+          "https://www.law.cornell.edu/uscode/text/42/chapter-21/subchapter-VI"
         ],
         "confidence": "high"
       }
@@ -1432,7 +1432,7 @@
         "explanation": "42 U.S.C. § 2000e-3(a) is the provision that prohibits retaliation for protected activity under Title VII of the Civil Rights Act of 1964 (opposition and participation clauses). The interrogatory cites it correctly.",
         "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter",
         "source_urls": [
-          "https:/2000e-3"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
         ],
         "confidence": "high"
       }
@@ -1459,7 +1459,7 @@
         "explanation": "Title VII's opposition clause protects employees who oppose practices made unlawful by Title VII. Seventh Circuit law protects an employee who had a sincere and reasonable belief that she was opposing an unlawful practice, even if no violation actually occurred. Whether the email qualifies is a factual application, but the legal framing is accurate.",
         "evidence_excerpt": "§ 2000e-3(a): \"because he has opposed any practice made an unlawful employment practice by this subchapter\"; Magyar, 544 F.3d 766: \"she need only show that ... she had a 'sincere and reasonable belief' that she was opposing an unlawful practice\"",
         "source_urls": [
-          "https:/2000e-3",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
           "https://www.courtlistener.com/opinion/1314119/magyar-v-saint-joseph-regional-medical-center/"
         ],
         "confidence": "high"
@@ -1514,7 +1514,7 @@
         "explanation": "§ 1746 authorizes unsworn verification under penalty of perjury, supporting verification of the interrogatory answers.",
         "evidence_excerpt": "\"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)\"",
         "source_urls": [
-          "https:/1746"
+          "https://www.law.cornell.edu/uscode/text/28/1746"
         ],
         "confidence": "high"
       }
@@ -1689,7 +1689,7 @@
         "explanation": "Count I heading correctly cites § 2000e-2, Title VII's unlawful employment practices provision that bars race discrimination.",
         "evidence_excerpt": "42 U.S. Code § 2000e-2 - Unlawful employment practices",
         "source_urls": [
-          "https:/2000e-2"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
         ],
         "confidence": "high"
       }
@@ -1716,7 +1716,7 @@
         "explanation": "§ 2000e-3 (Title VII § 704, 'Other unlawful employment practices') contains Title VII's anti-retaliation provision in subsection (a), so it is the proper basis for Count II.",
         "evidence_excerpt": "Pub. L. 88–352, title VII, §704, July 2, 1964, 78 Stat. 257 ... because he has opposed any practice made an unlawful employment practice by this subchapter",
         "source_urls": [
-          "https:/2000e-3",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
           "https://www.govinfo.gov/content/pkg/USCODE-2023-title42/html/USCODE-2023-title42-chap21-subchapVI-sec2000e-3.htm"
         ],
         "confidence": "high"
@@ -1771,7 +1771,7 @@
         "explanation": "Title VII requires a timely EEOC charge (180 days, or 300 days in a deferral state) and suit within 90 days after the EEOC gives notice of the right to sue. Complaint ¶ 12 cites § 2000e-5(f)(1) for the 90-day period, which is correct. On the fictional dates, the charge was filed April 28, 2023, 42 days after the March 17, 2023 termination, so it was timely under either deadline. The exhaustion allegation is consistent with the statute.",
         "evidence_excerpt": "\"within ninety days after the giving of such notice a civil action may be brought against the respondent named in the charge\" (§ 2000e-5(f)(1)); \"A charge under this section shall be filed within one hundred and eighty days after the alleged unlawful employment practice occurred\" (§ 2000e-5(e)(1))",
         "source_urls": [
-          "https:/2000e-5"
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
         ],
         "confidence": "high"
       }
@@ -1975,7 +1975,7 @@
         "explanation": "42 U.S.C. § 2000e et seq. is Title VII, which covers race discrimination (§ 2000e-2) and retaliation (§ 2000e-3). 775 ILCS 5/1-101 is the IHRA's short-title section, so '5/1-101 et seq.' correctly cites the Act as a whole.",
         "evidence_excerpt": "775 ILCS 5/1-101: \"This Act shall be known and may be cited as the Illinois Human Rights Act.\"",
         "source_urls": [
-          "https:/2000e",
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
           "https://law.onecle.com/illinois/775ilcs5/1-101.html"
         ],
         "confidence": "high"

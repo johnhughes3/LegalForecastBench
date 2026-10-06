@@ -64,7 +64,7 @@
         "explanation": "18 U.S.C. § 1836 is the Defend Trade Secrets Act's civil-proceedings section. Subsection (b)(1) creates a private civil action for misappropriation of trade secrets related to products or services in interstate commerce, so it is the correct federal basis for a trade-secret misappropriation claim. A pin to § 1836(b) would be more precise, but the cite as given is acceptable.",
         "evidence_excerpt": "\"Private Civil Actions.\" \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -119,7 +119,7 @@
         "explanation": "Same authority as ref 1. 18 U.S.C. § 1836(b)(1) provides the federal DTSA civil action for trade-secret misappropriation, which is the claim Verano anticipates.",
         "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -471,8 +471,8 @@
         "explanation": "Generic factual reference in Reilly's lateral disclosure to an EPA administrative enforcement action under the Clean Water Act. The Act exists. The U.S. Code short-title note confirms the 'commonly referred to as the Clean Water Act' name, and 33 U.S.C. § 1319 ('Administrative penalties', subsection (g)) provides for EPA administrative enforcement. Nothing in the reference is inaccurate.",
         "evidence_excerpt": "\"This Act [this chapter] may be cited as the 'Federal Water Pollution Control Act' (commonly referred to as the Clean Water Act).\"; 33 U.S.C. § 1319 heading: \"Administrative penalties\"",
         "source_urls": [
-          "https:/1251",
-          "https:/1319"
+          "https://www.law.cornell.edu/uscode/text/33/1251",
+          "https://www.law.cornell.edu/uscode/text/33/1319"
         ],
         "confidence": "high"
       }

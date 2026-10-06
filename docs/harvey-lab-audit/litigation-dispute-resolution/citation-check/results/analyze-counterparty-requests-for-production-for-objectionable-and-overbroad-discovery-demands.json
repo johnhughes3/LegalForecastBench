@@ -345,7 +345,7 @@
         "explanation": "Under the post-Bipartisan Budget Act regime, 26 U.S.C. § 6223(a) requires each partnership to designate a 'partnership representative.' The clause 'Tax Matters Partner (or partnership representative under Section 6223 ..., as applicable)' therefore accurately ties the new term to § 6223.",
         "evidence_excerpt": "Each partnership shall designate (in the manner prescribed by the Secretary) a partner (or other person) with a substantial presence in the United States as the partnership representative who shall have the sole authority to act on behalf of the partnership under this subchapter.",
         "source_urls": [
-          "https:/6223"
+          "https://www.law.cornell.edu/uscode/text/26/6223"
         ],
         "confidence": "high"
       }
@@ -817,7 +817,7 @@
         "explanation": "The DTSA civil cause of action is codified at 18 U.S.C. § 1836, and 'et seq.' properly covers the related sections. Section 1836(b)(1) lets the owner of a misappropriated trade secret bring a civil action.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1089,7 +1089,7 @@
         "explanation": "18 U.S.C. § 1836 ('Civil proceedings') is the DTSA's civil misappropriation cause of action, so it fits as the basis for the Complaint's DTSA claim.",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1225,7 +1225,7 @@
         "explanation": "18 U.S.C. § 1836 is the DTSA's civil cause of action for trade secret misappropriation, so it correctly identifies Plaintiff's claim (2).",
         "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
         "source_urls": [
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1334,8 +1334,8 @@
         "explanation": "Section 1331 grants district courts original jurisdiction over civil actions arising under federal law; a DTSA claim arises under federal law (18 U.S.C. § 1836(c) also separately grants original jurisdiction). Supports the proposition.",
         "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
         "source_urls": [
-          "https:/1331",
-          "https:/1836"
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
         ],
         "confidence": "high"
       }
@@ -1362,7 +1362,7 @@
         "explanation": "Section 1367(a) provides supplemental jurisdiction over related claims forming part of the same case or controversy, which covers related state-law claims and counterclaims.",
         "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
         "source_urls": [
-          "https:/1367"
+          "https://www.law.cornell.edu/uscode/text/28/1367"
         ],
         "confidence": "high"
       }
@@ -1389,7 +1389,7 @@
         "explanation": "Section 1391(b)(1) lays venue in a district where any defendant resides; under § 1391(c)(2) an entity defendant resides wherever it is subject to personal jurisdiction, which includes its Charlotte headquarters district (W.D.N.C.). Supports the proposition.",
         "evidence_excerpt": "A civil action may be brought in—(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
         "source_urls": [
-          "https:/1391"
+          "https://www.law.cornell.edu/uscode/text/28/1391"
         ],
         "confidence": "high"
       }
