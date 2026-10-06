@@ -359,15 +359,17 @@
     "type": "paper"
   },
   {
-    "key": "ncbe",
-    "title": "About the Multistate Bar Examination",
+    "key": "legalEval",
+    "title": "Legal LLM Leaderboard: Tracking LLM Performance on Academic Legal Benchmarks",
     "authors": [
-      "National Conference of Bar Examiners"
+      "Neel Guha"
     ],
-    "year": "n.d.",
-    "venue": "Official examination description; accessed September 29, 2026",
-    "url": "https://www.ncbex.org/exams/mbe/about-mbe",
-    "type": "institutional"
+    "year": 2026,
+    "venue": "Public evaluation dashboard",
+    "url": "https://neelguha.github.io/legal-benchmark-dashboard/",
+    "accessed": "2026-10-06",
+    "notes": "Results generated April 8, 2026; BarExam consists of 117 publicly released MBE questions. Gemini 3 Flash: 115/117 correct (98.3%).",
+    "type": "evaluation"
   },
   {
     "key": "brier",
