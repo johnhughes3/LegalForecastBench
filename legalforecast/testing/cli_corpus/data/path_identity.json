@@ -32,6 +32,9 @@
     "legalforecast/multiharness/tier0_production_factory.py": [
       "anthropic"
     ],
+    "scripts/harvey_citation_check.py": [
+      "pptx"
+    ],
     "tests/hermes_anthropic_probe.py": [
       "httpx",
       "requests",
@@ -82,6 +85,7 @@
     "legalforecast/multiharness/process_containment.py",
     "legalforecast/multiharness/tier0_evaluator_wrapper.py",
     "legalforecast/multiharness/tier0_runner.py",
+    "scripts/harvey_citation_check.py",
     "scripts/probe_openai_compatible_provider.py",
     "scripts/release_check.py",
     "scripts/validate_local_assume_access.py",

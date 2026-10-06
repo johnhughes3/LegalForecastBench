@@ -1,0 +1,2574 @@
+{
+  "task": "draft-pretrial-statement",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "corbin-supply-presentation.pptx.md",
+    "deposition-excerpts.docx.md",
+    "exclusive-distribution-agreement.docx.md",
+    "findlay-strategy-memo.docx.md",
+    "holt-expert-report.docx.md",
+    "pre-contract-correspondence.docx.md",
+    "preliminary-witness-exhibit-list.docx.md",
+    "prescott-expert-report.docx.md",
+    "pretrial-order-and-rules.docx.md",
+    "shipping-hub-lease.docx.md",
+    "summary-judgment-ruling.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "prescott-expert-report.docx.md",
+      "location": "III. Qualifications and Background, para. 5",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Expert's CV, publication list and four-year testimony list are attached as Appendix A as the rule requires.",
+      "quotes": [],
+      "context": "A copy of my curriculum vitae, including a complete list of my publications and a record of all cases in which I have testified as an expert at trial or by deposition within the preceding four years, as required by Federal Rule of Civil Procedure 26(a)(2)(B), is attached hereto as Appendix A.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2)(B) requires a retained expert's written report to include the witness's qualifications, including a list of all publications authored in the previous 10 years (iv), and a list of all other cases in which the witness testified as an expert at trial or by deposition during the previous 4 years (v). Attaching a CV, publication list, and four-year testimony list complies with those requirements. A CV as such is not named in the rule, but it is the usual way to disclose qualifications.",
+        "evidence_excerpt": "(iv) \"the witness's qualifications, including a list of all publications authored in the previous 10 years\"; (v) \"a list of all other cases in which, during the previous 4 years, the witness testified as an expert at trial or by deposition\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "prescott-expert-report.docx.md",
+      "location": "VIII.E Daubert Reliability Discussion, para. 57",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Federal Rule of Evidence 702",
+      "pincite": "",
+      "cited_for": "Standard governing admissibility of expert testimony, framing the reliability discussion of the future lost-profit methodology.",
+      "quotes": [],
+      "context": "In light of the standards governing the admissibility of expert testimony under Federal Rule of Evidence 702 and the framework established by the Supreme Court in Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and its progeny, I address below the reliability of the methodology employed in my future lost-profit analysis.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 702 governs the admissibility of expert testimony, including the reliability requirements that the testimony be the product of reliable principles and methods, reliably applied. The report cites it only as the governing standard that frames its reliability discussion, and the rule supports that.",
+        "evidence_excerpt": "(c) \"the testimony is the product of reliable principles and methods\" (d) \"the expert's opinion reflects a reliable application of the principles and methods to the facts of the case\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "prescott-expert-report.docx.md",
+      "location": "VIII.E Daubert Reliability Discussion, para. 57",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Supreme Court framework for admissibility and reliability of expert testimony.",
+      "quotes": [],
+      "context": "the framework established by the Supreme Court in Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and its progeny, I address below the reliability of the methodology employed in my future lost-profit analysis.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The citation is correct: Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579, decided June 28, 1993. The case sets the Supreme Court framework for whether expert testimony is reliable and admissible under Rule 702.",
+        "evidence_excerpt": "\"the requirement that an expert's testimony pertain to 'scientific knowledge' establishes a standard of evidentiary reliability.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "prescott-expert-report.docx.md",
+      "location": "XIV. Appendices, Appendix A description",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Appendix A contains list of all cases in which she testified in preceding four years, as the rule requires.",
+      "quotes": [],
+      "context": "a list of all cases in which she has provided expert testimony at trial or by deposition within the preceding four years, as required by Federal Rule of Civil Procedure 26(a)(2)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2)(B)(v) requires a list of all other cases in which, during the previous 4 years, the witness testified as an expert at trial or by deposition. This matches the description of Appendix A.",
+        "evidence_excerpt": "(v) \"a list of all other cases in which, during the previous 4 years, the witness testified as an expert at trial or by deposition\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "holt-expert-report.docx.md",
+      "location": "VII.B, item 3 (Appropriate Forward-Looking Damages Period), third rationale",
+      "authority_type": "case",
+      "authority": "Ware v. Rodale Press, Inc.",
+      "citation_as_written": "322 F.3d 218, 226 (3d Cir. 2003)",
+      "pincite": "226",
+      "cited_for": "Pennsylvania courts require lost profits to be established with reasonable certainty and not based on speculation or conjecture; multi-year projections on unmet contractual minimums do not satisfy this standard.",
+      "quotes": [
+        "reasonable certainty"
+      ],
+      "context": "Third, Pennsylvania courts require that lost profits be established with \"reasonable certainty\" and not be based on speculation or conjecture. Ware v. Rodale Press, Inc., 322 F.3d 218, 226 (3d Cir. 2003).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'reasonable certainty' found verbatim at 322 F.3d at 226 (the page begins mid-sentence just before 'damages, a plaintiff must give a factfinder evidence from which damages may be calculated to a \"reasonable certainty.\"').",
+        "explanation": "Ware v. Rodale Press, 322 F.3d 218 (3d Cir. 2003), applying Pennsylvania law, holds at 226 that contract damages must be proved to a reasonable certainty and not be too speculative. It also says the plaintiff must give facts from which the jury can set damages without conjecture. Ware deals with contract damages generally (commission-based claims), not lost-profit projections specifically, and the point about multi-year projections on unmet minimums is the expert's own application, not a holding of Ware. The general rule as cited is accurately stated.",
+        "evidence_excerpt": "To prove *226 damages, a plaintiff must give a factfinder evidence from which damages may be calculated to a \"reasonable certainty.\" ... \"At a minimum, reasonable certainty embraces a rough calculation that is not 'too speculative, vague or contingent' upon some unknown factor.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/781170/reginald-d-ware-ware-communications-inc-v-rodale-press-inc-ware/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "holt-expert-report.docx.md",
+      "location": "VII.D.1 Legal Duplicativeness of Reliance and Expectation Damages",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Restatement (Second) of Contracts § 349",
+      "citation_as_written": "Restatement (Second) of Contracts § 349",
+      "pincite": "§ 349",
+      "cited_for": "Reliance damages are available as an alternative to expectation damages, not cumulatively with them.",
+      "quotes": [
+        "as an alternative to"
+      ],
+      "context": "Reliance damages, by contrast, are available under the Restatement (Second) of Contracts § 349 as an alternative to expectation damages — typically in circumstances where lost profits cannot be established with reasonable certainty... The Restatement explicitly provides that reliance damages may be recovered \"as an alternative to\" the expectation measure, not in cumulation with it.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'as an alternative to' found verbatim in the black-letter text of § 349, which begins 'As an alternative to the measure of damages stated in § 347' (quoted in Mistletoe Express v. Locke as 'As an alternative to [expectation damages]').",
+        "explanation": "The black letter of § 349 makes reliance damages an alternative to the § 347 expectation measure. Comment a says the injured party 'may, if he chooses, ignore the element of profit and recover as damages his expenditures in reliance.' That is an election between measures, not cumulative recovery, so the proposition is supported.",
+        "evidence_excerpt": "As an alternative to [expectation damages], the injured party has a right to damages based on his reliance interest ... Under the rule stated in this Section, the injured party may, if he chooses, ignore the element of profit and recover as damages his expenditures in reliance.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2469632/mistletoe-express-service-of-oklahoma-city-v-locke/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History (Last Four Years), item 1",
+      "authority_type": "case",
+      "authority": "Appalachian Fabricators, Inc. v. Summit Distribution Co.",
+      "citation_as_written": "W.D. Pa. (2024)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (deposition), listed in testimony history",
+      "quotes": [],
+      "context": "1. Appalachian Fabricators, Inc. v. Summit Distribution Co., W.D. Pa. (2024) — Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert witness, listed as testimony history, not cited as legal authority."
+    },
+    {
+      "ref": 7,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 2",
+      "authority_type": "case",
+      "authority": "Greenfield Precision Components, LLC v. Atlas Supply Chain Partners, Inc.",
+      "citation_as_written": "M.D.N.C. (2023)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (trial and deposition)",
+      "quotes": [],
+      "context": "2. Greenfield Precision Components, LLC v. Atlas Supply Chain Partners, Inc., M.D.N.C. (2023) — Trial and Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 8,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 3",
+      "authority_type": "case",
+      "authority": "Southeastern Valve Corp. v. Magnolia Industrial Group, LP",
+      "citation_as_written": "E.D.N.C. (2023)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (deposition)",
+      "quotes": [],
+      "context": "3. Southeastern Valve Corp. v. Magnolia Industrial Group, LP, E.D.N.C. (2023) — Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 9,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 4",
+      "authority_type": "case",
+      "authority": "Torrance Manufacturing Holdings, Inc. v. Pacific Rim Distributors, LLC",
+      "citation_as_written": "C.D. Cal. (2022)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (trial and deposition)",
+      "quotes": [],
+      "context": "4. Torrance Manufacturing Holdings, Inc. v. Pacific Rim Distributors, LLC, C.D. Cal. (2022) — Trial and Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 10,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 5",
+      "authority_type": "case",
+      "authority": "Keystone Fluid Power Systems, Inc. v. Mid-State Logistics, Inc.",
+      "citation_as_written": "W.D. Pa. (2022)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (deposition)",
+      "quotes": [],
+      "context": "5. Keystone Fluid Power Systems, Inc. v. Mid-State Logistics, Inc., W.D. Pa. (2022) — Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 11,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 6",
+      "authority_type": "case",
+      "authority": "Carolina Industrial Products, LLC v. Harbor Point Supply, Inc.",
+      "citation_as_written": "Mecklenburg Cty. Superior Court, N.C. (2021)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (trial)",
+      "quotes": [],
+      "context": "6. Carolina Industrial Products, LLC v. Harbor Point Supply, Inc., Mecklenburg Cty. Superior Court, N.C. (2021) — Trial",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 12,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 7",
+      "authority_type": "case",
+      "authority": "Cromdale Consulting Tool & Die Co. v. Commonwealth Sourcing Group, LLC",
+      "citation_as_written": "M.D. Pa. (2021)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (trial and deposition)",
+      "quotes": [],
+      "context": "7. Cromdale Consulting Tool & Die Co. v. Commonwealth Sourcing Group, LLC, M.D. Pa. (2021) — Trial and Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 13,
+      "document": "holt-expert-report.docx.md",
+      "location": "Appendix A, Testimony History, item 8",
+      "authority_type": "case",
+      "authority": "Ridgeview Metal Works, Inc. v. Consolidated Equipment Distributors, LP",
+      "citation_as_written": "W.D.N.C. (2020)",
+      "pincite": "",
+      "cited_for": "Prior matter in which Holt testified (deposition)",
+      "quotes": [],
+      "context": "8. Ridgeview Metal Works, Inc. v. Consolidated Equipment Distributors, LP, W.D.N.C. (2020) — Deposition",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional expert, not cited as legal authority."
+    },
+    {
+      "ref": 14,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "II. Factual Background, intro",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 56.1 (W.D. Pa.)",
+      "citation_as_written": "Local Rule 56.1",
+      "pincite": "",
+      "cited_for": "Statements of material fact filed under this rule are the source of the facts recited",
+      "quotes": [],
+      "context": "The following facts are drawn from the parties' statements of material fact filed pursuant to Local Rule 56.1, the responses thereto, and the supporting record",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 56.B.1 (or LCvR 56)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "W.D. Pa. has no Local Rule 56.1. Its summary judgment rule is LCvR 56, and LCvR 56.B.1 requires a Concise Statement of Material Facts. The substance is right but the rule number is wrong.",
+        "evidence_excerpt": "LCvR 56 MOTION FOR SUMMARY JUDGMENT ... B. Motion Requirements. ... 1. A Concise Statement of Material Facts. A separately filed concise statement setting forth the facts essential for the Court to decide the motion for summary judgment",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. The W.D. Pa. Local Civil Rules manual's table of contents lists the summary-judgment rule as 'LCvR 56 MOTION FOR SUMMARY JUDGMENT', with subsection 'B. Motion Requirements ... 1. A Concise Statement of Material Facts' and 'C. Opposition Requirements ... 1. A Responsive Concise Statement'. I extracted every rule number in the manual: LCvR 1.1, 1.2, 3, 5.1-5.6, 7, 7.1, 8, 10, 16.1, 16.2, ... 54, 56, 66, 67.1-67.3, ... 83.3. No 'LCvR 56.1' or any other '56.1' appears. The ruling (W.D. Pa., Case No. 2:23-cv-00417) cites 'Local Rule 56.1', which is the S.D.N.Y./E.D.N.Y.-style number. The substance (facts drawn from statements of material fact filed under the local summary-judgment rule) is correct; only the rule number is wrong. Correct form: W.D. Pa. LCvR 56(B)(1), (C)(1).",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 15,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "II. Factual Background, intro",
+      "authority_type": "case",
+      "authority": "Matsushita Elec. Indus. Co. v. Zenith Radio Corp.",
+      "citation_as_written": "475 U.S. 574, 587 (1986)",
+      "pincite": "587",
+      "cited_for": "Facts viewed in the light most favorable to the non-moving party",
+      "quotes": [],
+      "context": "viewed in the light most favorable to the non-moving party on each respective motion. See Matsushita Elec. Indus. Co. v. Zenith Radio Corp., 475 U.S. 574, 587 (1986).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "At 475 U.S. 587 (the passage runs onto 588), Matsushita accepts the rule that on summary judgment the inferences drawn from the underlying facts must be viewed in the light most favorable to the opposing party. The Blackmun dissent cites this passage as 'Ante, at 587'. The 'see' signal and the pin cite support the proposition.",
+        "evidence_excerpt": "Respondents correctly note that \"[o]n summary judgment the inferences to be drawn from the underlying facts . . . must be viewed in the light most favorable to the party opposing the motion.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111620/matsushita-elec-industrial-co-v-zenith-radio-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56(a)",
+      "citation_as_written": "Fed. R. Civ. P. 56(a)",
+      "pincite": "",
+      "cited_for": "Summary judgment standard",
+      "quotes": [
+        "there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law"
+      ],
+      "context": "Summary judgment is appropriate when \"there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.\" Fed. R. Civ. P. 56(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in Rule 56(a): 'there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law'.",
+        "explanation": "Rule 56(a) states the summary judgment standard in exactly the quoted words.",
+        "evidence_excerpt": "The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 1",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc.",
+      "citation_as_written": "477 U.S. 242, 248 (1986)",
+      "pincite": "248",
+      "cited_for": "A dispute is genuine if a reasonable jury could return a verdict for the non-moving party; a fact is material if it might affect the outcome (Id.)",
+      "quotes": [],
+      "context": "A dispute is \"genuine\" if the evidence is such that a reasonable jury could return a verdict for the non-moving party. Anderson v. Liberty Lobby, Inc., 477 U.S. 242, 248 (1986). A fact is \"material\" if it might affect the outcome of the suit under the governing law. Id.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The ruling sets off only the single word \"genuine\" in quotation marks; Anderson uses the same word in quotation marks at p.248.",
+        "explanation": "At page 248, Anderson says a dispute about a material fact is 'genuine' if the evidence is such that a reasonable jury could return a verdict for the nonmoving party. On the same page it says only disputes over facts that might affect the outcome under the governing law preclude summary judgment.",
+        "evidence_excerpt": "\"summary judgment will not lie if the dispute about a material fact is 'genuine,' that is, if the evidence is such that a reasonable jury could return a verdict for the nonmoving party.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 2",
+      "authority_type": "case",
+      "authority": "Celotex Corp. v. Catrett",
+      "citation_as_written": "477 U.S. 317, 323 (1986)",
+      "pincite": "323",
+      "cited_for": "Moving party bears initial burden of showing absence of genuine dispute; Id. at 324 burden shifts to non-movant",
+      "quotes": [],
+      "context": "The moving party bears the initial burden of demonstrating the absence of a genuine dispute of material fact. Celotex Corp. v. Catrett, 477 U.S. 317, 323 (1986). ... Id. at 324.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 323, Celotex places the initial burden on the moving party to show there is no genuine issue of material fact. At page 324, it requires the nonmovant to go beyond the pleadings and designate specific facts showing a genuine issue for trial.",
+        "evidence_excerpt": "*323: \"a party seeking summary judgment always bears the initial responsibility of informing the district court of the basis for its motion, and identifying those portions ... which it believes demonstrate the absence of a genuine issue of material fact.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111722/celotex-corp-v-catrett-administratrix-of-the-estate-of-catrett/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56 (general reference)",
+      "citation_as_written": "Rule 56",
+      "pincite": "",
+      "cited_for": "Non-movant must identify specific facts in affidavits or as otherwise provided in Rule 56",
+      "quotes": [],
+      "context": "set forth in affidavits or as otherwise provided in Rule 56, demonstrating that there is a genuine issue for trial.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 56(c)(1), (c)(4)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The substance is supported. Current Rule 56(c)(1) requires a party asserting that a fact is genuinely disputed to cite record materials, including affidavits or declarations, and Rule 56(c)(4) governs affidavits. The wording 'set forth in affidavits or as otherwise provided in Rule 56 ... genuine issue for trial' tracks pre-2010 Rule 56(e) and Celotex. That language is not in the current rule text (the current LII text contains no 'specific facts' or 'genuine issue for trial' phrasing). The defect is outdated phrasing, not a wrong proposition.",
+        "evidence_excerpt": "A party asserting that a fact cannot be or is genuinely disputed must support the assertion by: (A) citing to particular parts of materials in the record, including depositions, documents, electronically stored information, affidavits or declarations, stipulations ... admissions, interrogatory answers, or other materials",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 2",
+      "authority_type": "case",
+      "authority": "Matsushita (short form)",
+      "citation_as_written": "475 U.S. at 586",
+      "pincite": "586",
+      "cited_for": "Non-movant must do more than show metaphysical doubt",
+      "quotes": [
+        "must do more than simply show that there is some metaphysical doubt as to the material facts"
+      ],
+      "context": "The non-moving party \"must do more than simply show that there is some metaphysical doubt as to the material facts.\" Matsushita, 475 U.S. at 586.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 475 U.S. 586 (just before the *587 page break): 'its opponent must do more than simply show that there is some metaphysical doubt as to the material facts.'",
+        "explanation": "Matsushita states, in its discussion of Rule 56, that once the movant carries its burden, the non-movant must do more than show metaphysical doubt. The pin cite of 586 is correct.",
+        "evidence_excerpt": "When the moving party has carried its burden under Rule 56(c), its opponent must do more than simply show that there is some metaphysical doubt as to the material facts.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111620/matsushita-elec-industrial-co-v-zenith-radio-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 2",
+      "authority_type": "case",
+      "authority": "Scott v. Harris",
+      "citation_as_written": "550 U.S. 372, 378 (2007)",
+      "pincite": "378",
+      "cited_for": "View evidence in light most favorable to non-movant and draw reasonable inferences in its favor",
+      "quotes": [],
+      "context": "The Court must view the evidence in the light most favorable to the non-moving party and draw all reasonable inferences in that party's favor. Scott v. Harris, 550 U.S. 372, 378 (2007).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Scott v. Harris, 550 U.S. 372 (2007), is correctly cited. On page 378 (between the *378 and *379 page markers) the Court states that at summary judgment courts must view the facts and draw reasonable inferences in the light most favorable to the non-moving party. Scott later qualifies this: the rule applies only where the factual dispute is genuine.",
+        "evidence_excerpt": "courts are required to view the facts and draw reasonable inferences \"in the light most favorable to the party opposing the [summary judgment] motion.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145738/scott-v-harris/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 3",
+      "authority_type": "case",
+      "authority": "Appelmans v. City of Philadelphia",
+      "citation_as_written": "826 F.2d 214, 216 (3d Cir. 1987)",
+      "pincite": "216",
+      "cited_for": "Cross-motions evaluated on own merits; cross-motions are not an agreement that no facts are disputed",
+      "quotes": [],
+      "context": "The filing of cross-motions does not constitute an agreement that there are no material facts in dispute... See Appelmans v. City of Philadelphia, 826 F.2d 214, 216 (3d Cir. 1987).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case exists and the citation is correct; the cross-motions sentence falls on page 216. Appelmans says only that the summary judgment standard, with inferences viewed in the light most favorable to the non-movant, does not change for cross-motions. That supports the 'nor does it alter the applicable standard of review' part of the cited sentence. Appelmans does not say that filing cross-motions is not an agreement that no material facts are disputed, and it does not say each motion is evaluated on its own merits. That language comes from other Third Circuit authority, not this case. Under the 'See' signal, the citation gives partial support only.",
+        "evidence_excerpt": "*216 ... \"Inferences to be drawn from the underlying facts contained in the evidence submitted to the district court must be viewed in the light most favorable to the non-moving party. ... This standard does not change when the issue is presented in the context of cross-motions for summary judgment.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8961732/appelmans-v-city-of-philadelphia/",
+          "https://www.courtlistener.com/opinion/492641/appelmans-v-city-of-philadelphia/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 4",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Court exercises diversity jurisdiction",
+      "quotes": [],
+      "context": "This Court exercises diversity jurisdiction pursuant to 28 U.S.C. § 1332.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1332 gives district courts diversity jurisdiction. It is correctly cited as the basis for the court's diversity jurisdiction.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 4",
+      "authority_type": "case",
+      "authority": "Erie R.R. Co. v. Tompkins",
+      "citation_as_written": "304 U.S. 64 (1938)",
+      "pincite": "",
+      "cited_for": "Federal court in diversity applies state substantive law (Pennsylvania)",
+      "quotes": [],
+      "context": "the Court applies the substantive law of Pennsylvania to the contract and fraud claims at issue. Erie R.R. Co. v. Tompkins, 304 U.S. 64 (1938).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Erie R.R. Co. v. Tompkins, 304 U.S. 64 (1938), is cited correctly. It holds that, except where federal law governs, a federal court applies state law. That supports applying Pennsylvania substantive law in a diversity case.",
+        "evidence_excerpt": "Except in matters governed by the Federal Constitution or by Acts of Congress, the law to be applied in any case is the law of the State.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/103012/erie-railroad-co-v-tompkins/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.1 Elements of Breach of Contract",
+      "authority_type": "case",
+      "authority": "Ware v. Rodale Press, Inc.",
+      "citation_as_written": "322 F.3d 218, 225 (3d Cir. 2003)",
+      "pincite": "225",
+      "cited_for": "Three elements of breach of contract under Pennsylvania law",
+      "quotes": [
+        "(1) the existence of a contract, including its essential terms, (2) a breach of a duty imposed by the contract, and (3) resultant damages."
+      ],
+      "context": "a plaintiff asserting a claim for breach of contract must establish three elements: \"(1) the existence of a contract, including its essential terms, (2) a breach of a duty imposed by the contract, and (3) resultant damages.\" Ware v. Rodale Press, Inc., 322 F.3d 218, 225 (3d Cir. 2003)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 322 F.3d at 225, apart from Ware's bracketed comma ('contract[,]'), which the document renders as a plain comma. Ware is itself quoting CoreStates Bank, N.A. v. Cutillo, 723 A.2d 1053, 1058 (Pa. Super. Ct. 1999), which the document omits ('quoting' parenthetical missing).",
+        "explanation": "Ware states the three-element Pennsylvania breach-of-contract test at page 225, just before the *226 page break. The pin cite and the proposition are both correct.",
+        "evidence_excerpt": "Pennsylvania law requires that a plaintiff seeking to proceed with a breach of contract action must establish \"(1) the existence of a contract, including its essential terms, (2) a breach of a duty imposed by the contract[,] and (3) resultant damages.\" CoreStates Bank, N.A. v. Cutillo, 723 A.2d 1053, 1058 (Pa.Super.Ct.1999).",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/781170/reginald-d-ware-ware-communications-inc-v-rodale-press-inc-ware/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.1 Elements of Breach of Contract",
+      "authority_type": "case",
+      "authority": "CoreStates Bank, N.A. v. Cutillo",
+      "citation_as_written": "723 A.2d 1053, 1058 (Pa. Super. Ct. 1999)",
+      "pincite": "1058",
+      "cited_for": "Elements of breach of contract (see also)",
+      "quotes": [],
+      "context": "see also CoreStates Bank, N.A. v. Cutillo, 723 A.2d 1053, 1058 (Pa. Super. Ct. 1999).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed in this see-also cite. The Ware quote it accompanies ('(1) the existence of a contract, including its essential terms, (2) a breach of a duty imposed by the contract, and (3) resultant damages') also appears nearly verbatim in CoreStates at para. 16.",
+        "explanation": "The case exists: CoreStates Bank, N.A. v. Cutillo, 723 A.2d 1053 (Pa. Super. Ct., decided Jan. 22, 1999). Paragraph 16 states the three elements of a breach-of-contract claim, and it falls between the *1058 and *1059 star-page markers, so the pin cite to 1058 is correct.",
+        "evidence_excerpt": "\"¶ 16 A cause of action for breach of contract must be established by pleading (1) the existence of a contract, including its essential terms, (2) a breach of a duty imposed by the contract and (3) resultant damages.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2102180/corestates-bank-na-v-cutillo/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.2 Waiver",
+      "authority_type": "case",
+      "authority": "Wiley v. Valley Forge Life Ins. Co.",
+      "citation_as_written": "No. 04-2073, 2007 WL 1098565, at *5 (E.D. Pa. Apr. 12, 2007)",
+      "pincite": "*5",
+      "cited_for": "Pennsylvania courts routinely enforce anti-waiver provisions in negotiated commercial contracts",
+      "quotes": [],
+      "context": "Pennsylvania courts routinely enforce anti-waiver provisions in negotiated commercial contracts. See, e.g., Wiley v. Valley Forge Life Ins. Co., No. 04-2073, 2007 WL 1098565, at *5 (E.D. Pa. Apr. 12, 2007).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to this authority.",
+        "explanation": "I found no case called Wiley v. Valley Forge Life Ins. Co. in any court. I searched CourtListener opinions by case name and phrase, E.D. Pa. opinions from 2007 with 'Wiley' in the name, all E.D. Pa. opinions mentioning 'Valley Forge Life', and RECAP dockets with Valley Forge Life as a party. I also searched Google Scholar for 'Wiley v. Valley Forge' and ran web searches for the case name and for '2007 WL 1098565'. Every search came back empty or returned unrelated Valley Forge Life cases (Willard, Naifeh, Hall, Wood). The docket number does not fit either: in CourtListener, E.D. Pa. No. 2:04-cv-02073 is Gentile v. Tanstaafl Research & Trading, LLC, filed in 2004, not a Wiley case. The proposition is also an odd fit for this name, since it would have a life-insurance dispute support enforcing anti-waiver clauses in negotiated commercial contracts. The citation appears fabricated. I could not check the Westlaw number directly because I have no Westlaw access.",
+        "evidence_excerpt": "Google Scholar: \"Your search - 'Wiley v. Valley Forge' - did not match any articles.\" CourtListener RECAP, E.D. Pa. docket 04-2073: \"GENTILE v. TANSTAAFL RESEARCH & TRADING, LLC\", 2:04-cv-02073, filed 2004-05-13.",
+        "source_urls": [
+          "https://scholar.google.com/scholar?hl=en&as_sdt=2006&q=%22Wiley+v.+Valley+Forge%22",
+          "https://www.courtlistener.com/?type=o&q=%22Valley+Forge+Life%22+Wiley",
+          "https://www.courtlistener.com/?type=r&docket_number=04-2073&court=paed"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "I could not refute the finding. In CourtListener, a search for opinions containing 'Valley Forge Life' AND Wiley returned only an unrelated Tennessee case (Moore Freight Services v. Mize). An E.D. Pa. opinion search for case name 'Wiley' filed June 2006 to Dec. 2007 returned 0 results. An E.D. Pa. docket search for 04-2073 returned only 'GENTILE v. TANSTAAFL RESEARCH & TRADING, LLC', 2:04-cv-02073, filed 2004-05-13. Web searches for the exact phrase \"Wiley v. Valley Forge Life\" and for \"2007 WL 1098565\" turned up no such case; results were only other Valley Forge cases (Cullen, Naifeh) and unrelated WL numbers. The docket number belongs to a different case, and the case name cannot be found in any source, so the citation appears fabricated. I had no Westlaw access to look up the WL number directly.",
+        "source_urls": [
+          "https://www.courtlistener.com/?type=o&q=%22Valley+Forge+Life%22+AND+Wiley",
+          "https://www.courtlistener.com/?type=r&docket_number=04-2073&court=paed"
+        ]
+      }
+    },
+    {
+      "ref": 28,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.2 Force Majeure",
+      "authority_type": "other",
+      "authority": "Daubert motions (oral argument reference) / force majeure condition precedent doctrine",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Failure to satisfy a condition precedent generally precludes reliance on the contractual provision (no authority cited)",
+      "quotes": [],
+      "context": "the failure to satisfy a condition precedent generally precludes reliance on the contractual provision.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Acme Markets, Inc. v. Federal Armored Express, Inc., 648 A.2d 1218 (Pa. Super. Ct. 1994) (illustrative support; the ruling cites no authority)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The ruling cites nothing for this point, but it is accurate Pennsylvania law. Acme Markets defines a condition precedent as one that must occur before a duty to perform arises. It also recognizes that failure of the condition may be excused to prevent disproportionate forfeiture (Restatement (Second) of Contracts § 229). That matches the ruling's hedge ('generally precludes') and its decision to leave open, for trial, an argument that the notice requirement should be excused.",
+        "evidence_excerpt": "\"a condition precedent may be defined as a condition which must occur before a duty to perform under a contract arises.\" ... \"Strict application of the condition precedent would result in the loss of appellant's ability to recover\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1523370/acme-markets-inc-v-federal-armored-express-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.3 First (damages)",
+      "authority_type": "case",
+      "authority": "AM/PM Franchise Ass'n v. Atlantic Richfield Co.",
+      "citation_as_written": "526 Pa. 110, 118-19 (1990)",
+      "pincite": "118-19",
+      "cited_for": "Contractual commitments may reduce the speculative nature of lost-profit claims; contractual minimums as non-speculative foundation",
+      "quotes": [],
+      "context": "See, e.g., AM/PM Franchise Ass'n v. Atlantic Richfield Co., 526 Pa. 110, 118-19 (1990) (recognizing that contractual commitments may reduce the speculative nature of lost-profit claims).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "AM/PM Franchise Ass'n v. Atlantic Richfield Co., 526 Pa. 110, 584 A.2d 915 (1990)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case exists and the citation is correct. It concerns breach of warranty: franchisees had to sell defective oxinol-blend gasoline and sued for lost profits. Pages 118-19 only define general damages and three types of consequential lost profits (primary, secondary, and good will), using a tire example. The opinion does not discuss contractual commitments or minimum purchase obligations as a non-speculative basis for lost profits. Its speculativeness holding (around pp. 128-31) rests on modern forecasting methods: claims for prospective profits should not be barred at the outset and need only a 'reasonable basis.' The closest passage, at p. 120, says good will damages were treated as speculative partly because the parties had not contemplated them when contracting. That is not the rule the ruling attributes to the case: that contractual minimums supply a non-speculative foundation.",
+        "evidence_excerpt": "p.118-19: \"We now hold that in addition to general damages, there are three types of lost profit recoverable as consequential damages ... (1) loss of primary profits; (2) loss of secondary profits; and (3) a loss of good will damages\"; p.128: \"We believe that claims for prospective profits should not be barred ab initio.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1909688/ampm-franchise-assn-v-atlantic-richfield-co/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. AM/PM Franchise Ass'n v. Atlantic Richfield Co., 526 Pa. 110, 584 A.2d 915 (1990), is real and correctly cited. Pages *118-*119 hold only that 'there are three types of lost profit recoverable as consequential damages ... (1) loss of primary profits; (2) loss of secondary profits; and (3) a loss of good will damages', illustrated with a tire example. A full-text search for 'minimum' returns 0 hits. The speculativeness discussion (*128) rests on 'computers, economic forecasting, sophisticated marketing studies' and holds that 'claims for prospective profits should not be barred ab initio'. The closest passage is at *120: 'part of the reason we found them too speculative is that the damages were not contemplated by the parties at the time the contract was made.' It does not hold that contractual commitments or minimum-purchase obligations supply a non-speculative basis for lost profits, as the ruling claims.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1909688/ampm-franchise-assn-v-atlantic-richfield-co/"
+        ]
+      }
+    },
+    {
+      "ref": 30,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.3 First (damages)",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Colorable Daubert challenge to reliability of Dr. Prescott's methodology; court declines to resolve on summary judgment (later short-form Daubert references)",
+      "quotes": [],
+      "context": "Corbin Supply has raised a colorable challenge under Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), to the reliability of Dr. Prescott's methodology.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The citation is correct (509 U.S. 579 (1993)), and Daubert is the right authority for a challenge to the reliability of an expert's methodology. The court's decision not to resolve that challenge on summary judgment is its own case-management choice, not something attributed to Daubert.",
+        "evidence_excerpt": "\"Its overarching subject is the scientific validity — and thus the evidentiary relevance and reliability — of the principles that underlie a proposed submission.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.3 First (damages)",
+      "authority_type": "case",
+      "authority": "Padillas v. Stork-Gamco, Inc.",
+      "citation_as_written": "186 F.3d 412, 418 (3d Cir. 1999)",
+      "pincite": "418",
+      "cited_for": "Daubert challenges typically addressed at pretrial stage via hearing or at trial",
+      "quotes": [],
+      "context": "See Padillas v. Stork-Gamco, Inc., 186 F.3d 412, 418 (3d Cir. 1999).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "At 417-18, Padillas (3d Cir. 1999) stresses the importance of in limine hearings under Rule 104(a) for Daubert reliability determinations. On page 418 it quotes Cortes-Irizarry: 'A trial setting normally will provide the best operating environment for the triage which Daubert demands,' and warns against resolving Daubert on a truncated summary-judgment record. It vacated an exclusion made at summary judgment without a hearing. This reasonably supports the 'see' cite for the point that Daubert challenges are typically handled through a pretrial hearing or at trial rather than on summary judgment.",
+        "evidence_excerpt": "We have long stressed the importance of in limine hearings under Rule 104(a) in making the reliability determination required under Rule 702 and Daubert... A trial setting normally will provide the best operating environment for the triage which Daubert demands.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/765510/daniel-g-padillas-v-stork-gamco-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.3 Second (mitigation)",
+      "authority_type": "case",
+      "authority": "Erie Ins. Exch. v. Claypoole",
+      "citation_as_written": "673 A.2d 348, 354 (Pa. Super. Ct. 1996)",
+      "pincite": "354",
+      "cited_for": "Reasonableness of mitigation is ordinarily a question of fact",
+      "quotes": [],
+      "context": "See Erie Ins. Exch. v. Claypoole, 673 A.2d 348, 354 (Pa. Super. Ct. 1996) (reasonableness of mitigation is ordinarily a question of fact).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Erie Ins. Exch. v. Claypoole, 449 Pa. Super. 142, 673 A.2d 348 (1996), is real and the cite is correct. The case is an insurance coverage declaratory-judgment appeal: it asks whether Erie had to defend and indemnify a school-bus company and a driver accused of molesting children. The court held the appeal moot as to the company and held there was no duty to defend or indemnify the driver. The full opinion text never discusses mitigation of damages, the reasonableness of mitigation, or 'question of fact'; a text search for 'mitigat' and 'question of fact' returned zero hits. It does not support the proposition at 354 or anywhere else.",
+        "evidence_excerpt": "This appeal asks us to determine whether appellant, Erie Insurance Exchange (\"Erie\"), is legally obligated to defend and indemnify appellees ... We further hold that Erie possesses no duty to defend or indemnify Myers",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2052766/erie-insurance-exchange-v-claypoole/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Erie Ins. Exch. v. Claypoole, 449 Pa. Super. 142, 673 A.2d 348 (1996), exists and the cite is correct. It is an insurance duty-to-defend/indemnify declaratory-judgment appeal. Full-text searches of the CourtListener opinion (53,433 characters) for 'mitigat' and for 'question of fact' each return 0 matches. The case has nothing to do with whether mitigation of damages was reasonable, so it does not support the parenthetical at 354 or anywhere else.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2052766/erie-insurance-exchange-v-claypoole/"
+        ]
+      }
+    },
+    {
+      "ref": 33,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.3 Third (reliance damages)",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Restatement (Second) of Contracts § 349 cmt. a",
+      "citation_as_written": "Restatement (Second) of Contracts § 349 cmt. a",
+      "pincite": "§ 349 cmt. a",
+      "cited_for": "Plaintiff may recover expectation or reliance damages but not both to the extent of double recovery",
+      "quotes": [],
+      "context": "Pennsylvania law generally permits a plaintiff to recover either expectation damages or reliance damages, but not both to the extent that doing so would result in double recovery. See Restatement (Second) of Contracts § 349 cmt. a.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Comment a to § 349 says the injured party 'may, if he chooses, ignore the element of profit' and recover reliance expenditures instead. Together with the black letter ('As an alternative to the measure of damages stated in § 347'), that makes reliance and expectation alternative measures. The ruling's paraphrase (either measure, but not both to the extent of double recovery) is a fair reading. The 'double recovery' wording is the court's own gloss, not language in the comment.",
+        "evidence_excerpt": "Restatement (Second) of Contracts § 349 comment a (1981) ... 'Under the rule stated in this Section, the injured party may, if he chooses, ignore the element of profit and recover as damages his expenditures in reliance.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2469632/mistletoe-express-service-of-oklahoma-city-v-locke/",
+          "https://www.courtlistener.com/opinion/2830304/merry-gentleman-llc-v-george-leona-productions-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.1 Elements of Fraudulent Inducement",
+      "authority_type": "case",
+      "authority": "Gibbs v. Ernst",
+      "citation_as_written": "647 A.2d 882, 889 (Pa. 1994)",
+      "pincite": "889",
+      "cited_for": "Six elements of fraudulent inducement/fraud under Pennsylvania law",
+      "quotes": [
+        "(1) a representation; (2) which is material to the transaction at hand; (3) made falsely, with knowledge of its falsity or recklessness as to whether it is true or false; (4) with the intent of misleading another into relying on it; (5) justifiable reliance on the misrepresentation; and (6) the resulting injury was proximately caused by the reliance."
+      ],
+      "context": "a claim for fraudulent inducement requires the plaintiff to establish: \"(1) a representation; (2) which is material ... caused by the reliance.\" Gibbs v. Ernst, 647 A.2d 882, 889 (Pa. 1994).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 538 Pa. 207, 647 A.2d 889. Bortz v. Noon (Pa. 1999) confirms the A.2d pin of 889.",
+        "explanation": "Gibbs v. Ernst lists these six elements for intentional misrepresentation or fraud. The ruling's use of them for fraudulent inducement is a fair application.",
+        "evidence_excerpt": "The first such cause of action is intentional misrepresentation or fraud, which contains the following elements: (1) a representation; (2) which is material to the transaction at hand; (3) made falsely, with knowledge of its falsity or recklessness as to whether it is true or false; (4) with the intent of misleading another into relying on it; (5) justifiable reliance on the misrepresentation; and (6) the resulting injury was proximately caused by the reliance.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1970391/gibbs-v-ernst/",
+          "https://caselaw.findlaw.com/court/pa-supreme-court/1348951.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.1 Elements of Fraudulent Inducement",
+      "authority_type": "case",
+      "authority": "Gibbs v. Ernst (Id.)",
+      "citation_as_written": "Id. at 890",
+      "pincite": "890",
+      "cited_for": "Scienter distinguishes fraud from negligent misrepresentation and requires clear and convincing evidence at trial",
+      "quotes": [],
+      "context": "requires proof by clear and convincing evidence at trial. Id. at 890.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Half supported. At 647 A.2d 890 (538 Pa. 210), Gibbs does distinguish negligent from intentional misrepresentation by knowledge of falsity. It says nothing about a clear-and-convincing standard of proof; the phrase does not appear anywhere in the opinion. The ruling attributes a burden-of-proof rule to Gibbs that Gibbs does not contain.",
+        "evidence_excerpt": "Thus, negligent misrepresentation differs from intentional misrepresentation in that to commit the former, the speaker need not know his or her words are untrue, but must have failed to make reasonable investigation of the truth of those words.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1970391/gibbs-v-ernst/",
+          "https://caselaw.findlaw.com/court/pa-supreme-court/1348951.html"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Gibbs v. Ernst, 538 Pa. 193, 647 A.2d 882 (1994), does distinguish the two torts: 'negligent misrepresentation differs from intentional misrepresentation in that to commit the former, the speaker need not know his or her words are untrue, but must have failed to make reasonable investigation of the truth of those words.' But a full-text search for 'convincing' returns 0 matches. The opinion says nothing about a clear-and-convincing burden for scienter or fraud. The ruling credits Gibbs with a burden-of-proof rule it does not contain. (Note: the first reviewer gave the Pa. reporter as 538 Pa. 210; the case begins at 538 Pa. 193.)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1970391/gibbs-v-ernst/"
+        ]
+      }
+    },
+    {
+      "ref": 36,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (para 1)",
+      "authority_type": "statute",
+      "authority": "42 Pa. C.S. § 5524(7)",
+      "citation_as_written": "42 Pa. C.S. § 5524(7)",
+      "pincite": "",
+      "cited_for": "Two-year statute of limitations for fraud claim",
+      "quotes": [],
+      "context": "Under Pennsylvania law, the statute of limitations for a fraud claim is two years. 42 Pa. C.S. § 5524(7).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 Pa.C.S. § 5524(7) requires an action 'sounding in trespass, including deceit or fraud' to be commenced within two years, which is the two-year limitations period for fraud stated in the ruling.",
+        "evidence_excerpt": "The following actions and proceedings must be commenced within two years: ... (7) ... any other action or proceeding sounding in trespass, including deceit or fraud, except an action or proceeding subject to another limitation specified in this subchapter.",
+        "source_urls": [
+          "https://www.legis.state.pa.us/WU01/LI/LI/CT/HTM/42/00.055.024.000..HTM"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (discovery rule para)",
+      "authority_type": "case",
+      "authority": "Fine v. Checcio",
+      "citation_as_written": "582 Pa. 253, 266-67 (2005)",
+      "pincite": "266-67",
+      "cited_for": "Discovery rule: limitations period does not begin until plaintiff knew or should have known of the fraud; rationale; Id.; burden on defendant; question of fact for jury (Id. at 267)",
+      "quotes": [],
+      "context": "the limitations period does not begin to run until the plaintiff knew, or through reasonable diligence should have known, of the fraud. Fine v. Checcio, 582 Pa. 253, 266-67 (2005). ... Id. at 267.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fine v. Checcio, 582 Pa. 253, 870 A.2d 850 (2005) (discovery rule discussed at 266-68; jury-question statement at 268)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fine is a real Pennsylvania Supreme Court decision (dental malpractice, consolidated with Ward v. Rice). The core proposition has support at 266-68: the discovery rule tolls the limitations period until the plaintiff knows, or through reasonable diligence should know, of the injury and its cause. Fine frames the rule around injury and its cause, not 'the fraud,' but the adaptation is reasonable. The statement that the question is ordinarily for the jury appears at 268, not 267. Two other propositions are not in Fine. (1) The 'Id.' rationale, that fraud is designed to be concealed and a misrepresentation-date accrual would reward the fraudulent actor, does not appear. Fine's stated purpose of the discovery rule concerns plaintiffs who are reasonably unaware of a non-immediately-ascertainable injury, and fraudulent concealment is treated as a separate estoppel doctrine at 270-71. (2) Fine does not say the defendant bears the burden of proving a claim time-barred where the discovery rule is at issue. The only burden it allocates falls on the plaintiff, who must prove fraudulent concealment by clear, precise, and convincing evidence. The basic rule is supported, but the case is cited for a rationale and a burden allocation it does not contain.",
+        "evidence_excerpt": "\"the discovery rule applies to toll the statute of limitations in any case where a party neither knows nor reasonably should have known of his injury and its cause\"; *268: \"ordinarily, a jury is to decide it\"; \"The plaintiff has the burden of proving fraudulent concealment by clear, precise, and convincing evidence.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Fine v. Checcio, 582 Pa. 253, 870 A.2d 850 (2005), supports the basic discovery-rule statement: the statute 'does not begin to run until the injured party discovers or reasonably should discover that he has been injured and that his injury has been caused by another party's conduct.' It also supports the jury point: 'ordinarily, a jury is to decide it', which appears just after the *268 page marker, not at 267. Two parts of the citation are not supported. (1) The fraud-concealment rationale attributed to 'Id.' is not in the case. Fine states the purpose differently, at *266-67: 'to exclude from the running of the statute of limitations that period of time during which a party who has not suffered an immediately ascertainable injury is reasonably unaware he has been injured.' (2) A search for 'burden' finds no rule placing the burden on the defendant to prove the claim time-barred. The only burden Fine allocates is that 'The plaintiff has the burden of proving fraudulent concealment by clear, precise, and convincing evidence.' The citation therefore credits Fine with a rationale and a burden allocation it does not contain.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ]
+      }
+    },
+    {
+      "ref": 38,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (para 5)",
+      "authority_type": "case",
+      "authority": "Celotex (short form)",
+      "citation_as_written": "Celotex, 477 U.S. at 323",
+      "pincite": "323",
+      "cited_for": "Party seeking summary judgment on affirmative defense bears burden as to each element",
+      "quotes": [],
+      "context": "A party seeking summary judgment on an affirmative defense bears the burden ... See Celotex, 477 U.S. at 323.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 323, Celotex says the party seeking summary judgment always bears the initial responsibility to inform the court of the basis for its motion and to identify materials showing there is no genuine issue of material fact. Applying that movant's burden to a defendant seeking summary judgment on its own affirmative defense is a reasonable 'See' use. Celotex does not specifically address affirmative defenses or say 'each element.'",
+        "evidence_excerpt": "*323 ... \"a party seeking summary judgment always bears the initial responsibility of informing the district court of the basis for its motion, and identifying those portions of ... which it believes demonstrate the absence of a genuine issue of material fact.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111722/celotex-corp-v-catrett-administratrix-of-the-estate-of-catrett/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (para 6)",
+      "authority_type": "statute",
+      "authority": "42 Pa. C.S. § 5524(7)",
+      "citation_as_written": "42 Pa. C.S. § 5524(7)",
+      "pincite": "",
+      "cited_for": "Two-year limitations period not self-executing; timeliness remains live issue",
+      "quotes": [],
+      "context": "The two-year statute of limitations under 42 Pa. C.S. § 5524(7) is not self-executing, but neither has it been affirmatively resolved in Ridgeline's favor.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The statute sets a two-year period for fraud actions, and the citation supports that point. The remark that the period is 'not self-executing' and that timeliness is still unresolved is the court's own observation about the fictional record. It is not a claim about the statute's text, and nothing in the statute contradicts it.",
+        "evidence_excerpt": "The following actions and proceedings must be commenced within two years: ... (7) ... including deceit or fraud",
+        "source_urls": [
+          "https://www.legis.state.pa.us/WU01/LI/LI/CT/HTM/42/00.055.024.000..HTM"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.3 Scienter",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby (short form)",
+      "citation_as_written": "Anderson, 477 U.S. at 255",
+      "pincite": "255",
+      "cited_for": "Court cannot resolve credibility or draw inferences against non-movant on summary judgment",
+      "quotes": [],
+      "context": "The Court cannot resolve credibility determinations or draw inferences against the non-moving party on summary judgment. See Anderson, 477 U.S. at 255.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 255, Anderson says credibility determinations, weighing evidence, and drawing inferences are jury functions, not functions of a judge ruling on summary judgment. It also says the non-movant's evidence is to be believed and justifiable inferences drawn in the non-movant's favor. This supports the proposition.",
+        "evidence_excerpt": "*255 ... \"Credibility determinations, the weighing of the evidence, and the drawing of legitimate inferences from the facts are jury functions, not those of a judge, whether he is ruling on a motion for summary judgment or for a directed verdict. The evidence of the non-movant is to be believed, and all justifiable inferences are to be drawn in his favor.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.D Statute of Limitations",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56 (movant's burden)",
+      "citation_as_written": "Rule 56",
+      "pincite": "",
+      "cited_for": "Perfunctory paragraph does not satisfy movant's burden under Rule 56",
+      "quotes": [],
+      "context": "The single perfunctory paragraph in Corbin Supply's memorandum does not satisfy the movant's burden under Rule 56.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 56(a) conditions summary judgment on the movant showing that there is no genuine dispute of material fact, so the movant bears a burden that a bare, unsupported paragraph does not meet. Rule 56(c)(1) also requires factual positions to be supported by record citations. A general reference to Rule 56 for the movant's burden is reasonable.",
+        "evidence_excerpt": "The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "I. Introduction",
+      "authority_type": "other",
+      "authority": "Order of July 7, 2023 (ECF No. 34) dismissing Count III; economic loss doctrine",
+      "citation_as_written": "ECF No. 34",
+      "pincite": "",
+      "cited_for": "Negligent misrepresentation claim dismissed because economic loss doctrine barred it under Pennsylvania law",
+      "quotes": [],
+      "context": "Count III ... was previously dismissed by this Court's Order of July 7, 2023, on the ground that the economic loss doctrine barred the claim as a matter of Pennsylvania law. (ECF No. 34.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own in-universe docket order in Ridgeline v. Corbin Supply"
+    },
+    {
+      "ref": 43,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "I. Preamble, para 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(e)",
+      "pincite": "",
+      "cited_for": "Final pretrial conference held under Rule 16(e)",
+      "quotes": [],
+      "context": "A final pretrial conference was held ... pursuant to Federal Rule of Civil Procedure 16(e) and Local Rule 16.1 of this Court.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(e) authorizes a final pretrial conference, so holding one under 16(e) is an accurate use of the rule.",
+        "evidence_excerpt": "The court may hold a final pretrial conference to formulate a trial plan, including a plan to facilitate the admission of evidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "I. Preamble, para 1",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 16.1 (W.D. Pa.)",
+      "citation_as_written": "Local Rule 16.1",
+      "pincite": "",
+      "cited_for": "Final pretrial conference held pursuant to local rule",
+      "quotes": [],
+      "context": "pursuant to Federal Rule of Civil Procedure 16(e) and Local Rule 16.1 of this Court.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 16.1",
+        "quote_check": "No quotes attributed.",
+        "explanation": "W.D. Pa. Local Civil Rule 16.1, Pretrial Procedures, provides for a final pretrial conference after the pretrial statements are filed (LCvR 16.1.C.5). Citing it alongside Rule 16(e) for the final pretrial conference is accurate. The rule is officially styled \"LCvR 16.1\".",
+        "evidence_excerpt": "LCvR 16.1 PRETRIAL PROCEDURES ... C. Pretrial Statements and Final Pretrial Conference. ... 5. Following the filing of the pretrial statements, counsel and any unrepresented parties shall meet with the Court at a time fixed by the Court for a final pretrial conference.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "I. Preamble, procedural posture",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Federal Rule of Civil Procedure 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Count III dismissed on Defendant's motion to dismiss under Rule 12(b)(6)",
+      "quotes": [],
+      "context": "Count III was dismissed by Order of this Court dated July 7, 2023, upon Defendant's motion to dismiss under Federal Rule of Civil Procedure 12(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(6) allows a party to raise failure to state a claim by motion, which matches the description of the dismissal of Count III.",
+        "evidence_excerpt": "a party may assert the following defenses by motion: ... (6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "II. General Instructions, para 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(e)",
+      "pincite": "",
+      "cited_for": "Pretrial order controls the subsequent course of the action and may be modified only to prevent manifest injustice",
+      "quotes": [
+        "controls the subsequent course of the action",
+        "only to prevent manifest injustice"
+      ],
+      "context": "Federal Rule of Civil Procedure 16(e) provides that a pretrial order \"controls the subsequent course of the action\" and may be modified \"only to prevent manifest injustice.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 16(d), (e)",
+        "quote_check": "'only to prevent manifest injustice': found verbatim in current Rule 16(e). 'controls the subsequent course of the action': not in current Rule 16(e). Current Rule 16(d) reads 'controls the course of the action' (no 'subsequent'). The quoted wording comes from the pre-2007 Rule 16(e): 'shall control the subsequent course of the action unless modified by a subsequent order.'",
+        "explanation": "The substance is correct. A pretrial order controls the course of the action, and an order following a final pretrial conference may be modified only to prevent manifest injustice. However, the first quote uses the superseded pre-2007 wording of 16(e), and in the current rules that sentence sits in 16(d), not 16(e).",
+        "evidence_excerpt": "Current 16(d): \"This order controls the course of the action unless the court modifies it.\" Current 16(e): \"The court may modify the order issued after a final pretrial conference only to prevent manifest injustice.\" Pre-2007 16(e) (quoted in In re Hamama, 319 B.R. 851): \"This order shall control the subsequent course of the action unless modified by a subsequent order.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16",
+          "https://www.courtlistener.com/opinion/1522009/gold-v-national-city-home-loan-services-in-re-hamama/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.A Jurisdictional Statement",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Diversity jurisdiction; complete diversity and amount in controversy over $75,000",
+      "quotes": [],
+      "context": "e.g., 28 U.S.C. § 1332 for diversity jurisdiction ... shall confirm that complete diversity exists and that the amount in controversy exceeds seventy-five thousand dollars ($75,000)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1332(a) sets the amount-in-controversy threshold above $75,000 and requires that the parties be citizens of different States. The 'complete diversity' requirement is the long-standing judicial reading of that text, so it is fairly attributed to § 1332.",
+        "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.A Jurisdictional Statement",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction (example)",
+      "quotes": [],
+      "context": "or 28 U.S.C. § 1331 for federal question jurisdiction",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1331 is the general federal-question jurisdiction statute, which is exactly what the pretrial order uses it as an example of.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.A Jurisdictional Statement",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391",
+      "citation_as_written": "28 U.S.C. § 1391",
+      "pincite": "",
+      "cited_for": "Basis for venue in this district",
+      "quotes": [],
+      "context": "The statement shall also set forth the basis for venue in this district under 28 U.S.C. § 1391",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1391, titled 'Venue generally', governs venue in civil actions in federal district courts and sets out the bases for proper venue.",
+        "evidence_excerpt": "(1) this section shall govern the venue of all civil actions brought in district courts of the United States",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.F Plaintiff's Witness List",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)",
+      "pincite": "",
+      "cited_for": "Expert testimony limited to opinions disclosed in written reports",
+      "quotes": [],
+      "context": "Expert testimony shall be limited to the opinions disclosed in the expert's written report ... in accordance with Federal Rule of Civil Procedure 26(a)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(a)(2)(B)(i) requires a retained expert's written report to contain a complete statement of all opinions the witness will express. That supports a pretrial order limiting expert testimony to the opinions disclosed. The exclusion remedy itself comes from Rule 37(c)(1), but citing Rule 26(a)(2) as the source of the disclosure duty is accurate.",
+        "evidence_excerpt": "The report must contain:(i) a complete statement of all opinions the witness will express and the basis and reasons for them",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.F Plaintiff's Witness List (admonition)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(e)",
+      "pincite": "",
+      "cited_for": "Witness not identified precluded absent good cause",
+      "quotes": [],
+      "context": "any witness not identified in the Joint Pretrial Statement will be precluded from testifying at trial absent a showing of good cause under Federal Rule of Civil Procedure 16(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(e) contains no 'good cause' standard. It allows modification of the final pretrial order 'only to prevent manifest injustice', a stricter test, and the same pretrial order says so in II para 3. Good cause is the Rule 16(b)(4) standard for modifying a scheduling order. The rule does support the general point that the final pretrial order controls and can bar undisclosed witnesses, but the order ties a good-cause exception to 16(e), and the rule does not contain one. The defect is moderate and does not change the main point.",
+        "evidence_excerpt": "The court may modify the order issued after a final pretrial conference only to prevent manifest injustice.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I could not refute this finding. On LII, Rule 16(e) reads: \"The court may hold a final pretrial conference to formulate a trial plan... The conference must be held as close to the start of trial as is reasonable... The court may modify the order issued after a final pretrial conference only to prevent manifest injustice.\" The rule contains no 'good cause' exception. That phrase comes from Rule 16(b)(4): \"A schedule may be modified only for good cause and with the judge's consent.\" The pretrial order itself (Sec. II) quotes the 16(e) manifest-injustice standard correctly, but its witness admonition in III.F attaches a 'good cause' standard to 16(e). The rule does support the general idea that the final pretrial order controls and can bar undisclosed witnesses. Because the specific standard credited to 16(e) is wrong, I keep MISCHARACTERIZED. VERIFIED_MINOR_DEFECT would be a defensible, more lenient call.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ]
+      }
+    },
+    {
+      "ref": 52,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.H Plaintiff's Exhibit List",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 402",
+      "citation_as_written": "Federal Rule of Evidence 402",
+      "pincite": "",
+      "cited_for": "Relevance objections may be raised at trial",
+      "quotes": [],
+      "context": "except for objections under Federal Rule of Evidence 402 (relevance) and Federal Rule of Evidence 403 (unfair prejudice), which may be raised at trial",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 402 is the general relevance rule, which matches the parenthetical '(relevance)'. The order cites it only to name the type of objection that may be raised at trial, which fits the Rule 26(a)(3)(B) practice of preserving 402 and 403 objections from waiver. The label is accurate.",
+        "evidence_excerpt": "Relevant evidence is admissible unless any of the following provides otherwise: the United States Constitution; a federal statute; these rules; or other rules prescribed by the Supreme Court. Irrelevant evidence is not admissible.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_402"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "III.H Plaintiff's Exhibit List",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 403",
+      "citation_as_written": "Federal Rule of Evidence 403",
+      "pincite": "",
+      "cited_for": "Unfair prejudice objections may be raised at trial",
+      "quotes": [],
+      "context": "except for objections under Federal Rule of Evidence 402 (relevance) and Federal Rule of Evidence 403 (unfair prejudice), which may be raised at trial",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 403 allows exclusion of relevant evidence for unfair prejudice and related dangers, which matches the parenthetical '(unfair prejudice)'. The order cites it only to identify a category of objection that may be raised at trial.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury, undue delay, wasting time, or needlessly presenting cumulative evidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. Local Rule 16.1 excerpt, LR 16.1(A)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(A) and Fed. R. Civ. P. 16(e)",
+      "citation_as_written": "LR 16.1(A); Fed. R. Civ. P. 16(e)",
+      "pincite": "",
+      "cited_for": "Final pretrial conference no fewer than 30 days before trial",
+      "quotes": [],
+      "context": "The Court shall hold a final pretrial conference pursuant to Fed. R. Civ. P. 16(e) no fewer than thirty (30) days before the scheduled trial date.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 16.1 (eff. Nov. 1, 2016); Fed. R. Civ. P. 16(e)",
+        "quote_check": "The fictional order presents LR 16.1(A) text ('no fewer than thirty (30) days before the scheduled trial date') that does not appear in the actual W.D. Pa. LCvR 16.1.",
+        "explanation": "The real W.D. Pa. LCvR 16.1.A ('Scheduling and Pretrial Conferences -- Generally') covers the two scheduling phases, the initial scheduling conference and the Rule 26(f) report. It sets no 30-day minimum for the final pretrial conference. LCvR 16.1.C.5 says only that the final pretrial conference is held 'at a time fixed by the Court' after pretrial statements are filed. Fed. R. Civ. P. 16(e) requires the conference to be held 'as close to the start of trial as is reasonable', which is not a 30-day floor. The current rules are those effective Nov. 1, 2016; amendments proposed on 9/11/2026 had not been adopted.",
+        "evidence_excerpt": "LCvR 16.1.C.5: 'Following the filing of the pretrial statements, counsel and any unrepresented parties shall meet with the Court at a time fixed by the Court for a final pretrial conference.' FRCP 16(e): 'The conference must be held as close to the start of trial as is reasonable'",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I read the official W.D. Pa. Local Rules (eff. Nov. 1, 2016), which the court's local-rules page still lists as current with no later amendments. LCvR 16.1.A is headed \"Scheduling and Pretrial Conferences -- Generally\" and begins \"There shall be two phases of pretrial scheduling as set forth in LCvR 16.1.B.\" It sets no 30-day minimum before trial for the final pretrial conference. LCvR 16.1.C.5 says only that after the pretrial statements are filed, the parties \"shall meet with the Court at a time fixed by the Court for a final pretrial conference.\" Fed. R. Civ. P. 16(e) requires the conference to be held \"as close to the start of trial as is reasonable\", which is not a 30-day floor. The rule text quoted for 16.1(A) does not appear in the real rule.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/court-info/local-rules-and-orders/local-rules",
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ]
+      }
+    },
+    {
+      "ref": 55,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. Local Rule 16.1 excerpt, LR 16.1(B)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(B)",
+      "citation_as_written": "LR 16.1(B)",
+      "pincite": "",
+      "cited_for": "Joint Pretrial Statement filed no fewer than 28 days before trial",
+      "quotes": [],
+      "context": "Unless otherwise ordered, the Joint Pretrial Statement shall be filed no fewer than twenty-eight (28) days before the scheduled trial date.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 16.1.C (eff. Nov. 1, 2016)",
+        "quote_check": "The fictional LR 16.1(B) text ('Joint Pretrial Statement ... no fewer than twenty-eight (28) days before the scheduled trial date') does not appear in the actual rule.",
+        "explanation": "The real LCvR 16.1.B covers scheduling orders and case management. Pretrial statements fall under LCvR 16.1.C, which provides for sequential, separate statements, not a Joint Pretrial Statement. The plaintiff files by the date in the scheduling order (generally no sooner than 30 days after discovery closes), the defendant within 30 days after that, and any third-party defendant within 30 days after the defendant. The rule sets no deadline counted back 28 days from trial.",
+        "evidence_excerpt": "1. By the date specified in the Court's scheduling order, which generally will be no sooner than 30 days after the close of discovery ... counsel for the plaintiff ... shall file and serve a pretrial statement. ... 2. Within 30 days of filing of the plaintiff's pretrial statement, counsel for the defendant ... shall file a pretrial statement",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding is confirmed. The real LCvR 16.1.B is \"Scheduling Orders and Case Management\" (initial and final scheduling orders). Pretrial statements fall under 16.1.C, and they are sequential, separate filings, not a Joint Pretrial Statement. 16.1.C.1 reads: \"By the date specified in the Court's scheduling order, which generally will be no sooner than 30 days after the close of discovery... counsel for the plaintiff... shall file and serve a pretrial statement.\" Under C.2 the defendant files \"Within 30 days of filing of the plaintiff's pretrial statement.\" The rule has no deadline counted back 28 days from trial and no 'Joint Pretrial Statement'.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 56,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. LR 16.1(C)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(C)",
+      "citation_as_written": "LR 16.1(C)",
+      "pincite": "",
+      "cited_for": "Pretrial statement supersedes pleadings; amendments only on motion and good cause",
+      "quotes": [],
+      "context": "The Joint Pretrial Statement shall supersede the pleadings and shall control the issues and evidence to be presented at trial.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 16.1.C (Pretrial Statements and Final Pretrial Conference); supplementation is governed by LCvR 16.1.C.6.f",
+        "quote_check": "No quotation marks used. The language the document attributes to LR 16.1(C) ('shall supersede the pleadings and shall control the issues and evidence') does not appear anywhere in the official LCvR 16.1.",
+        "explanation": "The real W.D. Pa. LCvR 16.1.C is titled 'Pretrial Statements and Final Pretrial Conference.' It covers what the plaintiff's and defendant's pretrial statements must contain, motion-in-limine certificates, the final pretrial conference, and exclusion of evidence that was not disclosed. It does not say a pretrial statement supersedes the pleadings. It also has no 'good cause and absence of undue prejudice' amendment standard. Instead, C.6.f lets a party move to supplement its pretrial statement at least 7 days before the final pretrial conference, and the motion 'shall be granted in the absence of prejudice.' The document's text for subsection (C) is invented and states a different (stricter) standard. The current official manual divides LCvR 16.1 into subsections A through D only. A 2025 publication draft renumbers former 16.1 as LCvR 16; that does not apply to the February 2025 order.",
+        "evidence_excerpt": "C. Pretrial Statements and Final Pretrial Conference. ... f. counsel and any unrepresented party wishing to supplement his or her pretrial statement shall file and serve a motion to do so not less than seven (7) days before the final pretrial conference, which motion shall be granted in the absence of prejudice to another party;",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding is confirmed. The real LCvR 16.1.C is \"Pretrial Statements and Final Pretrial Conference.\" It says nothing about a pretrial statement superseding the pleadings, and it has no 'good cause and absence of undue prejudice' amendment standard. Its supplementation provision, C.6.f, reads: \"counsel... wishing to supplement his or her pretrial statement shall file and serve a motion to do so not less than seven (7) days before the final pretrial conference, which motion shall be granted in the absence of prejudice to another party.\" That is a more lenient standard than the one the order cites.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 57,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. LR 16.1(D)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(D)",
+      "citation_as_written": "LR 16.1(D)",
+      "pincite": "",
+      "cited_for": "Witnesses and exhibits must be identified in the Joint Pretrial Statement",
+      "quotes": [],
+      "context": "Witnesses and exhibits not listed therein may be excluded at trial in the discretion of the presiding judge.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 16.1.C.1(c), (e) and LCvR 16.1.C.7",
+        "quote_check": "No quotation marks used. The document's text for LR 16.1(D) ('Witnesses and exhibits not listed therein may be excluded at trial in the discretion of the presiding judge') does not appear in the rule.",
+        "explanation": "The real LCvR 16.1.D is 'Procedures Following Disclosure Of Information That May Be Privileged' (Fed. R. Evid. 502 clawback). It has nothing to do with witness or exhibit lists. The underlying idea is roughly supported elsewhere in the rule. C.1(c) and (e) require pretrial statements to list witnesses and exhibits. C.7 says failure to disclose 'may result in the exclusion of that evidence at trial ... unless the parties otherwise agree or the Court orders otherwise,' with an exception for impeachment. However, the cited subsection is wrong and the quoted rule text is invented. There is also no single 'Joint Pretrial Statement': the real rule calls for separate plaintiff and defendant pretrial statements.",
+        "evidence_excerpt": "D. Procedures Following Disclosure Of Information That May Be Privileged. 1. Unless a party requests otherwise, the following language will be included in the Scheduling Order to aid in the implementation of Fed. R. Evid. 502 ... 7. Failure to fully disclose in the pretrial statements ... the substance of the evidence proposed to be offered at trial, may result in the exclusion of that evidence at trial",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding is confirmed. The real LCvR 16.1.D is \"Procedures Following Disclosure Of Information That May Be Privileged\" (Fed. R. Evid. 502). It has nothing to do with witness or exhibit lists. The underlying idea is supported elsewhere. C.1.c and C.1.e require pretrial statements to list witnesses and exhibits. C.7 provides that failure to fully disclose \"may result in the exclusion of that evidence at trial... unless the parties otherwise agree or the Court orders otherwise. The only exception will be evidence used for impeachment purposes.\" The subsection is wrong, and the order's rule text is not the real text.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 58,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. LR 16.1(E)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(E)",
+      "citation_as_written": "LR 16.1(E)",
+      "pincite": "",
+      "cited_for": "Deposition designations exchanged per pretrial order",
+      "quotes": [],
+      "context": "Deposition designations and counter-designations shall be exchanged in accordance with the schedule set forth in the presiding judge's pretrial order.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "Closest real provision: W.D. Pa. LCvR 16.1.C.1(d) (deposition designations by page and line in the pretrial statement)",
+        "quote_check": "No quotation marks used. The sentence the document attributes to LR 16.1(E) is not found in the rule.",
+        "explanation": "The official W.D. Pa. LCvR 16.1 has only subsections A through D, so there is no LCvR 16.1(E). Deposition designations appear only in C.1(d), which requires each pretrial statement to designate deposition testimony by page and line. The real rule says nothing about exchanging designations and counter-designations under the judge's pretrial order, or about a meet-and-confer on objections. The subsection and its text appear to be invented.",
+        "evidence_excerpt": "d. the designation of those witnesses whose testimony is expected to be presented by means of a deposition and the designation of the portion of each deposition transcript (by page and line number) to be presented if already deposed",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "The finding is confirmed. The official LCvR 16.1 has subsections A through D only, with D being the privilege clawback provision, so no 16.1.E exists. The court's local-rules page lists the Nov. 1, 2016 rules as current and shows no amendments. The only provision on deposition designations is C.1.d: \"the designation of the portion of each deposition transcript (by page and line number) to be presented.\" Nothing in the real rule covers exchanging designations and counter-designations on the judge's schedule, or a duty to confer on objections.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ]
+      }
+    },
+    {
+      "ref": 59,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. LR 16.1(F)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(F)",
+      "citation_as_written": "LR 16.1(F)",
+      "pincite": "",
+      "cited_for": "Motions in limine filed per schedule; court may defer ruling",
+      "quotes": [],
+      "context": "The Court may, in its discretion, defer ruling on any motion in limine until trial.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "Closest real provisions: W.D. Pa. LCvR 16.1.B.3.b (final scheduling order sets motion-in-limine dates) and LCvR 16.1.C.4 (Motion in Limine Certificate)",
+        "quote_check": "No quotation marks used. 'The Court may, in its discretion, defer ruling on any motion in limine until trial' is not found in LCvR 16.1.",
+        "explanation": "LCvR 16.1 has no subsection F. In the real rule, B.3.b says the final scheduling order sets the deadlines for motions in limine. C.4 requires parties to confer before filing one and to attach a Motion in Limine Certificate. The real rule does not say the court may defer ruling until trial. The part of the proposition about filing per the schedule loosely matches B.3.b, but the cited subsection and its text are invented.",
+        "evidence_excerpt": "3. Final Scheduling Order. ... sets forth dates for the following: ... b. Filing motions in limine and motions to challenge the qualifications of any proposed expert witness",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "I read the official W.D. Pa. Local Rules manual, which the court's local-rules page lists as the current version (effective Nov. 1, 2016; file lrmanual20181101.pdf). LCvR 16.1 has only four subsections: A ('Scheduling and Pretrial Conferences -- Generally'), B ('Scheduling Orders and Case Management'), C ('Pretrial Statements and Final Pretrial Conference') and D (inadvertent-disclosure/clawback). There is no subsection F. On motions in limine, the real rule says only that the scheduling order sets dates for 'Filing motions in limine' (B) and that 'Before filing a motion in limine, counsel ... shall confer ... the motion in limine shall be accompanied by ... a Motion in Limine Certificate' (C.4). No provision lets the court 'defer ruling on any motion in limine until trial.' The 'LR 16.1(F)' text in the supplied pretrial order is invented, so the first check stands.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ]
+      }
+    },
+    {
+      "ref": 60,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. LR 16.1(G); V. Proposed Jury Instructions",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(G)",
+      "citation_as_written": "LR 16.1(G)",
+      "pincite": "",
+      "cited_for": "Proposed jury instructions and verdict form due 14 days before trial; must cite authority",
+      "quotes": [],
+      "context": "Consistent with LR 16.1(G), the parties shall submit proposed jury instructions and a proposed verdict form no later than September 1, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used. A 14-day deadline for jury instructions and verdict forms, and the requirement to cite authority, are not found in LCvR 16.1 or anywhere else in the W.D. Pa. Local Civil Rules manual.",
+        "explanation": "LCvR 16.1 has no subsection G. I searched the full official Local Rules manual for 'instruction' and 'verdict form' and found no local rule on proposed jury instructions or verdict forms; the civil rule list goes from LCvR 47 (voir dire) to LCvR 52, with no LCvR 51. The rule and its 14-day deadline appear to be invented. A deadline like this, if any, would come from the individual judge's practices or pretrial order, not from LCvR 16.1.",
+        "evidence_excerpt": "LCvR 16.1 PRETRIAL PROCEDURES — A. Scheduling and Pretrial Conferences -- Generally. ... B. Scheduling Orders and Case Management. ... C. Pretrial Statements and Final Pretrial Conference. ... D. Procedures Following Disclosure Of Information That May Be Privileged.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "The official W.D. Pa. Local Rules (current per the court's website) give LCvR 16.1 only subsections A-D, so there is no 16.1(G). The table of contents goes from 'LCvR 47 VOIR DIRE OF JURORS' straight to 'LCvR 52 FINDINGS BY THE COURT', with no LCvR 51 on jury instructions. Searching the full text for 'instruction' and 'verdict form' turned up no rule requiring proposed jury instructions or verdict forms 14 days before trial, or objections 7 days before trial. The provision and its deadlines appear invented.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 61,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. LR 16.1(H)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Pa. Local Rule 16.1(H)",
+      "citation_as_written": "LR 16.1(H)",
+      "pincite": "",
+      "cited_for": "Trial briefs 14 days before trial",
+      "quotes": [],
+      "context": "Each party may file a trial brief addressing contested legal issues no later than fourteen (14) days before trial.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used. The trial-brief text attributed to LR 16.1(H) is not found in the rule.",
+        "explanation": "LCvR 16.1 has no subsection H. The official W.D. Pa. Local Civil Rules contain no trial-brief provision; the only mentions of 'brief' concern motion briefs, appeals, and similar filings. The closest real provision is C.5.c, which requires a motion with supporting legal authority on undecided legal issues to be presented at the final pretrial conference. That is not a 14-day trial-brief rule. The subsection appears to be invented.",
+        "evidence_excerpt": "c. unless previously filed or otherwise ordered, prepare a motion accompanied by or containing supporting legal authority for presentation at the final pretrial conference on any legal issues that have not been decided.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "LCvR 16.1 has no subsection H; the real subsections run A-D. The official Local Rules contain no trial-brief provision. The closest real text is C.5.c, which says to 'prepare a motion accompanied by or containing supporting legal authority for presentation at the final pretrial conference on any legal issues that have not been decided.' That is not a 14-days-before-trial trial-brief rule. The cited subsection appears invented.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 62,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "V. Continuing Obligation to Supplement",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "",
+      "cited_for": "Continuing duty to supplement disclosures",
+      "quotes": [],
+      "context": "The parties have a continuing obligation under Federal Rule of Civil Procedure 26(e) to supplement prior disclosures and discovery responses.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(e)(1) imposes a continuing duty to supplement or correct Rule 26(a) disclosures and discovery responses when they are incomplete or incorrect, which matches the proposition.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "I. Preamble; III.B(d); III.E",
+      "authority_type": "other",
+      "authority": "Court's November 15, 2024 partial summary judgment ruling",
+      "citation_as_written": "November 15, 2024 ruling",
+      "pincite": "",
+      "cited_for": "Established Defendant's MAPC breach liability; liability not to be relitigated",
+      "quotes": [],
+      "context": "The Court notes that its November 15, 2024 ruling established Defendant's liability for breach of the MAPC provisions as a matter of law.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe order of the fictional matter itself"
+    },
+    {
+      "ref": 64,
+      "document": "task.json.md",
+      "location": "criteria C-003 (ISSUE_003a)",
+      "authority_type": "statute",
+      "authority": "42 Pa. C.S. § 5524(7)",
+      "citation_as_written": "42 Pa. C.S. § 5524(7)",
+      "pincite": "",
+      "cited_for": "Pennsylvania two-year statute of limitations for fraud",
+      "quotes": [],
+      "context": "noting that Pennsylvania has a 2-year statute of limitations for fraud (42 Pa. C.S. § 5524(7))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 Pa.C.S. § 5524(7) sets a two-year limitations period for actions including deceit or fraud.",
+        "evidence_excerpt": "The following actions and proceedings must be commenced within two years: ... (7) ... any other action or proceeding sounding in trespass, including deceit or fraud",
+        "source_urls": [
+          "https://www.legis.state.pa.us/WU01/LI/LI/CT/HTM/42/00.055.024.000..HTM"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "task.json.md",
+      "location": "criteria C-004/C-005 (discovery rule)",
+      "authority_type": "other",
+      "authority": "Pennsylvania discovery rule (doctrine, no cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Limitations period runs from when fraud was or should have been discovered",
+      "quotes": [],
+      "context": "invokes the discovery rule — i.e., that the limitations period runs from when the fraud was or should have been discovered, not when it occurred",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fine v. Checcio, 870 A.2d 850, 858-59 (Pa. 2005) (582 Pa. 253, 266-68)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Fine v. Checcio states Pennsylvania's discovery rule: the limitations period is tolled and does not begin to run until the injured party discovers, or reasonably should discover, the injury and its cause. That matches the rubric's description that the period runs from when the fraud was or should have been discovered, not when it occurred.",
+        "evidence_excerpt": "When the discovery rule applies, the statute of limitations does not commence to run at the instant that the right to institute suit arises, i.e., when the injury occurs... Rather, the statute is tolled, and does not begin to run until the injured party discovers or reasonably should discover th[e injury and its cause]",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "task.json.md",
+      "location": "criterion C-007 (ISSUE_005)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 407",
+      "citation_as_written": "FRE 407",
+      "pincite": "",
+      "cited_for": "Subsequent remedial measures rule applies only to measures taken after injury; Findlay memo predates the contract",
+      "quotes": [],
+      "context": "arguing that FRE 407 applies only to measures taken AFTER an injury or harm, and the Findlay memo is dated January 15, 2021",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 407 covers only measures that would have made an earlier injury or harm less likely, meaning measures taken after the event. The 1997 advisory committee note says measures taken before the event causing injury or harm fall outside the rule. That supports the argument that a pre-contract memo is not a subsequent remedial measure. The memo's dates come from the fictional scenario.",
+        "evidence_excerpt": "When measures are taken that would have made an earlier injury or harm less likely to occur, evidence of the subsequent measures is not admissible ... [Committee note:] Evidence of measures taken by the defendant prior to the 'event' causing 'injury or harm' do not fall within the exclusionary scope of Rule 407",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "task.json.md",
+      "location": "criterion C-008 (ISSUE_006)",
+      "authority_type": "statute",
+      "authority": "UCC § 1-303",
+      "citation_as_written": "UCC § 1-303",
+      "pincite": "",
+      "cited_for": "Trade usage/course of dealing admissible despite integration clause (parol evidence exception)",
+      "quotes": [],
+      "context": "trade usage/industry custom evidence is generally admissible even with an integration clause under UCC § 1-303 or common law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-202(a) (with § 1-303(d)); Pa. codification 13 Pa.C.S. §§ 2202, 1303",
+        "quote_check": "No attributed quotations.",
+        "explanation": "UCC § 1-303(d) provides that usage of trade and course of dealing are relevant to the meaning of the agreement and 'may supplement or qualify the terms of the agreement.' That supports the general point. But § 1-303 does not mention integration clauses or the parol evidence rule. The rule that trade usage can explain or supplement even an integrated writing is UCC § 2-202(a), which cross-references the trade-usage section (§ 1-205, now § 1-303). The cite is loose but the proposition is substantively sound.",
+        "evidence_excerpt": "§ 1-303(d): '... usage of trade ... may give particular meaning to specific terms of the agreement, and may supplement or qualify the terms of the agreement.' § 2-202: 'a writing intended by the parties as a final expression ... may be explained or supplemented (a) by course of dealing or usage of trade'",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/1/1-303",
+          "https://www.law.cornell.edu/ucc/2/2-202"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "task.json.md",
+      "location": "criterion C-009 (ISSUE_007)",
+      "authority_type": "case",
+      "authority": "Daubert (named without cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Anticipated Daubert challenge to Dr. Prescott's Years 3-5 lost-profit projections",
+      "quotes": [],
+      "context": "Corbin Supply's anticipated Daubert challenge to Dr. Prescott's Years 3-5 lost-profit projections",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Daubert is named only as the label for an expected challenge to the reliability of an expert's methodology. That is an accurate use: Daubert makes the trial judge the gatekeeper for the reliability of expert testimony.",
+        "evidence_excerpt": "\"under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "task.json.md",
+      "location": "criterion C-016",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Diversity jurisdiction basis for jurisdictional statement",
+      "quotes": [],
+      "context": "identifying diversity jurisdiction under 28 U.S.C. § 1332 as the basis for federal jurisdiction",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1332 is the diversity-jurisdiction statute, so it is the correct basis for a jurisdictional statement that relies on diversity.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000 ... and is between—(1) citizens of different States",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "task.json.md",
+      "location": "criterion C-039",
+      "authority_type": "other",
+      "authority": "Law of the case doctrine (no cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Materiality of MAPC breaches already decided on summary judgment",
+      "quotes": [],
+      "context": "on the ground that this issue was already decided on summary judgment (law of the case)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; no citation given.",
+        "explanation": "The law-of-the-case doctrine is real and bars revisiting issues actually decided earlier in the same case. The summary judgment ruling did grant Ridgeline liability on breach of the MAPC provisions, so the criterion's premise fits the record. One caveat: a partial summary judgment is interlocutory, and Fed. R. Civ. P. 56(g) is arguably the more precise basis. The general doctrine still supports the argument.",
+        "evidence_excerpt": "The law of the case doctrine \"prevents reconsideration of legal issues already decided in earlier stages of a case.\" ... \"[l]aw of the case only extends to issues that were actually decided in prior proceedings.\" (Home Depot USA v. Lafarge N. Am., 59 F.4th 55 (3d Cir. 2023))",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/9368005/home-depot-usa-inc-v-lafarge-north-america-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 1",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc. (Id. short form)",
+      "citation_as_written": "Id.",
+      "pincite": "",
+      "cited_for": "A fact is material if it might affect the outcome of the suit under the governing law.",
+      "quotes": [],
+      "context": "A fact is \"material\" if it might affect the outcome of the suit under the governing law. *Id.*",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Anderson v. Liberty Lobby, Inc., 477 U.S. 242, 248 (1986)",
+        "quote_check": "\"material\" is a single-word term, not a substantive quotation; the materiality language appears at p.248.",
+        "explanation": "'Id.' refers back to Anderson at 248. That page defines materiality by whether a fact might affect the outcome of the suit under the governing law.",
+        "evidence_excerpt": "*248 ... \"Only disputes over facts that might affect the outcome of the suit under the governing law will properly preclude the entry of summary judgment.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 2",
+      "authority_type": "case",
+      "authority": "Celotex Corp. v. Catrett (Id. short form)",
+      "citation_as_written": "Id. at 324",
+      "pincite": "324",
+      "cited_for": "Once the movant carries its burden, the non-moving party must identify specific facts showing a genuine issue for trial.",
+      "quotes": [],
+      "context": "the burden shifts to the non-moving party to identify specific facts, set forth in affidavits or as otherwise provided in Rule 56, demonstrating that there is a genuine issue for trial. *Id.* at 324.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Celotex Corp. v. Catrett, 477 U.S. 317, 324 (1986)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 324, Celotex says Rule 56(e) requires the nonmoving party to go beyond the pleadings and, through affidavits, depositions, answers to interrogatories, and admissions, designate specific facts showing a genuine issue for trial. This matches the proposition.",
+        "evidence_excerpt": "*324 ... \"Rule 56(e) therefore requires the nonmoving party to go beyond the pleadings and by her own affidavits, or by the 'depositions, answers to interrogatories, and admissions on file,' designate 'specific facts showing that there is a genuine issue for trial.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111722/celotex-corp-v-catrett-administratrix-of-the-estate-of-catrett/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "III. Legal Standard, para 2",
+      "authority_type": "case",
+      "authority": "Matsushita Elec. Indus. Co. v. Zenith Radio Corp. (quotation)",
+      "citation_as_written": "Matsushita, 475 U.S. at 586",
+      "pincite": "586",
+      "cited_for": "Non-movant must do more than show metaphysical doubt as to the material facts.",
+      "quotes": [
+        "must do more than simply show that there is some metaphysical doubt as to the material facts"
+      ],
+      "context": "The non-moving party \"must do more than simply show that there is some metaphysical doubt as to the material facts.\" *Matsushita*, 475 U.S. at 586.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 475 U.S. 586: '...must do more than simply show that there is some metaphysical doubt as to the material facts.'",
+        "explanation": "This is the same quotation and pin cite as ref 20. The language appears on page 586, before the *587 star page.",
+        "evidence_excerpt": "its opponent must do more than simply show that there is some metaphysical doubt as to the material facts. See DeLuca v. Atlantic Refining Co.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111620/matsushita-elec-industrial-co-v-zenith-radio-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.3 First (damages)",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc. (short form, Daubert challenge/hearing)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Daubert challenges to Dr. Prescott's methodology are typically addressed at the pretrial stage through a hearing or at trial, not on summary judgment.",
+      "quotes": [],
+      "context": "The Court declines to resolve the *Daubert* question on summary judgment. *Daubert* challenges are typically addressed at the pretrial stage through a dedicated hearing or, in appropriate cases, at trial",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Daubert is real, and its full citation appears earlier in the same paragraph. Here the short form mostly works as a label for the reliability challenge. Daubert requires the trial judge to make a preliminary Rule 104(a) reliability determination 'at the outset'. That is consistent with gatekeeping at a pretrial hearing. Daubert does not itself say challenges should not be resolved on summary judgment; the ruling relies on Padillas v. Stork-Gamco for the point about timing and the hearing. Read fairly, the label use is accurate.",
+        "evidence_excerpt": "Faced with a proffer of expert scientific testimony, then, the trial judge must determine at the outset, pursuant to Rule 104(a), whether the expert is proposing to testify to (1) scientific knowledge that (2) will assist the trier of fact",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "V. Conclusion and Order, para 5",
+      "authority_type": "case",
+      "authority": "Daubert (named without cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Any Daubert motions to be filed per the pretrial schedule addressing the methodology of Dr. Prescott and Mr. Holt.",
+      "quotes": [],
+      "context": "Any *Daubert* motions shall be filed in accordance with the pretrial schedule to be established. The Court expects the parties to address the admissibility of expert testimony, including the methodology of Dr. Prescott and Mr. Holt",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a procedural reference to Daubert motions on the admissibility and methodology of expert testimony. Daubert says the focus of that inquiry is on principles and methodology, so the reference is accurate.",
+        "evidence_excerpt": "\"The focus, of course, must be solely on principles and methodology, not on the conclusions that they generate.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (discovery rule para)",
+      "authority_type": "case",
+      "authority": "Fine v. Checcio (Id. short form, rationale)",
+      "citation_as_written": "Id.",
+      "pincite": "",
+      "cited_for": "Rationale for discovery rule: fraud is designed to be concealed, so a limitations period running from misrepresentation would reward concealment.",
+      "quotes": [],
+      "context": "would reward the fraudulent actor for the very concealment that constitutes the wrong. *Id.* The burden of proving that a claim is time-barred rests on the defendant",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fine v. Checcio, 582 Pa. 253, 870 A.2d 850 (2005)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Fine v. Checcio is a real Pa. Supreme Court case, but it is a dental malpractice case. It explains the purpose of the discovery rule as protecting a party who is reasonably unaware of an injury that cannot be immediately discovered. It does not say that fraud is designed to be concealed, or that running the limitations period from the misrepresentation would reward the concealment. Concealment comes up only under the separate, estoppel-based fraudulent-concealment doctrine at 270-71, and the ruling's rationale does not appear in the case.",
+        "evidence_excerpt": "The purpose of the discovery rule has been to exclude from the running of the statute of limitations that period of time during which a party who has not suffered an immediately ascertainable injury is reasonably unaware he has been injured, so that [*267] he has essentially the same rights as those who have suffered such an injury.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Fine v. Checcio, 582 Pa. 253, 870 A.2d 850 (2005), is real; it is a consolidated dental malpractice case. Its stated rationale for the discovery rule, at 266-67, is about injuries that cannot be discovered right away: 'The purpose of the discovery rule has been to exclude from the running of the statute of limitations that period of time during which a party who has not suffered an immediately ascertainable injury is reasonably unaware he has been injured, so that he has essentially the same rights as those who have suffered such an injury.' Concealment appears only in the separate, estoppel-based fraudulent-concealment doctrine at 270-71: 'the defendant may not invoke the statute of limitations, if through fraud or concealment, he causes the plaintiff to relax his vigilance.' Searching the opinion for 'conceal' found no statement that fraud is inherently designed to be concealed, or that running the period from the misrepresentation would reward concealment. The attributed rationale is not in the case.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ]
+      }
+    },
+    {
+      "ref": 77,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (discovery rule para)",
+      "authority_type": "case",
+      "authority": "Fine v. Checcio (Id. short form)",
+      "citation_as_written": "Id. at 267",
+      "pincite": "267",
+      "cited_for": "Defendant bears burden of proving claim time-barred; when plaintiff should have known of fraud is typically a jury question.",
+      "quotes": [],
+      "context": "the question of when a plaintiff should have known of the fraud is typically a question of fact for the jury. *Id.* at 267.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fine v. Checcio, 582 Pa. 253, 268, 870 A.2d 850 (2005)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Half supported. Fine does say that when the injury and its cause were discoverable is ordinarily a jury question, but at 582 Pa. 268, not 267. Fine does not say the defendant bears the burden of proving the claim time-barred. The only burden it assigns is to the plaintiff, who must prove fraudulent concealment by clear, precise, and convincing evidence. The case also concerns discovering an injury, not discovering fraud.",
+        "evidence_excerpt": "[*268] Since this question involves a factual determination ... ordinarily, a jury is to decide it. ... The plaintiff has the burden of proving fraudulent concealment by clear, precise, and convincing evidence.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The jury-question half is partly supported, but on page 268, not 267: 'Since this question involves a factual determination as to whether a party was able, in the exercise of reasonable diligence, to know of his injury and its cause, ordinarily, a jury is to decide it'; and 'the question as to when a party's injury and its cause were discovered or discoverable is for the jury.' Those passages concern discovering an injury, not discovering fraud. A search of the opinion for 'burden' found only three uses, and none puts the burden of proving the time-bar on the defendant. The only burden the court assigns is the reverse: 'The plaintiff has the burden of proving fraudulent concealment by clear, precise, and convincing evidence' (at 271). Because the burden proposition is unsupported, and runs against the only burden the opinion states, MISCHARACTERIZED stands rather than a minor defect.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ]
+      }
+    },
+    {
+      "ref": 78,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.2 Statute of Limitations (discovery rule para) / IV.C.2 para 5",
+      "authority_type": "other",
+      "authority": "Pennsylvania discovery rule (doctrine, no cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Limitations period for fraud does not begin to run until plaintiff knew or reasonably should have known of the fraud.",
+      "quotes": [],
+      "context": "Ridgeline invokes the discovery rule, a well-established doctrine under Pennsylvania law that tolls the statute of limitations for fraud claims where the plaintiff could not have discovered the falsity of the representations through the exercise of reasonable diligence.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fine v. Checcio, 582 Pa. 253, 266-68, 870 A.2d 850 (2005)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The ruling describes the discovery rule as a Pennsylvania doctrine that tolls limitations until the plaintiff knew, or through reasonable diligence should have known, of the injury. Fine v. Checcio at 266-68 supports this. It also holds that whether a party should have known is usually a jury question, unless reasonable minds could not differ. Fine is a malpractice case, but it states the doctrine generally. The ruling's specific framing for fraud claims is a reasonable application of it.",
+        "evidence_excerpt": "the salient point giving rise to its application is the inability of the injured, despite the exercise of reasonable diligence, to know that he is injured and by what cause... Since this question involves a factual determination ... [it is] for the jury",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156626/fine-v-checcio/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "I. Introduction",
+      "authority_type": "other",
+      "authority": "Pennsylvania economic loss doctrine (no cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Economic loss doctrine barred the negligent misrepresentation claim (Count III) as a matter of Pennsylvania law.",
+      "quotes": [],
+      "context": "on the ground that the economic loss doctrine barred the claim as a matter of Pennsylvania law.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The doctrine exists. The Pennsylvania Supreme Court in Dittman v. UPMC, 196 A.3d 1036 (Pa. 2018) held that a tort action will not lie for breach of a duty that arises under a contract between the parties. That supports applying the economic loss doctrine to a negligent misrepresentation claim that duplicates a contract relationship between commercial parties, as in the fictional prior dismissal order. Caveat: Bilt-Rite Contractors v. Architectural Studio, 866 A.2d 270, 288 (Pa. 2005) held that the economic loss rule does not apply to Restatement § 552 negligent misrepresentation claims against parties in the business of supplying information. So 'as a matter of Pennsylvania law' is broader than the doctrine as limited, but it fits the contracting-party setting.",
+        "evidence_excerpt": "Specifically, if the duty arises under a contract between the parties, a tort action will not lie from a breach of that duty. However, if the duty arises independently of any contractual duties between the parties, then a breach of that duty may support a tort action. (Dittman); 'we hold that the economic loss rule does not apply to claims of negligent misrepresentation sounding under Section 552.' (Bilt-Rite)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4566321/dittman-b-aplt-v-upmc/",
+          "https://www.courtlistener.com/opinion/1467371/bilt-rite-contractors-inc-v-architectural-studio/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.C.1 Elements of Fraudulent Inducement",
+      "authority_type": "other",
+      "authority": "Clear and convincing evidence standard for fraud (Pennsylvania law, no cite beyond Gibbs)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Scienter must be proven by clear and convincing evidence at trial.",
+      "quotes": [],
+      "context": "requires proof by clear and convincing evidence at trial.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Weston v. Northampton Personal Care, Inc., 62 A.3d 947 (Pa. Super. Ct. 2013) (fraud must be proven by clear and convincing evidence), citing Goldstein v. Phillip Morris, Inc., 854 A.2d 585, 590 (Pa. Super. Ct. 2004)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rule is accurate: Pennsylvania requires fraud, scienter included, to be proven by clear and convincing evidence. The defect is the attribution. The ruling supports the point only with 'Id. at 890', meaning Gibbs v. Ernst, 647 A.2d 882. A full-text search of Gibbs on CourtListener returns no occurrence of 'convincing', so Gibbs does not supply this standard. Weston and Goldstein do.",
+        "evidence_excerpt": "Weston, 62 A.3d 947: \"Fraud must be proven by clear and convincing evidence. Hart, supra; Goldstein v. Phillip Morris, Inc., 854 A.2d 585, 590 (Pa.Super.2004).\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4966890/weston-v-northampton-personal-care-inc/",
+          "https://www.courtlistener.com/opinion/1970391/gibbs-v-ernst/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 81,
+      "document": "summary-judgment-ruling.docx.md",
+      "location": "IV.A.2 Waiver",
+      "authority_type": "other",
+      "authority": "Pennsylvania law enforcing anti-waiver provisions (doctrine)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Pennsylvania courts routinely enforce anti-waiver provisions in negotiated commercial contracts.",
+      "quotes": [],
+      "context": "Pennsylvania courts routinely enforce anti-waiver provisions in negotiated commercial contracts.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This is an unsourced statement of doctrine. The only support in the ruling is a separately cited case, Wiley v. Valley Forge Life Ins. Co., 2007 WL 1098565, which was not part of this ref. Keyword and semantic CourtListener searches of Pennsylvania state and federal courts found no opinion text saying Pennsylvania courts 'routinely' enforce anti-waiver clauses in commercial contracts. The searches turned up only unrelated uses of 'non-waiver' (privilege waiver, CASPA's statutory non-waiver section) and an out-of-state case noting the argument that a no-waiver clause can itself be waived. A web search summary, which I did not confirm against a primary source, described courts as divided, with strict enforcement of non-waiver clauses often disfavored. The proposition may be defensible, but I found no text that confirms it as stated.",
+        "evidence_excerpt": "Guidance argues that a no-waiver clause can be waived just like any other contract provision. (Guidance Endodontics v. Dentsply, 708 F. Supp. 2d 1209 (D.N.M. 2010))",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2540433/guidance-endodontics-llc-v-dentsply-international-inc/",
+          "https://www.americanbar.org/groups/litigation/resources/newsletters/commercial-business/avoiding-unintentional-waiver-no-waiver-clause/"
+        ],
+        "confidence": "low"
+      }
+    },
+    {
+      "ref": 82,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "IV. Local Rule 16.1 excerpt, intro",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 16.1 (W.D. Pa.)",
+      "citation_as_written": "Local Rule 16.1 of the United States District Court for the Western District of Pennsylvania",
+      "pincite": "",
+      "cited_for": "Excerpt of relevant pretrial-procedure provisions set out for counsel.",
+      "quotes": [],
+      "context": "For the convenience of counsel, the Court sets forth below the relevant provisions of Local Rule 16.1 of the United States District Court for the Western District of Pennsylvania:",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 16.1",
+        "quote_check": "The provisions set out as LR 16.1(A)-(H) (Joint Pretrial Statement, supersedes the pleadings, motions in limine, jury instructions 14 days before trial, trial briefs) do not appear in the actual LCvR 16.1. Searches of the current official manual for \"joint pretrial\", \"supersede the pleadings\", \"jury instructions\" and \"trial brief\" returned nothing.",
+        "explanation": "LCvR 16.1 exists, but the excerpt does not reflect its content. The real subsections are A (scheduling conferences), B (scheduling orders), C (separate plaintiff and defendant pretrial statements and the final pretrial conference), and D (privilege clawback). The real rule requires sequential separate pretrial statements: the defendant files within 30 days of the plaintiff. It does not require a joint statement filed 28 days before trial.",
+        "evidence_excerpt": "1. By the date specified in the Court's scheduling order ... counsel for the plaintiff ... shall file and serve a pretrial statement. ... 2. Within 30 days of filing of the plaintiff's pretrial statement, counsel for the defendant ... shall file a pretrial statement",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "W.D. Pa. LCvR 16.1 'PRETRIAL PROCEDURES' exists, but the supplied 'excerpt' (A through H) does not reflect it. The real rule has A (scheduling and pretrial conferences), B (scheduling orders), C (pretrial statements and final pretrial conference) and D (clawback). It calls for separate, sequential pretrial statements: the plaintiff files first, and 'Within 30 days of filing of the plaintiff's pretrial statement, counsel for the defendant ... shall file a pretrial statement' (C.2). It does not call for a Joint Pretrial Statement filed 28 days before trial, nor does it say a pretrial statement supersedes the pleadings. The rule's sanction for incomplete disclosure (C.7) is possible exclusion of the evidence. The court's website lists this 2016 manual as current, and I found no later amendment. The rule is real, but its claimed content is not.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ]
+      }
+    },
+    {
+      "ref": 83,
+      "document": "pretrial-order-and-rules.docx.md",
+      "location": "II. General Instructions, para 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(e) (quoted language)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(e)",
+      "pincite": "",
+      "cited_for": "Pretrial order controls the course of the action and may be modified only to prevent manifest injustice.",
+      "quotes": [
+        "controls the subsequent course of the action",
+        "only to prevent manifest injustice"
+      ],
+      "context": "a pretrial order \"controls the subsequent course of the action\" and may be modified \"only to prevent manifest injustice.\"",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 16(d), (e)",
+        "quote_check": "'only to prevent manifest injustice': found verbatim in current Rule 16(e). 'controls the subsequent course of the action': not in current Rule 16. It matches the pre-2007 Rule 16(e) ('shall control the subsequent course of the action'); current Rule 16(d) reads 'controls the course of the action'.",
+        "explanation": "This is the same sentence as ref 46. The substance is right, but the first quote uses the superseded pre-2007 wording, and the current version of that sentence is in Rule 16(d).",
+        "evidence_excerpt": "Current 16(d): \"This order controls the course of the action unless the court modifies it.\" Current 16(e): \"... only to prevent manifest injustice.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16",
+          "https://www.courtlistener.com/opinion/1522009/gold-v-national-city-home-loan-services-in-re-hamama/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 84,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Section 14.5 Governing Law and Jurisdiction",
+      "authority_type": "other",
+      "authority": "Pennsylvania law (contractual choice of law)",
+      "citation_as_written": "laws of the Commonwealth of Pennsylvania",
+      "pincite": "",
+      "cited_for": "EDA governed by Pennsylvania law, exclusive jurisdiction in W.D. Pa. federal and state courts.",
+      "quotes": [],
+      "context": "This Agreement shall be governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania, without regard to its conflict of laws principles",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This is a choice-of-law clause inside the fictional EDA, not a citation to a legal authority. The clause does what it is cited for: Pennsylvania law governs, without regard to conflict-of-laws principles, and the parties submit to the exclusive jurisdiction of the federal and state courts in the Western District of Pennsylvania (Allegheny County, Pittsburgh). There is no external authority to check.",
+        "evidence_excerpt": "This Agreement shall be governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania, without regard to its conflict of laws principles ... exclusive jurisdiction of the federal and state courts located in the Western District of Pennsylvania, Allegheny County, Pittsburgh, Pennsylvania",
+        "source_urls": [
+          "file:///home/johnhughes/.local/share/lab-cite-census/text/draft-pretrial-statement/exclusive-distribution-agreement.docx.md"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 85,
+      "document": "task.json.md",
+      "location": "criterion C-008 (ISSUE_006) and C-027",
+      "authority_type": "other",
+      "authority": "Parol evidence rule / trade usage exception (common law)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Ridgeline's motion in limine to exclude Voss's industry custom testimony under the parol evidence rule; trade usage generally admissible despite integration clause.",
+      "quotes": [],
+      "context": "in connection with Ridgeline's motion in limine to exclude Gerald Voss's industry custom testimony under the parol evidence rule, acknowledges or addresses the potential weakness that trade usage/industry custom evidence is generally admissible even with an integration clause under UCC § 1-303 or common law",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 1-303(d); UCC § 2-202(a) (Pa.: 13 Pa.C.S. §§ 1303, 2202); Sunbeam Corp. v. Liberty Mut. Ins. Co., 781 A.2d 1189, 1193 (Pa. 2001)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rubric's premise is that trade usage or industry custom evidence is generally admissible even when a contract has an integration clause. The sources support it. UCC 2-202 lets a writing intended as a final expression be 'explained or supplemented (a) by course of dealing or usage of trade' without the complete-and-exclusive limit that applies to consistent additional terms. UCC 1-303(d) says usage of trade may give meaning to, supplement, or qualify agreement terms. At the common law level, the Pennsylvania Supreme Court in Sunbeam held that custom and usage are always admissible to construe commercial contracts and that the parol evidence rule does not apply with its ordinary strictness to usage evidence. One caveat: under 2-202, usage may explain or supplement the writing but may not contradict its express terms.",
+        "evidence_excerpt": "In the law of contracts, custom in the industry or usage in the trade is always relevant and admissible in construing commercial contracts and does not depend on any obvious ambiguity in the words of the contract... [T]he parol evidence rule does not apply in its ordinary strictness where the existence of a custom or usage to explain the meaning of words in a writing is concerned.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1494204/sunbeam-corp-v-liberty-mut-ins-co/",
+          "https://www.law.cornell.edu/ucc/2/2-202",
+          "https://www.law.cornell.edu/ucc/1/1-303"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 86,
+      "document": "task.json.md",
+      "location": "criterion C-002 (ISSUE_002)",
+      "authority_type": "other",
+      "authority": "Contract law rule that expectation and reliance damages are alternative remedies (no cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Expectation and reliance damages are generally alternative rather than cumulative remedies.",
+      "quotes": [],
+      "context": "since expectation and reliance damages are generally alternative rather than cumulative remedies under contract law",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a general contract-law statement with no citation. Case law confirms it: reliance damages are recoverable as an alternative to expectation damages, not on top of them. VMark Software v. EMC Corp. says so under Massachusetts law. CR-RSC Tower I v. RSC Tower I (Md. 2012) likewise treats reliance damages as pleaded 'as an alternative to' lost profits. The proposition, hedged with 'generally', is accurate.",
+        "evidence_excerpt": "VMark Software, Inc. v. EMC Corp., 642 N.E.2d 587 (Mass. App. Ct. 1994): \"in an appropriate case, Massachusetts law permits, as an alternative to such 'expectation' damages, the recovery of 'reliance' damages, i.e., expenditures made in reliance upon a contractual obligation that was not performed.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2103642/vmark-software-inc-v-emc-corp/",
+          "https://www.courtlistener.com/opinion/7920898/cr-rsc-tower-i-llc-v-rsc-tower-i-llc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 87,
+      "document": "preliminary-witness-exhibit-list.docx.md",
+      "location": "I.A.2 Theodore \"Ted\" Corbin III witness heading",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 611(c)",
+      "citation_as_written": "FRE 611(c)",
+      "pincite": "",
+      "cited_for": "Corbin is an adverse witness who may be called and examined as an adverse witness (leading questions)",
+      "quotes": [],
+      "context": "Theodore \"Ted\" Corbin III (Adverse / Will Call Under FRE 611(c))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 611(c)(2) says the court should ordinarily allow leading questions when a party calls a hostile witness, an adverse party, or a witness identified with an adverse party. Corbin is described as Managing Member of defendant Corbin Supply Group, LLC, so he is identified with an adverse party and may be called and led under 611(c).",
+        "evidence_excerpt": "Ordinarily, the court should allow leading questions: ... (2) when a party calls a hostile witness, an adverse party, or a witness identified with an adverse party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_611"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 88,
+      "document": "preliminary-witness-exhibit-list.docx.md",
+      "location": "I.A.2 Corbin witness description, first sentence",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 611(c)",
+      "citation_as_written": "Federal Rule of Evidence 611(c)",
+      "pincite": "",
+      "cited_for": "Corbin will be examined as an adverse witness under Rule 611(c)",
+      "quotes": [],
+      "context": "Mr. Corbin is an adverse witness and will be examined under Federal Rule of Evidence 611(c).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same rule as ref 87. FRE 611(c)(2) allows leading questions when examining an adverse party or a witness identified with one. Corbin, Managing Member of the defendant, qualifies.",
+        "evidence_excerpt": "Ordinarily, the court should allow leading questions: ... (2) when a party calls a hostile witness, an adverse party, or a witness identified with an adverse party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_611"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 89,
+      "document": "preliminary-witness-exhibit-list.docx.md",
+      "location": "I.A.3 Marcus Findlay witness heading",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 611(c)",
+      "citation_as_written": "FRE 611(c)",
+      "pincite": "",
+      "cited_for": "Findlay is an adverse witness called under Rule 611(c)",
+      "quotes": [],
+      "context": "Marcus Findlay (Adverse / Will Call Under FRE 611(c))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Findlay is described as VP of Sales of defendant Corbin Supply Group, LLC. That makes him a witness identified with an adverse party, for whom FRE 611(c)(2) ordinarily permits leading questions.",
+        "evidence_excerpt": "Ordinarily, the court should allow leading questions: ... (2) when a party calls a hostile witness, an adverse party, or a witness identified with an adverse party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_611"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 90,
+      "document": "preliminary-witness-exhibit-list.docx.md",
+      "location": "I.A.3 Findlay witness description, first sentence",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 611(c)",
+      "citation_as_written": "Federal Rule of Evidence 611(c)",
+      "pincite": "",
+      "cited_for": "Findlay will be examined as an adverse witness under Rule 611(c)",
+      "quotes": [],
+      "context": "Mr. Findlay is an adverse witness and will be examined under Federal Rule of Evidence 611(c).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same as ref 89. FRE 611(c)(2) covers a witness identified with an adverse party, such as the defendant's VP of Sales.",
+        "evidence_excerpt": "Ordinarily, the court should allow leading questions: ... (2) when a party calls a hostile witness, an adverse party, or a witness identified with an adverse party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_611"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 91,
+      "document": "preliminary-witness-exhibit-list.docx.md",
+      "location": "Memo RE line (caption)",
+      "authority_type": "case",
+      "authority": "Ridgeline Manufacturing, Inc. v. Corbin Supply Group, LLC",
+      "citation_as_written": "Case No. 2:23-cv-00417-KMG (W.D. Pa.)",
+      "pincite": "",
+      "cited_for": "The matter at hand; the case for which the joint pretrial statement is being prepared",
+      "quotes": [],
+      "context": "Ridgeline Manufacturing, Inc. v. Corbin Supply Group, LLC, Case No. 2:23-cv-00417-KMG (W.D. Pa.) — Preliminary Witness and Exhibit Lists for Joint Pretrial Statement",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption and docket number."
+    },
+    {
+      "ref": 92,
+      "document": "preliminary-witness-exhibit-list.docx.md",
+      "location": "II. Exhibit list, Court Filings table, PX-031",
+      "authority_type": "other",
+      "authority": "Memorandum Opinion and Order of Hon. Katherine M. Gresham, Nov. 15, 2024",
+      "citation_as_written": "Memorandum Opinion and Order of Hon. Katherine M. Gresham, dated November 15, 2024",
+      "pincite": "",
+      "cited_for": "Order granting Plaintiff's partial summary judgment on breach of contract liability",
+      "quotes": [],
+      "context": "Memorandum Opinion and Order of Hon. Katherine M. Gresham, dated November 15, 2024, granting Plaintiff's partial summary judgment on breach of contract liability.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe order in the fictional matter's own docket."
+    }
+  ]
+}

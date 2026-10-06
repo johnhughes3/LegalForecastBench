@@ -1,0 +1,2018 @@
+{
+  "task": "analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "case-management-order.docx.md",
+    "dissolution-agreement-executed.docx.md",
+    "jv-agreement-executed.docx.md",
+    "kerrigan-discovery-strategy.eml.md",
+    "litigation-hold-memo.docx.md",
+    "plaintiffs-first-rfps.docx.md",
+    "stipulated-protective-order.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Caption block / title: 'Served Pursuant to Fed. R. Civ. P. 34'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Fed. R. Civ. P. 34",
+      "pincite": "",
+      "cited_for": "Requests for production served pursuant to Rule 34",
+      "quotes": [],
+      "context": "Served Pursuant to Fed. R. Civ. P. 34",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34 governs requests to produce documents, ESI, and tangible things served on another party, so serving RFPs under it is correct.",
+        "evidence_excerpt": "Rule 34. Producing Documents, Electronically Stored Information, and Tangible Things, or Entering onto Land, for Inspection and Other Purposes ... A party may serve on any other party a request within the scope of Rule 26(b):",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Header block, 'Responses Due'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(A)",
+      "pincite": "34(b)(2)(A)",
+      "cited_for": "Responses due thirty days after service",
+      "quotes": [],
+      "context": "Responses Due: September 11, 2024 (thirty (30) days after service pursuant to Fed. R. Civ. P. 34(b)(2)(A))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "Rule 34(b)(2)(A) requires a written response within 30 days after service, unless the parties stipulate or the court orders otherwise. The service date that produced September 11, 2024 was not checked; only the 30-day rule was verified.",
+        "evidence_excerpt": "(A) Time to Respond. The party to whom the request is directed must respond in writing within 30 days after being served",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Preliminary Statement, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure 26 and 34",
+      "citation_as_written": "Rules 26 and 34 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Basis for requesting production of documents and ESI",
+      "quotes": [],
+      "context": "Pursuant to Rules 26 and 34 of the Federal Rules of Civil Procedure, Plaintiff Caspian Environmental Technologies, LLC ... hereby requests that Defendant ... produce the documents and electronically stored information described below",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a) lets a party serve requests to produce documents and ESI within the scope of Rule 26(b), and Rule 26(b)(1) defines that scope. Citing both is the correct basis for requests for production.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Definitions, No. 1 'Document'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)(1)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 34(a)(1)(A)",
+      "pincite": "34(a)(1)(A)",
+      "cited_for": "'Document' defined with the broadest meaning permitted under the rule",
+      "quotes": [],
+      "context": "shall have the broadest meaning permitted under Fed. R. Civ. P. 34(a)(1)(A) and shall include all writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used; the RFP's list (\"writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations\") tracks the text of 34(a)(1)(A) word for word",
+        "explanation": "Rule 34(a)(1)(A) gives the broad description of \"documents or electronically stored information\" that the RFP's definition of \"Document\" relies on.",
+        "evidence_excerpt": "(A) any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Instruction No. 1 — Continuing Obligation",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(e)",
+      "citation_as_written": "Fed. R. Civ. P. 26(e)",
+      "pincite": "26(e)",
+      "cited_for": "Requests are continuing; duty to supplement production",
+      "quotes": [],
+      "context": "These Requests are continuing in nature pursuant to Fed. R. Civ. P. 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(e)(1) requires a party that has responded to a request for production to supplement or correct the response in a timely manner. That supports calling the requests 'continuing' in the sense of a duty to supplement. The rule itself, not the requesting party's instruction, is the source of that duty.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Instruction No. 2 — Organization of Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(E)(i)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(E)(i)",
+      "pincite": "34(b)(2)(E)(i)",
+      "cited_for": "Documents produced as kept in usual course of business or organized and labeled to correspond to the requests",
+      "quotes": [],
+      "context": "Documents shall be produced as they are kept in the usual course of business, or shall be organized and labeled to correspond with the categories in each numbered Request for Production, in accordance with Fed. R. Civ. P. 34(b)(2)(E)(i).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the instruction closely paraphrases the rule text.",
+        "explanation": "Rule 34(b)(2)(E)(i) requires documents to be produced as kept in the usual course of business, or organized and labeled to match the request categories. The instruction tracks this nearly word for word.",
+        "evidence_excerpt": "(i) A party must produce documents as they are kept in the usual course of business or must organize and label them to correspond to the categories in the request",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Instruction No. 3 — Privilege Log",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "pincite": "26(b)(5)(A)",
+      "cited_for": "Privilege log required for documents withheld on privilege grounds",
+      "quotes": [],
+      "context": "Defendant shall provide a privilege log in compliance with Fed. R. Civ. P. 26(b)(5)(A) and Local Rule 26.2.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(b)(5)(A) requires a party withholding information as privileged to expressly make the claim and describe the withheld materials so other parties can assess it. This is the recognized source of the privilege-log obligation; the rule does not use the words 'privilege log'. The Local Rule 26.2 cited alongside it is fictional or local and was not checked.",
+        "evidence_excerpt": "When a party withholds information otherwise discoverable by claiming that the information is privileged... the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Instruction No. 3 — Privilege Log",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 26.2 (privilege log; court unspecified, presumably W.D.N.C.)",
+      "citation_as_written": "Local Rule 26.2",
+      "pincite": "",
+      "cited_for": "Privilege log must comply with local rule",
+      "quotes": [],
+      "context": "Defendant shall provide a privilege log in compliance with Fed. R. Civ. P. 26(b)(5)(A) and Local Rule 26.2.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(b)(5)(A) alone; W.D.N.C. has no local rule on privilege logs",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is in W.D.N.C. (the RFP caption reads Western District of North Carolina, Charlotte Division). W.D.N.C. LCvR 26.2 is titled 'Discovery Material Not to Be Filed Unless Ordered or Needed' and only bars filing discovery materials with the court. It says nothing about privilege logs, and a search of the current local rules (eff. Dec. 1, 2022) found no local privilege-log rule. Citing LCvR 26.2 as a privilege-log requirement misstates the rule.",
+        "evidence_excerpt": "LCvR 26.2 DISCOVERY MATERIAL NOT TO BE FILED UNLESS ORDERED OR NEEDED -- The parties shall not file any initial disclosures, designations of expert witnesses and their reports, discovery requests or responses thereto, deposition transcripts, or other discovery material unless: (1) directed to do so by the Court...",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf",
+          "https://www.ncwd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The case is Case No. 3:24-cv-00412-RJC in W.D.N.C., Charlotte Division (RFP caption, CMO, protective order). I downloaded the current W.D.N.C. Local Rules (eff. Dec. 1, 2022, the only local-rules version on the court's page) and read LCvR 26.2. It is headed 'DISCOVERY MATERIAL NOT TO BE FILED UNLESS ORDERED OR NEEDED' and says: 'The parties shall not file any initial disclosures, designations of expert witnesses and their reports, discovery requests or responses thereto, deposition transcripts, or other discovery material unless: (1) directed to do so by the Court; ...'. It says nothing about privilege logs. A text search of the whole local-rules PDF for 'privilege' found only an unrelated physician-patient reference, so W.D.N.C. has no local privilege-log rule. Fed. R. Civ. P. 26(b)(5)(A) alone governs.",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf",
+          "https://www.ncwd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ]
+      }
+    },
+    {
+      "ref": 8,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Instruction No. 5 — Electronically Stored Information",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)(1)(A)",
+      "citation_as_written": "Rule 34(a)(1)(A) of the Federal Rules of Civil Procedure",
+      "pincite": "34(a)(1)(A)",
+      "cited_for": "Definition of electronically stored information",
+      "quotes": [],
+      "context": "all electronically stored information as defined in Rule 34(a)(1)(A) of the Federal Rules of Civil Procedure, including information stored in any medium from which it can be obtained either directly or, if necessary, after translation into a reasonably usable form.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used; the paraphrase tracks the rule closely (\"stored in any medium from which information can be obtained either directly or, if necessary, after translation by the responding party into a reasonably usable form\")",
+        "explanation": "Rule 34(a)(1)(A) is where the Federal Rules describe electronically stored information, and the instruction paraphrases that text. Strictly, the rule describes ESI rather than formally defining it, but calling it the defining provision is common practice and fair.",
+        "evidence_excerpt": "stored in any medium from which information can be obtained either directly or, if necessary, after translation by the responding party into a reasonably usable form",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "RFP No. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(1)",
+      "pincite": "26(a)(1)",
+      "cited_for": "Initial disclosures",
+      "quotes": [],
+      "context": "Produce all Documents identified in or supporting Defendant Greenleaf Industrial Solutions, Inc.'s Initial Disclosures served pursuant to Fed. R. Civ. P. 26(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1) governs initial disclosures, which a party must provide without awaiting a discovery request. The RFP's reference to initial disclosures served under 26(a)(1) is accurate.",
+        "evidence_excerpt": "(1) Initial Disclosure. (A) In General. Except as exempted by Rule 26(a)(1)(B) or as otherwise stipulated or ordered by the court, a party must, without awaiting a discovery request, provide to the other parties:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "plaintiffs-first-rfps.docx.md",
+      "location": "Reservation of Rights, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure and Local Rules of the Court",
+      "citation_as_written": "the Federal Rules of Civil Procedure, the Local Rules of this Court",
+      "pincite": "",
+      "cited_for": "Additional discovery requests permitted by the rules",
+      "quotes": [],
+      "context": "as permitted by the Federal Rules of Civil Procedure, the Local Rules of this Court, and the Case Management Order entered on May 20, 2024 (Dkt. No. 28).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic reservation of rights. The Federal Rules of Civil Procedure allow further discovery requests within the scope of Rule 26(b) (Rule 34 requests, and others), and the case is styled in the W.D.N.C., which has its own Local Rules. The reference to the case-specific CMO concerns the fictional record. Nothing in the generic citation is inaccurate.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "jv-agreement-executed.docx.md",
+      "location": "Section 8.5 — Tax Matters",
+      "authority_type": "statute",
+      "authority": "Internal Revenue Code Section 6223 (partnership representative)",
+      "citation_as_written": "Section 6223 of the Internal Revenue Code",
+      "pincite": "6223",
+      "cited_for": "Greenleaf serves as Tax Matters Partner / 'partnership representative'",
+      "quotes": [
+        "partnership representative"
+      ],
+      "context": "Greenleaf shall serve as the Tax Matters Partner (or \"partnership representative\" under Section 6223 of the Internal Revenue Code, as applicable)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"partnership representative\" found verbatim in 26 U.S.C. § 6223(a).",
+        "explanation": "Under the post-Bipartisan Budget Act regime, 26 U.S.C. § 6223(a) requires each partnership to designate a 'partnership representative.' The clause 'Tax Matters Partner (or partnership representative under Section 6223 ..., as applicable)' therefore accurately ties the new term to § 6223.",
+        "evidence_excerpt": "Each partnership shall designate (in the manner prescribed by the Secretary) a partner (or other person) with a substantial presence in the United States as the partnership representative who shall have the sole authority to act on behalf of the partnership under this subchapter.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/26/6223"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "dissolution-agreement-executed.docx.md",
+      "location": "Section 2.1 — Mutual Agreement to Dissolve",
+      "authority_type": "statute",
+      "authority": "Delaware Revised Uniform Limited Partnership Act",
+      "citation_as_written": "Delaware Revised Uniform Limited Partnership Act",
+      "pincite": "",
+      "cited_for": "Dissolution to be carried out in accordance with applicable provisions",
+      "quotes": [],
+      "context": "in accordance with the applicable provisions of the Delaware Revised Uniform Limited Partnership Act, the Delaware Uniform Partnership Law, and other applicable provisions of Delaware law governing the dissolution of joint ventures",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Delaware Revised Uniform Limited Partnership Act, 6 Del. C. ch. 17 (§ 17-101 et seq.)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Act exists: 6 Del. C. § 17-1102 gives it that short title. It governs only Delaware limited partnerships, though. The joint venture here is called a 'Delaware joint venture entity' that files a 'certificate of formation', which is limited-liability-company terminology, and nothing says it is a limited partnership. So the Act's fit is doubtful, but the clause only invokes 'applicable provisions', so it is not plainly wrong. A related defect: the companion 'Delaware Uniform Partnership Law' is not an official name. Delaware's partnership statute is the 'Delaware Revised Uniform Partnership Act' (6 Del. C. ch. 15). The citation also gives no chapter number.",
+        "evidence_excerpt": "§ 17-1102: \"This chapter may be cited as the 'Delaware Revised Uniform Limited Partnership Act.'\"; Chapter 15 heading: \"CHAPTER 15. Delaware Revised Uniform Partnership Act\"",
+        "source_urls": [
+          "https://delcode.delaware.gov/title6/c017/sc11/index.html",
+          "https://delcode.delaware.gov/title6/c017/sc01/index.html",
+          "https://delcode.delaware.gov/title6/c015/sc01/index.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "dissolution-agreement-executed.docx.md",
+      "location": "Section 2.1 — Mutual Agreement to Dissolve",
+      "authority_type": "statute",
+      "authority": "Delaware Uniform Partnership Law",
+      "citation_as_written": "Delaware Uniform Partnership Law",
+      "pincite": "",
+      "cited_for": "Dissolution of the JV governed by applicable provisions",
+      "quotes": [],
+      "context": "the Delaware Revised Uniform Limited Partnership Act, the Delaware Uniform Partnership Law, and other applicable provisions of Delaware law governing the dissolution of joint ventures",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Delaware Revised Uniform Partnership Act, 6 Del. C. § 15-101 et seq. (dissolution at § 15-801 et seq.); the former Delaware Uniform Partnership Law was 6 Del. C. § 1501 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "A 'Delaware Uniform Partnership Law' did exist: it was the former 6 Del. C. § 1501 et seq. The Delaware Revised Uniform Partnership Act (6 Del. C. ch. 15) replaced it. Today it survives only as a historical reference point, for example in § 17-403(b) ('in effect on July 11, 1999'). The statute that now governs dissolution of a Delaware general partnership or joint venture is DRUPA, Subchapter VIII (§ 15-801 et seq.). The agreement names a superseded statute as current governing law. The general proposition still holds, because the clause also invokes 'other applicable provisions of Delaware law', but the statute name is outdated.",
+        "evidence_excerpt": "§ 17-403(b): \"a general partner of a limited partnership has the liabilities of a partner in a partnership that is governed by the Delaware Uniform Partnership Law in effect on July 11, 1999 (6 Del. C. § 1501 et seq.)\"",
+        "source_urls": [
+          "https://delcode.delaware.gov/title6/c017/sc04/index.html",
+          "https://delcode.delaware.gov/title6/c015/sc01/index.html",
+          "https://law.justia.com/codes/delaware/2017/title-6/chapter-15/subchapter-viii/section-15-801/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. The 'Delaware Uniform Partnership Law' was a real statute (former 6 Del. C. § 1501 et seq.), but it was repealed long before this 2019 JV and its dissolution. DRUPA § 15-1205 states the prior Delaware Uniform Partnership Law (§§ 1501-1553) was repealed effective January 1, 2002, except as to limited partnerships. § 15-1206(b) says that from January 1, 2002, 'this chapter governs all partnerships.' Today the old statute is mentioned only as a historical benchmark in § 17-403(b): 'governed by the Delaware Uniform Partnership Law in effect on July 11, 1999 (6 Del. C. § 1501 et seq.)'. The general reference to 'other applicable provisions of Delaware law' still covers DRUPA, so the defect is a superseded statute name, not a fabrication.",
+        "source_urls": [
+          "https://delcode.delaware.gov/title6/c015/sc12/index.html",
+          "https://delcode.delaware.gov/title6/c017/sc04/index.html"
+        ]
+      }
+    },
+    {
+      "ref": 14,
+      "document": "task.json.md",
+      "location": "rubric C-012",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Proportionality standard for scope of discovery as basis to object to requests sweeping in all 11 product lines",
+      "quotes": [],
+      "context": "PASS if the memorandum cites Fed. R. Civ. P. 26(b)(1) proportionality (or the proportionality standard for discovery scope) as a basis for objecting to requests that sweep in all 11 product lines when only PureLine 400 is relevant.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(b)(1) limits discovery to nonprivileged matter relevant to a claim or defense and proportional to the needs of the case. It is a proper basis for objecting to overbroad requests that reach unrelated product lines.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, considering the importance of the issues at stake in the action...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "task.json.md",
+      "location": "rubric C-019",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 33(a)(2)",
+      "pincite": "33(a)(2)",
+      "cited_for": "Permits deferral of contention interrogatories until after discovery is substantially complete; RFP No. 41 as disguised contention interrogatory",
+      "quotes": [],
+      "context": "PASS if the memorandum references Fed. R. Civ. P. 33(a)(2) (permitting deferral of contention interrogatories until after discovery is substantially complete) or otherwise articulates that contention-type discovery is premature",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(2) says contention interrogatories are not objectionable as such, but the court may order that they need not be answered until designated discovery is complete, until a pretrial conference, or until some other time. That supports deferring contention discovery. The parenthetical is loose in two ways. Deferral is a discretionary court order, not something the rule grants by itself, and the rule says 'designated discovery is complete,' not 'substantially complete.' Also, the rule governs interrogatories, so applying it to RFP No. 41 is an analogy, which the rubric's 'otherwise articulates' alternative allows.",
+        "evidence_excerpt": "An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact, but the court may order that the interrogatory need not be answered until designated discovery is complete, or until a pretrial conference or some other time.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(1)(C)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(1)(C)",
+      "pincite": "34(b)(1)(C)",
+      "cited_for": "Form of ESI production specification",
+      "quotes": [],
+      "context": "PASS if the memorandum references Fed. R. Civ. P. 34(b)(1)(C) and/or 34(b)(2)(D)-(E) regarding form of ESI production in connection with the form-of-production issue.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "Rule 34(b)(1)(C) lets the requesting party specify the form of ESI production. Rule 34(b)(2)(D)-(E), also cited in the same rubric item, covers objecting to a requested form and the default forms of production.",
+        "evidence_excerpt": "The request: ... (C) may specify the form or forms in which electronically stored information is to be produced.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(D)-(E)",
+      "citation_as_written": "34(b)(2)(D)-(E)",
+      "pincite": "34(b)(2)(D)-(E)",
+      "cited_for": "Objections to form of ESI production and default forms",
+      "quotes": [],
+      "context": "references Fed. R. Civ. P. 34(b)(1)(C) and/or 34(b)(2)(D)-(E) regarding form of ESI production",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(2)(D) covers objections to a requested form of ESI production. Rule 34(b)(2)(E)(ii)-(iii) sets the default forms: as ordinarily maintained or reasonably usable, and no duplicate forms. Rule 34(b)(1)(C) lets the requester specify the form.",
+        "evidence_excerpt": "The response may state an objection to a requested form for producing electronically stored information. ... (ii) If a request does not specify a form ... a party must produce it in a form or forms in which it is ordinarily maintained or in a reasonably usable form or forms",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "task.json.md",
+      "location": "rubric C-025 (also C-034 'Rule 34')",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)",
+      "citation_as_written": "Rule 34(b)",
+      "pincite": "34(b)",
+      "cited_for": "Form of ESI production / legal basis for objections",
+      "quotes": [],
+      "context": "No citation to Rule 34(b) provisions on ESI form of production is made. ... cites applicable Federal Rules of Civil Procedure (e.g., Rules 26(b)(1), 33(a)(2), 34)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "Rule 34(b) sets the procedure for requests and responses. It covers the form of ESI production (34(b)(1)(C), (b)(2)(D), (b)(2)(E)(ii)-(iii)) and requires objections to be stated with specificity (34(b)(2)(B)-(C)), so it is a legal basis for both form-of-production points and objections.",
+        "evidence_excerpt": "(C) may specify the form or forms in which electronically stored information is to be produced ... (D) ... The response may state an objection to a requested form for producing electronically stored information.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "task.json.md",
+      "location": "rubric C-027",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Fed. R. Evid. 502(d)",
+      "pincite": "502(d)",
+      "cited_for": "Non-waiver/clawback order should be sought before production",
+      "quotes": [],
+      "context": "PASS if the memorandum identifies that a Fed. R. Evid. 502(d) order (non-waiver/clawback order) should be sought before production begins.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 502(d) authorizes a federal court to order that disclosure connected with the pending litigation is not a waiver, and that order also binds other federal and state proceedings. The rule does not fix when the order must be obtained, but getting it before production begins is a reasonable application of the rule, and the rubric presents it as advice rather than as a requirement of the rule.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "task.json.md",
+      "location": "rubric C-028 / C-029",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d)",
+      "pincite": "502(d)",
+      "cited_for": "Justified by ~950,000 document volume; Protective Order distinguishes confidentiality from privilege waiver protection",
+      "quotes": [],
+      "context": "justifying the need for a FRE 502(d) order ... distinguish the Protective Order's scope from FRE 502(d) protections.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 502(d) provides non-waiver protection by court order. A protective order that addresses only confidentiality is a different thing from a 502(d) order, and 502(e) makes party agreements binding only on the parties unless a court order incorporates them. Pointing to the volume of about 950,000 documents (where inadvertent production is more likely) is a fact-specific argument that fits the rule's purpose.",
+        "evidence_excerpt": "(e) ... An agreement on the effect of disclosure in a federal proceeding is binding only on the parties to the agreement, unless it is incorporated into a court order.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "task.json.md",
+      "location": "rubric C-034",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502",
+      "citation_as_written": "FRE 502",
+      "pincite": "502",
+      "cited_for": "Legal basis for objection / privilege waiver protection",
+      "quotes": [],
+      "context": "cites applicable Federal Rules of Civil Procedure (e.g., Rules 26(b)(1), 33(a)(2), 34) and/or Federal Rules of Evidence (e.g., FRE 502) as legal bases for objection.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 502",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502 is real and governs the scope of privilege/work-product waiver, inadvertent disclosure, and court-ordered non-waiver. It supports the 'privilege waiver protection' half of the proposition. Grouping it with FRCP 26(b)(1), 33(a)(2) and 34 as a 'legal basis for objection' is loose, because FRE 502 does not itself supply a ground for objecting to a request. It limits waiver and works alongside privilege objections.",
+        "evidence_excerpt": "(b) Inadvertent Disclosure. When made in a federal proceeding ... the disclosure does not operate as a waiver ... if: (1) the disclosure is inadvertent; (2) the holder ... took reasonable steps to prevent disclosure",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "task.json.md",
+      "location": "rubric C-034 (match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Rules 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Applicable Federal Rules of Civil Procedure cited as legal bases for objection",
+      "quotes": [],
+      "context": "PASS if, for the majority of identified issues, the memorandum cites applicable Federal Rules of Civil Procedure (e.g., Rules 26(b)(1), 33(a)(2), 34) and/or Federal Rules of Evidence (e.g., FRE 502) as legal bases for objection.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(b)(1) defines the relevance and proportionality scope of discovery. It is a standard legal basis for discovery objections, as the rubric's example list says.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "task.json.md",
+      "location": "rubric C-034 (match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33(a)(2)",
+      "citation_as_written": "33(a)(2)",
+      "pincite": "",
+      "cited_for": "Applicable Federal Rules of Civil Procedure cited as legal bases for objection",
+      "quotes": [],
+      "context": "PASS if, for the majority of identified issues, the memorandum cites applicable Federal Rules of Civil Procedure (e.g., Rules 26(b)(1), 33(a)(2), 34) and/or Federal Rules of Evidence (e.g., FRE 502) as legal bases for objection.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(2) is a real rule. It covers the scope of interrogatories and lets the court defer answers to contention interrogatories, so it is properly listed as an example of an applicable FRCP basis for objection.",
+        "evidence_excerpt": "An interrogatory may relate to any matter that may be inquired into under Rule 26(b). ... the court may order that the interrogatory need not be answered until designated discovery is complete",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "task.json.md",
+      "location": "rubric C-037 (title and match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "502(d)",
+      "pincite": "",
+      "cited_for": "Need for a FRE 502(d) clawback order as a privilege issue ranked Critical",
+      "quotes": [],
+      "context": "Privilege issues (RFP 31, 502(d)) ranked as Critical or highest priority ... and/or the need for a FRE 502(d) clawback order",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 502(d)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The reference to a FRE 502(d) clawback/non-waiver order is accurate. Ranking it 'Critical' is a judgment about priority, not a statement about what the rule says.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "task.json.md",
+      "location": "rubric C-044 (match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d)",
+      "pincite": "",
+      "cited_for": "Cross-cutting systemic issue: need for an ESI protocol and FRE 502(d) order",
+      "quotes": [],
+      "context": "systemic or cross-cutting issues that affect the discovery response as a whole (such as the need for an ESI protocol, FRE 502(d) order, or general meet-and-confer topics)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 502(d)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Describing a FRE 502(d) order as a cross-cutting discovery issue is accurate. The order covers all disclosure connected with the pending litigation, not one particular request.",
+        "evidence_excerpt": "the privilege or protection is not waived by disclosure connected with the litigation pending before the court",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "task.json.md",
+      "location": "rubric C-025 (title)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)",
+      "pincite": "",
+      "cited_for": "Rule 34(b) regarding form of ESI production",
+      "quotes": [],
+      "context": "ISSUE_011: References Fed. R. Civ. P. 34(b) regarding form of ESI production",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "Rule 34(b) contains the provisions on the form of ESI production: the request may specify a form, the responding party may object to it, and default forms apply if none is specified.",
+        "evidence_excerpt": "If a request does not specify a form for producing electronically stored information, a party must produce it in a form or forms in which it is ordinarily maintained or in a reasonably usable form or forms",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "task.json.md",
+      "location": "rubric C-019 (title)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 33(a)(2)",
+      "pincite": "",
+      "cited_for": "Contention interrogatories may be deferred until discovery is substantially complete",
+      "quotes": [],
+      "context": "ISSUE_008: Cites Fed. R. Civ. P. 33(a)(2) or prematurity of contention discovery",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(2) lets the court order that contention interrogatories need not be answered until designated discovery is complete, which supports the idea that contention discovery may be premature. The characterization is slightly loose: deferral is by court order, and the rule says 'designated discovery is complete,' not 'substantially complete.'",
+        "evidence_excerpt": "the court may order that the interrogatory need not be answered until designated discovery is complete, or until a pretrial conference or some other time.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Preamble, 2nd WHEREAS",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Plaintiff's trade secret misappropriation claim in this action",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and the North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The DTSA civil cause of action is codified at 18 U.S.C. § 1836, and 'et seq.' properly covers the related sections. Section 1836(b)(1) lets the owner of a misappropriated trade secret bring a civil action.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Preamble, 2nd WHEREAS",
+      "authority_type": "statute",
+      "authority": "North Carolina Trade Secrets Protection Act",
+      "citation_as_written": "N.C. Gen. Stat. § 66-152 et seq.",
+      "pincite": "",
+      "cited_for": "Plaintiff's state trade secret claim",
+      "quotes": [],
+      "context": "North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152 et seq., unjust enrichment, and unfair and deceptive trade practices under N.C. Gen. Stat. § 75-1.1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. Gen. Stat. Chapter 66, Article 24 is titled the Trade Secrets Protection Act and begins at § 66-152 (Definitions); § 66-153 creates the civil action for misappropriation. The 'et seq.' cite correctly identifies the basis for a state trade secret claim.",
+        "evidence_excerpt": "Article 24 \"Trade Secrets Protection Act\" ... § 66-152 \"Definitions\"; § 66-153: \"The owner of a trade secret shall have remedy by civil action for misappropriation of his trade secret.\"",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-153.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Preamble, 2nd WHEREAS",
+      "authority_type": "statute",
+      "authority": "N.C. Unfair and Deceptive Trade Practices Act",
+      "citation_as_written": "N.C. Gen. Stat. § 75-1.1",
+      "pincite": "",
+      "cited_for": "Plaintiff's unfair and deceptive trade practices claim",
+      "quotes": [],
+      "context": "unjust enrichment, and unfair and deceptive trade practices under N.C. Gen. Stat. § 75-1.1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.C. Gen. Stat. § 75-1.1 is North Carolina's Unfair and Deceptive Trade Practices Act provision that declares unfair or deceptive acts in or affecting commerce unlawful. It is the correct citation for a UDTP claim.",
+        "evidence_excerpt": "Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are declared unlawful.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_75/GS_75-1.1.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Preamble, 6th WHEREAS",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(c)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(c)",
+      "pincite": "",
+      "cited_for": "Good cause for entry of protective order",
+      "quotes": [],
+      "context": "finding good cause under Federal Rule of Civil Procedure 26(c) for entry of this Order to protect confidential information from unauthorized disclosure",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(c)(1) authorizes a court to issue a protective order for good cause. It supports a finding of good cause for entering a stipulated protective order protecting confidential information.",
+        "evidence_excerpt": "The court may, for good cause, issue an order to protect a party or person from annoyance, embarrassment, oppression, or undue burden or expense, including one or more of the following:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Section 1.2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)",
+      "pincite": "",
+      "cited_for": "Initial disclosures covered by the Order",
+      "quotes": [],
+      "context": "initial disclosures under Federal Rule of Civil Procedure 26(a), supplemental disclosures",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a) ('Required Disclosures') contains the initial-disclosure requirement in 26(a)(1). Citing 26(a) for initial disclosures is accurate.",
+        "evidence_excerpt": "Rule 26(a): \"Required Disclosures.\" ... (1) \"Initial Disclosure.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Section 10.1",
+      "authority_type": "court_rule",
+      "authority": "Local Rules of the U.S. District Court for the Western District of North Carolina (sealing)",
+      "citation_as_written": "Local Rules of the United States District Court for the Western District of North Carolina",
+      "pincite": "",
+      "cited_for": "Filing protected material under seal",
+      "quotes": [],
+      "context": "in accordance with the Local Rules of the United States District Court for the Western District of North Carolina and applicable Fourth Circuit precedent regarding the public's right of access to judicial records",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D.N.C. LCvR 6.1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The W.D.N.C. Local Rules address sealed filings in LCvR 6.1, which requires a separate formal motion to seal, permits sealing under a previously entered protective order, and recognizes the common-law and First Amendment presumption of public access. Citing the local rules generically for filing protected material under seal is accurate.",
+        "evidence_excerpt": "LCvR 6.1 SEALED FILINGS AND PUBLIC ACCESS ... (b) Filing under Seal. No materials may be filed under seal except by Court order, pursuant to a statute, or in accordance with a previously entered Rule 26(e) protective order. (c) ... A party's request to file materials under seal must be made by formal motion...",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Section 6.2",
+      "authority_type": "court_rule",
+      "authority": "Local Rules (W.D.N.C.) generally",
+      "citation_as_written": "applicable Local Rules",
+      "pincite": "",
+      "cited_for": "Motion to modify or remove designation",
+      "quotes": [],
+      "context": "may file a motion with the Court seeking to modify or remove the designation, in accordance with the applicable Local Rules and any scheduling orders",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic reference to the local rules for filing a motion to modify or remove a confidentiality designation. W.D.N.C. LCvR 7.1 governs motions in civil cases (form, briefing, and timing), so the reference is accurate.",
+        "evidence_excerpt": "LCvR 7.1 MOTIONS IN CIVIL CASES, BRIEF REQUIREMENTS, EXHIBIT NUMBERING, PAGE LIMITS, AND PROPOSED ORDERS (a) Motions in Writing. Unless made during a hearing or trial, all motions must be written and filed as provided by LCvR 5.2.1...",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Section 10.2",
+      "authority_type": "case",
+      "authority": "Stone v. University of Maryland Medical System Corp.",
+      "citation_as_written": "855 F.2d 178 (4th Cir. 1988)",
+      "pincite": "",
+      "cited_for": "Standards for sealing court filings; burden on party seeking to seal",
+      "quotes": [],
+      "context": "including the standards set forth in Stone v. University of Maryland Medical System Corp., 855 F.2d 178 (4th Cir. 1988), and Virginia Department of State Police v. Washington Post, 386 F.3d 567 (4th Cir. 2004).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a real 4th Cir. 1988 opinion at 855 F.2d 178. It sets the Fourth Circuit standards for sealing court records: common-law presumption versus the First Amendment right of access, where a compelling interest and narrow tailoring are required, plus Knight procedures with findings and consideration of alternatives. It is cited only for the general 'standards'; the express burden language comes from Washington Post, which cites Stone. That is a fair use of the case.",
+        "evidence_excerpt": "\"Where the First Amendment guarantees access, on the other hand, access may be denied only on the basis of a compelling governmental interest, and only if the denial is narrowly tailored to serve that interest.\" ... must \"state the reasons for its decision to seal supported by specific findings\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/510651/stone-v-university-of-maryland-medical-system-corporation/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Section 10.2",
+      "authority_type": "case",
+      "authority": "Virginia Department of State Police v. Washington Post",
+      "citation_as_written": "386 F.3d 567 (4th Cir. 2004)",
+      "pincite": "",
+      "cited_for": "Standards for sealing court filings; burden on party seeking to seal",
+      "quotes": [],
+      "context": "including the standards set forth in Stone v. University of Maryland Medical System Corp., 855 F.2d 178 (4th Cir. 1988), and Virginia Department of State Police v. Washington Post, 386 F.3d 567 (4th Cir. 2004).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a real 4th Cir. opinion filed 2004-10-01 at 386 F.3d 567. It applies the Stone sealing framework and places the burden on the party seeking to restrict access.",
+        "evidence_excerpt": "\"The burden to overcome a First Amendment right of access rests on the party seeking to restrict access, and that party must present specific reasons in support of its position.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/788075/virginia-department-of-state-police-v-the-washington-post/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "Section 15.3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure, Federal Rules of Evidence, W.D.N.C. Local Rules",
+      "citation_as_written": "Federal Rules of Civil Procedure, the Federal Rules of Evidence, and the Local Rules",
+      "pincite": "",
+      "cited_for": "Governing law for construing the Order",
+      "quotes": [],
+      "context": "governed by and construed in accordance with the Federal Rules of Civil Procedure, the Federal Rules of Evidence, and the Local Rules of the United States District Court for the Western District of North Carolina",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Federal Rules of Civil Procedure, the Federal Rules of Evidence, and the W.D.N.C. Local Rules (current version effective Dec. 1, 2022) all exist. Naming them as the rules that govern how a stipulated protective order is construed is a generic but accurate reference.",
+        "evidence_excerpt": "W.D.N.C. court site lists 'Local Rules (Effective December 1, 2022)'; the PDF is titled 'RULES OF PRACTICE AND PROCEDURE OF THE UNITED STATES DISTRICT COURT FOR THE WESTERN DISTRICT OF NORTH CAROLINA'",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/court-info/local-rules-and-orders/local-rules",
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "litigation-hold-memo.docx.md",
+      "location": "Section 1, para 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Claim (2) of Caspian's Complaint",
+      "quotes": [],
+      "context": "(2) misappropriation of trade secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836 ('Civil proceedings') is the DTSA's civil misappropriation cause of action, so it fits as the basis for the Complaint's DTSA claim.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "litigation-hold-memo.docx.md",
+      "location": "Section 1, para 1",
+      "authority_type": "statute",
+      "authority": "North Carolina Trade Secrets Protection Act",
+      "citation_as_written": "N.C. Gen. Stat. § 66-152 et seq.",
+      "pincite": "",
+      "cited_for": "Claim (3) of Caspian's Complaint",
+      "quotes": [],
+      "context": "(3) misappropriation of trade secrets under the North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same statute as ref 29: the NC Trade Secrets Protection Act begins at § 66-152, and § 66-153 provides a civil action for misappropriation. It properly supports a misappropriation claim.",
+        "evidence_excerpt": "§ 66-153: \"The owner of a trade secret shall have remedy by civil action for misappropriation of his trade secret.\"",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-153.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "litigation-hold-memo.docx.md",
+      "location": "Section 1, para 1",
+      "authority_type": "statute",
+      "authority": "N.C. Unfair and Deceptive Trade Practices Act",
+      "citation_as_written": "N.C. Gen. Stat. § 75-1.1",
+      "pincite": "",
+      "cited_for": "Claim (5) of Caspian's Complaint",
+      "quotes": [],
+      "context": "(5) unfair and deceptive trade practices under N.C. Gen. Stat. § 75-1.1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.C. Gen. Stat. § 75-1.1 is the correct statutory basis for an unfair and deceptive trade practices claim.",
+        "evidence_excerpt": "Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are declared unlawful.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_75/GS_75-1.1.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "litigation-hold-memo.docx.md",
+      "location": "Section 1, para 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure (preservation duty, generally)",
+      "citation_as_written": "Federal law and the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Duty of preservation arises when litigation is reasonably anticipated or commenced; sanctions for failure",
+      "quotes": [],
+      "context": "Federal law and the Federal Rules of Civil Procedure impose a duty of preservation that arises when litigation is reasonably anticipated or commenced.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 37(e) (and the common-law duty to preserve it incorporates)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a general reference. Rule 37(e) covers ESI that 'should have been preserved in the anticipation or conduct of litigation' and authorizes measures including adverse-inference instructions. The 2015 Committee Note explains that the duty itself comes from common law and arises when litigation is reasonably foreseeable. Read as a whole, the memo's phrase 'Federal law and the Federal Rules of Civil Procedure' is accurate. One small nuance: the Rules do not create the duty themselves; they build on the common-law duty.",
+        "evidence_excerpt": "Many court decisions hold that potential litigants have a duty to preserve relevant information when litigation is reasonably foreseeable. Rule 37(e) is based on this common-law duty; it does not attempt to create a new duty to preserve.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "case-management-order.docx.md",
+      "location": "Intro para 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)",
+      "citation_as_written": "Rule 16(b)",
+      "pincite": "",
+      "cited_for": "Scheduling conference held",
+      "quotes": [],
+      "context": "the Court held a Rule 16(b) scheduling conference with counsel for all parties",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(1) requires a scheduling order to issue either after the Rule 26(f) report or after consulting with the parties' attorneys at a scheduling conference. A 'Rule 16(b) scheduling conference' is therefore an accurate reference.",
+        "evidence_excerpt": "must issue a scheduling order ... after consulting with the parties' attorneys and any unrepresented parties at a scheduling conference",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "case-management-order.docx.md",
+      "location": "Intro para 2 (claims)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Plaintiff's claim (2)",
+      "quotes": [],
+      "context": "Misappropriation of Trade Secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836 is the DTSA's civil cause of action for trade secret misappropriation, so it correctly identifies Plaintiff's claim (2).",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "case-management-order.docx.md",
+      "location": "Intro para 2 (claims)",
+      "authority_type": "statute",
+      "authority": "North Carolina Trade Secrets Protection Act",
+      "citation_as_written": "N.C. Gen. Stat. § 66-152 et seq.",
+      "pincite": "",
+      "cited_for": "Plaintiff's claim (3)",
+      "quotes": [],
+      "context": "Misappropriation of Trade Secrets under the North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same statute as refs 29 and 39. The NC Trade Secrets Protection Act, § 66-152 et seq., is correctly cited as the basis for a misappropriation claim.",
+        "evidence_excerpt": "Article 24 \"Trade Secrets Protection Act\"; § 66-153: \"The owner of a trade secret shall have remedy by civil action for misappropriation of his trade secret.\"",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-153.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "case-management-order.docx.md",
+      "location": "Intro para 2 (claims)",
+      "authority_type": "statute",
+      "authority": "N.C. Unfair and Deceptive Trade Practices Act",
+      "citation_as_written": "N.C. Gen. Stat. § 75-1.1",
+      "pincite": "",
+      "cited_for": "Plaintiff's claim (5)",
+      "quotes": [],
+      "context": "Unfair and Deceptive Trade Practices under N.C. Gen. Stat. § 75-1.1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.C. Gen. Stat. § 75-1.1 is the correct statutory basis for an unfair and deceptive trade practices claim.",
+        "evidence_excerpt": "Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are declared unlawful.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_75/GS_75-1.1.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "case-management-order.docx.md",
+      "location": "Intro para 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(f)",
+      "pincite": "",
+      "cited_for": "Parties' Joint Report",
+      "quotes": [],
+      "context": "the parties' Joint Report filed pursuant to Federal Rule of Civil Procedure 26(f)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) requires the parties to confer and jointly submit a written report outlining the proposed discovery plan within 14 days after the conference, so a joint report filed under Rule 26(f) is accurately described.",
+        "evidence_excerpt": "parties bear joint responsibility for arranging the conference and submitting a written discovery plan to the court within 14 days afterward (Rule 26(f)(2), as summarized from LII text)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "case-management-order.docx.md",
+      "location": "Section 1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Federal question subject-matter jurisdiction over DTSA claim",
+      "quotes": [],
+      "context": "subject-matter jurisdiction over Plaintiff's claims under the Defend Trade Secrets Act pursuant to 28 U.S.C. § 1331 (federal question)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1331 grants district courts original jurisdiction over civil actions arising under federal law; a DTSA claim arises under federal law (18 U.S.C. § 1836(c) also separately grants original jurisdiction). Supports the proposition.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "case-management-order.docx.md",
+      "location": "Section 1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state-law claims and counterclaims",
+      "quotes": [],
+      "context": "exercises supplemental jurisdiction over the remaining state-law claims and Defendant's counterclaims pursuant to 28 U.S.C. § 1367",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1367(a) provides supplemental jurisdiction over related claims forming part of the same case or controversy, which covers related state-law claims and counterclaims.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "case-management-order.docx.md",
+      "location": "Section 1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "",
+      "cited_for": "Venue proper in W.D.N.C.",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. § 1391(b) because Defendant ... is headquartered in Charlotte",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1391(b)(1) lays venue in a district where any defendant resides; under § 1391(c)(2) an entity defendant resides wherever it is subject to personal jurisdiction, which includes its Charlotte headquarters district (W.D.N.C.). Supports the proposition.",
+        "evidence_excerpt": "A civil action may be brought in—(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "case-management-order.docx.md",
+      "location": "Section 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Good cause for late motion to amend/join",
+      "quotes": [],
+      "context": "must demonstrate good cause for the untimely request under Federal Rule of Civil Procedure 16(b)(4)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under Rule 16(b)(3)(A), the scheduling order must limit the time to join parties and amend pleadings. Under Rule 16(b)(4), a schedule may be modified only for good cause. A motion to amend or join filed after the scheduling-order deadline therefore requires good cause under 16(b)(4).",
+        "evidence_excerpt": "(3)(A) The scheduling order must limit the time to join other parties, amend the pleadings, complete discovery, and file motions. ... (4) A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "case-management-order.docx.md",
+      "location": "Section 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)",
+      "pincite": "",
+      "cited_for": "Initial disclosures",
+      "quotes": [],
+      "context": "complete initial disclosures in accordance with Federal Rule of Civil Procedure 26(a)(1) no later than June 14, 2024",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1) governs initial disclosures. Rule 26(a)(1)(C) sets their timing, ordinarily within 14 days after the 26(f) conference unless the court orders otherwise. That supports the order's reference and its court-set deadline.",
+        "evidence_excerpt": "(1) Initial Disclosure. ... (C) Time for Initial Disclosures—In General.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "case-management-order.docx.md",
+      "location": "Section 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "",
+      "cited_for": "Duty to supplement initial disclosures",
+      "quotes": [],
+      "context": "obligation to supplement their initial disclosures under Federal Rule of Civil Procedure 26(e) is ongoing",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(e)(1) imposes a duty to supplement or correct disclosures made under Rule 26(a), which include initial disclosures.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)... must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "case-management-order.docx.md",
+      "location": "Section 4(b)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 33(a)(1)",
+      "pincite": "",
+      "cited_for": "25-interrogatory limit including subparts",
+      "quotes": [],
+      "context": "limited to twenty-five (25) interrogatories, including all discrete subparts, consistent with Federal Rule of Civil Procedure 33(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(1) limits a party to 25 written interrogatories, including all discrete subparts, unless the parties stipulate otherwise or the court orders otherwise.",
+        "evidence_excerpt": "a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "case-management-order.docx.md",
+      "location": "Section 4(c)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Federal Rule of Civil Procedure 34",
+      "pincite": "",
+      "cited_for": "Requests for production governed by Rule 34",
+      "quotes": [],
+      "context": "Requests for production shall be governed by Federal Rule of Civil Procedure 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34 is the federal rule that governs requests for production of documents, ESI, and tangible things.",
+        "evidence_excerpt": "Rule 34. Producing Documents, Electronically Stored Information, and Tangible Things, or Entering onto Land, for Inspection and Other Purposes",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "case-management-order.docx.md",
+      "location": "Section 4(d)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 36(a)(2) and Local Rules",
+      "citation_as_written": "Federal Rule of Civil Procedure 36(a)(2) and this Court's Local Rules",
+      "pincite": "",
+      "cited_for": "30 request-for-admission limit",
+      "quotes": [],
+      "context": "limited to thirty (30) requests for admission, consistent with Federal Rule of Civil Procedure 36(a)(2) and this Court's Local Rules",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(b)(2)(A) (court may by order or local rule limit the number of Rule 36 requests)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36(a)(2) only says each matter must be stated separately and a copy of the document must accompany a genuineness request. Rule 36 sets no numerical limit, so it does not support a 30-request cap. The power to cap requests for admission comes from Rule 26(b)(2)(A) and local rules. The Local Rules part of the citation could support the cap; the Rule 36(a)(2) part does not.",
+        "evidence_excerpt": "Rule 36(a)(2): \"Each matter must be separately stated.\" Rule 26(b)(2)(A): \"By order or local rule, the court may also limit the number of requests under Rule 36.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Fed. R. Civ. P. 36(a)(2) (LII) reads in full: 'Each matter must be separately stated. A request to admit the genuineness of a document must be accompanied by a copy of the document unless it is, or has been, otherwise furnished or made available for inspection and copying.' Rule 36 sets no numerical cap, so it does not support a 30-request limit. The local-rules half is also weak. A search of the W.D.N.C. Local Rules (eff. Dec. 1, 2022) found no numerical limit on requests for admission. LCvR 16.1 only lists 'interrogatories and requests for admission' among matters the court may take up at the Initial Pretrial Conference. The authority for a court-imposed cap is Rule 26(b)(2)(A) plus the scheduling order itself.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36",
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 56,
+      "document": "case-management-order.docx.md",
+      "location": "Section 6(d)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Expert report contents",
+      "quotes": [],
+      "context": "All expert disclosures and reports shall comply with the requirements of Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(a)(2)(B) sets the required contents of written reports by retained or specially employed expert witnesses (opinions and bases, facts or data considered, exhibits, qualifications, prior testimony, compensation). It supports a CMO directive that expert reports comply with it.",
+        "evidence_excerpt": "(B) Witnesses Who Must Provide a Written Report. Unless otherwise stipulated or ordered by the court, this disclosure must be accompanied by a written report—prepared and signed by the witness... The report must contain: (i) a complete statement of all opinions the witness will express and the basis and reasons for them;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "case-management-order.docx.md",
+      "location": "Section 7",
+      "authority_type": "court_rule",
+      "authority": "W.D.N.C. Local Rule 7.1",
+      "citation_as_written": "Local Rule 7.1",
+      "pincite": "",
+      "cited_for": "Summary judgment motions requirements",
+      "quotes": [],
+      "context": "Motions for summary judgment shall comply with Local Rule 7.1 and shall include a separate statement of undisputed material facts",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "W.D.N.C. LCvR 7.1 governs all civil motions, including summary judgment motions: writing, particularity, briefs, exhibits, page limits and response/reply deadlines. Requiring summary judgment motions to comply with it is accurate. Note: LCvR 7.1 does not itself require a separate statement of undisputed material facts. The order imposes that as its own extra requirement, and the sentence can reasonably be read that way.",
+        "evidence_excerpt": "LCvR 7.1 MOTIONS IN CIVIL CASES, BRIEF REQUIREMENTS, EXHIBIT NUMBERING, PAGE LIMITS, AND PROPOSED ORDERS (a) Motions in Writing. Unless made during a hearing or trial, all motions must be written ...",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "case-management-order.docx.md",
+      "location": "Section 7",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Motions challenging admissibility of expert testimony to be filed with or before dispositive motions",
+      "quotes": [],
+      "context": "All motions challenging the admissibility of expert testimony under Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and its progeny shall be filed concurrently with or prior to the filing of dispositive motions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "CourtListener confirms Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579, decided June 28, 1993. It is the leading case on the judge's gatekeeping role in admitting expert testimony under Rule 702. The order cites it only to identify the type of motion covered by a scheduling deadline, so the citation fits.",
+        "evidence_excerpt": "The Chief Justice \"do[es] not doubt that Rule 702 confides to the judge some gatekeeping responsibility,\" ... We believe the better course is to note the nature and source of the duty.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "case-management-order.docx.md",
+      "location": "Section 9",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(a)(1)",
+      "pincite": "",
+      "cited_for": "Meet-and-confer requirement before discovery motions",
+      "quotes": [],
+      "context": "as required by Federal Rule of Civil Procedure 37(a)(1) and Local Rule 7.1(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(a)(1) requires a motion to compel to certify a good-faith attempt to confer before seeking court action. That supports the meet-and-confer requirement before discovery motions.",
+        "evidence_excerpt": "The motion must include a certification that the movant has in good faith conferred or attempted to confer with the person or party failing to make disclosure or discovery in an effort to obtain it without court action.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "case-management-order.docx.md",
+      "location": "Section 9",
+      "authority_type": "court_rule",
+      "authority": "W.D.N.C. Local Rule 7.1(a)",
+      "citation_as_written": "Local Rule 7.1(a)",
+      "pincite": "",
+      "cited_for": "Meet-and-confer requirement before discovery motions",
+      "quotes": [],
+      "context": "as required by Federal Rule of Civil Procedure 37(a)(1) and Local Rule 7.1(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "W.D.N.C. LCvR 7.1(b)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "W.D.N.C. LCvR 7.1 does impose a consultation (meet-and-confer) requirement on civil motions, but it is in subsection (b), 'Requirement of Consultation.' Subsection (a) is 'Motions in Writing.' The subsection pin is wrong.",
+        "evidence_excerpt": "(b) Requirement of Consultation. Civil motions must show that counsel have conferred and attempted in good faith to resolve areas of disagreement, or describe the timely attempts of the movant to confer with opposing counsel.",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "case-management-order.docx.md",
+      "location": "Section 11",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(e)",
+      "pincite": "",
+      "cited_for": "Preservation of ESI; sanctions for failure to take reasonable steps",
+      "quotes": [],
+      "context": "preserve all potentially relevant documents and electronically stored information pursuant to Federal Rule of Civil Procedure 37(e) and applicable law ... may result in sanctions under Rule 37(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(e) supports sanctions or curative measures when ESI is lost because a party failed to take reasonable steps to preserve it. But the order frames Rule 37(e) as the source of the duty to preserve, and the 2015 Committee Note says the rule creates no new duty; the duty comes from common law. The rule also covers only ESI, not paper documents. Because the order also cites 'applicable law,' this is a loose citation rather than a wrong one.",
+        "evidence_excerpt": "Rule 37(e) is based on this common-law duty; it does not attempt to create a new duty to preserve.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "case-management-order.docx.md",
+      "location": "Section 12",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Modification of deadlines only on good cause",
+      "quotes": [],
+      "context": "may be modified only upon a showing of good cause under Federal Rule of Civil Procedure 16(b)(4)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) allows modification of the schedule only for good cause and with the judge's consent. The order's requirement of good cause plus a written Order of the Court is consistent with that rule.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "case-management-order.docx.md",
+      "location": "Section 13",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 1",
+      "citation_as_written": "Federal Rule of Civil Procedure 1",
+      "pincite": "",
+      "cited_for": "Cooperation; rules construed to secure just, speedy, inexpensive determination",
+      "quotes": [
+        "should be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action and proceeding."
+      ],
+      "context": "consistent with Federal Rule of Civil Procedure 1, which directs that the Federal Rules \"should be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action and proceeding.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in Fed. R. Civ. P. 1, second sentence ('They should be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action and proceeding.').",
+        "explanation": "Rule 1 directs that the rules be construed, administered, and employed to secure the just, speedy, and inexpensive determination of every action. That matches the order's use of the rule.",
+        "evidence_excerpt": "They should be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action and proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "case-management-order.docx.md",
+      "location": "Section 13",
+      "authority_type": "other",
+      "authority": "Western District of North Carolina Standards of Professional Conduct",
+      "citation_as_written": "Western District of North Carolina Standards of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Counsel must comply",
+      "quotes": [],
+      "context": "Counsel shall at all times comply with the Western District of North Carolina Standards of Professional Conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "North Carolina Rules of Professional Conduct (as adopted by W.D.N.C. LCvR 83.1 and 83.2)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "I found no W.D.N.C. document called 'Standards of Professional Conduct.' The court's local rules (LCvR 83.1, 83.2) instead bind attorneys to the North Carolina Rules of Professional Conduct. A web search for the exact title on and off the court's site found only unrelated 'Standards of Professional Conduct' documents from other bodies, such as NC DPI and NCSBE. A judge-specific standing order is not impossible, but none was located.",
+        "evidence_excerpt": "LCvR 83.2(a): \"Has engaged in conduct a judge of this Court reasonably believes violates the North Carolina Rules of Professional Conduct or any law or regulation\"; LCvR 83.1: \"agrees to abide by the Local Rules, the North Carolina Rules of Professional Conduct\"",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "The finding holds. The court's local-rules page lists only the Local Rules (eff. Dec. 1, 2022), an AI Standing Order, the Bill of Costs Handbook, and the 2018 adoption order. It lists no 'Standards of Professional Conduct'. The Local Rules bind attorneys to the North Carolina Rules of Professional Conduct instead: LCvR 83.1(a) says '...such attorney agrees to abide by the Local Rules, the North Carolina Rules of Professional Conduct...'. A web search for the exact title tied to W.D.N.C. turned up only look-alikes from other bodies: E.D.N.C. Local Rule 83.7d and M.D.N.C. LR 83.10e (both titled 'Standards for Professional Conduct'), the W.D.N.C. Bankruptcy Court's LBR 2090-3 'Standards of Conduct', and NC education-agency standards. None is a W.D.N.C. district-court document by the cited name. The underlying duty is real (comply with the NC RPC under LCvR 83.1), but the named authority does not exist.",
+        "source_urls": [
+          "https://www.ncwd.uscourts.gov/court-info/local-rules-and-orders/local-rules",
+          "https://www.ncwd.uscourts.gov/sites/default/files/local_rules/Revised%20Local%20Rules%20120122.pdf",
+          "https://www.courtrules.net/courts/federal/eastern-district-north-carolina/local-rules/26413",
+          "https://www.courtrules.net/courts/federal/middle-district-north-carolina/local-rules/12004"
+        ]
+      }
+    },
+    {
+      "ref": 65,
+      "document": "kerrigan-discovery-strategy.eml.md",
+      "location": "Intro para 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(A)",
+      "pincite": "",
+      "cited_for": "Response deadline 30 days from service (Sept. 11, 2024)",
+      "quotes": [],
+      "context": "Our response deadline under Fed. R. Civ. P. 34(b)(2)(A) is September 11, 2024 — 30 days from service.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(2)(A) requires a written response within 30 days after service. The RFPs were served August 12, 2024 by CM/ECF and email (per the RFPs' certificate of service), so 30 days later is September 11, 2024. Electronic service gets no added 3 days under Rule 6(d).",
+        "evidence_excerpt": "The party to whom the request is directed must respond in writing within 30 days after being served",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "kerrigan-discovery-strategy.eml.md",
+      "location": "Section 2 (RFP No. 19)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Rule 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality objection to lender financing request",
+      "quotes": [],
+      "context": "I'd recommend we flag this for both a proportionality objection under Rule 26(b)(1) and a third-party confidentiality objection.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(b)(1)'s proportionality factors, including whether burden outweighs likely benefit, support a proportionality objection to a request for lender financing documents.",
+        "evidence_excerpt": "...the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "kerrigan-discovery-strategy.eml.md",
+      "location": "Section 4 (RFP Nos. 15 and 40)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Rule 34",
+      "pincite": "",
+      "cited_for": "'Possession, custody, or control' is standard Rule 34 language; Rule 34 request to Greenleaf improper to reach third-party documents",
+      "quotes": [
+        "possession, custody, or control"
+      ],
+      "context": "\"possession, custody, or control\" is standard Rule 34 language, and we're not going to get far objecting to that alone.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"possession, custody, or control\" found verbatim in Fed. R. Civ. P. 34(a)(1)",
+        "explanation": "Rule 34(a)(1) reaches items \"in the responding party's possession, custody, or control,\" so the email is right that the phrase is standard Rule 34 language. Rule 34(c) sends nonparties to Rule 45, which supports the email's further point that a Rule 34 request to Greenleaf is not the right way to get documents held by third parties.",
+        "evidence_excerpt": "to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control ... (c) Nonparties. As provided in Rule 45, a nonparty may be compelled to produce documents",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "kerrigan-discovery-strategy.eml.md",
+      "location": "Section 4 (RFP Nos. 15 and 40)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 45",
+      "citation_as_written": "Rule 45",
+      "pincite": "",
+      "cited_for": "Proper mechanism to obtain documents from third parties (Ridgepoint, Sterling Ark) is a subpoena",
+      "quotes": [],
+      "context": "the proper mechanism is a Rule 45 subpoena directed to those entities — not a Rule 34 request directed to Greenleaf.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 45 allows a subpoena commanding any person to produce documents in that person's possession, custody, or control. Rule 34(c) confirms that nonparties are compelled to produce under Rule 45. Whether Greenleaf has 'control' over its auditor's and lender's files is a factual question, which the email itself flags.",
+        "evidence_excerpt": "Rule 34(c): \"As provided in Rule 45, a nonparty may be compelled to produce documents and tangible things or to permit an inspection.\" Rule 45(a)(1)(A)(iii): \"produce designated documents, electronically stored information, or tangible things in that person's possession, custody, or control\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "kerrigan-discovery-strategy.eml.md",
+      "location": "Section 4 (RFP Nos. 15 and 40)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Rule 34",
+      "pincite": "",
+      "cited_for": "Contrasted with Rule 45 as improper vehicle for third-party documents",
+      "quotes": [],
+      "context": "not a Rule 34 request directed to Greenleaf.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "Rule 34 governs requests served on parties, and Rule 34(c) says nonparties are compelled under Rule 45. That supports the email's contrast: a Rule 45 subpoena to the auditor or lender is the proper route, not a Rule 34 request to Greenleaf.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b) ... As provided in Rule 45, a nonparty may be compelled to produce documents and tangible things or to permit an inspection.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "case-management-order.docx.md",
+      "location": "Section 11 (Preservation Obligations), last sentence",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e) (short form)",
+      "citation_as_written": "Rule 37(e)",
+      "pincite": "",
+      "cited_for": "Failure to take reasonable steps to preserve relevant information may result in sanctions",
+      "quotes": [],
+      "context": "Failure to take reasonable steps to preserve relevant information may result in sanctions under Rule 37(e).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(e) authorizes curative measures, or for intentional loss, adverse inferences, dismissal, or default, when ESI is lost because a party failed to take reasonable steps to preserve it. The sentence describes this fairly, though the rule is limited to ESI that cannot be restored or replaced.",
+        "evidence_excerpt": "If electronically stored information that should have been preserved ... is lost because a party failed to take reasonable steps to preserve it, and it cannot be restored or replaced ... the court ... may order measures no greater than necessary to cure the prejudice",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "case-management-order.docx.md",
+      "location": "Section 3 (Initial Disclosures)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (conference)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Initial disclosures due fourteen days after the parties' Rule 26(f) conference",
+      "quotes": [],
+      "context": "Initial disclosures were due fourteen (14) days after the parties' Rule 26(f) conference, and the parties have represented that they anticipate completing service of initial disclosures by the date set forth herein.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1)(C) sets initial disclosures at or within 14 days after the parties' Rule 26(f) conference, which matches the CMO statement. The governing timing provision is technically 26(a)(1)(C), but the reference to the Rule 26(f) conference is correct.",
+        "evidence_excerpt": "A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

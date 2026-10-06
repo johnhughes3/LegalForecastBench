@@ -1,0 +1,1228 @@
+{
+  "task": "analyze-counterpartys-motion-for-summary-judgment",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "ellington-declaration.docx.md",
+    "ellington-depo-excerpts.docx.md",
+    "holt-depo-excerpts.docx.md",
+    "logistics-services-agreement.docx.md",
+    "okafor-declaration.docx.md",
+    "pinnacle-msj-memorandum.docx.md",
+    "pinnacle-sumf.docx.md",
+    "santos-depo-excerpts.docx.md",
+    "subramanian-expert-summary.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "II. Statement of Undisputed Material Facts, opening paragraph",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 56 (Statement of Undisputed Material Facts)",
+      "citation_as_written": "Local Rule 56",
+      "pincite": "",
+      "cited_for": "Pinnacle separately filed its SUMF in accordance with Local Rule 56.",
+      "quotes": [],
+      "context": "Pinnacle has separately filed its Statement of Undisputed Material Facts in accordance with Local Rule 56 (\"SUMF\").",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "M.D. Ga. L.R. 56",
+        "quote_check": "No quotes attributed.",
+        "explanation": "M.D. Ga. Local Rule 56 requires a separate statement of undisputed material facts. The rule says to 'attach' it to the motion rather than 'separately file' it, a trivial difference that does not affect the proposition.",
+        "evidence_excerpt": "shall attach to the motion a separate and concise statement of the material facts to which the movant contends there is no genuine dispute to be tried. Each material fact shall be numbered separately and shall be supported by specific citation",
+        "source_urls": [
+          "https://www.gamd.uscourts.gov/sites/gamd/files/Local_Rules-12_1_2022.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56(a)",
+      "citation_as_written": "Fed. R. Civ. P. 56(a)",
+      "pincite": "",
+      "cited_for": "Summary judgment standard: no genuine dispute as to any material fact and movant entitled to judgment as a matter of law.",
+      "quotes": [
+        "there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law."
+      ],
+      "context": "Summary judgment is appropriate when \"there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.\" Fed. R. Civ. P. 56(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in Fed. R. Civ. P. 56(a).",
+        "explanation": "The quotation matches the current text of Rule 56(a) exactly and states the summary judgment standard.",
+        "evidence_excerpt": "The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 1",
+      "authority_type": "case",
+      "authority": "Celotex Corp. v. Catrett",
+      "citation_as_written": "477 U.S. 317, 323 (1986)",
+      "pincite": "323",
+      "cited_for": "Movant bears the initial burden of demonstrating no genuine issues of material fact.",
+      "quotes": [],
+      "context": "The party moving for summary judgment bears the initial burden of demonstrating that there are no genuine issues of material fact. Celotex Corp. v. Catrett, 477 U.S. 317, 323 (1986).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 323, Celotex holds that the party seeking summary judgment always bears the initial responsibility of informing the court of the basis for its motion and identifying the materials it believes show there is no genuine issue of material fact.",
+        "evidence_excerpt": "\"Of course, a party seeking summary judgment always bears the initial responsibility of informing the district court of the basis for its motion, and identifying those portions of ... which it believes demonstrate the absence of a genuine issue of material fact.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111722/celotex-corp-v-catrett-administratrix-of-the-estate-of-catrett/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 1 (Id. cite)",
+      "authority_type": "case",
+      "authority": "Celotex Corp. v. Catrett (Id.)",
+      "citation_as_written": "Id. at 322-23",
+      "pincite": "322-23",
+      "cited_for": "Movant may satisfy its burden by showing the non-moving party failed to establish an essential element on which it bears the burden of proof at trial.",
+      "quotes": [],
+      "context": "The movant may satisfy this burden by showing that the non-moving party has failed to establish an essential element of its case on which it bears the burden of proof at trial. Id. at 322-23.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At pages 322-23, Celotex holds that Rule 56(c) mandates summary judgment against a party who fails to show an element essential to its case on which it bears the burden of proof at trial. That fairly supports the proposition that a movant can meet its burden by pointing to this failure.",
+        "evidence_excerpt": "\"the plain language of Rule 56(c) mandates the entry of summary judgment ... against a party who fails to make a showing sufficient to establish the existence of an element essential to that party's case, and on which that party will bear the burden of proof at trial.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111722/celotex-corp-v-catrett-administratrix-of-the-estate-of-catrett/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 2",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc.",
+      "citation_as_written": "477 U.S. 242, 255 (1986)",
+      "pincite": "255",
+      "cited_for": "Court must view evidence and draw reasonable inferences in light most favorable to the non-moving party.",
+      "quotes": [],
+      "context": "the Court must view the evidence and draw all reasonable inferences in the light most favorable to the non-moving party. Anderson v. Liberty Lobby, Inc., 477 U.S. 242, 255 (1986).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the proposition is a paraphrase.",
+        "explanation": "The page-255 text (after the *255 marker in the CourtListener lead opinion) says the non-movant's evidence is to be believed and all justifiable inferences drawn in the non-movant's favor. That supports viewing the evidence and drawing reasonable inferences in the light most favorable to the non-moving party. The pin cite is correct.",
+        "evidence_excerpt": "The evidence of the non-movant is to be believed, and all justifiable inferences are to be drawn in his favor.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 2",
+      "authority_type": "case",
+      "authority": "Matsushita Elec. Indus. Co. v. Zenith Radio Corp.",
+      "citation_as_written": "475 U.S. 574, 586 (1986)",
+      "pincite": "586",
+      "cited_for": "Non-moving party must do more than show metaphysical doubt as to material facts.",
+      "quotes": [
+        "must do more than simply show that there is some metaphysical doubt as to the material facts."
+      ],
+      "context": "the non-moving party \"must do more than simply show that there is some metaphysical doubt as to the material facts.\" Matsushita Elec. Indus. Co. v. Zenith Radio Corp., 475 U.S. 574, 586 (1986).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 475 U.S. 586: 'its opponent must do more than simply show that there is some metaphysical doubt as to the material facts.' (memo substitutes 'the non-moving party' outside the quotation marks)",
+        "explanation": "Matsushita states that once the movant carries its Rule 56(c) burden, the opponent must do more than show metaphysical doubt as to material facts. The pin cite 586 is correct, since the passage comes before the *587 page marker.",
+        "evidence_excerpt": "When the moving party has carried its burden under Rule 56(c), its opponent must do more than simply show that there is some metaphysical doubt as to the material facts.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111620/matsushita-elec-industrial-co-v-zenith-radio-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 2 (Id. cite)",
+      "authority_type": "case",
+      "authority": "Matsushita Elec. Indus. Co. v. Zenith Radio Corp. (Id.)",
+      "citation_as_written": "Id. at 587",
+      "pincite": "587",
+      "cited_for": "Once movant meets burden, non-movant must come forward with specific facts showing a genuine issue for trial.",
+      "quotes": [
+        "specific facts showing that there is a genuine issue for trial."
+      ],
+      "context": "the non-movant must come forward with \"specific facts showing that there is a genuine issue for trial.\" Id. at 587.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 475 U.S. 587 (Matsushita quoting Fed. R. Civ. P. 56(e), with 'genuine issue for trial' italicized for emphasis): 'specific facts showing that there is a genuine issue for trial.'",
+        "explanation": "After the *587 page marker, Matsushita says the nonmoving party must come forward with specific facts showing a genuine issue for trial. The memo does not note that Matsushita is quoting Rule 56(e) or that the emphasis was added, which is a trivial omission. The pin cite is correct.",
+        "evidence_excerpt": "In the language of the Rule, the nonmoving party must come forward with \"specific facts showing that there is a genuine issue for trial.\" Fed. Rule Civ. Proc. 56(e) (emphasis added).",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111620/matsushita-elec-industrial-co-v-zenith-radio-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 2 (short form)",
+      "authority_type": "case",
+      "authority": "Celotex Corp. v. Catrett (short form)",
+      "citation_as_written": "Celotex, 477 U.S. at 324",
+      "pincite": "324",
+      "cited_for": "Non-movant cannot rest on pleadings; must produce competent evidence (depositions, affidavits, declarations) showing a genuine factual dispute.",
+      "quotes": [],
+      "context": "it must produce competent evidence—depositions, affidavits, declarations, or other materials—demonstrating the existence of a genuine factual dispute. Celotex, 477 U.S. at 324.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 324, Celotex says Rule 56(e) requires the nonmoving party to go beyond the pleadings and use affidavits, depositions, answers to interrogatories, or admissions to designate specific facts showing a genuine issue for trial. It adds that any Rule 56(c) material except the mere pleadings may be used. 'Declarations' is a modern gloss that fits the same rule.",
+        "evidence_excerpt": "\"Rule 56(e) therefore requires the nonmoving party to go beyond the pleadings and by her own affidavits, or by the 'depositions, answers to interrogatories, and admissions on file,' designate 'specific facts showing that there is a genuine issue for trial.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111722/celotex-corp-v-catrett-administratrix-of-the-estate-of-catrett/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 3",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc. (short form)",
+      "citation_as_written": "Anderson, 477 U.S. at 248",
+      "pincite": "248",
+      "cited_for": "A dispute is genuine only if a reasonable jury could return a verdict for the nonmoving party.",
+      "quotes": [
+        "the evidence is such that a reasonable jury could return a verdict for the nonmoving party."
+      ],
+      "context": "A factual dispute is \"genuine\" only if \"the evidence is such that a reasonable jury could return a verdict for the nonmoving party.\" Anderson, 477 U.S. at 248.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'the evidence is such that a reasonable jury could return a verdict for the nonmoving party' found verbatim on page 248 (before the *249 marker). The Blackmun dissent also cites this language as 'Ante, at 248.'",
+        "explanation": "Anderson defines a 'genuine' dispute as one where the evidence is such that a reasonable jury could return a verdict for the nonmoving party. The pin cite of 248 is correct.",
+        "evidence_excerpt": "summary judgment will not lie if the dispute about a material fact is \"genuine,\" that is, if the evidence is such that a reasonable jury could return a verdict for the nonmoving party.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 3 (Id. cite)",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc. (Id.)",
+      "citation_as_written": "Id.",
+      "pincite": "",
+      "cited_for": "A fact is material only if it might affect the outcome of the suit under governing law.",
+      "quotes": [
+        "might affect the outcome of the suit under the governing law."
+      ],
+      "context": "A fact is \"material\" only if it \"might affect the outcome of the suit under the governing law.\" Id.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'might affect the outcome of the suit under the governing law' found verbatim at 477 U.S. 248, after the *248 page marker. The memo's quote adds a trailing period inside the quotation marks, which is immaterial.",
+        "explanation": "The 'Id.' refers back to Anderson, 477 U.S. at 248. The materiality standard appears on page 248: only disputes over facts that might affect the outcome under the governing law preclude summary judgment.",
+        "evidence_excerpt": "As to materiality, the substantive law will identify which facts are material. Only disputes over facts that might affect the outcome of the suit under the governing law will properly preclude the entry of summary judgment.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 3 (Id. cite)",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc. (Id.)",
+      "citation_as_written": "Id. at 247-48",
+      "pincite": "247-48",
+      "cited_for": "Not every factual disagreement prevents summary judgment; only disputes as to truly material facts.",
+      "quotes": [],
+      "context": "Not every factual disagreement between the parties will prevent the entry of summary judgment; ... Id. at 247-48.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the proposition is a paraphrase.",
+        "explanation": "At 247-48, Anderson says the mere existence of some alleged factual dispute will not defeat a properly supported motion for summary judgment. The requirement is that there be no genuine issue of material fact. The passage spans the *248 page break, so the 247-48 pin cite is accurate.",
+        "evidence_excerpt": "this standard provides that the mere existence of some alleged factual dispute between the parties will not defeat an otherwise properly sup*248ported motion for summary judgment; the requirement is that there be no genuine issue of material fact.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "III. Standard of Review, para. 4",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby, Inc. (short form)",
+      "citation_as_written": "Anderson, 477 U.S. at 249",
+      "pincite": "249",
+      "cited_for": "Court's role is not to weigh evidence or determine credibility but to assess whether sufficient evidence supports the claimed factual dispute to require a jury.",
+      "quotes": [],
+      "context": "The Court's role at this stage is not to weigh the evidence or determine credibility, but to assess whether there exists sufficient evidence supporting the claimed factual dispute to require submission to a jury. Anderson, 477 U.S. at 249.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the proposition is a paraphrase.",
+        "explanation": "Page 249 quotes Cities Service: 'sufficient evidence supporting the claimed factual dispute be shown to require a jury or judge to resolve' it. It also says the judge's function is not to weigh the evidence and determine the truth, but to determine whether there is a genuine issue for trial. The dissent cites this passage as 'Ante, at 249.' Anderson places credibility determinations with the jury (at 255), which supports the memo's paraphrase.",
+        "evidence_excerpt": "at the summary judgment stage the judge's function is not himself to weigh the evidence and determine the truth of the matter but to determine whether there is a genuine issue for trial.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.A Force Majeure, para. 4",
+      "authority_type": "case",
+      "authority": "Ga. Power Co. v. Roper",
+      "citation_as_written": "201 Ga. App. 283, 285 (1991)",
+      "pincite": "285",
+      "cited_for": "Recognizing that extreme weather events beyond the range of normal variation may constitute force majeure.",
+      "quotes": [],
+      "context": "See Ga. Power Co. v. Roper, 201 Ga. App. 283, 285 (1991) (recognizing that extreme weather events beyond the range of normal variation may constitute force majeure).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Ga. Power Co. v. Roper is cited in the memorandum as real Georgia authority, not as part of the fictional scenario.",
+      "first_check": {
+        "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "201 Ga. App. 283 is a pin page inside Hall & Sosebee Trucking Co. v. Smith, 201 Ga. App. 282 (1991), a workers' compensation case about setting aside a consent award for fraud. It has nothing to do with force majeure or weather. Real Georgia Power Co. v. Roper decisions exist (73 Ga. App. 826 (1946); 201 Ga. 760 (1947); 74 Ga. App. 750 (1947)), but they concern whether an accord and satisfaction can be avoided for mental incompetence in a personal-injury suit. A text search of those opinions found no mention of 'act of God' or 'weather'. No Roper decision located supports the proposition, so the cited authority, as described, appears fabricated.",
+        "evidence_excerpt": "Hall & Sosebee Trucking Company, Inc. (HST) filed what was denominated a 'complaint in equity' requesting the Superior Court of Murray County to 'set aside ... on the basis of fraud and misrepresentation' a consent agreement ... awarding HST's employee, George Smith, workers' compensation benefits.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1388128/hall-sosebee-trucking-company-inc-v-smith/",
+          "https://www.courtlistener.com/opinion/3402033/georgia-power-company-v-roper/",
+          "https://www.courtlistener.com/opinion/3405159/georgia-power-company-v-roper/",
+          "https://www.courtlistener.com/opinion/3411937/georgia-power-company-v-roper/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "explanation": "Finding holds. CourtListener citation lookup resolves 201 Ga. App. 283 to Hall & Sosebee Trucking Co. v. Smith (Ga. App. Sept. 10, 1991), parallel 201 Ga. App. 282 / 410 S.E.2d 784, and flags a name mismatch with 'Ga. Power Co. v. Roper'. A case-name search returns only three Georgia Power Co. v. Roper decisions: 201 Ga. 760 (1947), 74 Ga. App. 750 (1947) and 73 Ga. App. 826 (1946). The phrase 'act of God' gets zero hits in all three, and none is a 1991 decision. No Roper decision supporting a weather/force-majeure proposition exists, so the authority as cited is effectively fabricated; NOT_FOUND_LIKELY_FABRICATED would also be defensible.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1388128/hall-sosebee-trucking-company-inc-v-smith/",
+          "https://www.courtlistener.com/opinion/3402033/georgia-power-company-v-roper/",
+          "https://www.courtlistener.com/opinion/3405159/georgia-power-company-v-roper/",
+          "https://www.courtlistener.com/opinion/3407017/georgia-power-company-v-roper/"
+        ]
+      }
+    },
+    {
+      "ref": 13,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.B Liability Cap, para. 6",
+      "authority_type": "case",
+      "authority": "Barton Protective Servs., Inc. v. Faber",
+      "citation_as_written": "274 Ga. App. 737, 739 (2005)",
+      "pincite": "739",
+      "cited_for": "Georgia law favors enforcement of contractual liability limitations between sophisticated commercial parties (enforcing limitation of liability clause).",
+      "quotes": [],
+      "context": "Georgia law strongly favors the enforcement of contractual liability limitations negotiated between sophisticated commercial parties. Barton Protective Servs., Inc. v. Faber, 274 Ga. App. 737, 739 (2005) (enforcing contractual limitation of liability clause between commercial parties).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Barton Protective Servs. v. Faber is cited as real Georgia precedent.",
+      "first_check": {
+        "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Barton Protective Servs., Inc. v. Faber, 745 So. 2d 968 (Fla. 4th DCA 1999), which does not support the proposition",
+        "quote_check": "No quotations attributed.",
+        "explanation": "274 Ga. App. 737 resolves to Turner v. State (Ga. Ct. App. 2005), a criminal appeal over obstruction and disorderly conduct. The only real 'Barton Protective Services, Inc. v. Faber' is a 1999 Florida Fourth DCA case. It concerns a jury verdict for § 1983 false arrest against a mall security company and the apportionment of fault. It is not a Georgia case and has nothing to do with enforcing contractual limitation-of-liability clauses; the word 'limitation' does not appear in it. No Georgia authority by this name was found.",
+        "evidence_excerpt": "Turner v. State (274 Ga. App.): \"Convicted of obstruction and disorderly conduct, John Turner appeals.\" Barton v. Faber, 745 So.2d 968: \"In this appeal following a jury verdict for plaintiffs in a civil rights action under 42 U.S.C. § 1983, the jury found a shopping mall security company liable for false arrest.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1288909/turner-v-state/",
+          "https://www.courtlistener.com/opinion/1707918/barton-protective-services-inc-v-faber/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "explanation": "Finding holds. CourtListener resolves 274 Ga. App. 737 to Turner v. State (Ga. App. July 6, 2005), parallel 274 Ga. App. 731 / 618 S.E.2d 607, with a name-mismatch warning. A case-name search for Barton and Faber returns exactly one case: Barton Protective Services, Inc. v. Faber, 745 So. 2d 968 (Fla. 4th DCA 1999). That is a Florida case, not a Georgia one, and the first reviewer found it does not concern contractual limitation-of-liability clauses. No Georgia authority by this name exists.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1288909/turner-v-state/",
+          "https://www.courtlistener.com/opinion/1707918/barton-protective-services-inc-v-faber/"
+        ]
+      }
+    },
+    {
+      "ref": 14,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.B Liability Cap, para. 6",
+      "authority_type": "case",
+      "authority": "Hardin Constr. Grp., LLC v. Fuller Indus., LLC",
+      "citation_as_written": "296 Ga. App. 510, 514 (2009)",
+      "pincite": "514",
+      "cited_for": "Liability limitation clauses are enforceable under Georgia law where parties freely negotiated the terms.",
+      "quotes": [],
+      "context": "See also Hardin Constr. Grp., LLC v. Fuller Indus., LLC, 296 Ga. App. 510, 514 (2009) (holding that liability limitation clauses are enforceable under Georgia law where the parties have freely negotiated the terms).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Hardin Constr. Grp. v. Fuller Indus. is cited as real Georgia precedent.",
+      "first_check": {
+        "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "296 Ga. App. 510 (2009) is State v. Stulb, a criminal case about rescinding a statutory-rape sentence and first-offender treatment. No case called 'Hardin Constr. Grp., LLC v. Fuller Indus., LLC' was found. The real Hardin Construction Group, Inc. v. Fuller Enterprises, Inc. litigation (e.g., 233 Ga. App. 717 (1998); 265 Ga. 770 (1995)) concerns confirming an arbitration award, statutes of limitation, service of process and the Nonresident Contractors Act. It does not address the enforceability of liability-limitation clauses. The authority, as cited for this proposition, appears fabricated.",
+        "evidence_excerpt": "Several years after William Archer Stulb was convicted of statutory rape, the trial court granted Stulb's motion to rescind his full sentence under OCGA § 42-8-34 (g) and then resentenced him as a first offender.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1326043/state-v-stulb/",
+          "https://www.courtlistener.com/opinion/1333285/hardin-construction-group-inc-v-fuller-enterprises-inc/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "explanation": "Finding holds. CourtListener resolves 296 Ga. App. 510 to State v. Stulb (Ga. App. Mar. 9, 2009), 675 S.E.2d 253, with a name-mismatch warning. A Hardin/Fuller case-name search finds only the Hardin Construction Group, Inc. v. Fuller Enterprises, Inc. line: 233 Ga. App. 717; 265 Ga. 770; 220 Ga. App. 26; 215 Ga. App. 549; 206 Ga. App. 8; and 946 F.2d 905 (11th Cir.). No 'Hardin Constr. Grp., LLC v. Fuller Indus., LLC' exists. A text search of all six Hardin/Fuller opinions for 'limitation of liability' returned zero matches, so the real litigation does not support the proposition.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1326043/state-v-stulb/",
+          "https://www.courtlistener.com/opinion/1333285/hardin-construction-group-inc-v-fuller-enterprises-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 15,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.C Consequential Damages, para. 5",
+      "authority_type": "case",
+      "authority": "Royal Ins. Co. of Am. v. Crowne Invs., Inc.",
+      "citation_as_written": "903 F.2d 806, 812 (11th Cir. 1990)",
+      "pincite": "812",
+      "cited_for": "Applying Georgia law and recognizing lost profits as consequential damages.",
+      "quotes": [],
+      "context": "See Royal Ins. Co. of Am. v. Crowne Invs., Inc., 903 F.2d 806, 812 (11th Cir. 1990) (applying Georgia law and recognizing lost profits as consequential damages).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Royal Ins. Co. of Am. v. Crowne Invs. is cited as a real 11th Cir. decision.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Royal Ins. Co. of Am. v. Crowne Invs., Inc., 903 So. 2d 802 (Ala. 2004)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "There is no Eleventh Circuit 1990 decision by this name at 903 F.2d 806; CourtListener citation lookup returns NOT FOUND for that cite. The only case with this name is an Alabama Supreme Court decision, 903 So. 2d 802 (Ala. Dec. 17, 2004). It reverses the denial of an insurer's motion to set aside a default judgment in a dispute over coverage for collapsed subflooring at an Alabama nursing home. It does not apply Georgia law: 'Georgia' never appears. It does not hold or recognize that lost profits are consequential damages: 'consequential' never appears, and the only 'profits' mention, at *812, is a trial judge's remark about accounting records. So the reporter, court, year and first page are wrong, and the real case does not support the proposition.",
+        "evidence_excerpt": "\"Royal Insurance Company of America ('Royal') appeals from the denial of its motion to set aside a default judgment previously entered by the Butler Circuit Court in favor of Crowne Investments, Inc.\" ... \"Supreme Court of Alabama. December 17, 2004.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1669598/royal-ins-co-of-am-v-crowne-investments-inc/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Finding holds. CourtListener citation lookup returns NOT FOUND for 903 F.2d 806. The only case by this name is Royal Ins. Co. of Am. v. Crowne Investments, Inc., 903 So. 2d 802 (Ala. Dec. 17, 2004): an Alabama Supreme Court decision on a default judgment, not an 11th Circuit 1990 case applying Georgia law. The only 'profit' hit in that opinion is at *812, and it is a trial-court remark: 'the records from which they would claim damages, *812 such as this loss of profits that they contend that they have are just accounting records that exist in perpetuity.' That does not recognize lost profits as consequential damages under Georgia law. The reporter, court and year are also garbled, so WRONG_CITATION_REAL_CASE overlaps, but the substantive failure makes MISCHARACTERIZED appropriate.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1669598/royal-ins-co-of-am-v-crowne-investments-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 16,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.C Consequential Damages, para. 7",
+      "authority_type": "case",
+      "authority": "Toncee, Inc. v. Thomas",
+      "citation_as_written": "219 Ga. App. 539, 541 (1995)",
+      "pincite": "541",
+      "cited_for": "Distinguishing direct from consequential damages under Georgia law; party cannot relabel consequential damages as mitigation costs.",
+      "quotes": [],
+      "context": "A party cannot circumvent a consequential damages waiver by relabeling consequential damages as mitigation costs. See Toncee, Inc. v. Thomas, 219 Ga. App. 539, 541 (1995) (distinguishing direct from consequential damages under Georgia law).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Toncee, Inc. v. Thomas is cited as real Georgia precedent.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Toncee, Inc. v. Thomas, 219 Ga. App. 539, 466 S.E.2d 27 (1995)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is correct: Ga. App., December 4, 1995. But Toncee is an employment-contract case. It addresses whether a 'letter of intent' satisfied the Statute of Frauds, whether the stock-option term was severable, attorney fees under O.C.G.A. § 13-6-11, and jury charges on good cause and waiver. At page 541 it holds that the 'letter of intent' label is not dispositive and discusses the parties' conduct and severability. Nowhere does it distinguish direct from consequential damages, discuss consequential-damages waivers, or treat mitigation costs.",
+        "evidence_excerpt": "(*541) \"The document's designation as a 'letter of intent' is not dispositive.\" ... \"Toncee, Inc. appeals a jury verdict and judgment in favor of Thomas for breach of employment contract; it awarded lost wages, vacation pay, and attorney fees.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1407213/toncee-inc-v-thomas/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Finding holds. The citation is correct: CourtListener verifies Toncee, Inc. v. Thomas, 219 Ga. App. 539, 466 S.E.2d 27 (Dec. 4, 1995). But a full-text search of the opinion for 'consequential' returns zero matches. The first reviewer found the opinion concerns a letter of intent / Statute of Frauds, severability and attorney fees in an employment contract, not direct versus consequential damages or mitigation costs.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1407213/toncee-inc-v-thomas/"
+        ]
+      }
+    },
+    {
+      "ref": 17,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.D Failure to Mitigate, para. 1",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 13-6-8 (duty to mitigate)",
+      "citation_as_written": "O.C.G.A. § 13-6-8",
+      "pincite": "",
+      "cited_for": "Injured party has an affirmative duty to take reasonable steps to minimize damages.",
+      "quotes": [],
+      "context": "Under both Georgia common law and the Restatement (Second) of Contracts, an injured party has an affirmative duty to take reasonable steps to minimize its damages. See O.C.G.A. § 13-6-8; Restatement (Second) of Contracts § 350 (1981).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 13-6-5",
+        "quote_check": "No quotes.",
+        "explanation": "O.C.G.A. § 13-6-8 governs remote or consequential damages, not mitigation. Georgia's contract duty to mitigate is O.C.G.A. § 13-6-5, which binds an injured party to lessen damages as far as practicable by ordinary care and diligence. That supports the stated proposition. The memo's Table of Authorities mislabels § 13-6-8 as 'Duty to Mitigate.' The companion cite to Restatement (Second) of Contracts § 350 was not checked here.",
+        "evidence_excerpt": "§ 13-6-8: \"Remote or consequential damages are not recoverable unless they can be traced solely to the breach of the contract or unless they are capable of exact computation...\" § 13-6-5: \"Where by a breach of contract a party is injured, he is bound to lessen the damages as far as is practicable by the use of ordinary care and diligence.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-8/",
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-5/",
+          "https://law.justia.com/codes/georgia/2021/title-13/chapter-6/section-13-6-8/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Finding holds. O.C.G.A. § 13-6-8 reads: 'Remote or consequential damages are not recoverable unless they can be traced solely to the breach of the contract or unless they are capable of exact computation...' It says nothing about mitigation. The duty to mitigate is O.C.G.A. § 13-6-5: 'Where by a breach of contract a party is injured, he is bound to lessen the damages as far as is practicable by the use of ordinary care and diligence.' The proposition is correct, but the section number is wrong.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-8/",
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-5/"
+        ]
+      }
+    },
+    {
+      "ref": 18,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.D Failure to Mitigate, para. 1",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Restatement (Second) of Contracts § 350",
+      "citation_as_written": "Restatement (Second) of Contracts § 350 (1981)",
+      "pincite": "§ 350",
+      "cited_for": "Injured party has affirmative duty to take reasonable steps to minimize damages (avoidability).",
+      "quotes": [],
+      "context": "See O.C.G.A. § 13-6-8; Restatement (Second) of Contracts § 350 (1981). Damages that could have been avoided through the exercise of reasonable diligence are not recoverable.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Restatement (Second) of Contracts § 350(1) (1981) is the avoidability rule: damages are not recoverable for loss the injured party could have avoided without undue risk, burden or humiliation. Calling it an 'affirmative duty' is a common paraphrase. Strictly, § 350 is a limit on damages rather than a duty, but it supports the memo's next sentence, 'Damages that could have been avoided ... are not recoverable.' Text read as quoted by the Nebraska Supreme Court and Florida DCA; the Restatement itself is not freely available.",
+        "evidence_excerpt": "\"According to the Restatement (Second) of Contracts, 'damages are not recoverable for loss that the injured party could have avoided without undue risk, burden or humiliation.' [n.13: Restatement (Second) of Contracts § 350(1) at 126 (1981).]\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4393751/meyer-natural-foods-v-greater-omaha-packing-co/",
+          "https://www.courtlistener.com/opinion/5176181/state-of-florida-v-pcl-a-child/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.D Failure to Mitigate, para. 4",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 13-6-8 (duty to mitigate)",
+      "citation_as_written": "O.C.G.A. § 13-6-8",
+      "pincite": "",
+      "cited_for": "Georgia law places affirmative duty on injured party to take steps a reasonable person would take to minimize losses.",
+      "quotes": [],
+      "context": "Georgia law places an affirmative duty on the injured party to take those steps that a reasonable person in similar circumstances would take to minimize its losses. See O.C.G.A. § 13-6-8.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 13-6-5",
+        "quote_check": "No quotes.",
+        "explanation": "This is the same error as ref 17. O.C.G.A. § 13-6-8 concerns remote or consequential damages and imposes no mitigation duty. The reasonable-steps mitigation duty described in the memo is in O.C.G.A. § 13-6-5 ('ordinary care and diligence'), which supports the proposition when correctly cited.",
+        "evidence_excerpt": "§ 13-6-8: \"Remote or consequential damages are not recoverable unless they can be traced solely to the breach of the contract...\" § 13-6-5: \"he is bound to lessen the damages as far as is practicable by the use of ordinary care and diligence.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-8/",
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-5/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Finding holds. I read O.C.G.A. § 13-6-8, and it covers remote and consequential damages, not mitigation. Verbatim: \"Remote or consequential damages are not recoverable unless they can be traced solely to the breach of the contract or unless they are capable of exact computation...\" The mitigation duty is in § 13-6-5: \"Where by a breach of contract a party is injured, he is bound to lessen the damages as far as is practicable by the use of ordinary care and diligence.\" The proposition is a correct statement of Georgia law, but it is attached to the wrong section number. The correct cite is O.C.G.A. § 13-6-5.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-8/",
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-5/"
+        ]
+      }
+    },
+    {
+      "ref": 20,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "I. Introduction, para. 6 (Fourth)",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 51-12-33 (comparative fault)",
+      "citation_as_written": "O.C.G.A. § 51-12-33",
+      "pincite": "",
+      "cited_for": "Greenfield's recovery should be reduced or barred in proportion to its own negligence.",
+      "quotes": [],
+      "context": "Under Georgia's comparative fault statute, O.C.G.A. § 51-12-33, Greenfield's recovery should be reduced—or barred entirely—in proportion to its own negligence.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "O.C.G.A. § 51-12-33(a) requires damages to be reduced in proportion to the plaintiff's percentage of fault, and subsection (g) bars recovery when the plaintiff is 50 percent or more responsible. That supports 'reduced—or barred entirely—in proportion to its own negligence.' Caveat: by its terms the statute applies to actions 'for injury to person or property,' so whether it reaches Greenfield's contract claims is a separate legal question. This check covers only what the statute says.",
+        "evidence_excerpt": "(a) ... the trier of fact ... shall determine the percentage of fault of the plaintiff and the judge shall reduce the amount of damages otherwise awarded to the plaintiff in proportion to his or her percentage of fault. ... (g) ... the plaintiff shall not be entitled to receive any damages if the plaintiff is 50 percent or more responsible for the injury or damages claimed.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-51-torts/ga-code-sect-51-12-33/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.E Comparative Fault, para. 1",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 51-12-33 (comparative fault)",
+      "citation_as_written": "O.C.G.A. § 51-12-33",
+      "pincite": "",
+      "cited_for": "Plaintiff's recovery reduced in proportion to its fault; plaintiff 50 percent or more at fault is barred.",
+      "quotes": [],
+      "context": "Under Georgia's modified comparative fault statute, O.C.G.A. § 51-12-33, a plaintiff's recovery is reduced in proportion to its percentage of fault, and a plaintiff whose fault equals or exceeds 50 percent is barred from recovery altogether.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "The statute matches the memo's description of modified comparative fault: proportional reduction under subsection (a), and a complete bar at 50 percent or more under subsection (g). The memo says the doctrine reaches 'all of its claims,' but the statute is limited to actions 'for injury to person or property.' That scope issue is a matter of argument, not a misstatement of the statute's text.",
+        "evidence_excerpt": "(g) Notwithstanding the provisions of this Code section or any other provisions of law which might be construed to the contrary, the plaintiff shall not be entitled to receive any damages if the plaintiff is 50 percent or more responsible for the injury or damages claimed.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-51-torts/ga-code-sect-51-12-33/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.E Comparative Fault, para. 6",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 51-12-33 (comparative fault)",
+      "citation_as_written": "O.C.G.A. § 51-12-33",
+      "pincite": "",
+      "cited_for": "Trier of fact must apportion fault among the parties based on respective contributions to plaintiff's damages.",
+      "quotes": [],
+      "context": "Under O.C.G.A. § 51-12-33, the trier of fact must apportion fault among the parties based on their respective contributions to the plaintiff's damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "O.C.G.A. § 51-12-33(a) directs the trier of fact to determine the plaintiff's percentage of fault and reduce damages proportionally, and (b) directs it, in multi-defendant actions, to apportion the award among liable persons according to each person's percentage of fault. That supports the paraphrase that the trier of fact apportions fault according to each party's share. One caveat: the statute applies to actions 'for injury to person or property.' Statute text read as quoted in the Georgia Supreme Court's Hatcher opinion on CourtListener.",
+        "evidence_excerpt": "\"the trier of fact ... shall determine the percentage of fault of the plaintiff and the judge shall reduce the amount of damages otherwise awarded to the plaintiff in proportion to his or her percentage of fault\" (a); \"apportion its award of damages among the persons who are liable according to the percentage of fault of each person\" (b)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/10367743/alston-bird-llp-v-hatcher-management-holdings-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.E Comparative Fault, para. 6",
+      "authority_type": "case",
+      "authority": "S. Gen. Ins. Co. v. Holt",
+      "citation_as_written": "262 Ga. 267, 269 (1992)",
+      "pincite": "269",
+      "cited_for": "Discussing apportionment under Georgia's comparative fault statute.",
+      "quotes": [],
+      "context": "See S. Gen. Ins. Co. v. Holt, 262 Ga. 267, 269 (1992) (discussing apportionment under Georgia's comparative fault statute).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: S. Gen. Ins. Co. v. Holt is cited as real Georgia Supreme Court authority.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "S. Gen. Ins. Co. v. Holt, 262 Ga. 267, 416 S.E.2d 274 (1992)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is correct: Southern General Insurance Co. v. Holt, 262 Ga. 267 (May 21, 1992). But the opinion decides an insurer's liability for negligent or bad-faith refusal to settle within policy limits after a time-limited demand, and whether an assignor of that claim may recover punitive damages. It never discusses comparative fault, apportionment, or O.C.G.A. § 51-12-33. At page 269 the subject is the insurer's duty to give the insured's interests equal consideration and the jury question on bad faith.",
+        "evidence_excerpt": "\"We granted the writ of certiorari to determine whether an insured has a claim for bad faith against an insurance company for its failure to settle a claim within the policy limits based on a time-limited settlement offer\" ... (*269) \"the insurer, in view of the existing circumstances, has accorded the insured 'the same faithful consideration it gives its own interest.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1270166/southern-general-insurance-v-holt/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The citation itself is correct: Southern General Insurance v. Holt, 262 Ga. 267, 416 S.E.2d 274 (Ga. May 21, 1992). The characterization is wrong. I searched the full opinion text on CourtListener for \"fault\" and for \"apportion\" and got 0 matches for each. The opinion addresses \"whether an insured has a claim for bad faith against an insurance company for its failure to settle a claim within the policy limits based on a time-limited settlement offer.\" The text that ends just before page *270 concludes that \"a jury question was presented on Southern General's negligent or bad faith refusal to settle.\" The opinion contains nothing on comparative fault or apportionment.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1270166/southern-general-insurance-v-holt/"
+        ]
+      }
+    },
+    {
+      "ref": 24,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.E Comparative Fault, para. 6",
+      "authority_type": "case",
+      "authority": "Denton v. Eaton Corp.",
+      "citation_as_written": "264 Ga. App. 561, 564 (2003)",
+      "pincite": "564",
+      "cited_for": "Affirming application of comparative fault to reduce plaintiff's recovery where plaintiff failed to take reasonable precautions.",
+      "quotes": [],
+      "context": "See Denton v. Eaton Corp., 264 Ga. App. 561, 564 (2003) (affirming application of comparative fault to reduce plaintiff's recovery where plaintiff failed to take reasonable precautions).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Denton v. Eaton Corp. is cited as real Georgia precedent.",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No case called Denton v. Eaton Corp. was found. Searches covered CourtListener by case name, keyword 'Denton AND Eaton Corp', and Georgia Court of Appeals cases with 'Eaton' in the name, plus a web search. The reporter cite 264 Ga. App. 561 falls inside Joines v. State, 264 Ga. App. 558 (2003), a criminal appeal from a child-molestation conviction that has nothing to do with comparative fault. The Georgia cases involving Eaton Corp. that did turn up (Stenger Industries v. Eaton Corp.; Albermarle v. Eaton Corp.) are unrelated.",
+        "evidence_excerpt": "264 Ga. App. 561 resolves to Joines v. State: \"A Peach County jury found Joseph T. Joines guilty of three of the four counts of child molestation for which he was indicted.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1418358/joines-v-state/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "Finding holds. A CourtListener case-name search for Denton and Eaton returned only an unrelated 2005 Texas Court of Appeals case (Eaton & Goodwin v. Black). A keyword search for Denton plus \"Eaton Corporation\" turned up nothing relevant. A search of Georgia appellate courts for \"Eaton Corp\" with negligence or comparative terms found no Denton case, and a web search for \"Denton v. Eaton Corp\" Georgia found nothing either. The reporter cite 264 Ga. App. 561 falls inside Joines v. State, 264 Ga. App. 558, 591 S.E.2d 454 (Dec. 4, 2003), a criminal appeal. No case matching this name, cite, or proposition was located.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1418358/joines-v-state/"
+        ]
+      }
+    },
+    {
+      "ref": 25,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "IV.F.5 Expert and Consulting Fees",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 13-6-5",
+      "citation_as_written": "O.C.G.A. § 13-6-5",
+      "pincite": "",
+      "cited_for": "Litigation expenses not recoverable as damages unless opposing party acted in bad faith, was stubbornly litigious, or caused unnecessary trouble and expense.",
+      "quotes": [],
+      "context": "Under Georgia law, litigation expenses are not recoverable as damages unless the opposing party has acted in bad faith, been stubbornly litigious, or caused unnecessary trouble and expense. O.C.G.A. § 13-6-5.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 13-6-11",
+        "quote_check": "No quotes.",
+        "explanation": "O.C.G.A. § 13-6-5 is Georgia's duty-to-mitigate statute for breach of contract. It says nothing about litigation expenses. The stated rule (litigation expenses are not recoverable unless the defendant acted in bad faith, was stubbornly litigious, or caused unnecessary trouble and expense) is in O.C.G.A. § 13-6-11. The memo appears to have swapped section numbers: 13-6-5 is cited here, and 13-6-8 is cited for mitigation. Section 13-6-11 also requires that the plaintiff specially plead and pray for the expenses. The Table of Authorities repeats the error by labeling § 13-6-5 'Litigation Expenses Under Georgia Law.'",
+        "evidence_excerpt": "§ 13-6-5: \"Where by a breach of contract a party is injured, he is bound to lessen the damages as far as is practicable by the use of ordinary care and diligence.\" § 13-6-11: \"The expenses of litigation generally shall not be allowed as a part of the damages; but where the plaintiff has specially pleaded and has made prayer therefor and where the defendant has acted in bad faith, has been stubbornly litigious, or has caused the plaintiff unnecessary trouble and expense, the jury may allow them.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-5/",
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-11/",
+          "https://law.justia.com/codes/georgia/title-13/chapter-6/section-13-6-5/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Finding holds. I read O.C.G.A. § 13-6-5, and it is the mitigation statute: \"Where by a breach of contract a party is injured, he is bound to lessen the damages as far as is practicable by the use of ordinary care and diligence.\" The litigation-expenses rule the memo states is in O.C.G.A. § 13-6-11: \"The expenses of litigation generally shall not be allowed as a part of the damages; but where the plaintiff has specially pleaded and has made prayer therefor and where the defendant has acted in bad faith, has been stubbornly litigious, or has caused the plaintiff unnecessary trouble and expense, the jury may allow them.\" The proposition is substantively correct, though it leaves out the special-pleading requirement. The section number is wrong; the correct cite is § 13-6-11.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-5/",
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-6-11/"
+        ]
+      }
+    },
+    {
+      "ref": 26,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "V. Conclusion, Fifth point",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 51-12-33 (comparative fault)",
+      "citation_as_written": "O.C.G.A. § 51-12-33",
+      "pincite": "",
+      "cited_for": "Greenfield's comparative fault bars or reduces recovery.",
+      "quotes": [],
+      "context": "bars or substantially reduces any recovery under O.C.G.A. § 51-12-33.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The statute does provide that a plaintiff's own fault reduces its recovery (subsection (a)) and bars it entirely at 50 percent or more (subsection (g)), so the legal premise of 'bars or substantially reduces' is supported. Caveat: the statute is limited to actions 'for injury to person or property.' The memo applies it to 'any recovery,' including the breach-of-contract and implied-covenant counts, and the statute's text does not establish that it applies to contract claims. That is a merits weakness, not a citation defect.",
+        "evidence_excerpt": "\"Where an action is brought against one or more persons for injury to person or property and the plaintiff is to some degree responsible ... the judge shall reduce the amount of damages\"; (g) \"the plaintiff shall not be entitled to receive any damages if the plaintiff is 50 percent or more responsible for the injury or damages claimed.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/10367743/alston-bird-llp-v-hatcher-management-holdings-llc/",
+          "https://www.courtlistener.com/opinion/5749712/martin-v-six-flags-over-georgia-ii-lp/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "pinnacle-msj-memorandum.docx.md",
+      "location": "Table of Authorities, Statutes and Rules",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 11-2-715 (UCC — Buyer's Incidental and Consequential Damages)",
+      "citation_as_written": "O.C.G.A. § 11-2-715",
+      "pincite": "",
+      "cited_for": "Listed in Table of Authorities (pages 14, 15) as UCC buyer's incidental and consequential damages; not cited in the body text.",
+      "quotes": [],
+      "context": "O.C.G.A. § 11-2-715 (UCC — Buyer's Incidental and Consequential Damages) | 14, 15",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "O.C.G.A. § 11-2-715 exists and governs a buyer's incidental and consequential damages after a seller's breach, so the Table of Authorities description is accurate. The defect is that the Table lists it at pages 14 and 15, but the memorandum body never cites it; a grep of the full memo found it only in the Table. It is also a UCC Article 2 sale-of-goods provision, which fits poorly with a warehousing/logistics services dispute, but it is not offered for any proposition.",
+        "evidence_excerpt": "(1) Incidental damages resulting from the seller's breach include expenses reasonably incurred in inspection, receipt, transportation, and care and custody of goods rightfully rejected ... (2) Consequential damages resulting from the seller's breach include: (a) Any loss resulting from general or particular requirements and needs of which the seller at the time of contracting had reason to know",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-11-commercial-code/ga-code-sect-11-2-715/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "ellington-declaration.docx.md",
+      "location": "Para. 1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration under penalty of perjury in lieu of sworn affidavit.",
+      "quotes": [],
+      "context": "I, Dr. Marcus Ellington, MBA, hereby declare under penalty of perjury pursuant to 28 U.S.C. § 1746 as follows.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1746 permits an unsworn declaration, subscribed as true under penalty of perjury and dated, to have the same force and effect as a sworn affidavit. That is the purpose for which the declaration invokes it. The declaration's closing uses the statutory form ('under penalty of perjury under the laws of the United States of America that the foregoing is true and correct'), and the declaration is dated.",
+        "evidence_excerpt": "such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "okafor-declaration.docx.md",
+      "location": "Opening paragraph",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration under penalty of perjury in lieu of sworn affidavit.",
+      "quotes": [],
+      "context": "I, Sandra Okafor, declare under penalty of perjury pursuant to 28 U.S.C. § 1746 as follows:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same statute as ref 28. Section 1746 authorizes an unsworn declaration under penalty of perjury in place of a sworn affidavit. The Okafor declaration closes with the statutory form and is dated (July 12, 2024).",
+        "evidence_excerpt": "by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "subramanian-expert-summary.docx.md",
+      "location": "Section VI, Opinion 5(d) (para. 5.5(d))",
+      "authority_type": "other",
+      "authority": "ANSI/IICRC S520 Standard for Professional Mold Remediation",
+      "citation_as_written": "ANSI/IICRC S520 Standard for Professional Mold Remediation",
+      "pincite": "",
+      "cited_for": "Industry standard providing that porous materials with extensive mold contamination (penetrated into substrate) should be removed and discarded rather than cleaned.",
+      "quotes": [],
+      "context": "The ANSI/IICRC S520 Standard for Professional Mold Remediation provides that porous materials with extensive mold contamination — specifically, materials where mold has penetrated into the substrate — should be removed and discarded rather than subjected to attempted cleaning.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "ANSI/IICRC S520 Standard for Professional Mold Remediation (3d ed. 2015), §12.2.6",
+        "quote_check": "No quotations attributed.",
+        "explanation": "S520 §12.2.6 says porous building materials at Condition 3 should be removed and discarded. The standard defines Condition 3 as actual growth, meaning molds that have colonized a substrate, so the expert's gloss 'penetrated into the substrate' is a fair paraphrase. Caveat: S520 lists wood studs as semi-porous material that can be cleaned. Classing OSB or engineered-wood panels as 'porous' is the expert's own judgment, not something the standard states.",
+        "evidence_excerpt": "\"Remediating building materials that are Condition 3 depends upon the materials' porosity and susceptibility. Porous building materials (e.g., drywall, insulation, and ceiling tiles) that are Condition 3 should be removed and discarded.\"",
+        "source_urls": [
+          "https://s3.amazonaws.com/fcstores/stores/435276/3932/606129_S520.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "subramanian-expert-summary.docx.md",
+      "location": "Section VI, Opinion 5(d) (para. 5.5(d))",
+      "authority_type": "other",
+      "authority": "United States Environmental Protection Agency guidance on mold remediation",
+      "citation_as_written": "The United States Environmental Protection Agency's guidance on mold remediation",
+      "pincite": "",
+      "cited_for": "EPA guidance recommends removal and disposal of porous materials with significant mold growth; porous materials that absorbed moisture and sustained mold generally cannot be effectively cleaned.",
+      "quotes": [],
+      "context": "The United States Environmental Protection Agency's guidance on mold remediation likewise recommends removal and disposal of porous materials with significant mold growth, noting that porous materials that have absorbed moisture and sustained mold colonization generally cannot be effectively cleaned.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.S. EPA, Mold Remediation in Schools and Commercial Buildings (EPA 402-K-01-001), ch. 3",
+        "quote_check": "No quotations attributed (paraphrase only).",
+        "explanation": "The EPA mold remediation guide says wet, moldy porous materials may have to be discarded. It also says mold infiltrates porous materials and can be difficult or impossible to remove completely. That fairly supports the paraphrase that porous materials with significant mold growth should be removed and disposed of and generally cannot be effectively cleaned. The EPA's wording is somewhat softer ('may have to be discarded'). The expert's 20% moisture-content threshold is attributed to 'these standards' collectively and does not appear in the EPA text I read.",
+        "evidence_excerpt": "\"Porous materials that are wet and have mold growing on them may have to be discarded. Since molds will infiltrate porous substances and grow on or fill in empty spaces or crevices, the mold can be difficult or impossible to remove completely.\"",
+        "source_urls": [
+          "https://www.epa.gov/mold/mold-remediation-schools-and-commercial-buildings-guide-chapter-3"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "subramanian-expert-summary.docx.md",
+      "location": "Section IX, Opinion 5 summary",
+      "authority_type": "other",
+      "authority": "ANSI/IICRC S520 and EPA guidance",
+      "citation_as_written": "ANSI/IICRC S520 and EPA guidance",
+      "pincite": "",
+      "cited_for": "Summary restatement that recognized industry standards require disposal of the deeply colonized panels.",
+      "quotes": [],
+      "context": "the requirements of recognized industry standards including ANSI/IICRC S520 and EPA guidance.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both sources exist. ANSI/IICRC S520 (3d ed. 2015) says porous building materials at Condition 3 (actual growth) should be removed and discarded. For semi-porous material such as unfinished wood, it says such items are 'often unrestorable' when growth is in the wood rather than in a biofilm, and it also describes aggressive cleaning methods. EPA's Schools and Commercial Buildings guide says porous materials with mold 'may have to be discarded.' The standards support disposal of deeply colonized wood-based panels, but 'require' overstates them: EPA's language is permissive, and S520 treats wood as semi-porous with cleaning options. Whether these panels had to be discarded depends on the expert applying the standards, not on the standards dictating it.",
+        "evidence_excerpt": "S520 §12.2.6: \"Porous building materials (e.g., drywall, insulation, and ceiling tiles) that are Condition 3 should be removed and discarded. Other materials that are semi-porous (e.g., wood studs) can be HEPA-vacuumed and cleaned.\" EPA: \"Porous materials that are wet and have mold growing on them may have to be discarded.\"",
+        "source_urls": [
+          "https://s3.amazonaws.com/fcstores/stores/435276/3932/606129_S520.pdf",
+          "https://www.epa.gov/mold/mold-remediation-schools-and-commercial-buildings-guide-chapter-3"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "task.json.md",
+      "location": "rubric C-014",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Fed. R. Civ. P. 56",
+      "pincite": "",
+      "cited_for": "Summary judgment standard: court views evidence in light most favorable to non-movant and cannot resolve credibility disputes",
+      "quotes": [],
+      "context": "under the summary judgment standard (Fed. R. Civ. P. 56, Anderson v. Liberty Lobby, 477 U.S. 242 (1986), or equivalent principle), the court must view evidence in the light most favorable to the non-movant (Greenfield) and cannot resolve credibility disputes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 56 is the governing summary judgment rule and is cited together with Anderson v. Liberty Lobby 'or equivalent principle'. The rule's text sets the no-genuine-dispute standard, but it does not itself say that evidence is viewed in the light most favorable to the non-movant or that the court cannot weigh credibility. Those principles come from case law interpreting Rule 56. Citing the rule alongside Anderson is a reasonable reading, but the rule alone does not state the specific proposition.",
+        "evidence_excerpt": "The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "task.json.md",
+      "location": "rubric C-014",
+      "authority_type": "case",
+      "authority": "Anderson v. Liberty Lobby",
+      "citation_as_written": "Anderson v. Liberty Lobby, 477 U.S. 242 (1986)",
+      "pincite": "",
+      "cited_for": "Summary judgment standard: evidence viewed in light most favorable to non-movant; court cannot resolve credibility disputes",
+      "quotes": [],
+      "context": "under the summary judgment standard (Fed. R. Civ. P. 56, Anderson v. Liberty Lobby, 477 U.S. 242 (1986), or equivalent principle), the court must view evidence in the light most favorable to the non-movant (Greenfield) and cannot resolve credibility disputes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "At page 255, Anderson v. Liberty Lobby, 477 U.S. 242 (1986), holds that credibility determinations and the weighing of evidence are jury functions, not functions of the judge on summary judgment. It also holds that the non-movant's evidence is to be believed and all justifiable inferences drawn in the non-movant's favor. This matches the rubric's proposition.",
+        "evidence_excerpt": "Credibility determinations, the weighing of the evidence, and the drawing of legitimate inferences from the facts are jury functions, not those of a judge, whether he is ruling on a motion for summary judgment or for a directed verdict. The evidence of the non-movant is to be believed, and all justifiable inferences are to be drawn in his favor.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111719/anderson-v-liberty-lobby-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "task.json.md",
+      "location": "rubric C-015",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc., name only, no cite)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Expert opinion on salvageability may fail Daubert reliability requirements",
+      "quotes": [],
+      "context": "the opinion may fail Daubert reliability requirements on the salvageability point.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric cites Daubert by name only, for the general point that an expert opinion can be excluded for unreliability. Daubert holds that Rule 702 sets a standard of evidentiary reliability, and that the trial judge must make sure expert testimony is reliable and relevant. The general proposition is supported.",
+        "evidence_excerpt": "\"In short, the requirement that an expert's testimony pertain to 'scientific knowledge' establishes a standard of evidentiary reliability.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "task.json.md",
+      "location": "rubric C-017",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 51-12-33 (Georgia modified comparative fault statute)",
+      "citation_as_written": "O.C.G.A. § 51-12-33",
+      "pincite": "",
+      "cited_for": "Bars recovery only if plaintiff is 50% or more at fault (negligence claim); contributory negligence not a defense to breach of contract under Georgia law",
+      "quotes": [],
+      "context": "Georgia's modified comparative fault statute (O.C.G.A. § 51-12-33) bars recovery only if the plaintiff is 50% or more at fault, which is extremely unlikely given Pinnacle's active concealment",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Subsection (g) bars recovery only when the plaintiff is 50 percent or more responsible, which matches the rubric. The Georgia Supreme Court in Martin v. Six Flags confirms that (g) codifies the modified comparative-negligence rule. The rubric's separate point that contributory negligence is no defense to breach of contract is attributed to Georgia law generally, not to this statute. It is consistent with the statute's limitation to actions 'for injury to person or property,' but I did not independently verify it from a contract case.",
+        "evidence_excerpt": "\"OCGA § 51-12-33 (g) (plaintiff not entitled to recovery of any damages if he is 50 percent or more responsible for injury or damages)\" (Martin v. Six Flags, n.10)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5749712/martin-v-six-flags-over-georgia-ii-lp/",
+          "https://www.courtlistener.com/opinion/10367743/alston-bird-llp-v-hatcher-management-holdings-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "pinnacle-sumf.docx.md",
+      "location": "Preamble, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 56 (M.D. Ga.)",
+      "citation_as_written": "Local Rule 56",
+      "pincite": "",
+      "cited_for": "Basis for submitting Statement of Undisputed Material Facts",
+      "quotes": [],
+      "context": "Pursuant to Local Rule 56 and Federal Rule of Civil Procedure 56, Defendant Pinnacle Supply Chain Solutions, LLC (\"Pinnacle\"), by and through its undersigned counsel, hereby submits this Statement of Undisputed Material Facts",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "M.D. Ga. L.R. 56",
+        "quote_check": "No quotes attributed.",
+        "explanation": "M.D. Ga. Local Rule 56 requires a summary judgment movant to provide a separate, concise statement of material facts as to which there is no genuine dispute, each supported by record citations. It is a proper basis for filing a SUMF in this M.D. Ga. case.",
+        "evidence_excerpt": "LOCAL RULE 56: SUMMARY JUDGMENTS - STATEMENT OF FACTS REQUIRED ... The movant for summary judgment under Rule 56 of the Federal Rules of Civil Procedure shall attach to the motion a separate and concise statement of the material facts to which the movant contends there is no genuine dispute to be tried.",
+        "source_urls": [
+          "https://www.gamd.uscourts.gov/sites/gamd/files/Local_Rules-12_1_2022.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "pinnacle-sumf.docx.md",
+      "location": "Preamble, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Federal Rule of Civil Procedure 56",
+      "pincite": "",
+      "cited_for": "Basis for submitting Statement of Undisputed Material Facts in support of summary judgment motion",
+      "quotes": [],
+      "context": "Pursuant to Local Rule 56 and Federal Rule of Civil Procedure 56, Defendant Pinnacle Supply Chain Solutions, LLC (\"Pinnacle\")... hereby submits this Statement of Undisputed Material Facts in support of its Motion for Summary Judgment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 56 governs summary judgment motions. Rule 56(c)(1) requires a party asserting that a fact is undisputed to support it by citing particular record materials. It is an appropriate basis, along with the local rule, for filing a statement of undisputed material facts.",
+        "evidence_excerpt": "A party asserting that a fact cannot be or is genuinely disputed must support the assertion by: (A) citing to particular parts of materials in the record",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "ellington-depo-excerpts.docx.md",
+      "location": "Excerpt 3, Page 81, Line 6",
+      "authority_type": "other",
+      "authority": "IICRC S520 Standard for Professional Mold Remediation",
+      "citation_as_written": "IICRC S520 Standard for Professional Mold Remediation",
+      "pincite": "",
+      "cited_for": "Primary industry standard for mold remediation, which Ellington did not review before opining on salvageability",
+      "quotes": [
+        "IICRC S520 Standard for Professional Mold Remediation"
+      ],
+      "context": "Are you familiar with the IICRC S520 Standard for Professional Mold Remediation? A. I've heard of it, but I haven't reviewed it in detail for this matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "ANSI/IICRC S520 Standard for Professional Mold Remediation",
+        "quote_check": "The quoted title appears in the question at Ellington Dep. 81:6. It matches the standard's official title, 'ANSI/IICRC S520: Standard for Professional Mold Remediation', apart from omitting the 'ANSI/' prefix.",
+        "explanation": "The S520 is a real, ANSI-approved IICRC standard that sets out procedures for professional mold remediation. Describing it as the primary industry standard for mold remediation is a fair characterization. The proposition that Ellington did not review it comes from deposition testimony, not from the standard itself.",
+        "evidence_excerpt": "describes the procedures to be followed and the precautions to be taken when performing mold remediation in residential, commercial, and institutional buildings",
+        "source_urls": [
+          "https://iicrc.org/s520/",
+          "https://webstore.ansi.org/standards/iicrc/ansiiicrcs5202024"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "santos-depo-excerpts.docx.md",
+      "location": "Court Reporter's Certification",
+      "authority_type": "case",
+      "authority": "Greenfield Modular Homes, Inc. v. Pinnacle Supply Chain Solutions, LLC, No. 5:23-cv-00412-MTT (M.D. Ga.)",
+      "citation_as_written": "Greenfield Modular Homes, Inc. v. Pinnacle Supply Chain Solutions, LLC, Case No. 5:23-cv-00412-MTT, United States District Court for the Middle District of Georgia",
+      "pincite": "",
+      "cited_for": "The matter in which the deposition was taken",
+      "quotes": [],
+      "context": "taken on November 14, 2023, in the matter of Greenfield Modular Homes, Inc. v. Pinnacle Supply Chain Solutions, LLC, Case No. 5:23-cv-00412-MTT, United States District Court for the Middle District of Georgia.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter at hand and its own docket number in the task scenario."
+    }
+  ]
+}

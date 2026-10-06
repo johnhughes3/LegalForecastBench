@@ -1,0 +1,1093 @@
+{
+  "task": "draft-responses-to-requests-for-production",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "answer-affirmative-defenses.docx.md",
+    "collection-summary.docx.md",
+    "distribution-agreement.docx.md",
+    "kessler-foss-email.eml.md",
+    "objection-playbook.docx.md",
+    "privilege-log.xlsx.md",
+    "rfp-first-set.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Fifth Affirmative Defense: Statute of Limitations (line 169)",
+      "authority_type": "statute",
+      "authority": "Mich. Comp. Laws § 600.5813",
+      "citation_as_written": "MCL § 600.5813",
+      "pincite": "",
+      "cited_for": "Under Michigan law, fraud claims are subject to a six-year statute of limitations.",
+      "quotes": [],
+      "context": "Under Michigan law, fraud claims are subject to a six-year statute of limitations pursuant to MCL § 600.5813. However, the discovery rule codified at MCL § 600.5855 requires that such claims be brought within two years of the date the plaintiff discovered",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCL 600.5813 is Michigan's residual six-year limitations period for 'all other personal actions'. The Michigan Supreme Court (Boyle v General Motors, 468 Mich 226 (2003)) treats it as the six-year period that governs fraud actions. The proposition is accurate. Only the Answer's next clause, about § 600.5855, is wrong (see ref 1).",
+        "evidence_excerpt": "\"All other personal actions shall be commenced within the period of 6 years after the claims accrue and not afterwards unless a different period is stated in the statutes.\" ... Boyle: \"MCL 600.5813 and 600.5855, the six-year statute of limitations applicable to fraud actions and the fraudulent-concealment statute\"",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-600-5813",
+          "https://www.courtlistener.com/opinion/848809/boyle-v-general-motors-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Fifth Affirmative Defense: Statute of Limitations (line 169)",
+      "authority_type": "statute",
+      "authority": "Mich. Comp. Laws § 600.5855",
+      "citation_as_written": "MCL § 600.5855",
+      "pincite": "",
+      "cited_for": "Described as the 'discovery rule codified' requiring fraudulent concealment claims be brought within two years of the date the plaintiff discovered, or should have discovered, the claim.",
+      "quotes": [],
+      "context": "the discovery rule codified at MCL § 600.5855 requires that such claims be brought within two years of the date the plaintiff discovered, or through the exercise of reasonable diligence should have discovered, the existence of the claim.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCL 600.5855 is a fraudulent-concealment savings provision, not a general codified discovery rule. It applies only when the liable party fraudulently concealed the claim or the identity of the liable person. In that case it extends the time to sue to 2 years after discovery, 'although the action would otherwise be barred.' The Answer gets this backwards: it says § 600.5855 'requires' fraud claims to be brought within two years of discovery, presented as a limit that cuts the six-year period short. Boyle confirms the statute only allows concealed claims to be brought late.",
+        "evidence_excerpt": "If a person who is or may be liable for any claim fraudulently conceals the existence of the claim ... the action may be commenced at any time within 2 years after the person who is entitled to bring the action discovers, or should have discovered, the existence of the claim ... although the action would otherwise be barred by the period of limitations.",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-600-5855",
+          "https://www.courtlistener.com/opinion/848809/boyle-v-general-motors-corp/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. MCL 600.5855 is headed 'Fraudulent concealment of claim or identity of person liable; discovery.' Its text says that if a liable person 'fraudulently conceals the existence of the claim ... the action may be commenced at any time within 2 years after the person who is entitled to bring the action discovers, or should have discovered, the existence of the claim ... although the action would otherwise be barred by the period of limitations.' So it is a savings and extension provision that applies only where the claim was fraudulently concealed. It is not a general codified discovery rule that shortens the six-year fraud limitations period. The Answer presents it as a rule requiring fraud claims to be brought within two years of discovery, which reverses its function.",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-600-5855"
+        ]
+      }
+    },
+    {
+      "ref": 2,
+      "document": "objection-playbook.docx.md",
+      "location": "Section I. Purpose and Scope (lines 15-17)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.310 (requests to produce documents, ESI and tangible things)",
+      "citation_as_written": "MCR 2.310",
+      "pincite": "",
+      "cited_for": "Governs requests to produce documents, electronically stored information, and tangible things; framework designed to ensure compliance with it.",
+      "quotes": [],
+      "context": "compliance with MCR 2.310 — which governs requests to produce documents, electronically stored information, and tangible things — and MCR 2.302, which establishes the general provisions governing the scope, limitations, and conduct of discovery",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310 governs requests to produce documents and other things. Its definition of 'documents' expressly includes ESI, and it covers inspecting and testing tangible things. The description is accurate.",
+        "evidence_excerpt": "\"Documents\" includes writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations stored in any medium, including ESI. ... to inspect and copy, test, or sample other tangible things",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "objection-playbook.docx.md",
+      "location": "Section I. Purpose and Scope (line 17)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.302 (general provisions governing discovery)",
+      "citation_as_written": "MCR 2.302",
+      "pincite": "",
+      "cited_for": "Establishes general provisions governing scope, limitations, and conduct of discovery in Michigan civil proceedings.",
+      "quotes": [],
+      "context": "and MCR 2.302, which establishes the general provisions governing the scope, limitations, and conduct of discovery in Michigan civil proceedings.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.302 is titled 'Duty to Disclose; General Rules Governing Discovery.' It covers initial disclosures, scope of discovery, protective orders, sequence and timing, supplementation, and stipulations, which matches the general description it is cited for.",
+        "evidence_excerpt": "Rule 2.302 Duty to Disclose; General Rules Governing Discovery ... (B) Scope of Discovery. ... (D) Sequence and Timing of Discovery.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "objection-playbook.docx.md",
+      "location": "Section II. Firm Policy on Boilerplate Objections, final paragraph (line 37)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.310(B)",
+      "citation_as_written": "MCR 2.310(B)",
+      "pincite": "",
+      "cited_for": "Requires responses to requests for production be served within 35 days after service of the requests unless court orders or parties stipulate otherwise.",
+      "quotes": [],
+      "context": "MCR 2.310(B) requires that responses to requests for production be served within 35 days after service of the requests, unless the court orders otherwise or the parties stipulate in writing to a different schedule.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(C)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "There are two errors. First, MCR 2.310(B) is the 'Scope' subrule and sets no deadline; the response deadline is in MCR 2.310(C)(2). Second, the current rule sets 28 days after service of the request, not 35 (a defendant may instead respond within 42 days after being served with the summons and complaint). The court may allow a longer or shorter time. The rule as stated in the playbook gives the wrong deadline.",
+        "evidence_excerpt": "The party on whom the request is served must serve a written response within 28 days after service of the request, except that a defendant may serve a response within 42 days after being served with the summons and complaint. The court may allow a longer or shorter time.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. In the current official text of MCR 2.310, subrule (B) is headed 'Scope' and covers only what a party or nonparty may be asked to produce; it sets no deadline. The timing rule is in (C)(2): 'The party on whom the request is served must serve a written response within 28 days after service of the request, except that a defendant may serve a response within 42 days after being served with the summons and complaint. The court may allow a longer or shorter time.' The rule contains no 35-day period and no written-stipulation language. So the playbook's statement is wrong on both the subrule and the deadline. The correct citation is MCR 2.310(C)(2), with 28 days.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ]
+      }
+    },
+    {
+      "ref": 5,
+      "document": "objection-playbook.docx.md",
+      "location": "Section III, General Objection 3 (line 49)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (proportionality factors; generic reference)",
+      "citation_as_written": "Michigan Court Rules",
+      "pincite": "",
+      "cited_for": "Proportionality factors considered under the Michigan Court Rules for a relevance and proportionality general objection.",
+      "quotes": [],
+      "context": "not proportional to the needs of the case considering the factors set forth in the Michigan Court Rules.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic reference. MCR 2.302(B)(1) limits discovery to non-privileged, relevant matter that is proportional to the needs of the case, and it lists proportionality factors. That supports the general objection's reference to 'the factors set forth in the Michigan Court Rules.'",
+        "evidence_excerpt": "Parties may obtain discovery regarding any non-privileged matter that is relevant to any party's claims or defenses and proportional to the needs of the case, taking into account all pertinent factors, including whether the burden or expense of the proposed discovery outweighs its likely benefit, the complexity of the case, the importance of the issues at stake in the action, the amount in controversy, and the parties' resources and access to relevant information.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "objection-playbook.docx.md",
+      "location": "Section IV.A Relevance and Overbreadth (line 65)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.302(B)(1)",
+      "citation_as_written": "MCR 2.302(B)(1)",
+      "pincite": "",
+      "cited_for": "Parties may obtain discovery of any non-privileged matter relevant to any party's claim or defense; discovery scope broader than admissibility but not unlimited.",
+      "quotes": [],
+      "context": "Under MCR 2.302(B)(1), parties may obtain discovery regarding any matter, not privileged, that is relevant to any party's claim or defense.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The paraphrase ('any matter, not privileged, that is relevant to any party's claim or defense') loosely blends the pre-2020 and current wording, but it is not presented as a quotation.",
+        "explanation": "Current MCR 2.302(B)(1) allows discovery of any non-privileged matter relevant to any party's claims or defenses and proportional to the needs of the case. It also says the information need not be admissible to be discoverable. That supports both 'broader than admissibility' and 'not unlimited' (because of the relevance and proportionality limits).",
+        "evidence_excerpt": "Parties may obtain discovery regarding any non-privileged matter that is relevant to any party's claims or defenses and proportional to the needs of the case ... Information within the scope of discovery need not be admissible in evidence to be discoverable.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "objection-playbook.docx.md",
+      "location": "Section IV.B Proportionality, NOTE (line 85)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.302(B)(1)",
+      "citation_as_written": "MCR 2.302(B)(1)",
+      "pincite": "",
+      "cited_for": "Rule codifies the proportionality factors; memo does not reproduce them and directs associates to consult current rule text.",
+      "quotes": [],
+      "context": "This memorandum does not reproduce the specific proportionality factors codified in MCR 2.302(B)(1). Associates should consult the current text of the rule directly",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.302(B)(1) does set out proportionality factors: burden or expense versus likely benefit, complexity of the case, importance of the issues, amount in controversy, and the parties' resources and access to relevant information. The memo's statement that the rule codifies these factors is accurate.",
+        "evidence_excerpt": "proportional to the needs of the case, taking into account all pertinent factors, including whether the burden or expense of the proposed discovery outweighs its likely benefit, the complexity of the case, the importance of the issues at stake in the action, the amount in controversy, and the parties' resources and access to relevant information.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "objection-playbook.docx.md",
+      "location": "Section IV.D Work Product Doctrine (line 115)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (work product codification; generic reference, with federal analytical framework)",
+      "citation_as_written": "Michigan Court Rules",
+      "pincite": "",
+      "cited_for": "Michigan follows the analytical framework established in the federal courts and codified in the Michigan Court Rules for work product protection.",
+      "quotes": [],
+      "context": "Michigan follows the analytical framework established in the federal courts and codified in the Michigan Court Rules.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(3)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Generic reference to the Michigan Court Rules. Work product is codified at MCR 2.302(B)(3) (\"Trial Preparation; Materials\"). Its text tracks FRCP 26(b)(3) almost word for word: the same list of representatives, the substantial-need/undue-hardship showing for fact work product, and protection for mental impressions. The playbook's description and its 'federal framework, codified in the MCR' statement are therefore supported. It names no specific subrule, which is an imprecision but not an error.",
+        "evidence_excerpt": "MCR 2.302(B)(3)(a): \"a party may obtain discovery of documents and tangible things ... prepared in anticipation of litigation or for trial by or for another party or another party's representative (including an attorney, consultant, surety, indemnitor, insurer, or agent) only on a showing that the party seeking discovery has substantial need ... the court shall protect against disclosure of the mental impressions, conclusions, opinions, or legal theories of an attorney\"",
+        "source_urls": [
+          "https://www.courts.michigan.gov/rules-administrative-orders-and-jury-instructions/michigan-court-rules/",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "objection-playbook.docx.md",
+      "location": "Section IV.I Contention Requests in the RFP Context (line 163)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.310",
+      "citation_as_written": "MCR 2.310",
+      "pincite": "",
+      "cited_for": "Obligation is to produce documents responsive to a description of categories, not to marshal evidence by the requesting party's theory.",
+      "quotes": [],
+      "context": "The obligation under MCR 2.310 is to produce documents responsive to a description of categories, not to organize and present documents according to the requesting party's theory of the case.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(C)(1), (C)(5)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310(C)(1) has requests list items by individual item or by category, and (C)(5) has the producing party produce documents as kept in the usual course of business or organized to match the request's categories. The rule never mentions contention requests or marshaling evidence. Still, the playbook's reading (the duty is to produce documents responsive to the described categories, not to organize them by the requester's theory) is a fair paraphrase.",
+        "evidence_excerpt": "The request must list the items to be inspected, either by individual item or by category, and describe each item and category with reasonable particularity. ... A party who produces documents for inspection shall produce them as they are kept in the usual course of business or shall organize and label them to correspond with the categories in the request.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "objection-playbook.docx.md",
+      "location": "Section IV.I (line 165)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.309",
+      "citation_as_written": "MCR 2.309",
+      "pincite": "",
+      "cited_for": "Proper vehicle for contention discovery is a contention interrogatory, served after substantial fact discovery.",
+      "quotes": [],
+      "context": "The proper vehicle for contention discovery is a contention interrogatory under MCR 2.309, which may be served at an appropriate time",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.309 governs interrogatories. Subrule (D)(2) allows interrogatories that call for an opinion or contention, and lets the court defer answers until after designated discovery is complete. That supports calling contention interrogatories under 2.309 the proper vehicle, served or answered at an appropriate later time. Calling it the 'proper vehicle' (rather than a document request) is advocacy, but it is consistent with the rule. A more precise pin cite would be MCR 2.309(D)(2).",
+        "evidence_excerpt": "An interrogatory otherwise proper is not necessarily objectionable merely because an answer to the interrogatory involves an opinion or contention that relates to fact or the application of law to fact, but the court may order that an interrogatory need not be answered until after designated discovery has been completed",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "objection-playbook.docx.md",
+      "location": "Section IV.I (line 167)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules 2.310 and 2.309",
+      "citation_as_written": "MCR 2.310; MCR 2.309",
+      "pincite": "",
+      "cited_for": "Contention-style RFP exceeds the scope of MCR 2.310 and is more properly the subject of interrogatories under MCR 2.309.",
+      "quotes": [],
+      "context": "which exceeds the scope of MCR 2.310 and is more properly the subject of interrogatories under MCR 2.309, if appropriate at all given the stage of the litigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(B), (C)(1); MCR 2.309(B)(2)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "MCR 2.310 governs requests to produce designated documents listed 'by individual item or by category' with reasonable particularity. MCR 2.309 governs interrogatories, and 2.309(B)(2) expressly allows interrogatories that involve 'an opinion or contention that relates to fact or the application of law to fact'. It also lets the court defer answers until after designated discovery, which fits the playbook's 'if appropriate at all given the stage of the litigation'. Neither rule expressly says that 'all documents supporting' requests exceed MCR 2.310. That part is advocacy, but it is a reasonable reading of how the two rules divide the work.",
+        "evidence_excerpt": "MCR 2.309(B)(2): \"An interrogatory otherwise proper is not necessarily objectionable merely because an answer to the interrogatory involves an opinion or contention that relates to fact or the application of law to fact, but the court may order that an interrogatory need not be answered until after designated discovery has been completed\"; MCR 2.310(C)(1): \"The request must list the items to be inspected, either by individual item or by category, and describe each item and category with reasonable particularity.\"",
+        "source_urls": [
+          "https://www.courts.michigan.gov/rules-administrative-orders-and-jury-instructions/michigan-court-rules/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "objection-playbook.docx.md",
+      "location": "Section V. Document Withholding Disclosure Requirement (line 171)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.310",
+      "citation_as_written": "MCR 2.310",
+      "pincite": "",
+      "cited_for": "Every response to a request for production must state whether documents are being withheld on the basis of an objection.",
+      "quotes": [],
+      "context": "Under MCR 2.310, every response to a request for production must state whether documents are being withheld on the basis of an objection.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310(C)(2) requires each response to say that inspection will be permitted or that the request is objected to, give the reasons for any objection, and specify the part objected to. Nowhere does it require a response to state whether documents are being withheld because of an objection. That requirement comes from Fed. R. Civ. P. 34(b)(2)(C), not the Michigan rule. A search of the whole of MCR Chapter 2 for 'withh' found no such requirement in MCR 2.302 or 2.310.",
+        "evidence_excerpt": "With respect to each item or category, the response must state that inspection and related activities will be permitted as requested or that the request is objected to, in which event the reasons for objection must be stated. If objection is made to part of an item or category, the part must be specified.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. I read the full text of MCR 2.310. The closest language is in (C)(2): 'With respect to each item or category, the response must state that inspection and related activities will be permitted as requested or that the request is objected to, in which event the reasons for objection must be stated. If objection is made to part of an item or category, the part must be specified.' Nothing in it requires a response to state whether documents are being withheld on the basis of an objection; that requirement is the federal Rule 34(b)(2)(C) language. I searched the whole of Chapter 2 of the Michigan Court Rules for 'withh'. The only hit was an unrelated garnishment provision. On a fair reading, the Michigan rule does not support the stated 'critical compliance point.'",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ]
+      }
+    },
+    {
+      "ref": 13,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H36 (Entry 35, RMI-PRIV-000035; line 295)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.112(B)(1)",
+      "citation_as_written": "MCR 2.112(B)(1)",
+      "pincite": "",
+      "cited_for": "Heightened pleading standard for fraud claims, in a memo on fraudulent concealment elements.",
+      "quotes": [],
+      "context": "Attorney work product memorandum analyzing fraudulent concealment elements under Michigan law and heightened pleading standard under MCR 2.112(B)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.112(B)(1) is the Michigan particularity requirement for pleading fraud, so it supports a heightened pleading standard for fraud claims, including fraudulent concealment.",
+        "evidence_excerpt": "(B) Fraud, Mistake, or Condition of Mind. (1) In allegations of fraud or mistake, the circumstances constituting fraud or mistake must be stated with particularity.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H53 (Entry 52, RMI-PRIV-000052; line 433)",
+      "authority_type": "statute",
+      "authority": "Mich. Comp. Laws § 600.5813",
+      "citation_as_written": "MCL 600.5813",
+      "pincite": "",
+      "cited_for": "Statute of limitations for fraud claims, with application of discovery rule, researched in a work product memo.",
+      "quotes": [],
+      "context": "Attorney work product memorandum researching statute of limitations for fraud claims under MCL 600.5813 and application of discovery rule to Lakeshore's allegations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The privilege-log entry describes a memo researching the statute of limitations for fraud claims under MCL 600.5813 and how a discovery rule applies. Section 600.5813 is the six-year period that applies to fraud actions (Boyle). Describing research into whether a discovery rule applies is accurate; Boyle itself answered that question by rejecting a common-law discovery rule for fraud claims, which does not make the log description wrong.",
+        "evidence_excerpt": "Defendants filed a motion for summary disposition, arguing that plaintiffs' claims are barred by the six-year period of limitation in MCL 600.5813. ... Plaintiffs responded that a discovery rule applies to the accrual of a fraud action",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-600-5813",
+          "https://www.courtlistener.com/opinion/848809/boyle-v-general-motors-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H58 (Entry 57, RMI-PRIV-000057; line 473)",
+      "authority_type": "statute",
+      "authority": "Michigan UCC Article 2 (sales)",
+      "citation_as_written": "Michigan UCC Article 2",
+      "pincite": "",
+      "cited_for": "Contractual warranty provisions and implied warranty claims analyzed under Michigan UCC Article 2.",
+      "quotes": [],
+      "context": "Attorney work product memorandum analyzing contractual warranty provisions and implied warranty claims under Michigan UCC Article 2",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCL 440.2101 et seq. (Uniform Commercial Code--Sales, Article 2, Act 174 of 1962); e.g., MCL 440.2313-.2316",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Michigan's enactment of UCC Article 2 (Sales) exists at MCL 440.2101 et seq. It covers express and implied warranties, including the implied warranty of merchantability in MCL 440.2314. A privilege-log description of a memo analyzing contractual and implied warranty claims under it is accurate.",
+        "evidence_excerpt": "MCL 440.2101: \"This article shall be known and may be cited as 'uniform commercial code--sales'.\" MCL 440.2314(1): \"Unless excluded or modified (section 2316), a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.\"",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-440-2101",
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-440-2314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H106 (Entry 105, RMI-PRIV-000105; line 863)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.302(A)",
+      "citation_as_written": "MCR 2.302(A)",
+      "pincite": "",
+      "cited_for": "Scope of initial disclosures, per legal advice described in the log entry.",
+      "quotes": [],
+      "context": "Legal advice concerning scope of initial disclosures under MCR 2.302(A) and strategic considerations regarding timing of production",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Since the amendments effective January 1, 2020 (ADM 2018-19), MCR 2.302(A) has been 'Required Initial Disclosures.' A privilege-log description of legal advice about the scope of initial disclosures under 2.302(A) is therefore accurate.",
+        "evidence_excerpt": "(A) Required Initial Disclosures. (1) In General. Except as exempted by these rules, stipulation, or court order, a party must, without awaiting a discovery request, provide to the other parties:",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm",
+          "https://courts.michigan.gov/siteassets/rules-instructions-administrative-orders/proposed-and-recently-adopted-orders-on-admin-matters/adopted-orders/2018-19_2019-06-19_formattedorder_amendtofdiscoveryrules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H131 (Entry 130, RMI-PRIV-000130; line 1065)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.302(B)(1)",
+      "citation_as_written": "MCR 2.302(B)(1)",
+      "pincite": "",
+      "cited_for": "Michigan proportionality standards for ESI discovery.",
+      "quotes": [],
+      "context": "Attorney work product memorandum researching Michigan proportionality standards under MCR 2.302(B)(1) for ESI discovery and application to Lakeshore's broad RFP requests",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.302(B)(1) is Michigan's proportionality standard, and it applies to ESI. MCR 2.302(B)(6), which limits ESI discovery, expressly refers back to 'proportionality under subrule (B)(1).'",
+        "evidence_excerpt": "(B)(6) ... the court may nonetheless order discovery from such sources if the requesting party shows good cause, considering proportionality under subrule (B)(1) and the limitations of subrule (C).",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm",
+          "https://courts.michigan.gov/siteassets/rules-instructions-administrative-orders/proposed-and-recently-adopted-orders-on-admin-matters/adopted-orders/2018-19_2019-06-19_formattedorder_amendtofdiscoveryrules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H133 (Entry 132, RMI-PRIV-000132; line 1081)",
+      "authority_type": "statute",
+      "authority": "Michigan Uniform Trade Secrets Act",
+      "citation_as_written": "MCL 445.1901 et seq.",
+      "pincite": "",
+      "cited_for": "Michigan Trade Secrets Act and its applicability to V-Series Bill of Materials and manufacturing specifications.",
+      "quotes": [],
+      "context": "Attorney work product memorandum analyzing Michigan Trade Secrets Act, MCL 445.1901 et seq., and applicability to V-Series Bill of Materials and manufacturing specifications",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "MCL 445.1901 et seq. is Michigan's Uniform Trade Secrets Act, Act 448 of 1998. Its official short title is 'uniform trade secrets act'; the log's 'Michigan Trade Secrets Act' is a loose but harmless shorthand. The act defines 'trade secret' to include formulas, compilations, methods, techniques and processes. That plausibly reaches a bill of materials and manufacturing specifications, so a memo analyzing its applicability is consistent with the statute.",
+        "evidence_excerpt": "MCL 445.1901: \"This act shall be known and may be cited as the 'uniform trade secrets act'.\" MCL 445.1902(d): \"'Trade secret' means information, including a formula, pattern, compilation, program, device, method, technique, or process...\"",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1901",
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1902"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H175 (Entry 174, RMI-PRIV-000174; line 1420)",
+      "authority_type": "case",
+      "authority": "Bloemendaal v. Town & Country Sports Center, Inc.",
+      "citation_as_written": "Bloemendaal v. Town & Country Sports Ctr., Inc.",
+      "pincite": "",
+      "cited_for": "Framework for Michigan spoliation law and duty to preserve ESI. Cited by name only, no reporter citation (real Michigan Court of Appeals spoliation case, 255 Mich. App. 207 (2002)).",
+      "quotes": [],
+      "context": "Attorney work product memorandum analyzing Michigan spoliation law and duty to preserve ESI under Bloemendaal v. Town & Country Sports Ctr., Inc. framework",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Bloemendaal v. Town & Country Sports Center, Inc., 255 Mich. App. 207, 659 N.W.2d 684 (2003)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Real Michigan Court of Appeals spoliation decision. It sets out the court's inherent power to sanction failure to preserve evidence, the pre-suit duty to preserve evidence a party knows or should know is relevant, and the range of remedies. The case concerns physical evidence (a motorcycle), not ESI, but its framework applies to evidence generally, so a memo applying it to ESI preservation is a fair use. The document cites the case by name only. The extractor's note gives the year as 2002, but CourtListener lists the filing date as 2003-04-18; the document itself gives no year.",
+        "evidence_excerpt": "\"Even when an action has not been commenced and there is only a potential for litigation, the litigant is under a duty to preserve evidence that it knows or reasonably should know is relevant to the action.\" ... A trial court has the authority, derived from its inherent powers, to sanction a party for failing to preserve evidence",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2133061/bloemendaal-v-town-country-sports-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H179 (Entry 178, RMI-PRIV-000178; line 1452)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.302(B)(6)",
+      "citation_as_written": "MCR 2.302(B)(6)",
+      "pincite": "",
+      "cited_for": "Clawback options for inadvertent disclosure of privileged email.",
+      "quotes": [],
+      "context": "assessing clawback options under MCR 2.302(B)(6) and FRE 502(b) analogue",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(7)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The cited subrule is wrong. MCR 2.302(B)(6) is 'Limitation of Discovery of ESI' and has nothing to do with clawback. Michigan's clawback provision for inadvertently produced privileged material is MCR 2.302(B)(7), 'Information Inadvertently Produced.' The 2019 amending order lists (B)(7) as unchanged, so it was (B)(7) both before and after 2020.",
+        "evidence_excerpt": "(6) Limitation of Discovery of ESI. A party need not provide discovery of ESI from sources that the party identifies as not reasonably accessible ... (7) Information Inadvertently Produced. If information that is subject to a claim of privilege ... is produced in discovery, the party making the claim may notify any party that received the information ... a party must promptly return, sequester, or destroy the specified information",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm",
+          "https://courts.michigan.gov/siteassets/rules-instructions-administrative-orders/proposed-and-recently-adopted-orders-on-admin-matters/adopted-orders/2018-19_2019-06-19_formattedorder_amendtofdiscoveryrules.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. In current MCR 2.302, (B)(6) is 'Limitation of Discovery of ESI. A party need not provide discovery of ESI from sources that the party identifies as not reasonably accessible...' The clawback provision is (B)(7): 'Information Inadvertently Produced. If information that is subject to a claim of privilege ... is produced in discovery, the party making the claim may notify any party that received the information...' I checked whether the cite might have been correct under the pre-2020 numbering. In the 2019 amending order (ADM 2018-19), (B)(6) was 'Limitation of Discovery of Electronic Materials' (retitled ESI) and '(7) [Unchanged.]'. So the clawback rule was (B)(7) under both versions. A clawback rule does exist, but the subrule number is wrong; the correct citation is MCR 2.302(B)(7).",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm",
+          "https://courts.michigan.gov/siteassets/rules-instructions-administrative-orders/proposed-and-recently-adopted-orders-on-admin-matters/adopted-orders/2018-19_2019-06-19_formattedorder_amendtofdiscoveryrules.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 21,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H179 (Entry 178, RMI-PRIV-000178; line 1452)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "FRE 502(b)",
+      "pincite": "",
+      "cited_for": "Federal analogue for inadvertent-disclosure non-waiver, relied on in assessing clawback options.",
+      "quotes": [],
+      "context": "assessing clawback options under MCR 2.302(B)(6) and FRE 502(b) analogue",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(b) provides that an inadvertent disclosure does not waive privilege if the holder took reasonable steps to prevent it and promptly took reasonable steps to fix it. Calling it the 'federal analogue' for inadvertent-disclosure non-waiver is accurate. Side note on the same privilege-log entry: the Michigan clawback provision is now MCR 2.302(B)(7), not (B)(6). In the current rules, (B)(6) covers ESI that is not reasonably accessible.",
+        "evidence_excerpt": "(1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "privilege-log.xlsx.md",
+      "location": "Sheet 'Privilege Log', cell H97 (Entry 96, RMI-PRIV-000096; line 790)",
+      "authority_type": "court_rule",
+      "authority": "Michigan court rules (proportionality; generic reference)",
+      "citation_as_written": "Michigan court rules",
+      "pincite": "",
+      "cited_for": "Legal advice regarding scope of document production obligations and analysis of proportionality considerations under Michigan court rules",
+      "quotes": [],
+      "context": "H97: Legal advice regarding scope of document production obligations and analysis of proportionality considerations under Michigan court rules",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(1)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Generic privilege-log reference to proportionality under the Michigan court rules. MCR 2.302(B)(1) limits discovery to matter 'proportional to the needs of the case' and lists the proportionality factors. The description is accurate.",
+        "evidence_excerpt": "MCR 2.302(B)(1): \"Parties may obtain discovery regarding any non-privileged matter that is relevant to any party's claims or defenses and proportional to the needs of the case, taking into account all pertinent factors, including whether the burden or expense of the proposed discovery outweighs its likely benefit...\"",
+        "source_urls": [
+          "https://www.courts.michigan.gov/rules-administrative-orders-and-jury-instructions/michigan-court-rules/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "rfp-first-set.docx.md",
+      "location": "Preamble paragraph",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.310",
+      "citation_as_written": "Michigan Court Rule 2.310",
+      "pincite": "",
+      "cited_for": "Plaintiff serves the requests for production pursuant to MCR 2.310",
+      "quotes": [],
+      "context": "by and through its undersigned attorneys, Corwin & Desmond LLP, pursuant to Michigan Court Rule 2.310, hereby requests that Defendant Redfield Manufacturing, Inc. ... produce the documents and electronically stored information",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310 is the Michigan rule that authorizes a party to serve another party with a request to produce documents and ESI. Serving requests for production 'pursuant to' it is accurate.",
+        "evidence_excerpt": "Rule 2.310 Requests for Production of Documents and Other Things; Entry on Land for Inspection and Other Purposes ... A party may serve on another party a request (a) to produce and permit the requesting party ... to inspect and copy designated documents",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "rfp-first-set.docx.md",
+      "location": "Preamble paragraph",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.310(B)",
+      "citation_as_written": "MCR 2.310(B)",
+      "pincite": "",
+      "cited_for": "Production within thirty-five days of service is required",
+      "quotes": [],
+      "context": "for inspection and copying within thirty-five (35) days of service of these Requests, as required by MCR 2.310(B), at the offices of Corwin & Desmond LLP",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(C)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310(B) only sets the scope of requests and says nothing about timing. The timing rule is in (C)(2): a written response is due within 28 days after service, or 42 days after the defendant is served with the summons and complaint, and the court may change the time. (C)(1) lets the requester set a reasonable time for inspection, subject to objection. Nothing in MCR 2.310 requires production within 35 days, so the claim that 35 days is 'required by MCR 2.310(B)' is unsupported, and the subrule is also wrong.",
+        "evidence_excerpt": "(2) The party on whom the request is served must serve a written response within 28 days after service of the request, except that a defendant may serve a response within 42 days after being served with the summons and complaint.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm",
+          "https://www.courts.michigan.gov/490820/siteassets/publications/benchbooks/civil/civilresponsivehtml5.zip/Civil/Ch_5_Discovery/Request_for_Documents.htm"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. MCR 2.310(B), headed 'Scope', contains no time requirement. (C)(1) says only that the request 'must specify a reasonable time, place, and manner of making the inspection ... subject to objection.' (C)(2) sets the response deadline: '28 days after service of the request, except that a defendant may serve a response within 42 days after being served with the summons and complaint. The court may allow a longer or shorter time.' No part of MCR 2.310 requires production within 35 days. The RFP's statement that 35 days is 'required by MCR 2.310(B)' is unsupported, and it cites the wrong subrule. A requester may propose a reasonable time under (C)(1), but it is not 'required' by the rule.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ]
+      }
+    },
+    {
+      "ref": 25,
+      "document": "rfp-first-set.docx.md",
+      "location": "Preamble paragraph",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.310(B)(2)",
+      "citation_as_written": "MCR 2.310(B)(2)",
+      "pincite": "",
+      "cited_for": "Objections must be stated with specificity; general or blanket objections insufficient",
+      "quotes": [],
+      "context": "state any objections with specificity as required by MCR 2.310(B)(2). General or blanket objections, without specific grounds, are insufficient and should not be asserted.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(C)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310(B)(2) covers requests served on nonparties and says nothing about objections. The objection rule is in (C)(2): for each item or category, the response must state the reasons for any objection, and a partial objection must specify the part objected to. That reasonably supports requiring specific objections and rejecting blanket ones, although the rule never uses the words 'general or blanket objections'. The subrule is wrong and the paraphrase is somewhat loose.",
+        "evidence_excerpt": "With respect to each item or category, the response must state that inspection and related activities will be permitted as requested or that the request is objected to, in which event the reasons for objection must be stated. If objection is made to part of an item or category, the part must be specified.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "rfp-first-set.docx.md",
+      "location": "Definitions, No. 8 (Document)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (breadth of 'Document')",
+      "citation_as_written": "Michigan Court Rules",
+      "pincite": "",
+      "cited_for": "Document is construed in the broadest sense permitted under the Michigan Court Rules",
+      "quotes": [],
+      "context": "\"Document\" or \"Documents\" shall be construed in the broadest sense permitted under the Michigan Court Rules and means all writings, recordings, and tangible things",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(A)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic reference to the Michigan Court Rules. MCR 2.310(A)(1) defines 'documents' broadly, covering writings, recordings, images and data in any medium including ESI. That supports construing the term 'in the broadest sense permitted.'",
+        "evidence_excerpt": "\"Documents\" includes writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations stored in any medium, including ESI.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "rfp-first-set.docx.md",
+      "location": "Definitions, No. 8 (Document)",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.310(A)",
+      "citation_as_written": "MCR 2.310(A)",
+      "pincite": "",
+      "cited_for": "Definition of electronically stored information (ESI)",
+      "quotes": [],
+      "context": "any other electronically stored information (\"ESI\") as that term is used in MCR 2.310(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(A)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310(A) is the definitions subrule. (A)(2) defines ESI, and (A)(1) defines 'Documents' to include ESI. The request's use of 'ESI' as that term is used in MCR 2.310(A) is accurate.",
+        "evidence_excerpt": "(A) Definitions. For the purpose of this subchapter, (1) \"Documents\" includes writings ... stored in any medium, including ESI. (2) \"ESI\" means electronically stored information, regardless of format, system, or properties.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "rfp-first-set.docx.md",
+      "location": "Instructions, No. 3 (Format of Production)",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.310(B)",
+      "citation_as_written": "MCR 2.310(B)",
+      "pincite": "",
+      "cited_for": "ESI production format (native or TIFF with extracted text and metadata)",
+      "quotes": [],
+      "context": "including custodian information, file path, date created, date modified, date sent, date received, author, recipients, and subject line, in accordance with MCR 2.310(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(C)(1)-(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.310(B) (scope) does not address ESI format. The format provisions are in (C)(1) and (C)(2). (C)(1) says the request must specify the form or forms for producing ESI, subject to objection. (C)(2) sets a default form when the request specifies none. The rule does not itself require native or TIFF production with metadata. Read fairly, though, a requester's specified format is 'in accordance with' the rule, because the rule authorizes the requester to name one. The subrule is wrong and the support is loose.",
+        "evidence_excerpt": "The request must specify a reasonable time, place, and manner of making the inspection and performing the related acts, as well as the form or forms in which electronically stored information is to be produced, subject to objection.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "rfp-first-set.docx.md",
+      "location": "Instructions, No. 5 (Continuing Obligation)",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.302(E)",
+      "citation_as_written": "MCR 2.302(E)",
+      "pincite": "",
+      "cited_for": "Requests are continuing; duty to supplement responses",
+      "quotes": [],
+      "context": "These Requests are continuing in nature pursuant to MCR 2.302(E). If, after Your initial response, You obtain, discover, or become aware of additional responsive Documents or ESI, You are obligated to supplement Your response promptly",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(E)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.302(E), 'Supplementing Disclosures and Responses', requires a party that has answered a request for production to supplement or correct its response in a timely manner when it learns the response is materially incomplete or incorrect. That supports the instruction that the requests are continuing and responses must be supplemented. Calling the requests 'continuing in nature' is a common shorthand, and the rule supports it.",
+        "evidence_excerpt": "(1) Duty to Supplement. (a) In General. A party that has made a disclosure under MCR 2.302(A)—or that has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (i) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a5ddc/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "rfp-first-set.docx.md",
+      "location": "Instructions, No. 9 (Organization)",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.310(B)(1)",
+      "citation_as_written": "MCR 2.310(B)(1)",
+      "pincite": "",
+      "cited_for": "Documents may be produced as kept in usual course of business or organized by request",
+      "quotes": [],
+      "context": "they shall be organized and labeled to correspond with each individual Request to which they are responsive, as permitted by MCR 2.310(B)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.310(C)(5)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The substance is right: a producing party may produce documents as kept in the usual course of business, or organize and label them to match the request's categories. That rule is MCR 2.310(C)(5), not (B)(1). (B)(1) sets the scope of requests to parties. The subrule is wrong.",
+        "evidence_excerpt": "(5) A party who produces documents for inspection shall produce them as they are kept in the usual course of business or shall organize and label them to correspond with the categories in the request.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "rfp-first-set.docx.md",
+      "location": "Certificate of Service",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.107(C)(4)",
+      "citation_as_written": "MCR 2.107(C)(4)",
+      "pincite": "",
+      "cited_for": "Electronic service on counsel",
+      "quotes": [],
+      "context": "to be served upon counsel for Defendant via electronic service at the email address listed below, in accordance with MCR 2.107(C)(4)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.107(C)(4), 'Alternative Electronic Service', allows parties to agree to service among themselves by e-mail by filing a stipulation. It supports e-mail service on counsel, though it assumes such a stipulation exists; the document does not say whether one was filed.",
+        "evidence_excerpt": "(4) Alternative Electronic Service (a) Except as provided by MCR 1.109(G)(6)(a)(ii), the parties may agree to alternative electronic service among themselves by filing a stipulation in that case. ... Alternative electronic service may be by any of the following methods: (i) e-mail",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a5ddc/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "collection-summary.docx.md",
+      "location": "Section 6.2 (Inadvertent disclosure), Pinnacle's Recommendation",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (clawback of inadvertently produced privileged document)",
+      "citation_as_written": "applicable Michigan Court Rules",
+      "pincite": "",
+      "cited_for": "Clawback demand for inadvertently produced privileged email REDFIELD-000847 may be warranted under the Michigan Court Rules",
+      "quotes": [],
+      "context": "Counsel should promptly evaluate whether a clawback demand is warranted under the applicable Michigan Court Rules or any existing clawback agreement or protective order governing this litigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(7)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic reference. MCR 2.302(B)(7) ('Information Inadvertently Produced') lets the producing party notify the receiving party of a privilege claim over inadvertently produced material, which triggers a duty to return, sequester or destroy it. That supports evaluating a clawback demand under the Michigan Court Rules.",
+        "evidence_excerpt": "If information that is subject to a claim of privilege or of protection as trial-preparation material is produced in discovery, the party making the claim may notify any party that received the information of the claim and the basis for it. After being notified, a party must promptly return, sequester, or destroy the specified information",
+        "source_urls": [
+          "https://www.courts.michigan.gov/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "collection-summary.docx.md",
+      "location": "Section 6.2 (Inadvertent disclosure), Pinnacle's Recommendation",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Order analogous to FRE 502(d) could govern inadvertent disclosures; unknown whether one has been entered",
+      "quotes": [],
+      "context": "Pinnacle is not aware of whether a stipulated clawback agreement, protective order, or any order analogous to Federal Rule of Evidence 502(d) has been entered in this matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(d) lets a federal court order that disclosure in connection with the pending litigation does not waive privilege. Describing a non-waiver/clawback order as 'analogous to FRE 502(d)' is accurate.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "task.json.md",
+      "location": "rubric C-015",
+      "authority_type": "court_rule",
+      "authority": "Michigan clawback framework / MCR provisions",
+      "citation_as_written": "MCR provisions",
+      "pincite": "",
+      "cited_for": "Memo should discuss clawback mechanism for inadvertent production (Michigan's clawback framework, MCR provisions)",
+      "quotes": [],
+      "context": "(e.g., referencing Michigan's clawback framework, MCR provisions, or the need to promptly notify opposing counsel and demand return/destruction)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(7)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Generic rubric reference to 'Michigan's clawback framework, MCR provisions'. MCR 2.302(B)(7) ('Information Inadvertently Produced') is that framework. It lets the privilege holder notify the receiving party, which must then promptly return, sequester or destroy the information. That matches the rubric's description (prompt notice; demand for return or destruction).",
+        "evidence_excerpt": "MCR 2.302(B)(7): \"If information that is subject to a claim of privilege or of protection as trial-preparation material is produced in discovery, the party making the claim may notify any party that received the information of the claim and the basis for it. After being notified, a party must promptly return, sequester, or destroy the specified information...\"",
+        "source_urls": [
+          "https://www.courts.michigan.gov/rules-administrative-orders-and-jury-instructions/michigan-court-rules/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "task.json.md",
+      "location": "rubric C-026",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.302(B)(1)",
+      "citation_as_written": "MCR 2.302(B)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality objection to Request No. 6 (all ESI)",
+      "quotes": [],
+      "context": "raises a proportionality objection, referencing the burden of the request relative to the needs of the case, or citing MCR 2.302(B)(1) or proportionality principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.302(B)(1) limits discovery to matter 'proportional to the needs of the case' and lists burden versus benefit among the factors. It supports a proportionality objection to a request for all ESI.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any non-privileged matter that is relevant to any party's claims or defenses and proportional to the needs of the case, taking into account all pertinent factors, including whether the burden or expense of the proposed discovery outweighs its likely benefit",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a5ddc/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "task.json.md",
+      "location": "rubric C-028",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.302(B)(1)",
+      "citation_as_written": "Michigan Court Rule 2.302(B)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality factors / balancing test for ESI discovery burdens",
+      "quotes": [],
+      "context": "references Michigan Court Rule 2.302(B)(1) proportionality factors or the balancing test for ESI discovery burdens (e.g., importance of issues, amount in controversy, parties' resources, importance of discovery to resolving issues, burden vs. likely benefit, or reasonable accessibility). FAIL if neither document references MCR 2.302(B)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "MCR 2.302(B)(1); see also MCR 2.302(B)(6) (ESI not reasonably accessible)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCR 2.302(B)(1) does set out proportionality factors. The rule lists burden or expense versus likely benefit, complexity of the case, importance of the issues, amount in controversy, and the parties' resources and access to information. The rubric's example list is loose in two ways. It includes 'importance of discovery to resolving issues', a factor from FRCP 26(b)(1) that the Michigan rule omits. It also includes 'reasonable accessibility', which comes from MCR 2.302(B)(6), not (B)(1). The core point, proportionality factors under (B)(1), is accurate.",
+        "evidence_excerpt": "taking into account all pertinent factors, including whether the burden or expense of the proposed discovery outweighs its likely benefit, the complexity of the case, the importance of the issues at stake in the action, the amount in controversy, and the parties' resources and access to relevant information.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a5ddc/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "task.json.md",
+      "location": "rubric C-038",
+      "authority_type": "court_rule",
+      "authority": "MCR 2.310 and MCR 2.302",
+      "citation_as_written": "MCR 2.310, MCR 2.302",
+      "pincite": "",
+      "cited_for": "Objections should cite applicable Michigan Court Rules as legal basis",
+      "quotes": [],
+      "context": "PASS if at least some objections cite or reference applicable Michigan Court Rules (e.g., MCR 2.310, MCR 2.302, or other MCR provisions) as the legal basis for the objection.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both rules are proper legal bases for objections to production requests. MCR 2.310(C) governs responses to production requests and requires a stated reason for each objection. MCR 2.302 sets the scope of discovery, including relevance, proportionality and privilege under (B)(1), and the limits on discovery of ESI.",
+        "evidence_excerpt": "With respect to each item or category, the response must state that inspection and related activities will be permitted as requested or that the request is objected to, in which event the reasons for objection must be stated.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a5ddc/siteassets/rules-instructions-administrative-orders/michigan-court-rules/court-rules-book-ch-2-responsive-html5.zip/Court_Rules_Book_Ch_2/Court_Rules_Chapter_2/Court_Rules_Chapter_2.htm"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2277 @@
+{
+  "task": "research-ucc-warranty-disclaimer-requirements-for-new-product-launch",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "aquapure-max-9000-marketing-brochure.docx.md",
+    "aquapure-max-9000-sales-deck.pptx.md",
+    "bsk-warranty-memo-2021.docx.md",
+    "cit-standard-limited-warranty.docx.md",
+    "draft-quotation-letter-template.docx.md",
+    "ogilvie-hsu-memo-assignment.eml.md",
+    "sales-team-instruction-memo.docx.md",
+    "stoneridge-insurance-letter.eml.md",
+    "task.json.md",
+    "warranty-claims-summary-fy22-fy24.xlsx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "I. Executive Summary, para 1",
+      "authority_type": "statute",
+      "authority": "Uniform Commercial Code Article 2",
+      "citation_as_written": "Article 2 of the Uniform Commercial Code (\"UCC\")",
+      "pincite": "",
+      "cited_for": "Engagement was to assess warranty terms, disclaimer, limitation of liability and exclusive remedy for compliance with and enforceability under UCC Art. 2",
+      "quotes": [],
+      "context": "assess the warranty terms, disclaimer language, limitation of liability, and exclusive remedy provisions for compliance with and enforceability under Article 2 of the Uniform Commercial Code (\"UCC\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "UCC Article 2 (Sales) exists and contains the provisions the engagement describes: express and implied warranties (2-313 to 2-315), exclusion or modification of warranties (2-316), and contractual modification or limitation of remedy (2-719). The reference is a general description of the engagement's scope and is accurate.",
+        "evidence_excerpt": "§ 2-316. Exclusion or Modification of Warranties. ... \"to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous\"; § 2-719. Contractual Modification or Limitation of Remedy.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2",
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "I. Executive Summary, Primary Areas of Concern item 1",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(2)",
+      "citation_as_written": "UCC § 2-316(2)",
+      "pincite": "",
+      "cited_for": "Disclaimer may not satisfy the conspicuousness requirement of 2-316(2) as interpreted by an increasing number of courts",
+      "quotes": [],
+      "context": "may not satisfy the conspicuousness requirement of UCC § 2-316(2) as interpreted by an increasing number of courts.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "§ 2-316(2) does impose a conspicuousness requirement on written disclaimers of merchantability and on fitness disclaimers, so the citation for 'the conspicuousness requirement of UCC § 2-316(2)' is accurate. The added assertion that 'an increasing number of courts' read the requirement strictly is a case-law trend claim that the statute itself cannot confirm and for which the memo cites no case at this point; that part was not checked. (The definition of 'conspicuous' is in § 1-201(b)(10), which the memo cites separately elsewhere.)",
+        "evidence_excerpt": "the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "I. Executive Summary, Primary Areas of Concern item 3 (MMWA)",
+      "authority_type": "statute",
+      "authority": "Magnuson-Moss Warranty Act",
+      "citation_as_written": "Magnuson-Moss Warranty Act (\"MMWA\")",
+      "pincite": "",
+      "cited_for": "MMWA unlikely to apply to most CIT transactions but fringe applicability concerns warrant monitoring",
+      "quotes": [],
+      "context": "While the Magnuson-Moss Warranty Act (\"MMWA\") is unlikely to apply to the majority of CIT's transactions, certain customer categories may present fringe applicability concerns",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Magnuson-Moss Warranty Act, 15 U.S.C. §§ 2301-2312",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Act exists and is named correctly. The memo's conclusion that it is unlikely to reach most of CIT's sales (industrial water purification systems sold to commercial, municipal and industrial buyers) follows from the statutory definition of 'consumer product' as property 'normally used for personal, family, or household purposes.' The 'fringe applicability' caveat is also grounded: the FTC interpretation at 16 C.F.R. § 700.1(a) keys coverage to normal use of the product type and resolves ambiguity in favor of coverage, and § 700.1(b) addresses agricultural products. This is an analytic conclusion rather than a pinpoint proposition, and it is a reasonable reading of the authority.",
+        "evidence_excerpt": "15 U.S.C. § 2301(1): \"any tangible personal property which is distributed in commerce and which is normally used for personal, family, or household purposes\". 16 C.F.R. § 700.1(a): \"Where it is unclear whether a particular product is covered under the definition of consumer product, any ambiguity will be resolved in favor of coverage.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/2301",
+          "https://www.law.cornell.edu/cfr/text/16/700.1",
+          "https://www.law.cornell.edu/uscode/text/15/chapter-50"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "I. Executive Summary, Scope Limitations",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Memo does not analyze interaction of marketing, advertising, sales presentations or oral representations with creation of express warranties",
+      "quotes": [],
+      "context": "does not analyze the interaction between CIT's marketing materials, advertising, sales presentations, or oral representations and the creation of express warranties under UCC § 2-313.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo's scope limitation refers to § 2-313 only as the provision governing creation of express warranties. That is accurate: § 2-313 is titled \"Express Warranties by Affirmation, Promise, Description, Sample\" and sets out how express warranties by the seller are created. Nothing substantive is asserted beyond that identification.",
+        "evidence_excerpt": "§ 2-313. Express Warranties by Affirmation, Promise, Description, Sample. (1) Express warranties by the seller are created as follows:",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "II. Scope of Engagement, Scope Limitations bullet 1",
+      "authority_type": "statute",
+      "authority": "UCC §§ 2-316 and 2-719 (non-uniform state amendments)",
+      "citation_as_written": "§§ 2-316 and 2-719",
+      "pincite": "",
+      "cited_for": "Certain states have adopted amendments to 2-316 and 2-719 imposing additional or different requirements for disclaimers and limitations of liability",
+      "quotes": [],
+      "context": "Certain states have adopted amendments to §§ 2-316 and 2-719 that impose additional or different requirements for warranty disclaimers and limitations of liability.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation.",
+        "explanation": "The general statement is accurate: some states have enacted non-uniform versions of, or additions to, §§ 2-316 and 2-719. Massachusetts added G.L. c. 106, § 2-316A, which makes § 2-316 inapplicable to the extent stated and renders consumer-goods disclaimers of implied warranties unenforceable. Washington's RCW 62A.2-719(3) departs from the uniform text by invalidating repair-or-replace limitations in consumer sales unless adequate in-state repair facilities are maintained. The memo names no specific state, so there is nothing further to check. I could not retrieve Mississippi's § 75-2-719 (Justia returned 403), so I rely on the Massachusetts and Washington texts only.",
+        "evidence_excerpt": "Section 2-316A. (1) The provisions of section 2-316 shall not apply to the extent provided in this section. (2) Any language, oral or written, used by a seller or manufacturer of consumer goods and services, which attempts to exclude or modify any implied warranties of merchantability and fitness for a particular purpose ... shall be unenforceable.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter106/Article2/Section2-316A",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=62A.2-719"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "II. Scope Limitations bullet 2",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Marketing materials and express warranty creation outside scope",
+      "quotes": [],
+      "context": "potential express warranty creation under UCC § 2-313. The interaction between such materials and the Warranty Document's narrow express warranty scope is a separate inquiry",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Scope-limitation bullet citing § 2-313 as the section under which marketing materials and other customer-facing communications could create express warranties. § 2-313(1) is the express-warranty-creation provision (affirmation of fact or promise, description, sample or model), so the reference is correct.",
+        "evidence_excerpt": "(1) Express warranties by the seller are created as follows: (a) Any affirmation of fact or promise made by the seller to the buyer which relates to the goods and becomes part of the basis of the bargain creates an express warranty",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.A. Express Warranty — UCC § 2-313 (heading and Analysis para 1)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Express warranty created by (a) affirmation of fact or promise, (b) description of goods, or (c) sample or model that is part of the basis of the bargain; CIT's materials-and-workmanship warranty is an affirmation of fact forming basis of the bargain",
+      "quotes": [],
+      "context": "Under UCC § 2-313, an express warranty is created by (a) any affirmation of fact or promise made by the seller to the buyer which relates to the goods and becomes part of the basis of the bargain, (b) any description of the goods which is made part of the basis of the bargain, or (c) any sample or model",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The memo's (a)/(b)/(c) summary is an unquoted close paraphrase that tracks § 2-313(1)(a)-(c) nearly word for word.",
+        "explanation": "§ 2-313(1) provides that express warranties are created by (a) any affirmation of fact or promise made by the seller to the buyer which relates to the goods and becomes part of the basis of the bargain, (b) any description of the goods made part of the basis of the bargain, and (c) any sample or model made part of the basis of the bargain. The memo's statement of the rule is accurate. Its application (a written warranty that goods are free from defects in materials and workmanship is an affirmation of fact or promise relating to the goods) is a straightforward application of (1)(a). The more precise pin is § 2-313(1)(a)-(c).",
+        "evidence_excerpt": "(b) Any description of the goods which is made part of the basis of the bargain creates an express warranty that the goods shall conform to the description. (c) Any sample or model which is made part of the basis of the bargain creates an express warranty that the whole of the goods shall conform to the sample or model.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.A. Analysis, para 3",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Marketing, brochures, sales presentations or oral representations may independently create express warranties beyond the narrow Warranty Document",
+      "quotes": [],
+      "context": "Under UCC § 2-313, such representations may independently create express warranties that extend beyond the Warranty Document's narrow defects-in-materials-and-workmanship scope.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 2-313 supports the proposition that representations made outside the written warranty (marketing, brochures, presentations, oral statements) may independently create express warranties. Subsection (1)(a)-(b) covers \"any\" affirmation of fact, promise, or description that becomes part of the basis of the bargain, without limiting the medium, and subsection (2) says no formal words such as \"warrant\" or \"guarantee\" and no specific intent to warrant are needed. The memo's hedged \"may\" is appropriate because subsection (2) also excludes mere statements of value, opinion, or commendation, and the basis-of-the-bargain element must be met. The memo's companion reference to § 2-316(1) (not one of the refs here) also matches that section's text.",
+        "evidence_excerpt": "(2) It is not necessary to the creation of an express warranty that the seller use formal words such as \"warrant\" or \"guarantee\" or that he have a specific intention to make a warranty, but an affirmation merely of the value of the goods",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313",
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.A. Analysis, para 3",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(1)",
+      "citation_as_written": "UCC § 2-316(1)",
+      "pincite": "",
+      "cited_for": "Words creating express warranty and words negating or limiting it are construed as consistent where reasonable; negation inoperative to the extent unreasonable, so CIT cannot disclaim broader marketing-created warranty through narrow Warranty Document language",
+      "quotes": [],
+      "context": "UCC § 2-316(1) provides that words or conduct relevant to the creation of an express warranty and words or conduct tending to negate or limit warranty shall be construed as consistent with each other where reasonable, but that negation or limitation is inoperative to the extent such construction is unreasonable.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used; the memo's paraphrase tracks § 2-316(1) nearly word for word ('wherever reasonable' rendered as 'where reasonable'), but omits the clause 'subject to the provisions of this Article on parol or extrinsic evidence (Section 2-202)'.",
+        "explanation": "§ 2-316(1) says what the memo says: warranty-creating and warranty-negating words/conduct are construed as consistent wherever reasonable, and negation or limitation is inoperative to the extent that construction is unreasonable. The memo's inference that CIT cannot effectively disclaim a broader marketing-created express warranty through narrow Warranty Document language is a reasonable application, though stated more absolutely than the text supports: the statute makes the rule subject to the parol evidence rule (§ 2-202), which the memo's paraphrase drops, so an integrated writing could exclude evidence of prior representations.",
+        "evidence_excerpt": "(1) Words or conduct relevant to the creation of an express warranty and words or conduct tending to negate or limit warranty shall be construed wherever reasonable as consistent with each other; but subject to the provisions of this Article on parol or extrinsic evidence (Section 2-202) negation or limitation is inoperative to the extent that such construction is unreasonable.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. heading",
+      "authority_type": "statute",
+      "authority": "UCC §§ 2-314, 2-315, and 2-316",
+      "citation_as_written": "UCC §§ 2-314, 2-315, and 2-316",
+      "pincite": "",
+      "cited_for": "Disclaimer of implied warranties (merchantability and fitness)",
+      "quotes": [],
+      "context": "IV.B. Disclaimer of Implied Warranties — UCC §§ 2-314, 2-315, and 2-316",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation (section heading only).",
+        "explanation": "The heading correctly identifies the three sections governing disclaimer of implied warranties: § 2-314 (implied warranty of merchantability), § 2-315 (implied warranty of fitness for a particular purpose), and § 2-316 (exclusion or modification of warranties). The memo's later description of § 2-316(2) (must mention merchantability and be conspicuous if written; fitness disclaimer must be written and conspicuous) and § 2-316(3)(a) ('as is', 'with all faults') matches the statutory text.",
+        "evidence_excerpt": "To exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316",
+          "https://www.law.cornell.edu/ucc/2/2-314",
+          "https://www.law.cornell.edu/ucc/2/2-315"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. Substantive Analysis, para 1",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(2)",
+      "citation_as_written": "UCC § 2-316(2)",
+      "pincite": "",
+      "cited_for": "To exclude merchantability the language must mention 'merchantability' and, if written, be conspicuous; fitness exclusion must be in writing and conspicuous",
+      "quotes": [
+        "conspicuous"
+      ],
+      "context": "Under UCC § 2-316(2), to exclude or modify the implied warranty of merchantability, the language must (a) mention the word \"merchantability\" and (b) in the case of a writing, must be \"conspicuous.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"conspicuous\" — found verbatim in § 2-316(2) (twice). \"merchantability\" (also in quotation marks in the memo sentence) — found verbatim.",
+        "explanation": "The memo's statement of § 2-316(2) is accurate on both prongs: merchantability disclaimer must mention merchantability and, in a writing, be conspicuous; fitness disclaimer must be by a writing and conspicuous. The memo's following reference to 'as is'/'with all faults' language under § 2-316(3)(a) is also consistent with the text.",
+        "evidence_excerpt": "Subject to subsection (3), to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. Substantive Analysis, para 1",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(3)(a)",
+      "citation_as_written": "UCC § 2-316(3)(a)",
+      "pincite": "",
+      "cited_for": "General language such as 'as is' or 'with all faults' may suffice to disclaim implied warranties",
+      "quotes": [],
+      "context": "General language, such as \"as is\" or \"with all faults,\" may also suffice under UCC § 2-316(3)(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the statute beyond the terms \"as is\" and \"with all faults\"; both appear verbatim in § 2-316(3)(a).",
+        "explanation": "UCC § 2-316(3)(a) provides that, notwithstanding subsection (2) and unless the circumstances indicate otherwise, all implied warranties are excluded by expressions like 'as is' or 'with all faults'. The memo's statement that such general language 'may also suffice' is an accurate paraphrase.",
+        "evidence_excerpt": "\"(3) Notwithstanding subsection (2) (a) unless the circumstances indicate otherwise, all implied warranties are excluded by expressions like 'as is', 'with all faults' or other language which in common understanding calls the buyer's attention to the exclusion of warranties and makes plain that there is no implied warranty\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. Substantive Analysis, para 2",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(2)",
+      "citation_as_written": "UCC § 2-316(2)",
+      "pincite": "",
+      "cited_for": "CIT disclaimer mentions merchantability and fitness and thus satisfies substantive requirements",
+      "quotes": [],
+      "context": "thereby satisfying the substantive requirements of UCC § 2-316(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the statute (the quoted words 'merchantability' and 'fitness for a particular purpose' are quoted from CIT's disclaimer, not from § 2-316).",
+        "explanation": "§ 2-316(2) requires that a merchantability disclaimer mention merchantability; for fitness it requires only a conspicuous writing, and even general language suffices ('There are no warranties which extend beyond the description on the face hereof'). A written disclaimer that names both merchantability and fitness for a particular purpose therefore meets the section's wording requirements, as the memo says, leaving only conspicuousness, which the memo treats separately. Small imprecision: the statute does not require the fitness disclaimer to mention fitness by name, but the memo's conclusion is still supported.",
+        "evidence_excerpt": "the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous. Language to exclude all implied warranties of fitness is sufficient if it states, for example, that \"There are no warranties which extend beyond the description on the face hereof.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. Conspicuousness Deficiency, para 1",
+      "authority_type": "statute",
+      "authority": "UCC § 1-201(b)(10)",
+      "citation_as_written": "UCC § 1-201(b)(10)",
+      "pincite": "",
+      "cited_for": "Defines 'conspicuous'",
+      "quotes": [
+        "\"Conspicuous,\" with reference to a term, means so written, displayed, or presented that a reasonable person against which it is to operate ought to have noticed it. Whether a term is \"conspicuous\" or not is a decision for the court. Conspicuous terms include the following: (A) a heading in capitals equal to or greater in size than the surrounding text, or in contrasting type, font, or color to the surrounding text of the same or lesser size; and (B) language in the body of a record or display in larger type than the surrounding text, or in contrasting type, font, or color to the surrounding text of the same size, or set off from surrounding text of the same size by symbols or other marks that call attention to the language."
+      ],
+      "context": "UCC § 1-201(b)(10) defines \"conspicuous\" as follows: \"Conspicuous,\" with reference to a term, means so written, displayed, or presented that a reasonable person against which it is to operate ought to have noticed it.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in UCC § 1-201(b)(10) (LII text), including subparagraphs (A) and (B), compared programmatically. Sole difference is punctuation: the memo places the comma inside the quotation mark (\"Conspicuous,\") where the statute has it outside (\"Conspicuous\",). No wording differences.",
+        "explanation": "§ 1-201(b)(10) is the UCC general definition of 'conspicuous' and reads as quoted. One currency caveat I could not resolve: secondary sources report that the 2022 UCC amendments revised this definition (adding a totality-of-the-circumstances standard and dropping the (A)/(B) examples). I did not confirm that against primary text; the one enacting session law I opened (Colorado 2023) did not yield readable amendment markup. The quoted text matches the version LII publishes and would have been current when the memo was written in 2021, but a state-by-state check is warranted before relying on it today.",
+        "evidence_excerpt": "(10) \"Conspicuous\", with reference to a term, means so written, displayed, or presented that a reasonable person against which it is to operate ought to have noticed it. Whether a term is \"conspicuous\" or not is a decision for the court. Conspicuous terms include the following: (A) a heading in capitals equal to or greater in size than the surrounding text",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/1/1-201"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. Conspicuousness Deficiency, paras 2-4 (case law reference, no cases named)",
+      "authority_type": "other",
+      "authority": "Unnamed case law on uppercase-only conspicuousness",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "A growing body of case law reflects increasing scrutiny of whether uppercase alone, in same font size, is conspicuous; courts remain divided (no case identified)",
+      "quotes": [],
+      "context": "a growing body of case law reflects increasing judicial scrutiny of whether uppercase alone — particularly in the same font size as the surrounding text — is sufficient to render a term conspicuous within the meaning of the statute.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No case is cited in the memo. Real supporting authority includes Sierra Diesel Injection Service, Inc. v. Burroughs Corp., 890 F.2d 108, 114 (9th Cir. 1989); American General Finance, Inc. v. Bassett (In re Bassett), 285 F.3d 882 (9th Cir. 2002); contrast Stevenson v. TRW Inc., 987 F.2d 288 (5th Cir. 1993).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The memo names no case, but real case law supports the substance: courts are divided on whether capitals alone make a disclaimer conspicuous. Sierra Diesel affirmed that an all-capitals, non-bold warranty exclusion was not conspicuous and said capitals are not effective as a matter of law in all cases. Bassett (a bankruptcy reaffirmation case discussing UCC 1-201(10)) rejects the idea that capitals are automatically conspicuous. On the other side, Stevenson states a disclaimer printed in all capital letters satisfies the requirement. The memo's \"growing body\" and \"increasing scrutiny\" trend wording is not something I could confirm from these cases; only the division itself is established.",
+        "evidence_excerpt": "Sierra Diesel: \"The clause is in all capital letters, but it is not bold type. ... They do not hold that capital letters as a matter of law will be effective in all cases.\" Bassett: \"Lawyers who think their caps lock keys are instant 'make conspicuous' buttons are deluded.\" Stevenson: \"A contract's warranty disclaimer satisfies the conspicuous requirement when it is printed in all capital letters\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/532605/sierra-diesel-injection-service-inc-v-burroughs-corporation-inc/",
+          "https://www.courtlistener.com/opinion/777159/american-general-finance-inc-v-bassett-in-re-bassett/",
+          "https://www.courtlistener.com/opinion/601517/john-stevenson-v-trw-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.B. Assessment",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(2) and § 1-201(b)(10)",
+      "citation_as_written": "UCC § 2-316(2) ... UCC § 1-201(b)(10)",
+      "pincite": "",
+      "cited_for": "Disclaimer satisfies substantive 2-316(2) but formatting may not satisfy 1-201(b)(10) conspicuousness",
+      "quotes": [],
+      "context": "The disclaimer language satisfies the substantive requirements of UCC § 2-316(2), but the current formatting may not satisfy the conspicuousness requirement under UCC § 1-201(b)(10)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed in this citation. (The memo's separate block quote of § 1-201(b)(10) a few paragraphs earlier matches the LII text of the uniform provision word for word.)",
+        "explanation": "UCC § 2-316(2) requires that a merchantability disclaimer mention merchantability and, if written, be conspicuous, and that a fitness disclaimer be by a conspicuous writing. UCC § 1-201(b)(10) defines 'conspicuous' (reasonable person 'ought to have noticed it'; a decision for the court; examples include larger type or contrasting type, font, or color). The memo's statement that the language meets § 2-316(2)'s substantive requirements but that same-size all-caps formatting 'may not' be conspicuous is a hedged application consistent with both provisions. One loose point, not a defect: the conspicuousness requirement is imposed by § 2-316(2) itself; § 1-201(b)(10) only supplies the definition. Checked against the uniform text, not any state enactment.",
+        "evidence_excerpt": "§ 2-316(2): \"to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.\" § 1-201(b)(10): \"'Conspicuous', with reference to a term, means so written, displayed, or presented that a reasonable person against which it is to operate ought to have noticed it. Whether a term is 'conspicuous' or not is a decision for the court.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316",
+          "https://www.law.cornell.edu/ucc/1/1-201"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.C. Exclusive Remedy Provision, para 1",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(1)(a)",
+      "citation_as_written": "UCC § 2-719(1)(a)",
+      "pincite": "",
+      "cited_for": "Expressly authorizes repair-or-replacement exclusive remedy and limiting measure of damages",
+      "quotes": [],
+      "context": "expressly authorized by UCC § 2-719(1)(a), which permits the parties to agree to remedies in addition to or in substitution for those provided in Article 2",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used. The memo's paraphrase ('remedies in addition to or in substitution for those provided in Article 2, and to limit or alter the measure of damages recoverable') tracks § 2-719(1)(a) nearly word for word.",
+        "explanation": "UCC § 2-719(1)(a) authorizes an agreement to provide remedies in addition to or in substitution for those in Article 2 and to limit or alter the measure of damages, and expressly gives limiting the buyer's remedies to 'repair and replacement of non-conforming goods or parts' as an example. That supports the memo's proposition. Exclusivity of the remedy is addressed in § 2-719(1)(b) (a remedy is optional unless expressly agreed to be exclusive), so a fuller cite would be § 2-719(1)(a)-(b); this is a refinement, not an error.",
+        "evidence_excerpt": "\"(a) the agreement may provide for remedies in addition to or in substitution for those provided in this Article and may limit or alter the measure of damages recoverable under this Article, as by limiting the buyer's remedies to return of the goods and repayment of the price or to repair and replacement of non-conforming goods or parts; and (b) resort to a remedy as provided is optional unless the remedy is expressly agreed to be exclusive, in which case it is the sole remedy.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.C. Exclusive Remedy Provision, para 3",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2)",
+      "citation_as_written": "UCC § 2-719(2)",
+      "pincite": "",
+      "cited_for": "Where circumstances cause exclusive remedy to fail of its essential purpose, remedy may be had as provided in the UCC, potentially including consequential damages",
+      "quotes": [],
+      "context": "under UCC § 2-719(2), where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in the UCC.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used. The memo's wording is a near-verbatim paraphrase of § 2-719(2), substituting 'the UCC' for 'this Act'.",
+        "explanation": "UCC § 2-719(2) says exactly what the memo states. The added inference that the buyer could then pursue the full range of UCC remedies, 'potentially including' consequential damages, is hedged and supported by case law: Givan v. Mack Truck (Mo. App. 1978) held that once the limited remedy failed of its essential purpose 'all other contractual remedies are available'. Chatlos (3d Cir. 1980) shows courts are split on whether a separate consequential damages exclusion survives, which is consistent with the memo's 'potentially'.",
+        "evidence_excerpt": "\"(2) Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/2450753/givan-v-mack-truck-inc/",
+          "https://www.courtlistener.com/opinion/384715/chatlos-systems-inc-v-national-cash-register-corporation/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IV.D. Limitation of Liability — UCC § 2-719(3) (heading and para 2)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(3)",
+      "citation_as_written": "UCC § 2-719(3)",
+      "pincite": "",
+      "cited_for": "Consequential damages may be limited or excluded unless unconscionable; limitation for personal injury in consumer goods prima facie unconscionable; commercial loss not prima facie unconscionable",
+      "quotes": [],
+      "context": "Under UCC § 2-719(3), consequential damages may be limited or excluded unless the limitation or exclusion is unconscionable.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used. The memo's paraphrase tracks § 2-719(3) nearly word for word; the first sentence is verbatim statutory text.",
+        "explanation": "UCC § 2-719(3) says exactly what the memo attributes to it: consequential damages may be limited or excluded unless unconscionable; limitation for injury to the person in the case of consumer goods is prima facie unconscionable; limitation where the loss is commercial is not. Using § 2-719(3) as the heading for a general limitation-of-liability section is slightly narrow, since a purchase-price cap also rests on § 2-719(1)(a), but the proposition stated is accurate.",
+        "evidence_excerpt": "(3) Consequential damages may be limited or excluded unless the limitation or exclusion is unconscionable. Limitation of consequential damages for injury to the person in the case of consumer goods is prima facie unconscionable but limitation of damages where the loss is commercial is not.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "V. Timing and Method of Warranty Delivery, Legal Analysis para 1",
+      "authority_type": "statute",
+      "authority": "UCC § 2-207",
+      "citation_as_written": "UCC § 2-207",
+      "pincite": "",
+      "cited_for": "Terms added after formation analyzed as proposed modifications or additional terms; between merchants they do not automatically become part of contract if they materially alter it",
+      "quotes": [],
+      "context": "Additional terms included after formation may be analyzed under UCC § 2-207 as proposed modifications or additional terms, but such terms do not automatically become part of the contract",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-207 (Additional Terms in Acceptance or Confirmation) supports the proposition. Subsection (1) reaches a \"written confirmation\" sent after agreement that states additional or different terms, and subsection (2) treats additional terms as \"proposals for addition to the contract\" that, between merchants, become part of the contract unless (among other things) \"they materially alter it\". The memo's statement that later-added terms do not automatically become part of the contract, between merchants, if they materially alter the agreement tracks § 2-207(2)(b). Two small imprecisions that do not undercut support: the statute says \"proposals for addition\", not \"proposed modifications\" (modification is § 2-209 vocabulary), and the memo's \"particularly between merchants\" slightly inverts the structure (between merchants additional terms presumptively do come in unless an exception applies; otherwise they remain mere proposals). No pin cite was given; the relevant subsection is § 2-207(2)(b).",
+        "evidence_excerpt": "(2) The additional terms are to be construed as proposals for addition to the contract. Between merchants such terms become part of the contract unless: (a) the offer expressly limits acceptance to the terms of the offer; (b) they materially alter it; or",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-207"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "V. Legal Analysis, para 2 (shrinkwrap split; no cases named)",
+      "authority_type": "other",
+      "authority": "Unnamed shrinkwrap / box-top / rolling contract case law",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Split of authority on enforceability of warranty terms first presented in product packaging post-sale (rolling contract theory vs. contract formed at point of sale)",
+      "quotes": [],
+      "context": "There is a well-recognized split of authority regarding the enforceability of warranty terms and disclaimers first presented to the buyer post-sale in product packaging.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No case is cited in the memo. Real supporting authority: ProCD, Inc. v. Zeidenberg, 86 F.3d 1447 (7th Cir. 1996); Hill v. Gateway 2000, Inc., 105 F.3d 1147 (7th Cir. 1997); contrast Step-Saver Data Systems, Inc. v. Wyse Technology, 939 F.2d 91 (3d Cir. 1991); Klocek v. Gateway, Inc., 104 F. Supp. 2d 1332 (D. Kan. 2000).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The memo names no case, but the split it describes is real and is described in nearly the same terms by Klocek, which collects both lines. ProCD and Hill enforce in-box terms where the buyer could read them and reject by returning the product (the rolling contract approach). Step-Saver and Klocek treat the contract as already formed and the box-top or enclosed terms as proposed additional terms under 2-207 needing the buyer's express agreement. Step-Saver specifically involved a box-top warranty disclaimer in a commercial sale, which matches the memo's framing.",
+        "evidence_excerpt": "Klocek: \"Authority from other courts is split. Compare Step-Saver, 939 F.2d 91 (printed terms on computer software package not part of agreement) ... with Hill v. Gateway 2000, Inc., 105 F.3d 1147 ... (arbitration provision shipped with computer binding on buyer); ProCD, Inc. v. Zeidenberg, 86 F.3d 1447 (7th Cir.1996) (shrinkwrap license binding on buyer)\". Hill: ProCD \"holds that terms inside a box of software bind consumers who use the software after an opportunity to read the terms and to reject them by returning the product.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2503865/klocek-v-gateway-inc/",
+          "https://www.courtlistener.com/opinion/734160/rich-hill-and-enza-hill-on-behalf-of-a-class-of-persons-similarly-situated/",
+          "https://www.courtlistener.com/opinion/564982/step-saver-data-systems-inc-v-wyse-technology-and-the-software-link-inc/",
+          "https://www.courtlistener.com/opinion/720542/procd-inc-v-zeidenberg/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "VI. Magnuson-Moss Warranty Act Considerations, para 1",
+      "authority_type": "statute",
+      "authority": "Magnuson-Moss Warranty Act, 15 U.S.C. §§ 2301–2312",
+      "citation_as_written": "15 U.S.C. §§ 2301–2312",
+      "pincite": "",
+      "cited_for": "MMWA applies to written warranties on 'consumer products' (tangible personal property normally used for personal, family or household purposes) and creates federal cause of action with attorney's fees",
+      "quotes": [
+        "consumer products"
+      ],
+      "context": "The Magnuson-Moss Warranty Act, 15 U.S.C. §§ 2301–2312 (\"MMWA\"), applies to written warranties on \"consumer products,\" defined as tangible personal property which is distributed in commerce and which is normally used for personal, family, or household purposes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"consumer products\": found. The defined term in § 2301(1) is singular ('consumer product'); the plural appears in the Act, e.g., § 2302(a) ('improve competition in the marketing of consumer products') and § 2302(e). The memo's unquoted definition tracks § 2301(1) essentially verbatim, omitting only the leading 'any' and the trailing fixtures parenthetical.",
+        "explanation": "The Act is codified at 15 U.S.C. §§ 2301-2312 (chapter 50, § 2301 Definitions through § 2312 Effective dates), so the range is correct. Section 2301(1) defines 'consumer product' as the memo states. The Act regulates written warranties on consumer products (§ 2302(a)), and § 2310(d)(1) gives a damaged consumer a civil action in state or federal court, with § 2310(d)(2) allowing a prevailing consumer to recover costs and expenses including attorneys' fees. All elements of the proposition are supported.",
+        "evidence_excerpt": "§ 2301(1): \"any tangible personal property which is distributed in commerce and which is normally used for personal, family, or household purposes\". § 2310(d)(2): \"he may be allowed by the court to recover as part of the judgment a sum equal to the aggregate amount of cost and expenses (including attorneys' fees based on actual time expended)\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/chapter-50",
+          "https://www.law.cornell.edu/uscode/text/15/2301",
+          "https://www.law.cornell.edu/uscode/text/15/2310",
+          "https://www.law.cornell.edu/uscode/text/15/2302"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "VI. MMWA, para 3",
+      "authority_type": "statute",
+      "authority": "MMWA § 2308 (15 U.S.C. § 2308)",
+      "citation_as_written": "MMWA § 2308",
+      "pincite": "",
+      "cited_for": "Supplier giving written warranty on consumer product may not disclaim implied warranties entirely; may limit duration if conscionable and in clear and unmistakable language prominently displayed; blanket disclaimer would be prohibited",
+      "quotes": [],
+      "context": "Under MMWA § 2308, a supplier who provides a written warranty on a consumer product may not disclaim implied warranties entirely.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 2308 (Magnuson-Moss Warranty Act § 108)",
+        "quote_check": "No quotation marks used; the memo's phrases 'conscionable' and 'clear and unmistakable language ... prominently displayed on the face of the warranty' track § 2308(b) nearly verbatim.",
+        "explanation": "Section 2308(a) bars a supplier who makes a written warranty on a consumer product from disclaiming or modifying implied warranties; § 2308(b) permits limiting their duration to that of the written warranty if conscionable and set out in clear and unmistakable language prominently displayed on the face of the warranty; § 2308(c) makes a non-complying disclaimer ineffective. The memo's statement, including that a blanket disclaimer would be prohibited where the Act applies, is supported. Two small points: 'MMWA § 2308' is a hybrid form (the U.S. Code section is 2308; the Act's own section is 108), and the memo omits the statutory qualifier that the written warranty be 'of reasonable duration.' Neither changes the substance.",
+        "evidence_excerpt": "\"No supplier may disclaim or modify (except as provided in subsection (b)) any implied warranty to a consumer with respect to such consumer product if (1) such supplier makes any written warranty to the consumer ...\"; \"implied warranties may be limited in duration to the duration of a written warranty of reasonable duration, if such limitation is conscionable and is set forth in clear and unmistakable language and prominently displayed on the face of the warranty.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/2308"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "VI. MMWA, para 2 (FTC interpretation, no cite)",
+      "authority_type": "regulation",
+      "authority": "Federal Trade Commission interpretation of 'consumer product'",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "FTC has interpreted 'consumer product' broadly in certain contexts, based on normal use of product type",
+      "quotes": [],
+      "context": "The Federal Trade Commission has interpreted \"consumer product\" broadly in certain contexts, and the determination is based on the normal use of the product type",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "16 C.F.R. § 700.1(a) (FTC Interpretations of the Magnuson-Moss Warranty Act, \"Products covered\"); the memo gives no citation.",
+        "quote_check": "No quotation attributed to the FTC. The memo puts only the statutory term \"consumer product\" in quotation marks, and that term appears in 16 C.F.R. § 700.1(a).",
+        "explanation": "The memo's uncited statement matches the FTC's published interpretation. Section 700.1(a) reads 'consumer product' broadly: a product qualifies if personal, family or household use of that type of product is 'not uncommon,' and ambiguity is resolved in favor of coverage. It also makes the test turn on the product type rather than the individual buyer: 'the use to which a product is put by any individual buyer is not determinative.' Section 700.1(b) is consistent with the memo's agricultural-buyer caveat: farm machinery is excluded where personal use is uncommon, but products normally used for household gardening are covered.",
+        "evidence_excerpt": "16 C.F.R. § 700.1(a): \"This means that a product is a 'consumer product' if the use of that type of product is not uncommon. The percentage of sales or the use to which a product is put by any individual buyer is not determinative. ... Where it is unclear whether a particular product is covered under the definition of consumer product, any ambiguity will be resolved in favor of coverage.\"",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-16.xml?part=700&section=700.1",
+          "https://www.law.cornell.edu/cfr/text/16/700.1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "bsk-warranty-memo-2021.docx.md",
+      "location": "IX. Limitations and Disclaimer, para 3",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Memo is not a review of marketing/sales practices for express warranty creation",
+      "quotes": [],
+      "context": "for potential express warranty creation under UCC § 2-313 or for compliance with state consumer protection statutes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Closing limitation paragraph citing § 2-313 only as the provision under which marketing and sales practices could create express warranties. § 2-313 is the express-warranty-creation section, so the reference is accurate; no further proposition is asserted.",
+        "evidence_excerpt": "§ 2-313. Express Warranties by Affirmation, Promise, Description, Sample. (1) Express warranties by the seller are created as follows:",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "stoneridge-insurance-letter.eml.md",
+      "location": "Section 2, Contractual Liability Exclusion",
+      "authority_type": "other",
+      "authority": "ISO CGL form Exclusion b (contractual liability exclusion)",
+      "citation_as_written": "ISO CGL form language, Exclusion b",
+      "pincite": "",
+      "cited_for": "Standard contractual liability exclusion bars coverage for liability assumed in contract; express warranty / performance guarantee claims likely treated as contractual liability",
+      "quotes": [],
+      "context": "this is the ISO CGL form language, Exclusion b — which excludes coverage for bodily injury or property damage for which the insured is obligated to pay damages by reason of the assumption of liability in a contract or agreement.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "ISO Commercial General Liability Coverage Form CG 00 01, Section I, Coverage A, para. 2, Exclusion b (\"Contractual Liability\")",
+        "quote_check": "No quotation marks used. The letter's paraphrase of the exclusion (\"bodily injury or property damage for which the insured is obligated to pay damages by reason of the assumption of liability in a contract or agreement\") tracks the form language verbatim as quoted in Nationwide Mut. Ins. Co. v. CPB Int'l, Inc., 562 F.3d 591, 594, 599 (3d Cir. 2009) and Nautilus Ins. Co. v. Strongwell Corp., 968 F. Supp. 2d 807 (W.D. Va. 2013) (policy Section I, para. 2(b)).",
+        "explanation": "Exclusion b of the standard ISO CGL form exists, is titled \"Contractual Liability,\" and reads as the letter describes. Defect is in the application, not the citation: the letter omits the exclusion's two exceptions (liability the insured would have absent the contract; \"insured contract\") and treats it as near-certain that an insured's own express-warranty / performance-guarantee breach is excluded as 'assumed' liability. Courts are split on that. Travelers v. Peaker Services (Mich. App. 2014), following American Family v. American Girl (Wis.), holds 'assumption of liability' means assuming the liability of another (indemnity/hold-harmless) and does not reach the insured's own breach of contract; Gilbert Texas Constr. (Tex. 2010), J.A. Street (W. Va. 2019) and Nationwide v. CPB / Snyder Heating (Pa. law) read it more broadly. No Oregon authority on the point was located (Fred Shearer & Sons v. Gemini, 237 Or. App. 468, concerns a vendors endorsement). Note also the exclusion only operates on 'bodily injury' or 'property damage' damages. I could not retrieve a specimen copy of the ISO form itself (one specimen PDF URL returned 404); the text is verified through court opinions quoting it.",
+        "evidence_excerpt": "Exclusion \"b\" is entitled \"Contractual Liability,\" and states that the \"insurance does not apply to ... 'property damage' for which the insured is obligated pay damages by reason of the assumption of liability in a contract or agreement.\" (Nationwide v. CPB). Contrast Peaker Services: \"'assumption of liability' in the context of a CGL policy's contractual-liability exclusion refers to those contracts or agreements wherein the insured assumes the liability of another.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1253236/nationwide-mutual-insurance-v-cpb-international-inc/",
+          "https://www.courtlistener.com/opinion/8727977/nautilus-insurance-v-strongwell-corp/",
+          "https://www.courtlistener.com/?q=cluster_id%3A8007021",
+          "https://www.courtlistener.com/?q=cluster_id%3A4615720",
+          "https://www.courtlistener.com/opinion/2264625/fred-shearer-sons-inc-v-gemini-insurance/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "stoneridge-insurance-letter.eml.md",
+      "location": "Section 3, Consequential Damages Exposure",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2) doctrine (failure of essential purpose), cited without section number",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "If exclusive repair/replace remedy fails of its essential purpose, courts may void the consequential damages exclusion",
+      "quotes": [
+        "fails of its essential purpose"
+      ],
+      "context": "if CIT's exclusive remedy of repair or replacement fails of its essential purpose (for example, if CIT is unable to timely repair or replace a defective unit...), courts may void the consequential damages exclusion entirely.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-719(2) (the letter states the doctrine without a section number)",
+        "quote_check": "\"fails of its essential purpose\" - found with an inflection difference only: § 2-719(2) reads \"fail of its essential purpose\". The phrase is the letter's own emphasized wording rather than a block quotation of the statute. The same inflected form appears in the Seventh Circuit's description in Sanchelima (\"fail[s] of its essential purpose\").",
+        "explanation": "The doctrine is real and is codified at UCC § 2-719(2). The statute itself says only that remedy may be had as provided in the Act; the claim that courts 'may void the consequential damages exclusion entirely' is a case-law gloss, and it is accurately hedged. Sanchelima Int'l, Inc. v. Walker Stainless Equip. Co., 920 F.3d 1141 (7th Cir. 2019), describes the 'dependent approach', under which a failed limited remedy makes the accompanying consequential-damages disclaimer unenforceable. Other courts treat the exclusion as independent (e.g., Far East Aluminium Works Co. v. Viracon, Inc., 27 F.4th 1361 (8th Cir. 2022), applying Minnesota law), so 'may' is the right verb. The letter's example of inability to timely repair or replace matches the standard formulation.",
+        "evidence_excerpt": "Under the dependent approach, if a litigant proves the limited remedy fails of its essential purpose under UCC § 2-719(2), any accompanying consequential damages disclaimer is per se unconscionable under UCC § 2-719(3).",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/8443953/sanchelima-intl-inc-v-walker-stainless-equip-co/",
+          "https://www.courtlistener.com/opinion/6449358/far-east-aluminium-works-co-v-viracon-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "stoneridge-insurance-letter.eml.md",
+      "location": "Section 5, Recommendation 3",
+      "authority_type": "statute",
+      "authority": "Independent consequential-damages exclusion surviving failure of essential purpose (UCC § 2-719(3) issue, uncited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Whether an independent consequential damages exclusion survives failure of exclusive remedy is enforceable in key jurisdictions",
+      "quotes": [],
+      "context": "whether an independent consequential damages exclusion — one drafted to survive even if the exclusive remedy of repair or replacement fails of its essential purpose — is enforceable in CIT's key sales jurisdictions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.C.C. § 2-719(2)-(3); in Oregon, ORS 72.7190(2)-(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The letter cites no authority; it poses as an open legal question whether a stand-alone consequential-damages exclusion survives when the exclusive repair-or-replace remedy fails of its essential purpose. That is a real and recognized issue under UCC § 2-719(2) and (3), on which jurisdictions differ. The Eighth Circuit in Far East Aluminium Works v. Viracon, 27 F.4th 1361 (8th Cir. 2022), describes the Minnesota Supreme Court as having chosen a side 'after reviewing a split of authority on the question' and treats the exclusion as 'discrete and independent' in merchant-to-merchant sales of complex goods. Oregon's enactment (ORS 72.7190) is textually identical to UCC § 2-719(2)-(3). The framing as a jurisdiction-dependent question is accurate.",
+        "evidence_excerpt": "UCC § 2-719(3): \"Consequential damages may be limited or excluded unless the limitation or exclusion is unconscionable.\" Far East v. Viracon: \"The question for us is whether the alleged failure of the contract's exclusive remedy has any effect on the enforceability of the consequential-damages exclusion. ... After reviewing a split of authority on the question, the Minnesota Supreme Court chose a side.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors072.html",
+          "https://www.courtlistener.com/opinion/6449358/far-east-aluminium-works-co-v-viracon-inc/",
+          "https://www.courtlistener.com/opinion/1147249/young-v-hessel-tractor-equipment-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "stoneridge-insurance-letter.eml.md",
+      "location": "Section 3, Redmond Beverage matter",
+      "authority_type": "case",
+      "authority": "Redmond Beverage Distributors, Inc. v. CIT (pending matter, Springfield, Missouri)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "In-universe pending claim alleging reliance on 'promised' purity specs for consequential damages",
+      "quotes": [
+        "promised"
+      ],
+      "context": "The third — the pending matter involving Redmond Beverage Distributors, Inc. in Springfield, Missouri — involves $1,200,000 in alleged damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Matter's own in-universe pending claim of the fictional parties (CIT and Redmond)."
+    },
+    {
+      "ref": 29,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, cell K2 (Customer's Legal Theory)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Redmond's theory: sales presentation performance specs (99.5%) constitute express warranties",
+      "quotes": [],
+      "context": "(1) CIT sales presentation performance specifications (99.5% contaminant removal) constitute express warranties under UCC § 2-313",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-313(1)(a) provides that any affirmation of fact or promise by the seller relating to the goods that becomes part of the basis of the bargain creates an express warranty; (1)(b) does the same for descriptions of the goods; (2) says no formal words such as 'warrant' or 'guarantee' are needed. A customer's theory that a stated 99.5% contaminant-removal specification in a sales presentation is an express warranty is a correct invocation of the section. (The CIT warranty selects Oregon law, whose enactment is ORS 72.3130; citing the uniform section is standard practice.)",
+        "evidence_excerpt": "Any affirmation of fact or promise made by the seller to the buyer which relates to the goods and becomes part of the basis of the bargain creates an express warranty that the goods shall conform to the affirmation or promise.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, cell K2",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2)",
+      "citation_as_written": "UCC § 2-719(2)",
+      "pincite": "",
+      "cited_for": "Redmond's theory: exclusive repair/replacement remedy fails of its essential purpose; consequential damages exclusion dependent on the failed remedy",
+      "quotes": [],
+      "context": "(3) CIT's exclusive repair/replacement remedy fails of its essential purpose under UCC § 2-719(2) because repair did not compensate for losses incurred during period of sub-specification performance; (4) Consequential damages exclusion is unenforceable because it is dependent upon the exclusive remedy that failed of its essential purpose.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The cell reports the opposing party's legal theory and cites § 2-719(2) for the failure-of-essential-purpose argument. That is the correct subsection. The second step (the consequential damages exclusion falls with the failed remedy) is not in the statutory text but is a recognized 'dependent' line of cases; Chatlos describes roughly half the decisions as holding that the exclusion 'also falls', and Givan (Mo. App. 1978) says all other remedies become available. The citation is accurate for the theory as a party's position. Whether the theory succeeds is a separate merits question: Chatlos says a repair remedy is generally given effect so long as the buyer has substantially defect-free goods, and § 2-719(3) tests the exclusion by unconscionability.",
+        "evidence_excerpt": "§ 2-719(2): \"Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\" Chatlos: \"Several cases have held that when a limited remedy fails of its purpose, an exclusion of consequential damages also falls, but approximately the same number of decisions have treated that preclusion as a separate matter.\" (the opening words 'Several cases have held that when a limited remedy fails of its pur-' are reconstructed from a truncated search snippet; the remainder was read directly)",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/384715/chatlos-systems-inc-v-national-cash-register-corporation/",
+          "https://www.courtlistener.com/opinion/2450753/givan-v-mack-truck-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, cell L2 (CIT's Position)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719 (independent consequential damages exclusion; doctrine, uncited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "CIT's position: exclusive remedy did not fail of essential purpose; consequential damages exclusion independent and enforceable regardless of remedy status",
+      "quotes": [],
+      "context": "(4) Consequential damages exclusion is an independent provision enforceable regardless of remedy status.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No citation is given in the cell. The supporting authority would be UCC § 2-719(3), read with § 2-719(2); see, e.g., Chatlos Systems, Inc. v. National Cash Register Corp., 635 F.2d 1081 (3d Cir. 1980).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The cell records CIT's litigation position and cites nothing. The position is a recognized reading of § 2-719: subsection (2) governs failure of an exclusive remedy, while subsection (3) separately permits excluding consequential damages unless unconscionable. Chatlos (3d Cir. 1980, predicting New Jersey law) adopts this 'independent' view and notes that courts are roughly evenly split. It is a contested doctrine, not a settled rule: Missouri appellate authority I read leans the other way (Givan v. Mack Truck, 569 S.W.2d 243 (Mo. App. 1978): once the limited remedy fails, 'all other contractual remedies are available'). So the position is fairly stated as an arguable position with real support, not as controlling law in the Missouri forum. I did not survey Missouri law exhaustively.",
+        "evidence_excerpt": "§ 2-719(3): \"Consequential damages may be limited or excluded unless the limitation or exclusion is unconscionable.\" Chatlos: \"the better reasoned approach is to treat the consequential damage disclaimer as an independent provision, valid unless unconscionable. ... The former survives unless it fails of its essential purpose, while the latter is valid unless it is unconscionable.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/384715/chatlos-systems-inc-v-national-cash-register-corporation/",
+          "https://www.courtlistener.com/opinion/2450753/givan-v-mack-truck-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, cells N2, K2 and Claim Detail V173/K173 (WC-2024-063)",
+      "authority_type": "case",
+      "authority": "Redmond Beverage Distributors, Inc. v. Cascade Industrial Technologies (Circuit Court of Greene County, Missouri, filed 11/04/2024)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Pending litigation over AquaPure 7000 unit alleging sales-presentation specs are express warranties and consequential damages of $1,200,000",
+      "quotes": [],
+      "context": "Active Litigation — Pre-Discovery. Customer filed suit in Circuit Court of Greene County, Missouri on 11/04/2024. CIT answered 12/09/2024. Discovery scheduled to begin March 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe pending lawsuit between the fictional parties; part of the scenario's docket."
+    },
+    {
+      "ref": 33,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, Key Risk Indicator 4, cell H21",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2)",
+      "citation_as_written": "UCC § 2-719(2)",
+      "pincite": "",
+      "cited_for": "Customers explicitly arguing repair/replacement remedy fails of essential purpose",
+      "quotes": [],
+      "context": "Customers explicitly arguing repair/replacement remedy fails of essential purpose under UCC § 2-719(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The cell states that customers are arguing the repair/replacement remedy fails of its essential purpose under § 2-719(2). That is the UCC provision governing failure of essential purpose of an exclusive or limited remedy, so the citation is accurate for the stated argument.",
+        "evidence_excerpt": "\"(2) Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, Key Risk Indicator 5, cell H22",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Sales materials, quotation letters and verbal representations citing specific performance metrics could be construed as express warranties",
+      "quotes": [],
+      "context": "could be construed as express warranties under UCC § 2-313.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-313(1)(a)-(b) makes affirmations of fact, promises, and descriptions of the goods that become part of the basis of the bargain express warranties, and § 2-313(2) confirms no formal words or specific intent to warrant are required. Sales materials, quotation letters, and verbal representations citing specific performance metrics 'could be construed as express warranties' under that text; the hedged statement is accurate.",
+        "evidence_excerpt": "It is not necessary to the creation of an express warranty that the seller use formal words such as 'warrant' or 'guarantee' or that he have a specific intention to make a warranty",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, cell S2 (Insurance Coverage Notes)",
+      "authority_type": "other",
+      "authority": "Contractual liability exclusion in Northern Cascade Mutual Policy No. PLG-2024-08831",
+      "citation_as_written": "Policy No. PLG-2024-08831",
+      "pincite": "",
+      "cited_for": "Express warranty performance claims may be classified as contractual liability excluded under the policy",
+      "quotes": [
+        "contractual liability"
+      ],
+      "context": "claims based on alleged express warranty of performance specifications may be classified as 'contractual liability' excluded under the policy.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe insurance policy of the fictional client."
+    },
+    {
+      "ref": 36,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Summary sheet, N8 and Claim Detail V128 (failure of essential purpose, uncited)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2) doctrine (failure of essential purpose), cited without section number",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Claimants deemed repair/replacement remedy insufficient; suggests potential failure of essential purpose of exclusive remedy",
+      "quotes": [],
+      "context": "This suggests potential failure of essential purpose of the exclusive remedy under the current warranty framework.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-719(2) (the spreadsheet note states the doctrine without a section number; other cells in the same workbook cite § 2-719(2) expressly)",
+        "quote_check": "No attributed quotation.",
+        "explanation": "The spreadsheet note uses 'failure of essential purpose of the exclusive remedy' as a legal label for a pattern in the claims data. That doctrine exists at UCC § 2-719(2). The note is hedged ('suggests potential') and makes no claim about what the statute holds beyond naming the doctrine. A claimant deeming a remedy insufficient is not by itself a failure of essential purpose; the usual test is that the seller is unable or unwilling to repair or replace within a reasonable time. The note does not assert otherwise. In the text I read, the related claim-detail comment sits at cell V132, not V128 as the census location says.",
+        "evidence_excerpt": "(2) Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/10618994/dennis-speerly-v-general-motors-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "task.json.md",
+      "location": "rubric C-001, C-002, C-003, C-022, C-028, C-045",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313 (including § 2-313(1)(a) or (b))",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "2-313(1)(a) or (b) (C-022)",
+      "cited_for": "Marketing brochure, sales deck, oral sales instructions, quotation letter specs and numeric performance figures create express warranties",
+      "quotes": [],
+      "context": "yet the draft standard quotation letter includes specific performance specifications (99.97% contaminant removal and 98.5% annual uptime) that likely constitute express warranties under UCC § 2-313(1)(a) or (b)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-313(1)(a) covers affirmations of fact or promises relating to the goods and (1)(b) covers descriptions of the goods, each creating an express warranty when part of the basis of the bargain. Guarantee language in a brochure, a promise slide in a sales deck, oral sales statements, and numeric performance figures (99.97% removal, 98.5% uptime) in a quotation letter fit those categories, and the rubric's 'creates or likely creates' framing is appropriately hedged. The subsection references (1)(a) and (1)(b) exist and are correctly described.",
+        "evidence_excerpt": "(a) Any affirmation of fact or promise made by the seller to the buyer which relates to the goods and becomes part of the basis of the bargain creates an express warranty that the goods shall conform to the affirmation or promise. (b) Any description of the goods which is made part of the basis of the bargain creates an express warranty that the goods shall conform to the description.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "task.json.md",
+      "location": "rubric C-004",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316(1)",
+      "citation_as_written": "UCC § 2-316(1)",
+      "pincite": "",
+      "cited_for": "Express-warranty words and negating words construed as consistent where reasonable; negation inoperative to extent unreasonable",
+      "quotes": [],
+      "context": "under UCC § 2-316(1), words or conduct creating express warranties and words negating or limiting them are to be construed as consistent where reasonable, but that negation or limitation of express warranties is inoperative to the extent unreasonable",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed; paraphrase closely tracks the statutory text.",
+        "explanation": "§ 2-316(1) provides that express-warranty words/conduct and negating/limiting words/conduct are construed as consistent wherever reasonable, with negation or limitation inoperative to the extent such construction is unreasonable. The rubric's statement of the rule is accurate; its application (a later disclaimer cannot override marketing-created express warranties) is a reasonable reading, with the caveat that the statute makes the rule subject to the parol evidence rule in § 2-202, which the rubric does not mention.",
+        "evidence_excerpt": "Words or conduct relevant to the creation of an express warranty and words or conduct tending to negate or limit warranty shall be construed wherever reasonable as consistent with each other; but subject to the provisions of this Article on parol or extrinsic evidence (Section 2-202) negation or limitation is inoperative to the extent that such construction is unreasonable.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "task.json.md",
+      "location": "rubric C-006, C-007",
+      "authority_type": "statute",
+      "authority": "UCC § 1-201(b)(10)",
+      "citation_as_written": "UCC § 1-201(b)(10)",
+      "pincite": "",
+      "cited_for": "Source of conspicuousness requirement for warranty disclaimers",
+      "quotes": [],
+      "context": "PASS if the memo references UCC § 1-201(b)(10) (or its equivalent revised section) as the source of the conspicuousness requirement for warranty disclaimers.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-316(2) (operative conspicuousness requirement for disclaimers), read with UCC § 1-201(b)(10) (definition of \"conspicuous\")",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 1-201(b)(10) exists and is the Article 1 definition of \"conspicuous\" (reasonable-person notice standard, decided by the court, with examples for headings and body text). It supplies the conspicuousness standard applied to warranty disclaimers, so the rubric's reference is substantively sound. The loose point is the phrase \"source of the conspicuousness requirement\": the requirement that a disclaimer be conspicuous is imposed by § 2-316(2) (\"in case of a writing must be conspicuous\"), while § 1-201(b)(10) only defines the term. The rubric item's own title calls it the \"conspicuousness standard\", which is accurate. Text read is the current (revised Article 1) uniform text on LII; in pre-revision Article 1 the definition was § 1-201(10), which the rubric accommodates (\"or its equivalent revised section\").",
+        "evidence_excerpt": "(10) \"Conspicuous\", with reference to a term, means so written, displayed, or presented that a reasonable person against which it is to operate ought to have noticed it. Whether a term is \"conspicuous\" or not is a decision for the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/1/1-201",
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "task.json.md",
+      "location": "rubric C-010",
+      "authority_type": "case",
+      "authority": "Hill v. Gateway 2000",
+      "citation_as_written": "Hill v. Gateway 2000",
+      "pincite": "",
+      "cited_for": "Shrinkwrap/box-top terms enforceability case law",
+      "quotes": [],
+      "context": "potentially citing cases such as Hill v. Gateway 2000, ProCD v. Zeidenberg, Klocek v. Gateway, or discussing the doctrinal split on enforceability of terms first presented after purchase.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Hill v. Gateway 2000, Inc., 105 F.3d 1147 (7th Cir. 1997), cert. denied, 522 U.S. 808 (1997). The rubric gives the case name only.",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The case exists and is squarely about terms first delivered inside the box after a phone order. Judge Easterbrook, following ProCD, Inc. v. Zeidenberg, 86 F.3d 1447 (7th Cir. 1996), held that the terms shipped with the computer, including an arbitration clause, bound buyers who kept it beyond the 30-day return period. The court vacated the district court's decision and ordered arbitration. That is an accurate fit for the rubric's description of case law on enforceability of post-sale 'shrinkwrap' or 'box-top' terms. The rubric names the case without reporter, court or year, so only the name was checked against the reported decision.",
+        "evidence_excerpt": "\"A customer picks up the phone, orders a computer, and gives a credit card number. Presently a box arrives, containing the computer and a list of terms, said to govern unless the customer returns the computer within 30 days. Are these terms effective as the parties' contract ...?\" ... \"By keeping the computer beyond 30 days, the Hills accepted Gateway's offer, including the arbitration clause.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/734160/rich-hill-and-enza-hill-on-behalf-of-a-class-of-persons-similarly-situated/",
+          "https://www.courtlistener.com/opinion/9168042/hill-v-gateway-2000-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "task.json.md",
+      "location": "rubric C-010",
+      "authority_type": "case",
+      "authority": "ProCD v. Zeidenberg",
+      "citation_as_written": "ProCD v. Zeidenberg",
+      "pincite": "",
+      "cited_for": "Shrinkwrap/box-top terms enforceability case law",
+      "quotes": [],
+      "context": "potentially citing cases such as Hill v. Gateway 2000, ProCD v. Zeidenberg, Klocek v. Gateway",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "ProCD, Inc. v. Zeidenberg, 86 F.3d 1447 (7th Cir. 1996)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Real Seventh Circuit decision (Easterbrook, J.), cited in the rubric by name only as an example of shrinkwrap / terms-in-the-box case law. The opinion opens by asking whether buyers of software must obey shrinkwrap licenses and holds that they are enforceable unless objectionable on general contract grounds, treating the licenses as governed by the common law of contracts and the UCC. That is squarely the proposition. The written reference omits the reporter cite; full cite supplied.",
+        "evidence_excerpt": "Shrinkwrap licenses are enforceable unless their terms are objectionable on grounds applicable to contracts in general (for example, if they violate a rule of positive law, or if they are unconscionable).",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/720542/procd-inc-v-zeidenberg/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "task.json.md",
+      "location": "rubric C-010",
+      "authority_type": "case",
+      "authority": "Klocek v. Gateway",
+      "citation_as_written": "Klocek v. Gateway",
+      "pincite": "",
+      "cited_for": "Shrinkwrap/box-top terms enforceability case law",
+      "quotes": [],
+      "context": "potentially citing cases such as Hill v. Gateway 2000, ProCD v. Zeidenberg, Klocek v. Gateway",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Klocek v. Gateway, Inc., 104 F. Supp. 2d 1332 (D. Kan. 2000)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Real case, named without a reporter cite in the rubric. It is squarely a shrinkwrap/box-top terms decision: Gateway shipped its 'Standard Terms' (including an arbitration clause) inside the computer box with a five-day accept-by-retention notice. The court surveyed the split (Step-Saver, Arizona Retail vs. Hill v. Gateway 2000 and ProCD v. Zeidenberg), declined to follow Hill and ProCD, applied UCC § 2-207, and held the in-box terms did not become part of the contract absent the non-merchant buyer's express assent. It is properly grouped with Hill and ProCD as representing the doctrinal split on terms first presented after purchase.",
+        "evidence_excerpt": "\"State courts in Kansas and Missouri apparently have not decided whether terms received with a product become part of the parties' agreement. Authority from other courts is split.\" ... \"The Court is not persuaded that Kansas or Missouri courts would follow the Seventh Circuit reasoning in Hill and ProCD.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2503865/klocek-v-gateway-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "task.json.md",
+      "location": "rubric C-013, C-014",
+      "authority_type": "statute",
+      "authority": "UCC § 2-315",
+      "citation_as_written": "UCC § 2-315",
+      "pincite": "",
+      "cited_for": "Implied warranty of fitness for a particular purpose created by sales practices",
+      "quotes": [],
+      "context": "create implied warranties of fitness for a particular purpose under UCC § 2-315.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "UCC § 2-315 creates an implied warranty of fitness where the seller, at contracting, has reason to know the buyer's particular purpose and that the buyer is relying on the seller's skill or judgment to select suitable goods. The rubric's proposition (sales reps committing to performance outcomes for specific customer applications risks creating fitness-for-particular-purpose warranties) is a fair application of the section. Text read is the uniform (model) UCC on LII, not a specific state enactment.",
+        "evidence_excerpt": "Where the seller at the time of contracting has reason to know any particular purpose for which the goods are required and that the buyer is relying on the seller's skill or judgment to select or furnish suitable goods, there is unless excluded or modified under the next section an implied warranty that the goods shall be fit for such purpose.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-315"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "task.json.md",
+      "location": "rubric C-015",
+      "authority_type": "statute",
+      "authority": "Texas Business & Commerce Code § 2.316",
+      "citation_as_written": "Texas Business & Commerce Code § 2.316",
+      "pincite": "",
+      "cited_for": "Texas-specific disclaimer requirements for Triton Municipal deal",
+      "quotes": [],
+      "context": "such as Texas Business & Commerce Code § 2.316 or Texas governmental procurement rules",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Bus. & Com. Code § 2.316",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The section exists and is Texas's enactment of UCC § 2-316, governing exclusion or modification of warranties, so it is the correct statute for disclaimer requirements on a Texas sale. Caveat on the rubric's framing that it 'may differ from standard UCC provisions': subsections (a)-(d) track the uniform text; the only non-uniform additions are (e) (human blood and tissue) and (f) (livestock), neither relevant to water purification equipment. The hedged 'may differ' is therefore accurate only in that narrow sense. Text read from a public.law mirror that attributes the official Texas statutes site; the official site is a JavaScript application and could not be read directly.",
+        "evidence_excerpt": "(b) Subject to Subsection (c), to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._bus._&_com._code_section_2.316",
+          "https://statutes.capitol.texas.gov/Docs/BC/htm/BC.2.htm",
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "statute",
+      "authority": "California Song-Beverly Consumer Warranty Act, Cal. Civ. Code §§ 1790–1795.8",
+      "citation_as_written": "Cal. Civ. Code §§ 1790–1795.8",
+      "pincite": "",
+      "cited_for": "Potential applicability to Harmon Valley Agricultural Cooperative deal; more restrictive disclaimer limits than Article 2",
+      "quotes": [],
+      "context": "potential applicability of the California Song-Beverly Consumer Warranty Act (Cal. Civ. Code §§ 1790–1795.8)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is accurate. Section 1790 names the chapter the \"Song-Beverly Consumer Warranty Act,\" and the chapter's section list runs from § 1790 through § 1795.8 (§ 1796 begins the next chapter). The Act does restrict disclaimers more than UCC Article 2: § 1792.3 bars waiver of implied warranties except in strictly compliant \"as is\" sales, § 1792.4 prescribes the conspicuous writing required, § 1793 bars disclaiming implied warranties when an express warranty is given, § 1790.1 voids buyer waivers, and § 1790.3 makes the Act prevail over the Commercial Code. Caveat on applicability: § 1791(a) limits \"consumer goods\" to products bought \"primarily for personal, family, or household purposes\" and § 1791(b) defines \"buyer\" as an \"individual,\" so reaching a cooperative's purchase of industrial purification units is doubtful on the statutory text. The rubric frames this only as \"potential\" or \"arguable\" applicability to be flagged, which the statute supports as an issue to analyze, not as a conclusion. Statute text was read on a republisher that mirrors the official legislature site (which returned HTTP 403), and the § 1791(a)-(b) wording was corroborated in a California Court of Appeal opinion on CourtListener.",
+        "evidence_excerpt": "\"Consumer goods\" means any new product or part thereof that is used, bought, or leased for use primarily for personal, family, or household purposes, except for clothing and consumables.",
+        "source_urls": [
+          "https://california.public.law/codes/civil_code_section_1790",
+          "https://california.public.law/codes/civil_code_section_1791",
+          "https://california.public.law/codes/civil_code_section_1792.3",
+          "https://california.public.law/codes/civil_code_section_1792.4",
+          "https://california.public.law/codes/civil_code_section_1793",
+          "https://california.public.law/codes/civil_code_section_1795.8",
+          "https://www.courtlistener.com/opinion/2671943/mega-rv-corporation-v-hwh-corporation/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "task.json.md",
+      "location": "rubric C-017, C-030",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2) and § 2-719",
+      "citation_as_written": "UCC § 2-719(2)",
+      "pincite": "",
+      "cited_for": "Failure of essential purpose of exclusive repair/replacement remedy; exclusive remedy and limitation of liability",
+      "quotes": [],
+      "context": "under UCC § 2-719(2), if the exclusive remedy of repair or replacement fails of its essential purpose",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation. The rubric's paraphrase \"fails of its essential purpose\" tracks the statutory wording \"fail of its essential purpose\" in § 2-719(2).",
+        "explanation": "UCC § 2-719(2) provides that where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in the Act. § 2-719(1) authorizes exclusive repair/replacement remedies and limits on damages, and § 2-719(3) governs consequential-damages exclusions. The rubric's use of § 2-719(2) for failure of essential purpose and § 2-719 generally for exclusive remedy and limitation of liability is accurate. The further statement that the buyer may then pursue consequential damages, 'potentially' defeating the exclusion, is a hedged statement of the case-law gloss (courts are split), not of the statutory text itself.",
+        "evidence_excerpt": "(2) Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "task.json.md",
+      "location": "rubric C-029, C-044",
+      "authority_type": "statute",
+      "authority": "UCC § 2-316 and § 2-316(2)",
+      "citation_as_written": "UCC § 2-316(2)",
+      "pincite": "",
+      "cited_for": "Disclaimer requirements; merchantability disclaimer must mention 'merchantability' and be conspicuous",
+      "quotes": [
+        "merchantability"
+      ],
+      "context": "under UCC § 2-316(2), a disclaimer of the implied warranty of merchantability must mention the word 'merchantability' and, if in writing, must be conspicuous.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"merchantability\" — found verbatim in § 2-316(2) (\"the language must mention merchantability\").",
+        "explanation": "§ 2-316 is the exclusion/modification-of-warranties section, and subsection (2) states exactly the rule cited: a merchantability disclaimer must mention merchantability and, if in a writing, be conspicuous (subject to subsection (3)). It also covers fitness disclaimers, matching rubric C-029.",
+        "evidence_excerpt": "Subject to subsection (3), to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "task.json.md",
+      "location": "rubric C-031",
+      "authority_type": "statute",
+      "authority": "UCC § 2-314",
+      "citation_as_written": "UCC § 2-314",
+      "pincite": "",
+      "cited_for": "Implied warranty of merchantability",
+      "quotes": [],
+      "context": "discusses the implied warranty of merchantability under UCC § 2-314",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-314 is headed 'Implied Warranty: Merchantability; Usage of Trade', and subsection (1) implies a warranty of merchantability in a contract for sale where the seller is a merchant with respect to goods of that kind. The citation correctly identifies the section as the source of the implied warranty of merchantability.",
+        "evidence_excerpt": "Unless excluded or modified (Section 2-316), a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "task.json.md",
+      "location": "rubric C-021",
+      "authority_type": "statute",
+      "authority": "Magnuson-Moss Warranty Act (and antitrust tying law), uncited",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Conditioning warranty coverage on sole-source replacement cartridges raises tying and MMWA concerns",
+      "quotes": [],
+      "context": "including potential tying concerns under antitrust law or Magnuson-Moss Warranty Act implications",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 2302(c) (Magnuson-Moss tie-in prohibition); for antitrust tying, Clayton Act § 3, 15 U.S.C. § 14 (and Sherman Act § 1, 15 U.S.C. § 1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric cites no specific provision but refers to 'tying concerns under antitrust law or Magnuson-Moss Warranty Act implications' from conditioning warranty coverage on use of the seller's own replacement cartridges. Both bodies of law exist and address that conduct. Section 2302(c) forbids a warrantor of a consumer product from conditioning a written or implied warranty on the consumer's use of an article or service identified by brand, trade, or corporate name (unless provided free under the warranty or the FTC grants a waiver). Clayton Act § 3 reaches sales of goods conditioned on the buyer not using a competitor's goods where competition may be substantially lessened. Caveat for the reader: § 2302(c) applies only to 'consumer products,' so its reach to CIT's industrial systems depends on the same threshold question the 2021 memo treats as unlikely; the rubric's 'potential' phrasing accommodates that.",
+        "evidence_excerpt": "15 U.S.C. § 2302(c): \"No warrantor of a consumer product may condition his written or implied warranty of such product on the consumer's using, in connection with such product, any article or service (other than article or service provided without charge under the terms of the warranty) which is identified by brand, trade, or corporate name\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/2302",
+          "https://www.law.cornell.edu/uscode/text/15/14"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "task.json.md",
+      "location": "rubric C-018",
+      "authority_type": "other",
+      "authority": "Case law split on whether consequential damages exclusion is independent of or dependent on exclusive remedy (UCC § 2-719(2)/(3) doctrine)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Courts split on whether a consequential damages limitation survives failure of the exclusive remedy's essential purpose",
+      "quotes": [],
+      "context": "PASS if the memo discusses the case law split or legal question of whether a consequential damages limitation clause is treated as independent of the exclusive remedy clause (surviving even if the exclusive remedy fails of its essential purpose) or dependent on it (falling with the failed exclusive remedy).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "E.g., Kearney & Trecker Corp. v. Master Engraving Co., 107 N.J. 584, 527 A.2d 429 (1987) (surveying both lines of authority; adopting the independent view); Sanchelima Int'l, Inc. v. Walker Stainless Equip. Co., 920 F.3d 1141 (7th Cir. 2019) (describing \"dependent\" and \"independent\" approaches; Wisconsin follows the dependent approach); R.W. Murray Co. v. Shatterproof Glass Corp., 758 F.2d 266, 272-73 & n.7 (8th Cir. 1985) (Missouri law; dependent result)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The split is real and is described in those terms by the courts. Kearney & Trecker states that courts considering a consequential-damages exclusion alongside a failed repair-or-replace remedy \"have reached significantly different results,\" then lists the cases treating the exclusion as integrally tied to the limited remedy (it falls with the remedy) and, \"in sharp contrast,\" those treating it as independent. Sanchelima (7th Cir. 2019) uses the labels \"dependent approach\" and \"independent approach\" and reports that most state courts now follow the independent approach. Far East Aluminium Works v. Viracon, 27 F.4th 1361 (8th Cir. 2022), likewise refers to \"a split of authority on the question.\" The rubric cites no case, so there is no citation to correct; the cases listed are examples I confirmed.",
+        "evidence_excerpt": "A substantial number of courts seem to have adopted the view that there is an integral relationship between the exclusion of consequential damages and the limited remedy of repair or replacement, so that the failure of the limited remedy necessarily causes the invalidation of the exclusion of consequential damages.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1982635/kearney-trecker-corp-v-master-engraving-co/",
+          "https://www.courtlistener.com/opinion/8443953/sanchelima-intl-inc-v-walker-stainless-equip-co/",
+          "https://www.courtlistener.com/opinion/6449358/far-east-aluminium-works-co-v-viracon-inc/",
+          "https://www.courtlistener.com/opinion/8939463/rw-murray-co-v-shatterproof-glass-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "task.json.md",
+      "location": "rubric C-019 (ISSUE_008, software warranty gap)",
+      "authority_type": "statute",
+      "authority": "UCC Article 2 (application to tangible 'goods' vs. software)",
+      "citation_as_written": "UCC Article 2",
+      "pincite": "",
+      "cited_for": "Article 2 has historically applied to tangible goods, so software may fall outside it",
+      "quotes": [],
+      "context": "software is arguably neither 'materials' nor 'workmanship,' and UCC Article 2 has historically applied to tangible 'goods.'",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCC §§ 2-102 (scope: 'transactions in goods') and 2-105(1) (definition of 'goods')",
+        "quote_check": "No quotation attributed (the single word 'goods' is the Article 2 term and appears in §§ 2-102 and 2-105).",
+        "explanation": "Supported. § 2-102 limits Article 2 to 'transactions in goods', and § 2-105(1) defines goods as things 'movable at the time of identification to the contract for sale', excluding things in action. The uncertainty over software is corroborated by Specht v. Netscape Communications Corp., 306 F.3d 17 (2d Cir. 2002), n.13: 'It is not obvious, however, that UCC Article 2 (\"sales of goods\") applies to the licensing of software that is downloadable from the Internet' and 'Downloadable software, however, is scarcely a \"tangible\" good'. The rubric's 'arguably' and 'historically' are fair: Specht also notes some courts have applied Article 2 to packaged off-the-shelf software.",
+        "evidence_excerpt": "\"Goods\" means all things (including specially manufactured goods) which are movable at the time of identification to the contract for sale other than the money in which the price is to be paid, investment securities (Article 8) and things in action.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-105",
+          "https://www.law.cornell.edu/ucc/2/2-102",
+          "https://www.courtlistener.com/opinion/779363/specht-v-netscape-communications-corporation/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "task.json.md",
+      "location": "rubric C-015 (Texas / Triton Municipal)",
+      "authority_type": "other",
+      "authority": "Texas governmental procurement rules",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Texas procurement requirements for sales to a governmental entity may differ from standard UCC provisions",
+      "quotes": [],
+      "context": "flags Texas-specific warranty or procurement requirements that may differ from standard UCC provisions, such as Texas Business & Commerce Code § 2.316 or Texas governmental procurement rules.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No specific provision is cited. Candidates: Tex. Local Gov't Code ch. 252 (municipal purchasing); Tex. Water Code § 49.273 (water district contract awards); Tex. Gov't Code ch. 2155 (state agency purchasing)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Generic reference to a body of law rather than a citation. The hedged proposition, that Texas procurement requirements for sales to a governmental entity may differ from standard UCC provisions, is supported in a general sense: Texas imposes competitive bidding, notice, and best-value award requirements on governmental purchases that have no UCC counterpart. Which statute applies depends on what kind of entity the fictional water authority is (municipality, water district, or other). Limit of this verification: none of the provisions I read is a warranty or disclaimer rule, so this confirms only that procurement rules exist and differ from the UCC, not that they alter disclaimer law (see ref 66).",
+        "evidence_excerpt": "The board shall contract for construction and repair and renovation of district facilities and for the purchase of equipment, materials, machinery, and all things that constitute or will constitute the plant, works, facilities, or improvements of the district in accordance with this section.",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._water_code_section_49.273",
+          "https://texas.public.law/statutes/tex._local_gov't_code_section_252.021",
+          "https://texas.public.law/statutes/tex._local_gov't_code_section_252.043",
+          "https://texas.public.law/statutes/tex._gov't_code_section_2155.074"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "task.json.md",
+      "location": "rubric C-001 (and other criteria), 'UCC § 2-313(1)(a) or (b)' criterion",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313(1)(a), (b)",
+      "citation_as_written": "UCC § 2-313(1)(a) or (b)",
+      "pincite": "(1)(a), (b)",
+      "cited_for": "Quotation letter performance specs constitute express warranties as affirmations of fact or descriptions of goods",
+      "quotes": [],
+      "context": "specific performance specifications (99.97% contaminant removal and 98.5% annual uptime) that likely constitute express warranties under UCC § 2-313(1)(a) or (b)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The pin cite is accurate: § 2-313(1)(a) is the affirmation-of-fact-or-promise subsection and § 2-313(1)(b) is the description-of-the-goods subsection. Specific quantitative performance specifications in a quotation letter are reasonably characterized as affirmations of fact or descriptions of the goods that 'likely constitute' express warranties if part of the basis of the bargain.",
+        "evidence_excerpt": "(b) Any description of the goods which is made part of the basis of the bargain creates an express warranty that the goods shall conform to the description.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Pending Claims & Exposure sheet, cell K2 clause (4)",
+      "authority_type": "other",
+      "authority": "Dependent-consequential-damages-exclusion doctrine (UCC § 2-719(2)/(3)), uncited",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Consequential damages exclusion is unenforceable because it is dependent upon the exclusive remedy that failed of its essential purpose",
+      "quotes": [],
+      "context": "(4) Consequential damages exclusion is unenforceable because it is dependent upon the exclusive remedy that failed of its essential purpose.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-719(2)-(3) (Mo. Ann. Stat. § 400.2-719); e.g., R.W. Murray Co. v. Shatterproof Glass Corp., 758 F.2d 266, 272-73 (8th Cir. 1985) (Missouri law), relying on Givan v. Mack Truck, Inc., 569 S.W.2d 243, 247-48 (Mo. Ct. App. 1978); see also Kearney & Trecker Corp. v. Master Engraving Co., 107 N.J. 584, 527 A.2d 429 (1987) (collecting dependent-view cases)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The spreadsheet cell records the claimant's legal theory in the Missouri (Redmond) dispute, with no authority cited. The theory is a recognized one: the \"dependent\" view, under which a consequential-damages exclusion falls when the exclusive remedy fails of its essential purpose. The Eighth Circuit applied that result under Missouri law in R.W. Murray, upholding as reasonable the district court's reading of Givan v. Mack Truck that consequential damages are recoverable despite a contractual disclaimer once the limited remedy fails. It is one side of a split: footnote 7 of R.W. Murray acknowledges contrary decisions such as Chatlos, and Sanchelima (7th Cir. 2019) reports that most states now follow the independent approach. The adjoining cell (L2) states the opposing, independent-clause position. I read Givan only as quoted in R.W. Murray, not directly, and did not check for later Missouri authority.",
+        "evidence_excerpt": "Accordingly, we conclude that consequential damages were recoverable since Shatterproof's limited and exclusive warranty failed of its essential purpose.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8939463/rw-murray-co-v-shatterproof-glass-corp/",
+          "https://www.courtlistener.com/opinion/1982635/kearney-trecker-corp-v-master-engraving-co/",
+          "https://www.courtlistener.com/opinion/8443953/sanchelima-intl-inc-v-walker-stainless-equip-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Claim Detail sheet, cell V132 (settlement of $145,000)",
+      "authority_type": "other",
+      "authority": "Failure of essential purpose doctrine (UCC § 2-719(2)), uncited",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Customer's counsel argued failure to timely repair constituted failure of essential purpose of exclusive remedy, entitling customer to consequential damages",
+      "quotes": [],
+      "context": "Customer's counsel argued that CIT's failure to timely repair constituted failure of essential purpose of exclusive remedy, entitling customer to consequential damages.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.C.C. § 2-719(2) (uncited in the spreadsheet; the doctrine is correctly identified).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The spreadsheet reports customer counsel's argument that failure to timely repair caused the exclusive remedy to fail of its essential purpose, opening the way to consequential damages. That is an accurate statement of a recognized argument under § 2-719(2). The Tennessee Supreme Court in Milan Supply Chain Solutions v. Navistar (2021) describes the seller's inability or unwillingness to repair within a reasonable time as the most common way a repair-or-replace remedy fails. Murray v. Holiday Rambler, Inc., 83 Wis. 2d 406, 265 N.W.2d 513 (Wis. 1978), holds that once the exclusive remedy fails the buyer may recover consequential damages as though the limitation had never existed. One caveat: Murray itself notes a contrary Missouri decision, so whether a separate consequential-damages exclusion survives is contested across jurisdictions. Since the document presents this only as counsel's argument, that does not undercut it.",
+        "evidence_excerpt": "U.C.C. § 2-719(2): \"Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\" Milan Supply v. Navistar (Tenn. 2021): \"The most common circumstance of a repair and replacement remedy failing of its essential purpose is if 'the seller is unwilling or unable to repair the defective goods within a reasonable period of time.'\" Murray v. Holiday Rambler: \"when the exclusive contractual remedy fails, the buyer may recover consequential damages under sec. 402.715, Stats., as though the limitation had never existed.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/1719950/murray-v-holiday-rambler-inc/",
+          "https://www.courtlistener.com/opinion/4904702/milan-supply-chain-solutions-inc-fka-milan-express-inc-v-navistar/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "warranty-claims-summary-fy22-fy24.xlsx.md",
+      "location": "Summary sheet, cell H16 (performance spec disputes)",
+      "authority_type": "other",
+      "authority": "Failure of essential purpose doctrine (UCC § 2-719(2)), uncited",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Performance spec disputes likely to generate consequential damage assertions and 'failure of essential purpose' arguments",
+      "quotes": [
+        "failure of essential purpose"
+      ],
+      "context": "These are the claims most likely to generate consequential damage assertions and 'failure of essential purpose' arguments.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.C.C. § 2-719(2) (uncited in the spreadsheet; the doctrine is correctly identified).",
+        "quote_check": "\"failure of essential purpose\": not verbatim in U.C.C. § 2-719(2), which reads \"fail of its essential purpose.\" The spreadsheet uses the phrase in scare quotes as a doctrine label and does not attribute it to the statute. Found verbatim as the doctrine's name in Milan Supply Chain Solutions v. Navistar (Tenn. 2021) (\"Failure of essential purpose as codified in Tennessee Code Annotated section 47-2-719\") and as the section heading \"III. Failure of Essential Purpose\" in Buddy's Plant Plus Corp. v. Viking Masek (Wis. Ct. App. 2025).",
+        "explanation": "The spreadsheet's observation that performance-specification disputes tend to produce consequential-damage claims and 'failure of essential purpose' arguments correctly names a real doctrine under § 2-719(2). Courts use that exact label and treat the doctrine as the route by which a buyer escapes an exclusive repair-or-replace remedy and seeks consequential damages (Murray v. Holiday Rambler). The statement that such disputes are 'most likely' to generate these arguments is a business prediction, not a legal proposition, and was not checked.",
+        "evidence_excerpt": "U.C.C. § 2-719(2): \"Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\" Milan Supply v. Navistar: \"Failure of essential purpose as codified in Tennessee Code Annotated section 47-2-719 'is concerned with the essential purpose of the remedy chosen by the parties, not with the essential purpose of the code or of contract law, or of justice and/or equity.'\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/4904702/milan-supply-chain-solutions-inc-fka-milan-express-inc-v-navistar/",
+          "https://www.courtlistener.com/opinion/10644397/buddys-plant-plus-corporation-v-viking-masek-global-packaging/",
+          "https://www.courtlistener.com/opinion/1719950/murray-v-holiday-rambler-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "cit-standard-limited-warranty.docx.md",
+      "location": "Section 5, Disclaimer of Warranties, second paragraph",
+      "authority_type": "statute",
+      "authority": "UCC § 2-314 (implied warranty of merchantability)",
+      "citation_as_written": "UCC § 2-314",
+      "pincite": "",
+      "cited_for": "Seller disclaims the implied warranty of merchantability",
+      "quotes": [],
+      "context": "SELLER SPECIFICALLY DISCLAIMS ALL IMPLIED WARRANTIES, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTY OF MERCHANTABILITY UNDER UCC § 2-314 AND THE IMPLIED WARRANTY OF FITNESS FOR A PARTICULAR PURPOSE UNDER UCC § 2-315",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The disclaimer clause cites § 2-314 only to identify the warranty being disclaimed, and § 2-314(1) is the source of the implied warranty of merchantability. The section itself contemplates exclusion or modification by cross-reference to § 2-316, which supplies the disclaimer mechanics; the clause does not cite § 2-314 for those mechanics. (The warranty selects Oregon law, whose enactment is ORS 72.3140; referring to the uniform section number in contract text is conventional.)",
+        "evidence_excerpt": "Unless excluded or modified (Section 2-316), a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "cit-standard-limited-warranty.docx.md",
+      "location": "Section 5, Disclaimer of Warranties, second paragraph",
+      "authority_type": "statute",
+      "authority": "UCC § 2-315 (implied warranty of fitness for a particular purpose)",
+      "citation_as_written": "UCC § 2-315",
+      "pincite": "",
+      "cited_for": "Seller disclaims the implied warranty of fitness for a particular purpose",
+      "quotes": [],
+      "context": "THE IMPLIED WARRANTY OF MERCHANTABILITY UNDER UCC § 2-314 AND THE IMPLIED WARRANTY OF FITNESS FOR A PARTICULAR PURPOSE UNDER UCC § 2-315, TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The warranty document identifies UCC § 2-315 as the source of the implied warranty of fitness for a particular purpose that it disclaims. § 2-315 is that section (titled 'Implied Warranty: Fitness for Particular Purpose') and it expressly contemplates exclusion or modification under § 2-316. Citation is accurate.",
+        "evidence_excerpt": "§ 2-315. Implied Warranty: Fitness for Particular Purpose. ... there is unless excluded or modified under the next section an implied warranty that the goods shall be fit for such purpose.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-315"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "cit-standard-limited-warranty.docx.md",
+      "location": "Section 7.1, Governing Law",
+      "authority_type": "statute",
+      "authority": "Oregon's enactment of the Uniform Commercial Code",
+      "citation_as_written": "Oregon's enactment of the Uniform Commercial Code",
+      "pincite": "",
+      "cited_for": "Warranty governed by Oregon law including Oregon UCC",
+      "quotes": [],
+      "context": "This Warranty shall be governed by and construed in accordance with the laws of the State of Oregon, including Oregon's enactment of the Uniform Commercial Code, without regard to its conflict of laws principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Oregon Uniform Commercial Code, ORS chapters 71-79; sales of goods at ORS chapter 72 (ORS 72.1010 et seq.)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a governing-law clause in the warranty document, not a legal proposition. Oregon has enacted the UCC; Article 2 is codified as ORS chapter 72, which by its own short-title provision 'may be cited as Uniform Commercial Code-Sales,' and it contains the warranty-disclaimer and remedy-limitation provisions relevant to the task (ORS 72.3160, 72.7190). The reference is generic (no section cited) but accurate. I read chapter 72 directly; the broader chapter range for the full Oregon UCC is given for orientation and was not separately read.",
+        "evidence_excerpt": "ORS 72.1010: \"This chapter may be cited as Uniform Commercial Code—Sales.\" ORS 72.3160(2): \"To exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors072.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "cit-standard-limited-warranty.docx.md",
+      "location": "Section 7.1, Governing Law",
+      "authority_type": "other",
+      "authority": "United Nations Convention on Contracts for the International Sale of Goods",
+      "citation_as_written": "The United Nations Convention on Contracts for the International Sale of Goods",
+      "pincite": "",
+      "cited_for": "CISG excluded from application to the warranty and sale",
+      "quotes": [],
+      "context": "The United Nations Convention on Contracts for the International Sale of Goods shall not apply to this Warranty or the sale of the Products.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United Nations Convention on Contracts for the International Sale of Goods (Vienna, 1980), art. 6",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The Convention exists under exactly the name used in the warranty. Article 6 expressly lets parties exclude its application, so a clause stating the CISG \"shall not apply\" is a use the treaty itself permits. The warranty clause cites no article, but none is needed for an opt-out clause.",
+        "evidence_excerpt": "Article 6. The parties may exclude the application of this Convention or, subject to article 12, derogate from or vary the effect of any of its provisions.",
+        "source_urls": [
+          "https://uncitral.un.org/sites/uncitral.un.org/files/media-documents/uncitral/en/19-09951_e_ebook.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Rachel Ogilvie assignment, intro to memo scope and item 1 (Current Warranty Framework Compliance)",
+      "authority_type": "statute",
+      "authority": "UCC § 1-201(b)(10) (definition of conspicuous)",
+      "citation_as_written": "§ 1-201(b)(10)",
+      "pincite": "",
+      "cited_for": "Whether the disclaimer in same font size is 'conspicuous' under the UCC definition",
+      "quotes": [
+        "conspicuous"
+      ],
+      "context": "I've read § 1-201(b)(10), and I'm not confident that a court would find our current formatting \"conspicuous\" — especially for a product at this price point with these performance representations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"conspicuous\" - found verbatim in UCC § 1-201(b)(10) (the defined term, and again in \"Whether a term is 'conspicuous' or not is a decision for the court\").",
+        "explanation": "§ 1-201(b)(10) defines \"conspicuous\" and is the correct provision for asking whether a disclaimer printed in the same font size as surrounding text qualifies. Subparagraph (B) lists body language as conspicuous when in larger type than the surrounding text, or in contrasting type, font, or color to surrounding text of the same size, or set off by symbols or marks. A same-size disclaimer therefore depends on contrast or set-off, so the author's doubt about same-font-size formatting is a fair reading of the definition. The listed examples are illustrative (\"Conspicuous terms include the following\"), and the ultimate test is the reasonable-person standard decided by the court.",
+        "evidence_excerpt": "(B) language in the body of a record or display in larger type than the surrounding text, or in contrasting type, font, or color to the surrounding text of the same size, or set off from surrounding text of the same size by symbols or other marks that call attention to the language.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/1/1-201"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Assignment, discussion of Birchwood 2021 memo gaps (bullet 3)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313 (express warranties)",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Interaction between marketing materials, sales conduct, and express warranty creation",
+      "quotes": [],
+      "context": "It did not address the interaction between marketing materials, sales conduct, and express warranty creation under UCC § 2-313 — which, given the \"Total Performance Guarantee\" branding ... is now the central issue.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-313 is the section governing creation of express warranties by affirmation, promise, description, or sample, so it is the correct statutory home for the question of how marketing materials and sales conduct create express warranties. Subsection (2) also draws the line between warranty-creating affirmations and mere opinion or commendation, which is the puffery question the marketing issue raises.",
+        "evidence_excerpt": "§ 2-313. Express Warranties by Affirmation, Promise, Description, Sample. (1) Express warranties by the seller are created as follows: (a) Any affirmation of fact or promise made by the seller to the buyer which relates to the goods and becomes part of the basis of the bargain creates an express warranty",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Assignment item 2, Express Warranty Creation Through Marketing and Sales Materials",
+      "authority_type": "statute",
+      "authority": "UCC § 2-313 (express warranties; basis of the bargain)",
+      "citation_as_written": "UCC § 2-313",
+      "pincite": "",
+      "cited_for": "Whether brochure, deck, quotation letter template and sales memo create express warranties; specifications as part of the 'basis of the bargain'",
+      "quotes": [
+        "basis of the bargain"
+      ],
+      "context": "Analyze whether the \"Total Performance Guarantee\" marketing brochure, the sales presentation deck, the draft quotation letter template, and the sales team instruction memo (January 8, 2025) individually or collectively create express warranties under UCC § 2-313.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"basis of the bargain\" - found verbatim in § 2-313(1)(a) ('becomes part of the basis of the bargain'), (1)(b) and (1)(c) ('is made part of the basis of the bargain').",
+        "explanation": "UCC § 2-313(1) conditions express warranty creation on the affirmation, promise, description, or sample becoming part of the 'basis of the bargain'. Asking whether a brochure, sales deck, quotation letter template, and sales instructions create express warranties, and whether their specifications are part of the basis of the bargain, correctly frames the statutory test.",
+        "evidence_excerpt": "Any description of the goods which is made part of the basis of the bargain creates an express warranty that the goods shall conform to the description.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-313"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Assignment item 5, Warranty Claims Trend and Remedy Durability",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(2) (failure of essential purpose)",
+      "citation_as_written": "§ 2-719(2)",
+      "pincite": "(2)",
+      "cited_for": "If exclusive remedy fails of its essential purpose, consequential damages exclusion may fall with it",
+      "quotes": [
+        "fails of its essential purpose"
+      ],
+      "context": "If a court finds the exclusive remedy \"fails of its essential purpose\" under § 2-719(2), the consequential damages exclusion may fall with it.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-719(2) (\"fail of its essential purpose\"); strict quotation form would be \"fail[s] of its essential purpose\".",
+        "quote_check": "\"fails of its essential purpose\": found with a one-letter difference in § 2-719(2). The statute reads \"to fail of its essential purpose\"; the email conjugates the verb to 'fails' inside the quotation marks without brackets.",
+        "explanation": "The citation and proposition are sound. § 2-719(2) is the failure-of-essential-purpose provision, and the statement that the consequential damages exclusion 'may fall with it' is a hedged, accurate description of a real split of authority (Chatlos notes about half the decisions hold the exclusion also falls; Givan, a Missouri appellate case, held all other remedies become available). The only defect is the trivial inflection inside the quoted term of art, which does not change meaning. I classified it as a minor defect because the quoted string is not verbatim; a reviewer applying a looser standard for conjugated terms of art could reasonably treat this as fully verified.",
+        "evidence_excerpt": "\"(2) Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://www.courtlistener.com/opinion/384715/chatlos-systems-inc-v-national-cash-register-corporation/",
+          "https://www.courtlistener.com/opinion/2450753/givan-v-mack-truck-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Assignment item 3, California / Harmon Valley",
+      "authority_type": "statute",
+      "authority": "California consumer warranty statutes (unspecified)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Whether California consumer/enhanced warranty statutes could reach the co-op transaction (no specific statute cited)",
+      "quotes": [],
+      "context": "Check whether any of the consumer warranty statutes could reach this transaction. California's enhanced warranty statutes may have broader applicability than we'd assume for what looks on its face like a B2B sale.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Song-Beverly Consumer Warranty Act, Cal. Civ. Code §§ 1790–1795.8",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The email cites no specific statute and states no rule; it asks the associate to check whether California consumer warranty statutes could reach the co-op sale. Such a statute exists: the Song-Beverly Consumer Warranty Act, Cal. Civ. Code § 1790 et seq. \"Enhanced warranty statutes\" is not a statutory term; in the email it appears to refer loosely to California's consumer warranty regime. On the question posed, the Act's text points against coverage of a business-to-business sale: \"consumer goods\" are limited to goods for personal, family, or household purposes (§ 1791(a)) and a \"buyer\" is an \"individual\" (§ 1791(b)), wording confirmed in Mega RV Corp. v. HWH Corp., 225 Cal. App. 4th 1318 (2014). The email's hedged suggestion (\"may have broader applicability\") is a research prompt and not a misstatement of law. I did not survey other California statutes the email might have had in mind.",
+        "evidence_excerpt": "This chapter may be cited as the \"Song-Beverly Consumer Warranty Act.\"",
+        "source_urls": [
+          "https://california.public.law/codes/civil_code_section_1790",
+          "https://california.public.law/codes/civil_code_section_1791",
+          "https://www.courtlistener.com/opinion/2671943/mega-rv-corporation-v-hwh-corporation/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Assignment item 3, Texas / Triton Municipal Water Authority",
+      "authority_type": "statute",
+      "authority": "Texas government procurement warranty rules (unspecified)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Whether Texas has specific warranty rules for government procurement contracts differing from UCC",
+      "quotes": [],
+      "context": "Look at whether Texas has specific warranty rules for government procurement contracts that differ from standard UCC provisions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Not a citation: the assigning partner poses a research question ('Look at whether Texas has specific warranty rules for government procurement contracts') based on a vague recollection, and names no statute or rule. Texas plainly has governmental procurement statutes (I read Tex. Local Gov't Code §§ 252.021 and 252.043, Tex. Water Code § 49.273, and Tex. Gov't Code § 2155.074), but none of the provisions I read is a warranty or disclaimer rule that departs from Bus. & Com. Code § 2.316, and a web search did not surface a Texas statute barring or restricting warranty disclaimers in sales to governmental entities. I cannot confirm or rule out that such a rule exists; the search was not exhaustive (for example, I did not review Texas constitutional limits on municipal indemnity or liability-limitation clauses, or agency standard terms).",
+        "evidence_excerpt": "Before a municipality may enter into a contract that requires an expenditure of more than $50,000 from one or more municipal funds, the municipality must: (1) comply with the procedure prescribed by this subchapter and Subchapter C for competitive sealed bidding or competitive sealed proposals",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._local_gov't_code_section_252.021",
+          "https://texas.public.law/statutes/tex._local_gov't_code_section_252.043",
+          "https://texas.public.law/statutes/tex._water_code_section_49.273",
+          "https://texas.public.law/statutes/tex._gov't_code_section_2155.074"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "aquapure-max-9000-sales-deck.pptx.md",
+      "location": "Slide 8, Application — Municipal Water Treatment",
+      "authority_type": "statute",
+      "authority": "EPA Safe Drinking Water Act",
+      "citation_as_written": "EPA Safe Drinking Water Act",
+      "pincite": "",
+      "cited_for": "Marketing claim that the product meets and exceeds all SDWA standards",
+      "quotes": [],
+      "context": "Meets and exceeds all EPA Safe Drinking Water Act standards",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Safe Drinking Water Act, 42 U.S.C. § 300f et seq. (Title XIV of the Public Health Service Act); implementing standards at 40 C.F.R. Part 141",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Safe Drinking Water Act is a real federal statute, codified at 42 U.S.C. § 300f et seq. It is an Act of Congress administered by EPA, so \"EPA Safe Drinking Water Act standards\" is informal marketing phrasing for EPA's national primary drinking water regulations issued under the Act; that is a naming looseness, not a citation error. The Act and its regulations set standards for public water systems. Whether the product \"meets and exceeds all\" of them is a factual performance claim the statute cannot confirm.",
+        "evidence_excerpt": "This subchapter is known as the \"Safe Drinking Water Act\", see note set out under section 201 of this title.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/300f",
+          "https://www.law.cornell.edu/cfr/text/40/141.2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "aquapure-max-9000-sales-deck.pptx.md",
+      "location": "Slide 10, Application — Pharmaceutical Manufacturing",
+      "authority_type": "regulation",
+      "authority": "21 CFR Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Marketing claim that AquaMonitor v3.2 provides 21 CFR Part 11 compliant data logging",
+      "quotes": [],
+      "context": "AquaMonitor v3.2 provides 21 CFR Part 11 compliant data logging",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Part 11 (\"Electronic Records; Electronic Signatures\") is a real FDA regulation that sets the criteria under which FDA treats electronic records and signatures as trustworthy and equivalent to paper, including time-stamped audit-trail controls in § 11.10(e). It is the regulation a pharmaceutical-sector \"compliant data logging\" claim would refer to, so the reference is accurate and apt. Whether AquaMonitor v3.2 actually complies is a factual product claim, not something the regulation can confirm; Part 11 imposes requirements on regulated records and does not certify products.",
+        "evidence_excerpt": "The regulations in this part set forth the criteria under which the agency considers electronic records, electronic signatures, and handwritten signatures executed to electronic records to be trustworthy, reliable, and generally equivalent to paper records and handwritten signatures executed on paper.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/21/11.1",
+          "https://www.law.cornell.edu/cfr/text/21/11.10"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "aquapure-max-9000-sales-deck.pptx.md",
+      "location": "Slide 5, HydraClean Technology",
+      "authority_type": "regulation",
+      "authority": "EPA Maximum Contaminant Levels (MCLs)",
+      "citation_as_written": "EPA Maximum Contaminant Levels (MCLs)",
+      "pincite": "",
+      "cited_for": "Product designed to exceed current and anticipated EPA MCLs",
+      "quotes": [],
+      "context": "Designed to exceed current and anticipated EPA Maximum Contaminant Levels (MCLs)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "40 C.F.R. Part 141 (National Primary Drinking Water Regulations), e.g., 40 C.F.R. §§ 141.2, 141.61; 42 U.S.C. § 300f(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "EPA Maximum Contaminant Levels are real: the term is defined in the Safe Drinking Water Act (42 U.S.C. § 300f(3)) and in 40 C.F.R. § 141.2, and specific MCLs are set in 40 C.F.R. Part 141 (for example, the § 141.61(c) table). The slide names the regulatory concept without a citation, so the citation above is supplied for completeness. MCLs are ceilings on contaminants in water delivered by public water systems, so \"exceed ... MCLs\" is marketing shorthand for outperforming them. \"Anticipated\" MCLs are not existing law, and whether the product meets any MCL is a factual claim the regulation cannot confirm.",
+        "evidence_excerpt": "Maximum contaminant level means the maximum permissible level of a contaminant in water which is delivered to any user of a public water system.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/40/141.2",
+          "https://www.law.cornell.edu/cfr/text/40/141.61",
+          "https://www.law.cornell.edu/uscode/text/42/300f"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "ogilvie-hsu-memo-assignment.eml.md",
+      "location": "Assignment item 1, Current Warranty Framework Compliance",
+      "authority_type": "statute",
+      "authority": "UCC Article 2",
+      "citation_as_written": "UCC Article 2",
+      "pincite": "",
+      "cited_for": "Whether the Standard Limited Warranty meets UCC Article 2 requirements for effective limitation and exclusion of warranties",
+      "quotes": [],
+      "context": "assess whether it meets UCC Article 2 requirements for effective limitation and exclusion of warranties. I'm specifically concerned about conspicuousness.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCC §§ 2-316 (exclusion or modification of warranties) and 2-719 (contractual modification or limitation of remedy)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Article 2 does set the requirements for effective exclusion and limitation of warranties, including the conspicuousness requirement the email is concerned about. § 2-316(2) requires a written disclaimer of merchantability to mention merchantability and be conspicuous, and a fitness disclaimer to be in writing and conspicuous; § 2-719 governs limitation of remedies. The general reference to 'UCC Article 2' is accurate; pinpoint sections supplied for convenience.",
+        "evidence_excerpt": "to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316",
+          "https://www.law.cornell.edu/ucc/2/2-719"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "aquapure-max-9000-marketing-brochure.docx.md",
+      "location": "Municipal Water Treatment application section",
+      "authority_type": "regulation",
+      "authority": "EPA PFAS regulations",
+      "citation_as_written": "EPA PFAS regulations",
+      "pincite": "",
+      "cited_for": "Brochure claims the unit ensures municipal water meets federal and state drinking water standards including the latest EPA PFAS regulations",
+      "quotes": [],
+      "context": "The AquaPure Max 9000 ensures your municipal water supply meets or exceeds all federal and state drinking water standards, including the latest EPA PFAS regulations.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "PFAS National Primary Drinking Water Regulation, 89 Fed. Reg. 32532 (Apr. 26, 2024) (final rule, effective June 25, 2024), codified in 40 C.F.R. Parts 141 and 142 (e.g., 40 C.F.R. § 141.61(c)(2))",
+        "quote_check": "No quotations attributed.",
+        "explanation": "EPA PFAS drinking water regulations exist. The final PFAS National Primary Drinking Water Regulation (89 Fed. Reg. 32532) set MCLs of 4.0 ng/L for PFOA and PFOS, 10 ng/L for PFHxS, PFNA and HFPO-DA, and a Hazard Index of 1 for mixtures; those values appear in the current 40 C.F.R. § 141.61(c)(2) table. This was the \"latest\" federal PFAS drinking water rule at the scenario's early-2025 date. Current status: in May 2026 EPA proposed to rescind the PFHxS, PFNA, HFPO-DA and Hazard Index provisions and separately proposed (91 Fed. Reg. 29425) to let systems extend PFOA/PFOS compliance from April 26, 2029 to April 26, 2031. Both are proposals only, so the 2024 rule remains codified. The rule binds public water systems, not equipment makers, and the brochure's \"ensures\" compliance claim is a factual product representation the regulation cannot confirm.",
+        "evidence_excerpt": "Considering feasibility, the EPA is promulgating individual Maximum Contaminant Levels (MCLs) for PFOA and PFOS at 4.0 nanograms per liter (ng/L) or parts per trillion (ppt).",
+        "source_urls": [
+          "https://www.federalregister.gov/documents/2024/04/26/2024-07773/pfas-national-primary-drinking-water-regulation",
+          "https://www.federalregister.gov/api/v1/documents/2024-07773.json",
+          "https://www.law.cornell.edu/cfr/text/40/141.61",
+          "https://www.epa.gov/sdwa/proposed-pfas-rescission-rule",
+          "https://www.federalregister.gov/api/v1/documents/2026-10086.json"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "aquapure-max-9000-marketing-brochure.docx.md",
+      "location": "Food and Beverage application section",
+      "authority_type": "regulation",
+      "authority": "FDA and USDA requirements for food-contact water",
+      "citation_as_written": "FDA and USDA requirements",
+      "pincite": "",
+      "cited_for": "Brochure claims water quality meets FDA and USDA requirements for food-contact water applications",
+      "quotes": [],
+      "context": "Achieve consistent water quality that meets FDA and USDA requirements for food-contact water applications.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No specific citation is given in the document. The corresponding requirements are 21 C.F.R. § 117.37(a) (FDA current good manufacturing practice, water supply) and 9 C.F.R. § 416.2(g)(1) (USDA/FSIS sanitation, water supply).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "This is a brochure marketing statement, not a legal citation. Both agencies do impose water-quality requirements on water used in food operations: FDA requires that water contacting food or food-contact surfaces be safe and of adequate sanitary quality, and USDA/FSIS requires running water that complies with the National Primary Drinking Water Regulations in meat and poultry establishments. The reference to 'FDA and USDA requirements for food-contact water' therefore points to real requirements. Whether the product's output meets them is a factual claim that was not, and cannot be, checked against legal sources.",
+        "evidence_excerpt": "21 C.F.R. § 117.37(a): \"Any water that contacts food, food-contact surfaces, or food-packaging materials must be safe and of adequate sanitary quality.\" 9 C.F.R. § 416.2(g)(1): \"A supply of running water that complies with the National Primary Drinking Water regulations (40 CFR part 141), at a suitable temperature and under pressure as needed, must be provided in all areas where required (for processing product, for cleaning rooms and equipment, utensils, and packaging materials, for employee sanitary facilities, etc.).\"",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-21.xml?part=117&section=117.37",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-9.xml?part=416&section=416.2",
+          "https://www.law.cornell.edu/cfr/text/21/117.37",
+          "https://www.law.cornell.edu/cfr/text/9/416.2"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "aquapure-max-9000-marketing-brochure.docx.md",
+      "location": "Pharmaceutical Manufacturing application section",
+      "authority_type": "other",
+      "authority": "USP purified water specifications",
+      "citation_as_written": "USP purified water specifications",
+      "pincite": "",
+      "cited_for": "Brochure claims the unit is designed to meet USP purified water specifications",
+      "quotes": [],
+      "context": "The AquaPure Max 9000 is designed to meet USP purified water specifications, providing the foundation for safe, effective pharmaceutical production.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation.",
+        "explanation": "This is a reference to a technical compendial standard, not a legal authority. USP 'Purified Water' is a real monograph with defined specifications: source water meeting drinking-water regulations, no added substance, and the total organic carbon and water conductivity tests. So 'USP purified water specifications' names something that exists. The brochure's claim that the product is 'designed to meet' those specifications is a marketing representation about a fictional product and cannot be verified; only the existence and naming of the standard is confirmed. The monograph text I read is a reproduction of the USP 32 edition, not the current USP-NF.",
+        "evidence_excerpt": "Purified Water is water obtained by a suitable process. It is prepared from water complying with the U.S. Environmental Protection Agency National Primary Drinking Water Regulations ... It contains no added substance.",
+        "source_urls": [
+          "https://www.drugfuture.com/pharmacopoeia/usp32/pub/data/v32270/usp32nf27s0_m88890.html",
+          "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/inspection-guides/high-purity-water-system-793"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "aquapure-max-9000-marketing-brochure.docx.md",
+      "location": "Pharmaceutical Manufacturing application section",
+      "authority_type": "regulation",
+      "authority": "cGMP (current Good Manufacturing Practice) requirements",
+      "citation_as_written": "cGMP",
+      "pincite": "",
+      "cited_for": "Brochure claims filtration supports facility's cGMP compliance requirements",
+      "quotes": [],
+      "context": "validated for pharmaceutical-grade water production, supporting your facility's cGMP compliance requirements.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. Parts 210 and 211 (current good manufacturing practice for drugs); see 21 C.F.R. § 210.1(a)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The brochure uses \"cGMP\" as a shorthand reference to a regulatory regime, not for a specific rule. That regime is real: FDA's current good manufacturing practice regulations for drugs are in 21 C.F.R. Parts 210 and 211. The brochure cites no section, so the reference is incomplete as a citation but accurate as a reference. Whether the product actually supports a customer's compliance is a factual marketing claim I did not assess. ecfr.gov blocked the fetch, so the text was read on Cornell LII.",
+        "evidence_excerpt": "§ 210.1 Status of current good manufacturing practice regulations. (a) The regulations set forth in this part and in parts 211, 213, 225, and 226 of this chapter contain the minimum current good manufacturing practice for methods to be used in, and the facilities or controls to be used for, the manufacture, processing, packing, or holding of a drug",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/21/210.1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "sales-team-instruction-memo.docx.md",
+      "location": "Pharmaceutical customers guidance",
+      "authority_type": "other",
+      "authority": "USP purified water standards",
+      "citation_as_written": "USP purified water standards",
+      "pincite": "",
+      "cited_for": "Sales reps told to emphasize compliance with USP purified water standards",
+      "quotes": [],
+      "context": "For prospective pharmaceutical customers in Massachusetts, emphasize compliance with USP purified water standards and highlight the real-time monitoring capabilities of AquaMonitor v3.2.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The sales memo only name-drops \"USP purified water standards\" as a standard reps should emphasize; it states no legal rule. The standard is real: the United States Pharmacopeia publishes an official monograph for Purified Water with specifications, as FDA's inspection guidance confirms. I did not read the USP monograph itself (subscription source), so the specific parameters are unchecked, and whether the product actually complies is a factual question, not a citation question.",
+        "evidence_excerpt": "The USP designation means that the water is the subject of an official monograph in the current US PHARMACOPEIA with various specifications for each type. (FDA Inspection Technical Guide, Water for Pharmaceutical Use, as returned by the fetch tool)",
+        "source_urls": [
+          "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/inspection-technical-guides/water-pharmaceutical-use",
+          "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/inspection-guides/high-purity-water-system-793"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "sales-team-instruction-memo.docx.md",
+      "location": "Food processing customers guidance (Great Lakes)",
+      "authority_type": "regulation",
+      "authority": "FDA food safety standards",
+      "citation_as_written": "FDA food safety standards",
+      "pincite": "",
+      "cited_for": "Sales reps told to say the system ensures water quality compliant with FDA food safety standards",
+      "quotes": [],
+      "context": "stress that the system ensures water quality compliant with FDA food safety standards.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No specific citation is given in the document. The most direct corresponding provision is 21 C.F.R. § 117.37(a) (FDA current good manufacturing practice, water supply).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "This is a sales-memo instruction, not a legal citation. FDA food safety regulations do set a water-quality standard for food processors: water contacting food or food-contact surfaces must be 'safe and of adequate sanitary quality.' The reference to 'FDA food safety standards' for water therefore points to a real requirement. The memo's assertion that the system 'ensures' compliance is a factual product representation that legal sources cannot confirm; it was not checked.",
+        "evidence_excerpt": "21 C.F.R. § 117.37(a): \"Any water that contacts food, food-contact surfaces, or food-packaging materials must be safe and of adequate sanitary quality. Running water at a suitable temperature, and under pressure as needed, must be provided in all areas where required for the processing of food, for the cleaning of equipment, utensils, and food-packaging materials, or for employee sanitary facilities.\"",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-21.xml?part=117&section=117.37",
+          "https://www.law.cornell.edu/cfr/text/21/117.37"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "sales-team-instruction-memo.docx.md",
+      "location": "Municipal buyers guidance (Triton)",
+      "authority_type": "regulation",
+      "authority": "EPA and state water purity standards",
+      "citation_as_written": "EPA and state water purity standards",
+      "pincite": "",
+      "cited_for": "Sales reps told to say the unit meets or exceeds all EPA and state water purity standards",
+      "quotes": [],
+      "context": "emphasize that the AquaPure Max 9000 will meet or exceed all EPA and state water purity standards.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No specific citation is given in the document. The regimes referred to are the National Primary Drinking Water Regulations, 40 C.F.R. pt. 141 (issued under Safe Drinking Water Act section 1412), and state drinking water regulations adopted under primacy, see 40 C.F.R. § 142.10(a).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "This is a sales-memo marketing statement, not a legal citation. The body of law it refers to exists: EPA's primary drinking water regulations apply to public water systems, and primacy states must adopt regulations no less stringent than the federal ones, so 'EPA and state water purity standards' is a real, identifiable regulatory framework for a municipal water authority. Whether the AquaPure unit actually meets those standards is a factual product claim that no legal source can confirm; only the existence and general nature of the standards was checked.",
+        "evidence_excerpt": "40 C.F.R. § 141.1: \"This part establishes primary drinking water regulations pursuant to section 1412 of the Public Health Service Act, as amended by the Safe Drinking Water Act (Pub. L. 93-523); and related regulations applicable to public water systems.\" 40 C.F.R. § 142.10(a): a primacy State \"Has adopted drinking water regulations which are no less stringent than the national primary drinking water regulations (NPDWRs) in effect under part 141 of this chapter\".",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-40.xml?part=141&section=141.1",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-40.xml?part=142&section=142.10",
+          "https://www.law.cornell.edu/cfr/text/40/141.1"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 78,
+      "document": "aquapure-max-9000-sales-deck.pptx.md",
+      "location": "Slide 9/10, Application — Food Processing",
+      "authority_type": "regulation",
+      "authority": "FDA compliance / food-grade standards",
+      "citation_as_written": "FDA compliance",
+      "pincite": "",
+      "cited_for": "Deck states process water purity is critical to food safety and FDA compliance",
+      "quotes": [],
+      "context": "Process water purity is critical to food safety and FDA compliance",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No specific citation is given in the document. The most direct corresponding provision is 21 C.F.R. § 117.37(a) (FDA current good manufacturing practice, water supply).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "This is a sales-deck statement, not a legal citation. The general proposition that process water purity bears on FDA compliance is supported: FDA's food CGMP rule requires an adequate water supply from an adequate source and requires that water contacting food, food-contact surfaces or packaging be safe and of adequate sanitary quality. The deck names no particular regulation, so only the existence of an FDA water-quality requirement for food plants was checked.",
+        "evidence_excerpt": "21 C.F.R. § 117.37(a): \"Water supply. The water supply must be adequate for the operations intended and must be derived from an adequate source. Any water that contacts food, food-contact surfaces, or food-packaging materials must be safe and of adequate sanitary quality.\"",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-01-01/title-21.xml?part=117&section=117.37",
+          "https://www.law.cornell.edu/cfr/text/21/117.37"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "aquapure-max-9000-sales-deck.pptx.md",
+      "location": "Slide 10, Application — Pharmaceutical Manufacturing",
+      "authority_type": "other",
+      "authority": "USP purified water and Water for Injection (WFI)",
+      "citation_as_written": "USP purified water and Water for Injection (WFI)",
+      "pincite": "",
+      "cited_for": "Deck lists USP purified water and WFI applications",
+      "quotes": [],
+      "context": "USP purified water and Water for Injection (WFI) applications",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation.",
+        "explanation": "This is a reference to a technical compendial standard, not a legal authority. The United States Pharmacopeia (USP-NF) contains official monographs titled 'Purified Water' and 'Water for Injection', and FDA's high purity water inspection guide refers to both. The slide merely lists these as application areas, and both are real, correctly named categories. Whether the fictional product actually meets them cannot be checked. The monograph text I read is a reproduction of the USP 32 edition, not the current USP-NF, which is paywalled.",
+        "evidence_excerpt": "Water for Injection is water purified by distillation or a purification process that is equivalent or superior to distillation in the removal of chemicals and microorganisms.",
+        "source_urls": [
+          "https://www.drugfuture.com/pharmacopoeia/usp32/pub/data/v32270/usp32nf27s0_m88820.html",
+          "https://www.drugfuture.com/pharmacopoeia/usp32/pub/data/v32270/usp32nf27s0_m88890.html",
+          "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/inspection-guides/high-purity-water-system-793"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "aquapure-max-9000-sales-deck.pptx.md",
+      "location": "Agricultural application slide",
+      "authority_type": "regulation",
+      "authority": "State agricultural water quality regulations",
+      "citation_as_written": "state agricultural water quality regulations",
+      "pincite": "",
+      "cited_for": "Deck says system supports compliance with state agricultural water quality regulations",
+      "quotes": [],
+      "context": "Supports compliance with state agricultural water quality regulations",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "This is a marketing line in a sales deck, not a citation: it names no state, statute, or rule. State agricultural water quality regulation does exist as a category (I read California's Irrigated Lands Regulatory Program page as one example, relevant because one pending deal is a California agricultural cooperative). But the proposition is a factual product claim that the system 'supports compliance' with unnamed regulations, which cannot be checked against any legal text. Nothing here is fabricated; there is simply no identifiable authority to verify.",
+        "evidence_excerpt": "the Irrigated Lands Regulatory Program (ILRP) regulates discharges from irrigated agricultural lands. This is done by issuing waste discharge requirements (WDRs) or conditional waivers of WDRs (Waivers) to growers",
+        "source_urls": [
+          "https://www.waterboards.ca.gov/water_issues/programs/agriculture/"
+        ],
+        "confidence": "medium"
+      }
+    }
+  ]
+}

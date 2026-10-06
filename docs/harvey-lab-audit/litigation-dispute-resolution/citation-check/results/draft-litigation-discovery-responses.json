@@ -1,0 +1,2529 @@
+{
+  "task": "draft-litigation-discovery-responses",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "answer.docx.md",
+    "complaint.docx.md",
+    "discovery-stipulation.docx.md",
+    "plaintiff-rfas.docx.md",
+    "plaintiff-rfps.docx.md",
+    "precedent-discovery-responses.docx.md",
+    "scheduling-order.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "complaint.docx.md",
+      "location": "¶ 4",
+      "authority_type": "statute",
+      "authority": "Colorado UCC implied warranty of merchantability",
+      "citation_as_written": "C.R.S. § 4-2-314",
+      "pincite": "",
+      "cited_for": "Third cause of action: breach of implied warranty of merchantability",
+      "quotes": [],
+      "context": "(3) Breach of the Implied Warranty of Merchantability under the Uniform Commercial Code, C.R.S. § 4-2-314; and (4) Negligence.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "C.R.S. § 4-2-314 is Colorado's UCC implied warranty of merchantability, which arises in a sale of goods by a merchant. It is the correct basis for a merchantability claim.",
+        "evidence_excerpt": "Unless excluded or modified (section 4-2-316), a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-314",
+          "https://law.justia.com/codes/colorado/title-4/article-2/part-3/section-4-2-314/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "complaint.docx.md",
+      "location": "¶ 7",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction based on diversity and amount in controversy over $75,000",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction pursuant to 28 U.S.C. § 1332(a) because this is a civil action between citizens of different states and the amount in controversy exceeds $75,000",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1332(a) requires diversity of citizenship and an amount in controversy over $75,000, which matches the complaint's paraphrase.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "complaint.docx.md",
+      "location": "¶ 9",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "",
+      "cited_for": "Venue proper because substantial part of events occurred in the District",
+      "quotes": [],
+      "context": "Venue is proper in this District pursuant to 28 U.S.C. § 1391(b) because a substantial part of the events or omissions giving rise to the claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1391(b)(2) makes venue proper in a district where a substantial part of the events or omissions occurred. Citing § 1391(b) without the (2) paragraph is acceptable, and the paraphrase tracks the statutory language closely.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "complaint.docx.md",
+      "location": "¶ 85",
+      "authority_type": "statute",
+      "authority": "Colorado UCC notice of breach",
+      "citation_as_written": "C.R.S. § 4-2-607(3)(a)",
+      "pincite": "",
+      "cited_for": "Buyer must notify seller of breach within a reasonable time after discovery; Greenleaf's notice was timely",
+      "quotes": [],
+      "context": "Greenleaf provided timely notice of Prismavale's breach within a reasonable time after discovery of the defects, as required by Colorado's Uniform Commercial Code, C.R.S. § 4-2-607(3)(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 4-2-607(3)(a) requires the buyer to notify the seller of a breach within a reasonable time after discovering it, or be barred from any remedy. The claim that Greenleaf's notice was timely is a factual allegation; the statute supplies the legal requirement.",
+        "evidence_excerpt": "The buyer must within a reasonable time after he discovers or should have discovered any breach, notify the seller of breach or be barred from any remedy",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-607"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "complaint.docx.md",
+      "location": "¶ 87",
+      "authority_type": "statute",
+      "authority": "Colorado UCC definition of merchant",
+      "citation_as_written": "C.R.S. § 4-2-104(1)",
+      "pincite": "",
+      "cited_for": "Prismavale is a merchant with respect to goods of the kind",
+      "quotes": [],
+      "context": "Prismavale was a merchant with respect to the goods at issue ... within the meaning of Colorado's Uniform Commercial Code, C.R.S. § 4-2-104(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "C.R.S. § 4-2-104(1) is Colorado's UCC definition of 'merchant': a person who deals in goods of the kind or who holds himself out as having knowledge or skill peculiar to them. The complaint cites it for the merchant allegation, and the cite is correct. I read the text on colorado.public.law because Justia returned a 403 error; the Justia listing, seen only in search results, confirms the same section title.",
+        "evidence_excerpt": "\"Merchant\" means a person who deals in goods of the kind or otherwise by his occupation holds himself out as having knowledge or skill peculiar to the practices or goods involved in the transaction",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-104",
+          "https://law.justia.com/codes/colorado/title-4/article-2/part-1/section-4-2-104/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "complaint.docx.md",
+      "location": "¶ 88 and Section VII heading",
+      "authority_type": "statute",
+      "authority": "Colorado UCC implied warranty of merchantability",
+      "citation_as_written": "C.R.S. § 4-2-314",
+      "pincite": "",
+      "cited_for": "Implied warranty of merchantability arises by operation of law in every sale by a merchant",
+      "quotes": [],
+      "context": "Under C.R.S. § 4-2-314, an implied warranty of merchantability arises by operation of law in every contract for the sale of goods when the seller is a merchant with respect to goods of that kind.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "C.R.S. § 4-2-314(1) implies a warranty of merchantability in a contract for the sale of goods when the seller is a merchant with respect to goods of that kind. The complaint's paraphrase holds up. It does leave out the statute's opening qualifier, 'Unless excluded or modified (section 4-2-316)', so 'in every contract' slightly overstates the rule.",
+        "evidence_excerpt": "Unless excluded or modified (section 4-2-316), a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "complaint.docx.md",
+      "location": "¶ 89",
+      "authority_type": "statute",
+      "authority": "Colorado UCC merchantability requirements",
+      "citation_as_written": "C.R.S. § 4-2-314(2)",
+      "pincite": "(2)(a)-(d)",
+      "cited_for": "Elements of merchantability: pass without objection in trade, fit for ordinary purposes, conform to label promises, fair average quality",
+      "quotes": [],
+      "context": "To be merchantable under C.R.S. § 4-2-314(2), goods must, among other requirements: (a) pass without objection in the trade under the contract description; (b) be fit for the ordinary purposes...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "C.R.S. § 4-2-314(2)(a), (c), (f), (b)",
+        "quote_check": "No quotations attributed. The listed elements closely track the statutory wording, but the complaint letters them differently.",
+        "explanation": "All four listed requirements are in § 4-2-314(2), but the complaint renumbers them (a)-(d), and its letters do not match the statute. 'Fit for the ordinary purposes' is (2)(c), not (b). 'Conform to the promises or affirmations of fact made on the container or label' is (2)(f), and the statute adds 'if any'. 'Fair average quality within the description' is (2)(b), and the statute limits it to fungible goods, a qualifier the complaint drops. The phrase 'among other requirements' correctly signals that the list is not complete.",
+        "evidence_excerpt": "(a) Pass without objection in the trade under the contract description; (b) In the case of fungible goods, are of fair average quality within the description; (c) Are fit for the ordinary purposes for which such goods are used; ... (f) Conform to the promises or affirmations of fact made on the container or label if any.",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "complaint.docx.md",
+      "location": "¶ 94",
+      "authority_type": "statute",
+      "authority": "Colorado UCC notice of breach",
+      "citation_as_written": "C.R.S. § 4-2-607(3)(a)",
+      "pincite": "",
+      "cited_for": "Timely notice of implied warranty breach",
+      "quotes": [],
+      "context": "Greenleaf provided timely notice of the breach to Prismavale within a reasonable time after discovery of the defects, consistent with the requirements of C.R.S. § 4-2-607(3)(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same provision as ref 3. § 4-2-607(3)(a) requires notice of breach within a reasonable time after discovery, which is the requirement cited here for the implied-warranty claim.",
+        "evidence_excerpt": "The buyer must within a reasonable time after he discovers or should have discovered any breach, notify the seller of breach or be barred from any remedy",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-607"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "complaint.docx.md",
+      "location": "Certification pursuant to Fed. R. Civ. P. 11 (end of document)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 11(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 11(b)",
+      "pincite": "",
+      "cited_for": "Attorney certification that factual contentions have evidentiary support after reasonable inquiry",
+      "quotes": [],
+      "context": "The undersigned attorney certifies, pursuant to Federal Rule of Civil Procedure 11(b), that to the best of the undersigned's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Not presented as a quote. The certification language 'to the best of the [person's] knowledge, information, and belief, formed after an inquiry reasonable under the circumstances' appears verbatim in Rule 11(b).",
+        "explanation": "Under Rule 11(b), an attorney presenting a paper certifies, after reasonable inquiry, that its factual contentions have evidentiary support (Rule 11(b)(3)). That matches the complaint's certification.",
+        "evidence_excerpt": "an attorney or unrepresented party certifies that to the best of the person's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances: ... (3) the factual contentions have evidentiary support",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "answer.docx.md",
+      "location": "Response to ¶ 4",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Admits subject matter jurisdiction based on diversity",
+      "quotes": [],
+      "context": "Prismavale admits that this Court has subject matter jurisdiction under 28 U.S.C. § 1332(a) based on complete diversity of citizenship",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1332(a) is the correct basis for diversity jurisdiction. The answer cites it to admit jurisdiction, and the citation is accurate.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000 ... and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "answer.docx.md",
+      "location": "Response to ¶ 6",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391",
+      "citation_as_written": "28 U.S.C. § 1391",
+      "pincite": "",
+      "cited_for": "Admits venue is proper in District of Colorado",
+      "quotes": [],
+      "context": "Prismavale admits that venue is proper in the District of Colorado pursuant to 28 U.S.C. § 1391 and Section 15.1 of the Master Supply Agreement.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1391 is the general federal venue statute. Section 1391(b)(2) makes venue proper where a substantial part of the events occurred. A general cite to § 1391 when admitting proper venue is accurate.",
+        "evidence_excerpt": "(b) Venue in General.—A civil action may be brought in— ... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "answer.docx.md",
+      "location": "Section VIII.C, Count III heading and ¶¶ 88-94 response",
+      "authority_type": "statute",
+      "authority": "UCC § 2-314 implied warranty of merchantability",
+      "citation_as_written": "UCC § 2-314",
+      "pincite": "",
+      "cited_for": "Denies breach of implied warranty of merchantability; warranties limited by MSA",
+      "quotes": [],
+      "context": "Count III: Breach of Implied Warranty of Merchantability — UCC § 2-314 ... Prismavale denies that the implied warranty of merchantability under the Uniform Commercial Code was breached.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "UCC § 2-314 is the real model-code provision creating the implied warranty of merchantability when the seller is a merchant in goods of that kind. It is cited only as the label for the Count III claim the answer denies. The answer also says implied warranties are limited by the MSA. That fits § 2-314(1), which applies 'unless excluded or modified (Section 2-316).' Colorado's enacted version, C.R.S. § 4-2-314, is what the complaint cites, and the MSA chooses Colorado law. The generic UCC cite matches the complaint's own count heading.",
+        "evidence_excerpt": "\"Unless excluded or modified (Section 2-316), a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part One, introductory paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36",
+      "citation_as_written": "Federal Rule of Civil Procedure 36",
+      "pincite": "",
+      "cited_for": "RFA responses made pursuant to Rule 36",
+      "quotes": [],
+      "context": "These responses are made pursuant to Federal Rule of Civil Procedure 36.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 36 governs requests for admission, so it is the correct rule for responses to RFAs.",
+        "evidence_excerpt": "A party may serve on any other party a written request to admit, for purposes of the pending action only, the truth of any matters within the scope of Rule 26(b)(1)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part One, General Objection No. 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Scope of discovery: relevance and proportionality",
+      "quotes": [],
+      "context": "beyond the scope of permissible discovery as defined by Federal Rule of Civil Procedure 26(b)(1), including information that is not relevant to any party's claim or defense and not proportional to the needs of the case.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) defines the scope of discovery as nonprivileged matter relevant to any party's claim or defense and proportional to the needs of the case. That is exactly the relevance and proportionality scope the objection invokes.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part One, General Objection No. 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(1)(A)",
+      "citation_as_written": "Federal Rule of Civil Procedure 36(a)(1)(A)",
+      "pincite": "",
+      "cited_for": "Rule permits RFAs as to facts, application of law to fact, genuineness of documents, but not abstract legal propositions",
+      "quotes": [],
+      "context": "Federal Rule of Civil Procedure 36(a)(1)(A) permits requests for admission as to facts, the application of law to fact, and the genuineness of documents, but does not require a party to admit abstract legal propositions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 36(a)(1)(A)-(B); see Fed. R. Civ. P. 36 advisory committee's note to 1970 amendment",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36(a)(1)(A) covers facts, the application of law to fact, or opinions about either. Genuineness of documents is in (a)(1)(B), not (A), so the pin is too narrow. The rule text does not mention abstract legal propositions. That limit comes from the 1970 Advisory Committee note, which says the rule does not authorize requests for admissions of law unrelated to the facts of the case. The substance is correct, but the subparagraph pin is incomplete.",
+        "evidence_excerpt": "(A) facts, the application of law to fact, or opinions about either; and (B) the genuineness of any described documents. ... Note: \"The amended provision does not authorize requests for admissions of law unrelated to the facts of the case.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part One, RFA No. 12 response",
+      "authority_type": "statute",
+      "authority": "UCC § 2-314",
+      "citation_as_written": "UCC § 2-314",
+      "pincite": "",
+      "cited_for": "Merchantability encompasses multiple elements; mixed question of law and fact",
+      "quotes": [],
+      "context": "The concept of \"merchantability\" under UCC § 2-314 encompasses multiple elements, including whether goods are fit for the ordinary purposes for which such goods are used",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The paraphrased elements ('fit for the ordinary purposes for which such goods are used'; conformity to promises or affirmations on the container or label) track § 2-314(2)(c) and (f).",
+        "explanation": "UCC § 2-314(2) lists several elements of merchantability, including fitness for ordinary purposes and conformity to label affirmations. The response paraphrases those accurately. Calling merchantability a 'mixed question of law and fact' is advocacy framing that the statute does not say, but it is reasonable and does not misstate the statute.",
+        "evidence_excerpt": "(c) are fit for the ordinary purposes for which such goods are used ... (f) conform to the promise or affirmations of fact made on the container or label if any.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part One, RFA No. 13 response",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(iv)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)(A)(iv)",
+      "pincite": "",
+      "cited_for": "Insurance terms disclosed in initial disclosures",
+      "quotes": [],
+      "context": "the terms and limits of which were disclosed in Harborline's initial disclosures pursuant to Federal Rule of Civil Procedure 26(a)(1)(A)(iv).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Rule 26(a)(1)(A)(iv) requires initial disclosure of any insurance agreement under which an insurer may be liable to satisfy a judgment. Citing it for disclosure of the policy's terms and limits in initial disclosures is accurate.",
+        "evidence_excerpt": "any insurance agreement under which an insurance business may be liable to satisfy all or part of a possible judgment in the action or to indemnify or reimburse for payments made to satisfy the judgment",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, introductory paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34",
+      "citation_as_written": "Federal Rule of Civil Procedure 34",
+      "pincite": "",
+      "cited_for": "RFP responses made pursuant to Rule 34",
+      "quotes": [],
+      "context": "These responses are made pursuant to Federal Rule of Civil Procedure 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 34 governs requests to produce documents, ESI, and tangible things. Responses to document requests are properly made under it.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, third paragraph of introduction",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(E)(i)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(b)(2)(E)(i)",
+      "pincite": "",
+      "cited_for": "Production as kept in ordinary course or organized by request category",
+      "quotes": [],
+      "context": "documents will be produced as they are kept in the ordinary course of Harborline's business, or will be organized and labeled to correspond with the categories of the Requests, as permitted by Federal Rule of Civil Procedure 34(b)(2)(E)(i).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The paraphrase uses \"ordinary course\" where the rule says \"usual course\"; the meaning is the same.",
+        "explanation": "Rule 34(b)(2)(E)(i) requires documents to be produced as kept in the usual course of business or organized and labeled to correspond to the request categories, which matches the proposition.",
+        "evidence_excerpt": "A party must produce documents as they are kept in the usual course of business or must organize and label them to correspond to the categories in the request",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, General Objection No. 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)",
+      "pincite": "",
+      "cited_for": "Definition of documents exceeds scope of Rule 34(a)",
+      "quotes": [],
+      "context": "expansive definition of \"documents\" to the extent it exceeds the scope of Federal Rule of Civil Procedure 34(a) or seeks information not in Harborline's possession, custody, or control.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 34(a) defines the scope of producible items: documents and ESI within the scope of Rule 26(b) that are in the responding party's possession, custody, or control. An objection that a definition of 'documents' goes beyond Rule 34(a) correctly invokes that rule.",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, General Objection No. 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Temporal scope objection; disproportionate to needs of case",
+      "quotes": [],
+      "context": "is not relevant to the claims or defenses in this action and is disproportionate to the needs of the case under Federal Rule of Civil Procedure 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter relevant to claims or defenses and proportional to the needs of the case. It properly supports an objection that information from outside the relevant time period is irrelevant and disproportionate.",
+        "evidence_excerpt": "relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, General Objection No. 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality factors: importance of issues, amount in controversy, access to information, importance of discovery, burden vs. benefit",
+      "quotes": [],
+      "context": "considering the factors set forth in Federal Rule of Civil Procedure 26(b)(1), including the importance of the issues at stake, the amount in controversy, the parties' relative access to relevant information",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No formal quotations. The listed factors closely track the rule's text: importance of the issues at stake, amount in controversy, parties' relative access to relevant information, resources, importance of the discovery, and burden or expense versus benefit.",
+        "explanation": "Rule 26(b)(1) lists exactly the proportionality factors the document recites.",
+        "evidence_excerpt": "considering the importance of the issues at stake in the action, the amount in controversy, the parties' relative access to relevant information, the parties' resources, the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, General Objection No. 6",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)(1)",
+      "pincite": "",
+      "cited_for": "Possession, custody, or control; no obligation to produce third-party documents absent legal control",
+      "quotes": [],
+      "context": "documents that are not in Harborline's possession, custody, or control as defined by Federal Rule of Civil Procedure 34(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 34(a)(1) limits production to items in the responding party's 'possession, custody, or control', so the objection rests on the right rule. Two points of wording are loose. First, the rule uses the phrase but never defines 'control' (the brief says 'as defined by'). Second, the 'legal control' standard comes from case law, not the rule text. This is fair advocacy shorthand and still supports the proposition.",
+        "evidence_excerpt": "to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, RFP No. 3 response",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "",
+      "cited_for": "QA request overbroad and not proportional",
+      "quotes": [],
+      "context": "The Request as framed is not proportional to the needs of the case under Federal Rule of Civil Procedure 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) requires discovery to be proportional to the needs of the case. That is the proper basis for objecting that a request is not proportional.",
+        "evidence_excerpt": "proportional to the needs of the case, considering ... whether the burden or expense of the proposed discovery outweighs its likely benefit",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, RFP No. 8 response",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Ten-year recall communications request overbroad and disproportionate",
+      "quotes": [],
+      "context": "This Request is overbroad, unduly burdensome, and not proportional to the needs of the case under Federal Rule of Civil Procedure 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1)'s proportionality requirement, including its burden-versus-benefit factor, is the proper basis for objecting that a request is overbroad, unduly burdensome, and disproportionate.",
+        "evidence_excerpt": "whether the burden or expense of the proposed discovery outweighs its likely benefit",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, RFP No. 14 response",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(iv)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)(A)(iv)",
+      "pincite": "",
+      "cited_for": "Insurance information in initial disclosures",
+      "quotes": [],
+      "context": "Harborline refers Plaintiff to the insurance information disclosed in Harborline's initial disclosures pursuant to Federal Rule of Civil Procedure 26(a)(1)(A)(iv).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Rule 26(a)(1)(A)(iv) requires initial disclosure of insurance agreements. A response that points to insurance information disclosed under that provision cites it correctly.",
+        "evidence_excerpt": "any insurance agreement under which an insurance business may be liable to satisfy all or part of a possible judgment in the action",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part Two, RFP No. 20 response",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 408",
+      "citation_as_written": "Federal Rule of Evidence 408",
+      "pincite": "",
+      "cited_for": "Settlement discussions protected from discovery",
+      "quotes": [],
+      "context": "settlement discussions, which are protected from discovery under Federal Rule of Evidence 408.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 408 limits the admissibility of compromise offers and negotiation statements at trial when offered to prove or disprove the validity or amount of a claim, or to impeach. The rule's text says nothing about discovery, and it does not make settlement discussions 'protected from discovery.' The advisory committee notes say the rule does not shield otherwise-discoverable material just because it was presented in compromise negotiations. Citing Rule 408 as a discovery privilege mistakes an admissibility rule for a discovery protection.",
+        "evidence_excerpt": "Evidence of the following is not admissible — on behalf of any party — either to prove or disprove the validity or amount of a disputed claim or to impeach by a prior inconsistent statement or a contradiction",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_408"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The supplied precedent responses say settlement discussions 'are protected from discovery under Federal Rule of Evidence 408.' Rule 408 is an admissibility rule, not a discovery privilege. LII's text of Rule 408(a) reads: 'Evidence of the following is not admissible — on behalf of any party — either to prove or disprove the validity or amount of a disputed claim or to impeach...'. Nothing in the rule mentions discovery. The legislative-history notes on the same LII page cut the other way: the Senate amendment was meant 'to insure that evidence, such as documents, is not rendered inadmissible merely because it is presented in the course of compromise negotiations if the evidence is otherwise discoverable.' Some courts do require a heightened showing before allowing discovery of settlement communications, but that comes from case law under Rule 26. Rule 408 itself does not make anything 'protected from discovery,' so on a fair reading the rule does not support the proposition. Rule 408 is real and was cited for a rule it does not contain.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_408"
+        ]
+      }
+    },
+    {
+      "ref": 27,
+      "document": "plaintiff-rfps.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26 and 34",
+      "citation_as_written": "Federal Rules of Civil Procedure 26 and 34",
+      "pincite": "",
+      "cited_for": "RFPs propounded pursuant to Rules 26 and 34",
+      "quotes": [],
+      "context": "propounds its First Set of Requests for Production of Documents (Nos. 1–30) upon Defendant ... pursuant to Federal Rules of Civil Procedure 26 and 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Rule 34(a) authorizes a party to serve document requests on another party within the scope of Rule 26(b). Citing Rules 26 and 34 as the basis for the requests for production is accurate.",
+        "evidence_excerpt": "In General. A party may serve on any other party a request within the scope of Rule 26(b)...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "plaintiff-rfps.docx.md",
+      "location": "Definitions ¶ 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)(1)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 34(a)(1)(A)",
+      "pincite": "",
+      "cited_for": "ESI definition within meaning of Rule 34",
+      "quotes": [],
+      "context": "all other tangible and electronically stored information (\"ESI\") within the meaning of Fed. R. Civ. P. 34(a)(1)(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 34(a)(1)(A) covers documents and electronically stored information stored in any medium; citing it as the source of the ESI definition is accurate.",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "plaintiff-rfps.docx.md",
+      "location": "Instructions ¶ 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 34(a)(1)",
+      "pincite": "",
+      "cited_for": "Possession, custody, or control construed under Rule 34(a)(1); control includes practical ability to obtain",
+      "quotes": [],
+      "context": "in Your possession, custody, or control, as those terms are construed under Fed. R. Civ. P. 34(a)(1). Documents are deemed within Your \"control\" if You have the legal right or practical ability to obtain them",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 34(a)(1) is the source of 'possession, custody, or control'. The instruction says those terms are taken 'as construed under' the rule, which is accurate. The 'legal right or practical ability' test for control is the requesting party's position, drawn from case law. It is not rule text, and courts are split between that test and a narrower legal-right standard. Because the citation is only for how the terms are construed, it is accurate.",
+        "evidence_excerpt": "the following items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "plaintiff-rfps.docx.md",
+      "location": "Instructions ¶ 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(E)(i)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(E)(i)",
+      "pincite": "",
+      "cited_for": "Organization of production",
+      "quotes": [],
+      "context": "Documents shall be produced as they are kept in the usual course of business or organized and labeled to correspond to the categories in each Request, pursuant to Fed. R. Civ. P. 34(b)(2)(E)(i).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The context closely tracks the rule's language.",
+        "explanation": "Rule 34(b)(2)(E)(i) governs how produced documents are organized, which is the proposition cited.",
+        "evidence_excerpt": "A party must produce documents as they are kept in the usual course of business or must organize and label them to correspond to the categories in the request",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "plaintiff-rfps.docx.md",
+      "location": "Instructions ¶ 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "pincite": "",
+      "cited_for": "Privilege log requirement",
+      "quotes": [],
+      "context": "You shall provide a privilege log in accordance with the two-tier protocol set forth in the Joint Discovery Stipulation ... and in compliance with Fed. R. Civ. P. 26(b)(5)(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(b)(5)(A) requires a party withholding information as privileged or trial-preparation material to expressly make the claim and describe the nature of the withheld items. It does not use the words \"privilege log,\" but courts and practitioners treat it as the standard source of the privilege-log requirement, so citing it for that requirement is accurate.",
+        "evidence_excerpt": "When a party withholds information otherwise discoverable by claiming that the information is privileged or subject to protection as trial-preparation material, the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "plaintiff-rfps.docx.md",
+      "location": "Instructions ¶ 6",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Fed. R. Civ. P. 26(e)",
+      "pincite": "",
+      "cited_for": "Continuing duty to supplement",
+      "quotes": [],
+      "context": "consistent with Fed. R. Civ. P. 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(e)(1) imposes a continuing duty to supplement or correct disclosures and discovery responses, including responses to requests for production.",
+        "evidence_excerpt": "must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36",
+      "citation_as_written": "Rule 36 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "RFAs propounded under Rule 36",
+      "quotes": [],
+      "context": "Pursuant to Rule 36 of the Federal Rules of Civil Procedure and the parties' Joint Discovery Stipulation filed April 28, 2025",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 36 authorizes serving requests for admission, which matches the proposition.",
+        "evidence_excerpt": "A party may serve on any other party a written request to admit, for purposes of the pending action only, the truth of any matters within the scope of Rule 26(b)(1)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 36(a)(3)",
+      "pincite": "",
+      "cited_for": "Thirty-day response period",
+      "quotes": [],
+      "context": "reflecting the thirty (30)-day response period under Fed. R. Civ. P. 36(a)(3) plus the five (5)-day extension agreed to by the parties",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36(a)(3) sets a 30-day response period and allows a longer time by stipulation under Rule 29.",
+        "evidence_excerpt": "A matter is admitted unless, within 30 days after being served, the party to whom the request is directed serves on the requesting party a written answer or objection",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Responses must comply with Rule 36(a)(4)",
+      "quotes": [],
+      "context": "Prismavale's responses must comply in all respects with Fed. R. Civ. P. 36(a)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36(a)(4) governs the form and content of answers to requests for admission. The general cite is apt.",
+        "evidence_excerpt": "If a matter is not admitted, the answer must specifically deny it or state in detail why the answering party cannot truthfully admit or deny it.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Definitions ¶ 11",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Fed. R. Civ. P. 34(a)",
+      "pincite": "",
+      "cited_for": "Meaning of Document",
+      "quotes": [],
+      "context": "shall have the meaning ascribed in Fed. R. Civ. P. 34(a), including all electronically stored information",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 34(a)(1)(A) describes 'documents or electronically stored information' in broad terms. Borrowing that meaning for 'Document', including ESI, is accurate.",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Response must admit, deny, or set forth reasons for inability",
+      "quotes": [],
+      "context": "A response must specifically admit the matter, deny the matter, or set forth in detail the reasons why the answering party cannot truthfully admit or deny the matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The context paraphrases the rule closely.",
+        "explanation": "Rule 36(a)(4) requires that a matter not admitted be specifically denied, or that the answer state in detail why the party cannot truthfully admit or deny it. The admit, deny, or explain paraphrase is accurate.",
+        "evidence_excerpt": "the answer must specifically deny it or state in detail why the answering party cannot truthfully admit or deny it",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Qualify answer specifying part admitted",
+      "quotes": [],
+      "context": "Prismavale must specify the part of the matter that is admitted and qualify or deny the remainder. Fed. R. Civ. P. 36(a)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36(a)(4) requires the answer to specify the part admitted and qualify or deny the rest when good faith requires a qualified answer.",
+        "evidence_excerpt": "when good faith requires that a party qualify an answer or deny only a part of a matter, the answer must specify the part admitted and qualify or deny the rest",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Denial must fairly respond to substance",
+      "quotes": [],
+      "context": "A denial must fairly respond to the substance of the matter, and when good faith requires that a party qualify an answer or deny only a part of a matter, the answer must specify the part admitted and qualify or deny the rest. Fed. R. Civ. P. 36(a)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes formally attributed. The context sentence is essentially verbatim Rule 36(a)(4).",
+        "explanation": "The context sentence tracks the second sentence of Rule 36(a)(4) nearly word for word.",
+        "evidence_excerpt": "A denial must fairly respond to the substance of the matter; and when good faith requires that a party qualify an answer or deny only a part of a matter, the answer must specify the part admitted and qualify or deny the rest.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 36(a)(3)",
+      "pincite": "",
+      "cited_for": "Failure to timely respond results in matters deemed admitted",
+      "quotes": [],
+      "context": "failure to respond to these Requests for Admission within the time allowed will result in each matter being deemed admitted pursuant to Fed. R. Civ. P. 36(a)(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Under Rule 36(a)(3), a matter is admitted if no timely written answer or objection is served. That supports the 'deemed admitted' consequence.",
+        "evidence_excerpt": "A matter is admitted unless, within 30 days after being served, the party to whom the request is directed serves on the requesting party a written answer or objection addressed to the matter",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(b)",
+      "citation_as_written": "Fed. R. Civ. P. 36(b)",
+      "pincite": "",
+      "cited_for": "Admitted matter conclusively established unless court permits withdrawal or amendment",
+      "quotes": [],
+      "context": "A matter admitted under Rule 36 is conclusively established unless the Court, on motion, permits the admission to be withdrawn or amended under Fed. R. Civ. P. 36(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; the paraphrase tracks the rule text nearly verbatim.",
+        "explanation": "Rule 36(b) provides that an admitted matter is conclusively established unless the court, on motion, permits the admission to be withdrawn or amended.",
+        "evidence_excerpt": "A matter admitted under this rule is conclusively established unless the court, on motion, permits the admission to be withdrawn or amended.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 6",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Fed. R. Civ. P. 26(e)",
+      "pincite": "",
+      "cited_for": "Duty to supplement responses",
+      "quotes": [],
+      "context": "Prismavale must seasonably supplement or amend its responses in accordance with Fed. R. Civ. P. 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(e)(1) requires timely supplementation of discovery responses, which include responses to requests for admission. The document's \"seasonably\" is older wording; the current rule says \"in a timely manner,\" but the substance is the same.",
+        "evidence_excerpt": "must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 7",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(c)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 37(c)(2)",
+      "pincite": "",
+      "cited_for": "Expenses of proof for failure to admit, with exceptions (objectionable request, no substantial importance, reasonable ground to believe might prevail, other good reason)",
+      "quotes": [],
+      "context": "pursuant to Fed. R. Civ. P. 37(c)(2), if a matter is not admitted and the requesting party later proves that matter, the requesting party may move for an order requiring the party that failed to admit to pay the reasonable expenses, including attorney's fees",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; the paraphrase closely tracks the rule text.",
+        "explanation": "Rule 37(c)(2) allows the requesting party to recover the reasonable expenses, including attorney's fees, of proving a matter the other party failed to admit. The rule lists four exceptions: the request was held objectionable, the admission was of no substantial importance, the party had a reasonable ground to believe it might prevail, or there was other good reason. This matches the proposition exactly.",
+        "evidence_excerpt": "the requesting party may move that the party who failed to admit pay the reasonable expenses, including attorney's fees, incurred in making that proof. The court must so order unless: (A) the request was held objectionable under Rule 36(a); (B) the admission sought was of no substantial importance; (C) ... reasonable ground to believe that it might prevail ... (D) there was other good reason",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "RFA No. 20",
+      "authority_type": "statute",
+      "authority": "Uniform Commercial Code (merchantability)",
+      "citation_as_written": "Uniform Commercial Code",
+      "pincite": "",
+      "cited_for": "Request to admit products not merchantable as defined by the UCC",
+      "quotes": [],
+      "context": "Admit that the SB-102 and PS-302 products shipped by Prismavale to Greenleaf were not merchantable as defined by the Uniform Commercial Code.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "RFA No. 20 asks Prismavale to admit the products were 'not merchantable as defined by the Uniform Commercial Code.' The UCC does define merchantability, in § 2-314(2): goods must pass without objection in the trade, be fit for their ordinary purposes, and so on. So the reference is accurate. The task treats the request as calling for a legal conclusion, but that is a discovery objection, not a citation defect.",
+        "evidence_excerpt": "§ 2-314(2): goods to be merchantable must \"pass without objection in the trade under the contract description\"; be \"fit for the ordinary purposes for which such goods are used\"; and \"conform to the promise or affirmations of fact made on the container or label if any.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Introductory paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f), 29, and 34(b)",
+      "citation_as_written": "Federal Rules of Civil Procedure 26(f), 29, and 34(b)",
+      "pincite": "",
+      "cited_for": "Basis for stipulation on discovery procedures",
+      "quotes": [],
+      "context": "hereby stipulate and agree to the following discovery procedures in this action, pursuant to Federal Rules of Civil Procedure 26(f), 29, and 34(b)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Each cited rule supports a discovery-procedure stipulation. Rule 26(f) covers the parties' conference and discovery plan. Rule 29 expressly lets parties stipulate to modify discovery procedures. Rule 34(b) governs the procedure for production requests, including the form of electronically stored information.",
+        "evidence_excerpt": "Unless the court orders otherwise, the parties may stipulate that: ... (b) other procedures governing or limiting discovery be modified",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_29",
+          "https://www.law.cornell.edu/rules/frcp/rule_34",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 1(a)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(3)",
+      "citation_as_written": "FRCP 36(a)(3)",
+      "pincite": "",
+      "cited_for": "RFA response deadline extended to 35 days",
+      "quotes": [],
+      "context": "Responses to Requests for Admission under FRCP 36(a)(3) shall be due thirty-five (35) days after service (instead of thirty (30) days).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36(a)(3) sets the 30-day default and expressly allows the parties to stipulate to a longer time under Rule 29. That supports the stipulated 35-day deadline.",
+        "evidence_excerpt": "A shorter or longer time for responding may be stipulated to under Rule 29 or be ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 1(b)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(A)",
+      "citation_as_written": "FRCP 34(b)(2)(A)",
+      "pincite": "",
+      "cited_for": "RFP response deadline extended to 35 days",
+      "quotes": [],
+      "context": "Responses to Requests for Production under FRCP 34(b)(2)(A) shall be due thirty-five (35) days after service",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 34(b)(2)(A) sets a 30-day response deadline and expressly allows the parties to stipulate to a longer time under Rule 29. That supports a stipulated 35-day deadline.",
+        "evidence_excerpt": "within 30 days after being served ... A shorter or longer time may be stipulated to under Rule 29 or be ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 1(c)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(b)(2)",
+      "citation_as_written": "FRCP 33(b)(2)",
+      "pincite": "",
+      "cited_for": "Interrogatory response deadline extended to 35 days",
+      "quotes": [],
+      "context": "Responses to Interrogatories under FRCP 33(b)(2) shall be due thirty-five (35) days after service",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 33(b)(2) sets a 30-day response period and expressly allows the parties to stipulate to a longer time under Rule 29. That supports a stipulated 35-day deadline.",
+        "evidence_excerpt": "The responding party must serve its answers and any objections within 30 days after being served with the interrogatories. A shorter or longer time may be stipulated to under Rule 29 or be ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 2(c)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(1)",
+      "citation_as_written": "FRCP 33(a)(1)",
+      "pincite": "",
+      "cited_for": "25-interrogatory limit consistent with default",
+      "quotes": [],
+      "context": "inclusive of all subparts, consistent with FRCP 33(a)(1). This limit is coextensive with the default limit under the Federal Rules",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 33(a)(1) sets a default limit of 25 interrogatories including all discrete subparts, unless otherwise stipulated or ordered. A stipulated 25-interrogatory limit matches the default. 'Inclusive of all subparts' is a fair paraphrase of 'all discrete subparts'.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 2(d)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1) and (2)",
+      "citation_as_written": "FRCP 26(b)(1) and (2)",
+      "pincite": "",
+      "cited_for": "Good cause for motion to exceed discovery limits",
+      "quotes": [],
+      "context": "the requesting party may file a motion with the Court seeking leave to serve additional discovery, demonstrating good cause under FRCP 26(b)(1) and (2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Citing Rule 26(b)(1) and (2) to govern leave to exceed discovery limits is the standard cross-reference. Rule 26(b)(2)(A) lets the court alter the limits on the number of depositions and interrogatories, and Rule 33(a)(1) grants leave for more interrogatories 'to the extent consistent with Rule 26(b)(1) and (2).' The minor defect is the 'good cause' label. Neither 26(b)(1) nor 26(b)(2)(A) sets a good-cause standard. The phrase appears in 26(b)(2) only in subparagraph (B), which governs electronically stored information that is not reasonably accessible. The rules instead tie leave to consistency with the proportionality and frequency/extent limits. Because the parties stipulated to this standard, the citation is a reasonable but loose description of the governing rule.",
+        "evidence_excerpt": "By order, the court may alter the limits in these rules on the number of depositions and interrogatories ... [Rule 33(a)(1):] Leave to serve additional interrogatories may be granted to the extent consistent with Rule 26(b)(1) and (2).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 4(a), last paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(a)(1)",
+      "citation_as_written": "FRCP 37(a)(1)",
+      "pincite": "",
+      "cited_for": "Meet-and-confer requirement for challenging privilege log entries",
+      "quotes": [],
+      "context": "subject to the meet-and-confer requirement of FRCP 37(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(a)(1) requires a motion to compel to include a certification that the movant conferred in good faith, or tried to confer, before going to court. The stipulation applies that meet-and-confer requirement to challenges to privilege-log entries. A contested challenge would come to court as a motion to compel, so this use of the rule is reasonable.",
+        "evidence_excerpt": "The motion must include a certification that the movant has in good faith conferred or attempted to confer with the person or party failing to make disclosure or discovery in an effort to obtain it without court action.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 5 heading, 5(a), 5(c), and Order",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Clawback/non-waiver provisions enforceable as court order in this and other proceedings",
+      "quotes": [],
+      "context": "This provision shall be enforceable as a Court Order pursuant to Federal Rule of Evidence 502(d).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 502(d) lets a federal court order that disclosure connected with the pending litigation does not waive privilege, and that the order also applies in other federal or state proceedings. Rule 502(e) says a party agreement binds non-parties only once it is incorporated into a court order. The stipulation asks the court to enter it as a 502(d) order, and the court does so. That matches the rule.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 6(a)",
+      "authority_type": "court_rule",
+      "authority": "D.C.COLO.LCivR 7.1(a)",
+      "citation_as_written": "D.C.COLO.LCivR 7.1(a)",
+      "pincite": "",
+      "cited_for": "Meet-and-confer before discovery motions",
+      "quotes": [],
+      "context": "the moving party shall engage in a good-faith meet-and-confer with opposing counsel, consistent with D.C.COLO.LCivR 7.1(a) and FRCP 37(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "D.C.COLO.LCivR 7.1(a) (Duty to Confer) requires the moving party to confer, or make reasonable good-faith efforts to confer, with opposing counsel before filing a motion. That supports a good-faith meet-and-confer before discovery motions. The Rule 7.1(b) exceptions (prisoner cases, Rule 12 and Rule 56 motions, LAttyR 5) do not reach discovery motions. Note that D.C.COLO.LCivR 37.1 (Discovery Motion) separately governs the form of discovery motions.",
+        "evidence_excerpt": "(a) Duty to Confer. Before filing a motion, counsel for the moving party or an unrepresented party shall confer or make reasonable, good faith efforts to confer with any opposing counsel or unrepresented party to resolve any disputed matter.",
+        "source_urls": [
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2023_Final_Local_Rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "discovery-stipulation.docx.md",
+      "location": "Section 6(a)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(a)(1)",
+      "citation_as_written": "FRCP 37(a)(1)",
+      "pincite": "",
+      "cited_for": "Meet-and-confer before motion to compel",
+      "quotes": [],
+      "context": "consistent with D.C.COLO.LCivR 7.1(a) and FRCP 37(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(a)(1) requires a good-faith conferral certification with any motion to compel. The stipulation's meet-and-confer requirement before filing a motion to compel is 'consistent with' the rule. For protective-order motions, the parallel requirement is in Rule 26(c)(1), but the 'consistent with' signal is acceptable.",
+        "evidence_excerpt": "On notice to other parties and all affected persons, a party may move for an order compelling disclosure or discovery. The motion must include a certification that the movant has in good faith conferred or attempted to confer",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "scheduling-order.docx.md",
+      "location": "Title and Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)",
+      "pincite": "",
+      "cited_for": "Scheduling order authority",
+      "quotes": [],
+      "context": "Pursuant to Fed. R. Civ. P. 16(b) and D.C.COLO.LCivR 16.1, the Court held a scheduling conference",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Fed. R. Civ. P. 16(b) (Scheduling and Management) requires the district judge or an authorized magistrate judge to issue a scheduling order, so it supports the court's authority to issue one. The companion cite, D.C.COLO.LCivR 16.1 (Scheduling Conference), also exists.",
+        "evidence_excerpt": "(b) Scheduling and Management. (1) Scheduling Order. Except in categories of actions exempted by local rule, the district judge—or a magistrate judge when authorized by local rule—must issue a scheduling order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16",
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2023_Final_Local_Rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "scheduling-order.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "D.C.COLO.LCivR 16.1",
+      "citation_as_written": "D.C.COLO.LCivR 16.1",
+      "pincite": "",
+      "cited_for": "Scheduling conference",
+      "quotes": [],
+      "context": "Pursuant to Fed. R. Civ. P. 16(b) and D.C.COLO.LCivR 16.1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "In the D. Colo. Local Rules of Practice (revised 3/4/2026), D.C.COLO.LCivR 16.1 is titled 'Scheduling Conference'. It requires a judicial officer to convene a scheduling conference to develop a scheduling order, which matches the preamble's use.",
+        "evidence_excerpt": "D.C.COLO.LCivR 16.1 SCHEDULING CONFERENCE  A scheduling conference shall be convened by a judicial officer to develop a scheduling order.",
+        "source_urls": [
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2025_Final_Local_Rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "scheduling-order.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Fed. R. Civ. P. 26(f)",
+      "pincite": "",
+      "cited_for": "Parties' joint report and discovery plan",
+      "quotes": [],
+      "context": "received the parties' Joint Report and Discovery Plan filed pursuant to Fed. R. Civ. P. 26(f)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(f) requires the parties to confer and then submit a written report outlining their proposed discovery plan. That is the basis for the joint report and discovery plan the document describes.",
+        "evidence_excerpt": "The parties must confer as soon as practicable—and in any event at least 21 days before a scheduling conference is to be held ... submit a written report outlining their discovery plan within 14 days after conferencing",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "scheduling-order.docx.md",
+      "location": "Preamble",
+      "authority_type": "statute",
+      "authority": "UCC § 2-314",
+      "citation_as_written": "UCC § 2-314",
+      "pincite": "",
+      "cited_for": "Third claim: breach of implied warranty of merchantability",
+      "quotes": [],
+      "context": "(3) Breach of Implied Warranty of Merchantability (UCC § 2-314)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "UCC § 2-314 creates the implied warranty of merchantability and is the correct source for that claim. The complaint itself cites Colorado's enactment, C.R.S. § 4-2-314. Citing the model UCC section generically is standard practice and accurate.",
+        "evidence_excerpt": "a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction (diversity)",
+      "quotes": [],
+      "context": "The Court has subject matter jurisdiction under 28 U.S.C. § 1332 (diversity of citizenship).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1332 confers original jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000. It supports diversity jurisdiction.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Good cause standard for late amendment/joinder",
+      "quotes": [
+        "good cause"
+      ],
+      "context": "must satisfy the \"good cause\" standard of Fed. R. Civ. P. 16(b)(4), in addition to any applicable requirements under Fed. R. Civ. P. 15.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"good cause\" found verbatim in Rule 16(b)(4)",
+        "explanation": "Rule 16(b)(4) allows a scheduling order to be modified only for good cause. A motion to amend or join parties after the scheduling-order deadline requires changing the schedule, so the Rule 16(b)(4) standard applies on top of Rule 15. That supports the proposition.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 15",
+      "citation_as_written": "Fed. R. Civ. P. 15",
+      "pincite": "",
+      "cited_for": "Requirements for amending pleadings",
+      "quotes": [],
+      "context": "in addition to any applicable requirements under Fed. R. Civ. P. 15.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Fed. R. Civ. P. 15 (Amended and Supplemental Pleadings) sets the requirements for amending pleadings, such as consent or leave of court. The general reference is accurate.",
+        "evidence_excerpt": "Rule 15. Amended and Supplemental Pleadings ... a party may amend its pleading only with the opposing party's written consent or the court's leave.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_15"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 14",
+      "citation_as_written": "Fed. R. Civ. P. 14",
+      "pincite": "",
+      "cited_for": "Third-party complaints deadline",
+      "quotes": [],
+      "context": "Any third-party complaints under Fed. R. Civ. P. 14 must be filed by this deadline.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Fed. R. Civ. P. 14 (Third-Party Practice) governs third-party complaints. The scheduling order cites it only to identify those pleadings when setting its own filing deadline. That is accurate, since the deadline comes from the order, not from Rule 14.",
+        "evidence_excerpt": "Rule 14. Third-Party Practice ... A defending party may, as third-party plaintiff, serve a summons and complaint on a nonparty who is or may be liable to it for all or part of the claim against it.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_14"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 3.1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(1)",
+      "pincite": "",
+      "cited_for": "Initial disclosures due 14 days after Rule 26(f) conference",
+      "quotes": [],
+      "context": "Initial disclosures under Fed. R. Civ. P. 26(a)(1) were due April 21, 2025",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Initial disclosures are governed by Rule 26(a)(1). Rule 26(a)(1)(C) sets the deadline at or within 14 days after the Rule 26(f) conference unless a stipulation or court order sets another time. The order's statement that disclosures were due 14 days after the conference is accurate. The general cite to 26(a)(1) is acceptable, though the timing rule itself is in subparagraph (C).",
+        "evidence_excerpt": "A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 3.2",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 636(b)(1)(A)",
+      "citation_as_written": "28 U.S.C. § 636(b)(1)(A)",
+      "pincite": "",
+      "cited_for": "Referral of discovery disputes to magistrate judge",
+      "quotes": [],
+      "context": "Discovery disputes shall be referred to Magistrate Judge Scott T. Vanderholt pursuant to 28 U.S.C. § 636(b)(1)(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 636(b)(1)(A) lets a district judge designate a magistrate judge to hear and decide non-dispositive pretrial matters. Discovery disputes are such matters, so the statute supports the referral.",
+        "evidence_excerpt": "a judge may designate a magistrate judge to hear and determine any pretrial matter pending before the court, except a motion for injunctive relief, for judgment on the pleadings, for summary judgment...",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/636"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 3.4",
+      "authority_type": "court_rule",
+      "authority": "D.C.COLO.LCivR 7.1(a)",
+      "citation_as_written": "D.C.COLO.LCivR 7.1(a)",
+      "pincite": "",
+      "cited_for": "Good-faith conferral before discovery motions",
+      "quotes": [],
+      "context": "The parties shall confer in good faith before filing any discovery motion, as required by D.C.COLO.LCivR 7.1(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "D.C.COLO.LCivR 7.1(a) imposes a duty to confer in good faith before filing any motion, and discovery motions are not among the 7.1(b) exceptions. So it does require good-faith conferral before filing a discovery motion.",
+        "evidence_excerpt": "Before filing a motion, counsel for the moving party ... shall confer or make reasonable, good faith efforts to confer with any opposing counsel ... to resolve any disputed matter.",
+        "source_urls": [
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2023_Final_Local_Rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Expert reports required with disclosures",
+      "quotes": [],
+      "context": "including complete expert reports pursuant to Fed. R. Civ. P. 26(a)(2)(B), are due December 15, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Rule 26(a)(2)(B) requires a written report, prepared and signed by the witness, to accompany the disclosure of a retained or specially employed expert. That supports the order's requirement that expert disclosures include complete expert reports under 26(a)(2)(B).",
+        "evidence_excerpt": "this disclosure must be accompanied by a written report—prepared and signed by the witness—if the witness is one retained or specially employed to provide expert testimony in the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 4 (last sentence of second paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Expert disclosures must comply fully",
+      "quotes": [],
+      "context": "All expert disclosures must comply fully with Fed. R. Civ. P. 26(a)(2)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Rule 26(a)(2)(B) sets the written-report requirement for expert disclosures. This sentence is a directive in the court's own order, not a description of the rule, so the cite is accurate. One small point: by its terms, 26(a)(2)(B) covers only retained or specially employed experts. Non-retained experts fall under 26(a)(2)(C). The court can still require compliance as written.",
+        "evidence_excerpt": "this disclosure must be accompanied by a written report—prepared and signed by the witness—if the witness is one retained or specially employed to provide expert testimony in the case or one whose duties as the party's employee regularly involve giving expert testimony",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 4",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Motions to exclude expert testimony filed concurrently with dispositive motions",
+      "quotes": [],
+      "context": "Motions to exclude expert testimony under Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and Fed. R. Evid. 702 shall be filed concurrently with dispositive motions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The citation is correct: Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), decided June 28, 1993. The case sets the Rule 702 gatekeeping standard for admitting expert testimony. The scheduling order cites it only to name the kind of motion (a motion to exclude expert testimony). The filing deadline comes from the order itself, not from Daubert, so the reference is accurate.",
+        "evidence_excerpt": "The Chief Justice \"do[es] not doubt that Rule 702 confides to the judge some gatekeeping responsibility\" ... We believe the better course is to note the nature and source of the duty.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 702",
+      "citation_as_written": "Fed. R. Evid. 702",
+      "pincite": "",
+      "cited_for": "Expert testimony exclusion motions",
+      "quotes": [],
+      "context": "under Daubert ... and Fed. R. Evid. 702 shall be filed concurrently with dispositive motions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 702 sets the admissibility standard for expert testimony. Motions to exclude expert testimony (Daubert motions) are brought under it, so the citation fits.",
+        "evidence_excerpt": "Rule 702. Testimony by Expert Witnesses. A witness who is qualified as an expert ... may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Fed. R. Civ. P. 56",
+      "pincite": "",
+      "cited_for": "Summary judgment motions deadline",
+      "quotes": [],
+      "context": "Dispositive motions, including motions for summary judgment under Fed. R. Civ. P. 56 and any *Daubert* motions, are due February 28, 2026.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Fed. R. Civ. P. 56 is the federal summary judgment rule. It authorizes summary judgment motions and lets the court set their timing, which fits a scheduling-order deadline for Rule 56 motions.",
+        "evidence_excerpt": "Rule 56. Summary Judgment ... (b) Unless a different time is set by local rule or the court orders otherwise, a party may file a motion for summary judgment at any time until 30 days after the close of all discovery.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 5",
+      "authority_type": "court_rule",
+      "authority": "D.C.COLO.LCivR 7.1",
+      "citation_as_written": "D.C.COLO.LCivR 7.1",
+      "pincite": "",
+      "cited_for": "Dispositive motions comply with local rule",
+      "quotes": [],
+      "context": "All dispositive motions shall comply with D.C.COLO.LCivR 7.1 and the Court's Practice Standards.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "D.C.COLO.LCivR 7.1 ('Motions') governs motions, including conferral, briefing timing, citation form, and proposed orders, so a direction that dispositive motions comply with it is accurate. Note that 7.1(b)(2)-(3) exempts Rule 12 and Rule 56 motions from the duty to confer. The page limits in the order come from the court's practice standards, not from LCivR 7.1.",
+        "evidence_excerpt": "D.C.COLO.LCivR 7.1 MOTIONS (a) Duty to Confer. ... (b) Exceptions to the Duty to Confer: ... (2) a motion under Fed. R. Civ. P. 12; (3) a motion under Fed. R. Civ. P. 56",
+        "source_urls": [
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2025_Final_Local_Rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 7",
+      "authority_type": "court_rule",
+      "authority": "D.C.COLO.LCivR 16.4",
+      "citation_as_written": "D.C.COLO.LCivR 16.4",
+      "pincite": "",
+      "cited_for": "Joint final pretrial order",
+      "quotes": [],
+      "context": "The Joint Final Pretrial Order shall be submitted at least thirty (30) days before the final pretrial conference, in accordance with D.C.COLO.LCivR 16.4",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "no",
+        "correct_citation": "D.C.COLO.LCivR 16.3",
+        "quote_check": "No quotations attributed.",
+        "explanation": "There is no D.C.COLO.LCivR 16.4. The 2021, 2023, and current (revised 3/4/2026) D. Colo. local rules contain only LCivR 16.1, 16.2, 16.3, and 16.6. The final pretrial order is governed by LCivR 16.3 ('Final Pretrial Order'), so the number is wrong but the rule intended is real. LCivR 16.3 sets no 30-day submission deadline; that timing comes from the scheduling order itself.",
+        "evidence_excerpt": "D.C.COLO.LCivR 16.3 FINAL PRETRIAL ORDER  Unless otherwise ordered, a final pretrial order shall be in the form and shall comply with the instructions HERE.",
+        "source_urls": [
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2025_Final_Local_Rules.pdf",
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2023_Final_Local_Rules.pdf",
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2021_Final_Local_Rules.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. I downloaded the current D. Colo. Local Rules PDF (2025_Final_Local_Rules.pdf, effective December 1, 2025, revised 3/4/2026) and extracted its text. The only Rule 16 local rules are 'D.C.COLO.LCivR 16.1 SCHEDULING CONFERENCE', '16.2 SCHEDULING ORDER', '16.3 FINAL PRETRIAL ORDER', and '16.6 ALTERNATIVE DISPUTE RESOLUTION'. There is no 16.4. A web search for the exact string 'D.C.COLO.LCivR 16.4' found no such rule; the only LCvR 16.4 hits belong to other districts (D.D.C. and D. Del.). LCivR 16.3 is the rule the scheduling order meant, and its full text is: 'Unless otherwise ordered, a final pretrial order shall be in the form and shall comply with the instructions HERE.' It sets no 30-day submission deadline, so the timing in the scheduling order has to come from the order itself or the judge's practice standards. The rule number is garbled, and the correct citation is D.C.COLO.LCivR 16.3.",
+        "source_urls": [
+          "http://www.cod.uscourts.gov/Portals/0/Documents/LocalRules/2025_Final_Local_Rules.pdf",
+          "https://www.courtrules.net/courts/federal/district-colorado/local-rules"
+        ]
+      }
+    },
+    {
+      "ref": 73,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 8.1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Fed. R. Civ. P. 26(e)",
+      "pincite": "",
+      "cited_for": "Duty to supplement",
+      "quotes": [],
+      "context": "The parties shall timely supplement their disclosures and discovery responses as required by Fed. R. Civ. P. 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(e) requires timely supplementation of disclosures and discovery responses, which matches the scheduling order's use of it.",
+        "evidence_excerpt": "in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 8.2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Modification only on good cause",
+      "quotes": [],
+      "context": "This Scheduling Order may be modified only upon a showing of good cause under Fed. R. Civ. P. 16(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes",
+        "explanation": "Rule 16(b)(4) allows a schedule to be modified only for good cause and with the judge's consent. That matches the order's statement and its point that the parties cannot change deadlines by stipulation alone.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 8.3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 1",
+      "citation_as_written": "Fed. R. Civ. P. 1",
+      "pincite": "",
+      "cited_for": "Cooperation; just, speedy, inexpensive determination",
+      "quotes": [],
+      "context": "consistent with Fed. R. Civ. P. 1 (securing the just, speedy, and inexpensive determination of every action)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The parenthetical (not presented as a quote) closely tracks the rule's language: 'to secure the just, speedy, and inexpensive determination of every action and proceeding.'",
+        "explanation": "Under Fed. R. Civ. P. 1, the court and the parties are to construe and employ the rules to secure the just, speedy, and inexpensive determination of every action. That matches the parenthetical and supports the parties' duty to cooperate.",
+        "evidence_excerpt": "They should be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action and proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 8.3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality principles",
+      "quotes": [],
+      "context": "the principles of proportionality set forth in Fed. R. Civ. P. 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) states the proportionality principle (the 'proportional to the needs of the case' standard), so the scheduling order's reference to it is accurate.",
+        "evidence_excerpt": "relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 8.4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(c)",
+      "citation_as_written": "Fed. R. Civ. P. 26(c)",
+      "pincite": "",
+      "cited_for": "Protective order",
+      "quotes": [],
+      "context": "If the parties anticipate the need for a protective order under Fed. R. Civ. P. 26(c), they shall submit a stipulated protective order",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(c) is the federal provision on protective orders. Referring to it as the basis for submitting a stipulated protective order is accurate.",
+        "evidence_excerpt": "A party or any person from whom discovery is sought may move for a protective order in the court where the action is pending",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 78,
+      "document": "task.json.md",
+      "location": "rubric C-002",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(c)(2)",
+      "citation_as_written": "FRCP 37(c)(2)",
+      "pincite": "",
+      "cited_for": "Sanctions/cost-shifting for unreasonable denial of RFAs",
+      "quotes": [],
+      "context": "PASS if the plan warns or notes the risk of sanctions or cost-shifting under FRCP 37(c)(2) (or equivalent reference to sanctions for unreasonable failure to admit)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(c)(2) provides expense-shifting, including attorney's fees, when a party fails to admit a matter the requesting party later proves, unless an exception applies. That supports describing the risk as sanctions or cost-shifting for an unreasonable failure to admit or denial of an RFA.",
+        "evidence_excerpt": "If a party fails to admit what is requested under Rule 36 and if the requesting party later proves a document to be genuine or the matter true, the requesting party may move that the party who failed to admit pay the reasonable expenses, including attorney's fees",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "task.json.md",
+      "location": "rubric C-008",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "FRCP 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Reasonable inquiry obligation for RFA responses",
+      "quotes": [],
+      "context": "PASS if the plan recognizes the FRCP 36(a)(4) reasonable inquiry obligation in connection with RFA No. 9 or the COA accuracy question.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 36(a)(4) contains the reasonable-inquiry requirement for RFA answers. A party may claim lack of knowledge or information as a reason for not admitting or denying only if it states that it has made reasonable inquiry. That supports a reasonable-inquiry obligation for RFA responses, including RFA No. 9.",
+        "evidence_excerpt": "The answering party may assert lack of knowledge or information as a reason for failing to admit or deny only if the party states that it has made reasonable inquiry and that the information it knows or can readily obtain is insufficient to enable it to admit or deny.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "task.json.md",
+      "location": "rubric C-012",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "FRCP 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality objection to overbroad RFPs",
+      "quotes": [],
+      "context": "cite proportionality under FRCP 26(b)(1) or relevance as a basis for objection.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) supplies both the relevance and the proportionality limits on discovery. It is a proper basis for objecting to overbroad requests for production.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 81,
+      "document": "task.json.md",
+      "location": "rubric C-020",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)(1)",
+      "citation_as_written": "FRCP 34(a)(1)",
+      "pincite": "",
+      "cited_for": "Possession, custody, or control of third-party (Oakvale) documents",
+      "quotes": [],
+      "context": "discusses whether these documents are within Prismavale's 'possession, custody, or control' under FRCP 34(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'possession, custody, or control' appears verbatim in Rule 34(a)(1).",
+        "explanation": "The rubric item asks whether third-party (Oakvale) documents fall within Prismavale's 'possession, custody, or control' under Rule 34(a)(1). That is the correct rule and the exact phrase it uses.",
+        "evidence_excerpt": "the following items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 82,
+      "document": "task.json.md",
+      "location": "rubric C-028",
+      "authority_type": "statute",
+      "authority": "UCC § 2-314",
+      "citation_as_written": "UCC § 2-314",
+      "pincite": "",
+      "cited_for": "RFA No. 20 calls for legal conclusion regarding merchantability",
+      "quotes": [],
+      "context": "calls for a legal conclusion regarding UCC § 2-314 merchantability and recommends objecting on that basis.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "UCC § 2-314 defines merchantability. An RFA asking a party to admit goods were 'not merchantable as defined by the Uniform Commercial Code' calls for applying that statutory definition, so referring to § 2-314 merchantability is accurate.",
+        "evidence_excerpt": "Goods to be merchantable must be at least such as (a) pass without objection in the trade under the contract description ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 83,
+      "document": "task.json.md",
+      "location": "rubric C-060",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "FRCP 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Reasonable inquiry before denying an RFA",
+      "quotes": [],
+      "context": "PASS if the plan references FRCP 36(a)(4) or the obligation to make 'reasonable inquiry' before denying an RFA",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'reasonable inquiry' found verbatim in Rule 36(a)(4), last sentence.",
+        "explanation": "The rule is real and contains the phrase 'reasonable inquiry.' The description is loose, though. In Rule 36(a)(4), the reasonable-inquiry condition applies when a party claims lack of knowledge or information as its reason for not admitting or denying. It is not written as a precondition to a denial. A denial must instead 'fairly respond to the substance of the matter.' A duty of inquiry before denying comes more from Rule 26(g) and from the cost-shifting risk under Rule 37(c)(2). The rule still supports the general reasonable-inquiry standard for RFA responses.",
+        "evidence_excerpt": "A denial must fairly respond to the substance of the matter ... The answering party may assert lack of knowledge or information as a reason for failing to admit or deny only if the party states that it has made reasonable inquiry",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 84,
+      "document": "task.json.md",
+      "location": "rubric C-061",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 502(d)",
+      "citation_as_written": "FRE 502(d)",
+      "pincite": "",
+      "cited_for": "Clawback order referenced in responses",
+      "quotes": [],
+      "context": "PASS if the formal responses reference the FRE 502(d) clawback order (referenced in the Joint Discovery Stipulation)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This rubric item only says that a clawback order entered under FRE 502(d) should be referenced. Rule 502(d) does authorize such non-waiver orders, so the reference is accurate.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 85,
+      "document": "scheduling-order.docx.md",
+      "location": "Section 3.1 (initial disclosures sentence)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Initial disclosures were due fourteen days after the parties' Rule 26(f) conference",
+      "quotes": [],
+      "context": "Initial disclosures under Fed. R. Civ. P. 26(a)(1) were due April 21, 2025 (fourteen days after the parties' Rule 26(f) conference), or as otherwise agreed by the parties.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(a)(1)(C) sets initial disclosures at or within 14 days after the Rule 26(f) conference, unless a stipulation or court order changes that. This matches the document's statement that disclosures were due 14 days after the conference.",
+        "evidence_excerpt": "A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 86,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36",
+      "citation_as_written": "Rule 36",
+      "pincite": "",
+      "cited_for": "A matter admitted under Rule 36 is conclusively established unless the Court permits withdrawal or amendment",
+      "quotes": [],
+      "context": "A matter admitted under Rule 36 is conclusively established unless the Court, on motion, permits the admission to be withdrawn or amended under Fed. R. Civ. P. 36(b).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No formally attributed quotes. The context sentence nearly tracks the first sentence of Rule 36(b) word for word.",
+        "explanation": "Rule 36(b) provides that an admitted matter is conclusively established unless the court, on motion, permits withdrawal or amendment, which matches the proposition.",
+        "evidence_excerpt": "A matter admitted under this rule is conclusively established unless the court, on motion, permits the admission to be withdrawn or amended.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 87,
+      "document": "plaintiff-rfas.docx.md",
+      "location": "Instructions ¶ 7",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)",
+      "citation_as_written": "Rule 36(a)",
+      "pincite": "",
+      "cited_for": "Expense-shifting under Rule 37(c)(2) is unavailable where the request was held objectionable under Rule 36(a)",
+      "quotes": [],
+      "context": "unless the Court finds that the request was held objectionable under Rule 36(a), the admission sought was of no substantial importance, the party failing to admit had reasonable ground to believe that it might prevail on the matter",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No formally attributed quotes. The context paraphrases the exceptions in Rule 37(c)(2)(A)-(C) almost word for word.",
+        "explanation": "Rule 37(c)(2)(A) makes the expense award unavailable where \"the request was held objectionable under Rule 36(a)\". The cross-reference to Rule 36(a) is accurate: that subdivision is where objections to requests for admission are stated and ruled on (36(a)(5)-(6)). The other listed exceptions also match 37(c)(2)(B)-(C).",
+        "evidence_excerpt": "The court must so order unless: (A) the request was held objectionable under Rule 36(a); (B) the admission sought was of no substantial importance; (C) the party failing to admit had a reasonable ground to believe that it might prevail on the matter",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37",
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 88,
+      "document": "complaint.docx.md",
+      "location": "¶ 96",
+      "authority_type": "statute",
+      "authority": "Colorado Uniform Commercial Code (damages)",
+      "citation_as_written": "Colorado's Uniform Commercial Code",
+      "pincite": "",
+      "cited_for": "Greenleaf is entitled to recover direct, consequential and incidental damages under the Colorado UCC",
+      "quotes": [],
+      "context": "Greenleaf is entitled to recover all available damages under Colorado's Uniform Commercial Code, including direct damages, consequential damages, and incidental damages.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "C.R.S. §§ 4-2-714, 4-2-715",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The complaint cites the Colorado UCC generally, without a section number. The relevant provisions do support the proposition. § 4-2-714(1)-(2) gives a buyer who accepted the goods direct damages for nonconformity or breach of warranty, and § 4-2-714(3) together with § 4-2-715 allows incidental and consequential damages 'in a proper case'. Whether consequential damages are recoverable in this case depends on the § 4-2-715(2) foreseeability conditions and on any contractual limits, which the complaint does not address.",
+        "evidence_excerpt": "In a proper case, any incidental and consequential damages under section 4-2-715 may also be recovered. (§ 4-2-714(3))",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_4-2-714",
+          "https://colorado.public.law/statutes/crs_4-2-715"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 89,
+      "document": "answer.docx.md",
+      "location": "Section VIII.C, Count III response (¶¶ 88-94)",
+      "authority_type": "statute",
+      "authority": "Uniform Commercial Code (implied warranty of merchantability)",
+      "citation_as_written": "Uniform Commercial Code",
+      "pincite": "",
+      "cited_for": "Prismavale denies that the implied warranty of merchantability under the UCC was breached",
+      "quotes": [],
+      "context": "Prismavale denies that the implied warranty of merchantability under the Uniform Commercial Code was breached.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a general reference to the Uniform Commercial Code in the answer's denial that the implied warranty of merchantability was breached. The UCC does contain that warranty in § 2-314, enacted in Colorado as C.R.S. § 4-2-314. The reference is accurate for a denial and makes no legal claim beyond that.",
+        "evidence_excerpt": "\"§ 2-314. Implied Warranty: Merchantability; Usage of Trade.\" ... \"a warranty that the goods shall be merchantable is implied in a contract for their sale if the seller is a merchant with respect to goods of that kind.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 90,
+      "document": "precedent-discovery-responses.docx.md",
+      "location": "Part One, RFA No. 12 request and response",
+      "authority_type": "statute",
+      "authority": "Uniform Commercial Code (merchantability)",
+      "citation_as_written": "Uniform Commercial Code",
+      "pincite": "",
+      "cited_for": "RFA asks to admit product was not merchantable as defined by the UCC; response objects it calls for a legal conclusion regarding application of the UCC",
+      "quotes": [],
+      "context": "was not merchantable as defined by the Uniform Commercial Code. ... calls for a legal conclusion regarding the application of the Uniform Commercial Code to the product at issue.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The precedent response paraphrases two § 2-314(2) elements: 'fit for the ordinary purposes for which such goods are used' and conformity to 'promises or affirmations of fact made on the container or label.' Both match the statute's wording closely; the statute uses the singular 'promise.'",
+        "explanation": "The UCC defines merchantability in § 2-314(2) with several listed elements. That supports the precedent response's points that the RFA calls for a legal conclusion and that merchantability is a multi-element, mixed question of law and fact. The elements the response names match the statute.",
+        "evidence_excerpt": "Goods merchantable must be \"fit for the ordinary purposes for which such goods are used\" and \"conform to the promise or affirmations of fact made on the container or label if any.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 91,
+      "document": "task.json.md",
+      "location": "rubric C-060 (title and match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36(a)(4)",
+      "citation_as_written": "FRCP 36(a)(4)",
+      "pincite": "",
+      "cited_for": "Reasonable inquiry before denying an RFA",
+      "quotes": [],
+      "context": "PASS if the plan references FRCP 36(a)(4) or the obligation to make 'reasonable inquiry' before denying an RFA",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'reasonable inquiry' found verbatim in Rule 36(a)(4), last sentence.",
+        "explanation": "This is the same rubric text as ref 83. Rule 36(a)(4) contains the 'reasonable inquiry' language, but it ties the requirement to answers claiming lack of knowledge or information, not expressly to denials. Calling it a duty to make reasonable inquiry 'before denying an RFA' is therefore slightly loose. The citation is otherwise accurate and supports a reasonable-inquiry standard for RFA responses.",
+        "evidence_excerpt": "The answering party may assert lack of knowledge or information as a reason for failing to admit or deny only if the party states that it has made reasonable inquiry",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

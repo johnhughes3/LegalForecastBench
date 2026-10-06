@@ -1,0 +1,1732 @@
+{
+  "task": "draft-motion-for-preliminary-injunction",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "canopy-ridge-press-release.docx.md",
+    "cease-and-desist-letter.docx.md",
+    "chow-declaration.docx.md",
+    "defense-counsel-letter.docx.md",
+    "employment-agreement.docx.md",
+    "forensic-it-report.docx.md",
+    "greenfield-declaration.docx.md",
+    "task.json.md",
+    "valuation-summary-report.docx.md",
+    "verified-complaint.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "verified-complaint.docx.md",
+      "location": "Preliminary Statement ¶5",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Source of remedies sought (injunctive relief, damages, etc.) for trade secret misappropriation",
+      "quotes": [],
+      "context": "seeking injunctive relief, compensatory damages, disgorgement, exemplary damages, and all other appropriate remedies under the Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836 et seq., the Massachusetts Trade Secrets Act (\"MTSA\"), Mass. Gen. Laws ch. 93, § 42",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "18 U.S.C. § 1836(b)(3) authorizes injunctions, damages for actual loss and unjust enrichment (the DTSA's version of disgorgement), exemplary damages of up to 2x for willful and malicious misappropriation, and attorney's fees. That supports the list of remedies sought. Using 'et seq.' fits, since the DTSA provisions continue into § 1839 (definitions).",
+        "evidence_excerpt": "Remedies: injunctions to prevent actual or threatened misappropriation; damages for actual loss and unjust enrichment; exemplary damages up to twice the damages for willful and malicious misappropriation; attorney's fees (summary of § 1836(b)(3) from the fetched page, not verbatim).",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "verified-complaint.docx.md",
+      "location": "Preliminary Statement ¶5",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Source of remedies sought for trade secret misappropriation",
+      "quotes": [],
+      "context": "the Massachusetts Trade Secrets Act (\"MTSA\"), Mass. Gen. Laws ch. 93, § 42, for breach of contract, breach of fiduciary duty, unjust enrichment, and the common law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, §§ 42-42G (remedies at §§ 42A-42B)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The Massachusetts trade secrets statute is real and spans §§ 42-42G of chapter 93. Section 42 itself only contains definitions. The remedies the complaint seeks are in § 42A (injunctive relief) and § 42B (damages). Citing § 42 alone as the source of remedies is imprecise; it should be '§ 42 et seq.' or §§ 42-42G.",
+        "evidence_excerpt": "Section 42: Trade secrets; definitions applicable to Secs. 42 to 42G ... Section 42A: Trade secrets; injunctive relief ... Section 42B: Trade secrets; damages",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42A",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42B"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "verified-complaint.docx.md",
+      "location": "I. Nature of the Action ¶6",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Claim (4): misappropriation of trade secrets under DTSA",
+      "quotes": [],
+      "context": "(4) misappropriation of trade secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836; (5) misappropriation of trade secrets under the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "§ 1836(b)(1) gives the owner of a misappropriated trade secret a civil action, which supports the DTSA misappropriation claim.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "verified-complaint.docx.md",
+      "location": "I. Nature of the Action ¶6",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Claim (5): misappropriation of trade secrets under MTSA",
+      "quotes": [],
+      "context": "(5) misappropriation of trade secrets under the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, §§ 42-42G",
+        "quote_check": "No attributed quotes.",
+        "explanation": "A misappropriation claim under the Massachusetts trade secrets statute is properly grounded in chapter 93. Section 42 defines 'misappropriation' and 'trade secret', but the cause of action and relief are in §§ 42A-42B. The cite works as a shorthand for the Act but is incomplete.",
+        "evidence_excerpt": "Section 42: Trade secrets; definitions applicable to Secs. 42 to 42G",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "verified-complaint.docx.md",
+      "location": "II.A Federal Question Jurisdiction ¶10",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Original subject matter jurisdiction (federal question) based on DTSA claim",
+      "quotes": [],
+      "context": "This Court has original subject matter jurisdiction under 28 U.S.C. § 1331 (federal question jurisdiction) because Plaintiff asserts a claim under the Defend Trade Secrets Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1331 grants district courts original jurisdiction over civil actions arising under federal law. A claim under the Defend Trade Secrets Act, 18 U.S.C. § 1836, arises under federal law, so the citation supports the proposition.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "verified-complaint.docx.md",
+      "location": "II.A ¶10",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Federal statute providing private civil cause of action for trade secret misappropriation, supporting federal question jurisdiction",
+      "quotes": [],
+      "context": "because Plaintiff asserts a claim under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., which is a federal statute that provides a private civil cause of action",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "§ 1836(b)(1) creates a private civil cause of action, and § 1836(c) gives district courts original jurisdiction over actions brought under the section. That supports federal-question jurisdiction.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\" / \"The district courts of the United States shall have original jurisdiction of civil actions brought under this section.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "verified-complaint.docx.md",
+      "location": "II.A ¶11",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1367(a)",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state-law claims sharing common nucleus of operative fact with DTSA claim",
+      "quotes": [],
+      "context": "This Court has supplemental jurisdiction over Plaintiff's state-law claims ... under 28 U.S.C. § 1367(a), as those claims arise from the same case or controversy",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1367(a) reaches claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. The 'common nucleus of operative fact' test is the case-law gloss on that language. The complaint's use of 'same case or controversy' tracks the statute.",
+        "evidence_excerpt": "in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related ... that they form part of the same case or controversy",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "verified-complaint.docx.md",
+      "location": "II.A ¶12",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. §§ 1331, 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1331, supplemented by 28 U.S.C. § 1367(a)",
+      "pincite": "",
+      "cited_for": "Primary jurisdictional basis for the action",
+      "quotes": [],
+      "context": "Federal question jurisdiction under 28 U.S.C. § 1331, supplemented by 28 U.S.C. § 1367(a), is the primary jurisdictional basis for this action.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "§ 1331 grants original jurisdiction over civil actions arising under federal law, which covers the DTSA claim. § 1367(a) grants supplemental jurisdiction over related claims that form part of the same case or controversy, which covers the state-law claims. Citing them together as the primary jurisdictional basis is accurate.",
+        "evidence_excerpt": "\"The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.\" / \"...the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "verified-complaint.docx.md",
+      "location": "II.B Diversity Jurisdiction ¶13",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Alternative diversity jurisdiction over claims against Canopy Ridge (LLC citizenship by members)",
+      "quotes": [],
+      "context": "this Court has subject matter jurisdiction under 28 U.S.C. § 1332(a) (diversity of citizenship) with respect to Plaintiff's claims against Defendant Canopy Ridge Therapeutics, LLC.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1332(a) grants diversity jurisdiction when the amount in controversy exceeds $75,000 and the parties are citizens of different states. The rule that an LLC takes the citizenship of its members comes from case law, not the statute's text. The complaint cites § 1332(a) only as the jurisdictional basis, which is accurate.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "verified-complaint.docx.md",
+      "location": "II.B ¶14",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. §§ 1332(a), 1331, 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a) ... 28 U.S.C. § 1331 ... 28 U.S.C. § 1367(a)",
+      "pincite": "",
+      "cited_for": "Complete diversity lacking as to Vasquez; diversity only alternative basis; primary basis federal question with supplemental jurisdiction",
+      "quotes": [],
+      "context": "diversity jurisdiction under 28 U.S.C. § 1332(a) serves as an alternative basis for jurisdiction over claims against Canopy Ridge, but the primary basis ... is federal question jurisdiction under 28 U.S.C. § 1331, with supplemental jurisdiction ... under 28 U.S.C. § 1367(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "All three statutes are cited accurately. The complaint is right that complete diversity is missing because both Vasquez and Greenfield are Massachusetts citizens, and right that the primary basis is § 1331 plus § 1367(a). The weak point is the claim that § 1332(a) is still an 'alternative basis' for the claims against Canopy Ridge in this same action. Under Exxon Mobil v. Allapattah, a failure of complete diversity defeats diversity jurisdiction over every claim in the action, not just claims against the non-diverse defendant. A second, separate problem: the complaint alleges only that Canopy Ridge's LLC members 'include' non-Delaware, non-Massachusetts citizens, which does not establish the citizenship of all members. The statutes are cited correctly, but they do not support the claim-by-claim alternative-diversity theory.",
+        "evidence_excerpt": "§ 1332(a): \"the matter in controversy exceeds the sum or value of $75,000 ... and is between—(1) citizens of different States.\" Exxon Mobil v. Allapattah: \"A failure of complete diversity, unlike the failure of some claims to meet the requisite amount in controversy, contaminates every claim in the action.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332",
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/28/1367",
+          "https://www.law.cornell.edu/supct/html/04-70.ZO.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "verified-complaint.docx.md",
+      "location": "II.C Venue ¶15",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper where substantial part of events occurred",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. § 1391(b)(2) because a substantial part of the events or omissions giving rise to the claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1391(b)(2) makes venue proper where a substantial part of the events or omissions giving rise to the claim occurred. The complaint paraphrases the statute closely.",
+        "evidence_excerpt": "a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "verified-complaint.docx.md",
+      "location": "II.C Venue ¶15",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1)",
+      "pincite": "",
+      "cited_for": "Venue proper because defendants reside in the District",
+      "quotes": [],
+      "context": "Venue is also proper under 28 U.S.C. § 1391(b)(1) because Defendants reside in this District",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1391(b)(1) makes venue proper in a district where any defendant resides, provided all defendants reside in the same state. Under § 1391(c)(2), an entity defendant resides wherever it is subject to personal jurisdiction. The citation fits the proposition that venue is proper because defendants reside in the district.",
+        "evidence_excerpt": "a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "verified-complaint.docx.md",
+      "location": "IV.B ¶34",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act definition of trade secret",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "Each category of information is a trade secret because it derives independent economic value from not being generally known or readily ascertainable",
+      "quotes": [],
+      "context": "constitutes a \"trade secret\" as defined by the Defend Trade Secrets Act, 18 U.S.C. § 1839(3), and the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42, because each derives independent economic value",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1839(3) defines 'trade secret' using the independent-economic-value test (not generally known and not readily ascertainable) plus reasonable secrecy measures. The complaint tracks that language accurately.",
+        "evidence_excerpt": "the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person who can obtain economic value from the disclosure or use of the information",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "verified-complaint.docx.md",
+      "location": "IV.B ¶34",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Definition of trade secret satisfied (independent economic value)",
+      "quotes": [],
+      "context": "as defined by the Defend Trade Secrets Act, 18 U.S.C. § 1839(3), and the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, § 42(4)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Section 42(4) defines 'trade secret', including the requirement that the information provide economic advantage from not being generally known. The Massachusetts statute says 'economic advantage' where the DTSA says 'independent economic value'; the complaint pairs the two statutes, so this is acceptable.",
+        "evidence_excerpt": "(i) at the time of the alleged misappropriation, provided economic advantage, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, others",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "verified-complaint.docx.md",
+      "location": "IV.B ¶39",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act reasonable-measures element",
+      "citation_as_written": "18 U.S.C. § 1839(3)(A)",
+      "pincite": "",
+      "cited_for": "Greenfield's measures satisfy DTSA reasonable-measures requirement",
+      "quotes": [],
+      "context": "The reasonable measures taken by Greenfield to protect its trade secrets satisfy the requirements of both the DTSA, 18 U.S.C. § 1839(3)(A), and the MTSA, Mass. Gen. Laws ch. 93, § 42.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1839(3)(A) is the DTSA's reasonable-measures element. The cite points to the right subparagraph; whether Greenfield's measures satisfy it is a factual claim in the scenario.",
+        "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "verified-complaint.docx.md",
+      "location": "IV.B ¶39",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Reasonable measures satisfy MTSA",
+      "quotes": [],
+      "context": "satisfy the requirements of both the DTSA, 18 U.S.C. § 1839(3)(A), and the MTSA, Mass. Gen. Laws ch. 93, § 42.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, § 42(4)(ii)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Section 42(4)(ii) requires that the information was the subject of efforts that were reasonable under the circumstances to protect it. That matches the complaint's 'reasonable measures' proposition.",
+        "evidence_excerpt": "(ii) at the time of the alleged misappropriation was the subject of efforts that were reasonable under the circumstances, which may include reasonable notice, to protect against it being acquired, disclosed or used without the consent",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV ¶97",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act private cause of action",
+      "citation_as_written": "18 U.S.C. § 1836(b)(1)",
+      "pincite": "",
+      "cited_for": "DTSA creates a private civil action for misappropriation of trade secrets related to products in interstate/foreign commerce",
+      "quotes": [
+        "related to a product or service used in, or intended for use in, interstate or foreign commerce."
+      ],
+      "context": "The Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(1), creates a private civil cause of action for the misappropriation of trade secrets that are \"related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in 18 U.S.C. § 1836(b)(1).",
+        "explanation": "Section 1836(b)(1) lets the owner of a misappropriated trade secret bring a civil action if the secret is related to a product or service used, or intended for use, in interstate or foreign commerce.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV heading",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Count IV heading: misappropriation under DTSA",
+      "quotes": [],
+      "context": "Misappropriation of Trade Secrets Under the Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The count heading correctly identifies 18 U.S.C. § 1836 as the DTSA civil-action provision for trade secret misappropriation.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV ¶99",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act definition of trade secret",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "Information qualifies as trade secrets: independent economic value (Linden valuation, $47.3M R&D) and reasonable measures",
+      "quotes": [],
+      "context": "constitutes \"trade secrets\" as defined by 18 U.S.C. § 1839(3) because: (a) The information derives independent economic value, actual and potential, from not being generally known",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1839(3) requires (A) reasonable measures to keep the information secret and (B) independent economic value, actual or potential, from not being generally known. The complaint's two-element pleading matches the statute.",
+        "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV ¶100",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act definition of misappropriation",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "",
+      "cited_for": "Vasquez misappropriated by acquiring trade secrets by improper means (USB download)",
+      "quotes": [],
+      "context": "Dr. Vasquez misappropriated Greenfield's trade secrets within the meaning of 18 U.S.C. § 1839(5).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1839(5) defines 'misappropriation' to include acquiring a trade secret by a person who knows or has reason to know it was acquired by improper means, and disclosing or using one acquired by improper means. That supports alleging that Vasquez misappropriated by downloading to USB without authorization.",
+        "evidence_excerpt": "(A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who— (i) used improper means to acquire knowledge of the trade secret",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV ¶102",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act definition of misappropriation",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "",
+      "cited_for": "Canopy Ridge misappropriated by acquiring through Vasquez knowing of improper means",
+      "quotes": [],
+      "context": "Canopy Ridge Therapeutics, LLC misappropriated Greenfield's trade secrets within the meaning of 18 U.S.C. § 1839(5).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1839(5)(A) and (B)(ii)(I) cover acquiring a trade secret, or using one, when the person knows it was obtained by improper means or came through a person who used improper means. That supports the allegation against Canopy Ridge as the entity that acquired the secrets through Vasquez.",
+        "evidence_excerpt": "at the time of disclosure or use, knew or had reason to know that the knowledge of the trade secret was— (I) derived from or through a person who had used improper means to acquire the trade secret",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV ¶108",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act remedies",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)",
+      "pincite": "",
+      "cited_for": "Entitlement to injunctive relief, damages, exemplary damages and attorneys' fees",
+      "quotes": [],
+      "context": "Greenfield is entitled to injunctive relief, compensatory damages, disgorgement of unjust enrichment, exemplary damages for willful and malicious misappropriation, and reasonable attorneys' fees pursuant to 18 U.S.C. § 1836(b)(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3) lists all of the remedies the complaint claims: injunctions in (A); actual-loss damages and unjust-enrichment damages in (B); exemplary damages for willful and malicious misappropriation in (C); and attorney's fees in (D). Fees under (D) are limited to bad faith or willful and malicious misappropriation, which matches the complaint's theory.",
+        "evidence_excerpt": "(3) Remedies.— In a civil action brought under this subsection ... a court may— (A) grant an injunction ... (B) award— (i)(I) damages for actual loss ... (II) damages for any unjust enrichment ... (C) ... exemplary damages ... (D) ... award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "verified-complaint.docx.md",
+      "location": "Count V heading and ¶110",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Provides cause of action for misappropriation of trade secrets under Massachusetts law",
+      "quotes": [],
+      "context": "The Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42, provides a cause of action for misappropriation of trade secrets under Massachusetts law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, §§ 42–42G (definitions at § 42; remedies at §§ 42A–42C)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Massachusetts UTSA exists and is codified at ch. 93, §§ 42–42G. Section 42 itself is only the definitions section, including 'misappropriation'. The remedies that make up the cause of action are in § 42A (injunction) and § 42B (damages). Citing the Act by its first section is common shorthand, but '§ 42 et seq.' or '§§ 42–42G' would be more accurate.",
+        "evidence_excerpt": "Section 42: Trade secrets; definitions applicable to Secs. 42 to 42G ... As used in this section and in sections 42A to 42G, inclusive, the following words ... have the following meanings",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42A",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42B"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "verified-complaint.docx.md",
+      "location": "Count V ¶111",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1367(a)",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over MTSA claim",
+      "quotes": [],
+      "context": "this Court has supplemental jurisdiction over this state-law claim pursuant to 28 U.S.C. § 1367(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1367(a) supports supplemental jurisdiction over a related state-law trade secrets claim brought alongside the federal DTSA claim.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "verified-complaint.docx.md",
+      "location": "Count V ¶112",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "MTSA (Mass. Gen. Laws ch. 93, § 42)",
+      "pincite": "",
+      "cited_for": "Information qualifies as trade secrets under MTSA",
+      "quotes": [],
+      "context": "constitutes \"trade secrets\" as defined by the MTSA because such information derives independent economic value",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, § 42 (definition of 'Trade secret', para. (4))",
+        "quote_check": "No quotes attributed. The paraphrase 'derives independent economic value' is DTSA/UTSA wording. The MTSA instead says 'provided economic advantage, actual or potential'.",
+        "explanation": "Section 42 is the right place for the MTSA definition of 'trade secret', and it has the two elements the complaint invokes: value from secrecy plus reasonable efforts to keep it secret. The complaint's wording, however, tracks the DTSA test of 'independent economic value' rather than the Massachusetts text, which speaks of 'economic advantage'. That is a loose paraphrase, not a substantive error.",
+        "evidence_excerpt": "(4) ''Trade secret'', specified or specifiable information ... that (i) at the time of the alleged misappropriation, provided economic advantage, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, others",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "verified-complaint.docx.md",
+      "location": "Count V ¶¶113, 117",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act / DTSA",
+      "citation_as_written": "MTSA; federal DTSA",
+      "pincite": "",
+      "cited_for": "Misappropriation under MTSA by same acts; MTSA provides additional and complementary remedies to DTSA",
+      "quotes": [],
+      "context": "The MTSA provides additional and complementary remedies to those available under the federal DTSA, and Greenfield is entitled to pursue relief under both statutes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, §§ 42-42G; 18 U.S.C. § 1836 et seq. (see 18 U.S.C. § 1838)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes exist. Under 18 U.S.C. § 1838, the DTSA does not preempt or displace state trade-secret remedies, so a plaintiff may plead claims under both the DTSA and the MTSA for the same acts. Section 42F of the MTSA supersedes only conflicting Massachusetts law; it says nothing that limits parallel federal claims. Calling the remedies \"additional and complementary\" is a fair characterization, though neither statute uses that phrase.",
+        "evidence_excerpt": "18 U.S.C. § 1838: \"this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by ... State ... law for the misappropriation of a trade secret\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1838",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42F"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "verified-complaint.docx.md",
+      "location": "Count V ¶118",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Entitlement to injunctive relief, damages, exemplary damages and attorneys' fees",
+      "quotes": [],
+      "context": "Greenfield is entitled to injunctive relief, compensatory damages, disgorgement of unjust enrichment, exemplary damages ... and reasonable attorneys' fees under Mass. Gen. Laws ch. 93, § 42.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, §§ 42A (injunction), 42B (damages, unjust enrichment, exemplary damages), 42C (attorney's fees)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The MTSA does provide every remedy listed. Section 42A covers injunctions. Section 42B(a) covers actual loss plus unjust enrichment. Section 42B(b) allows exemplary damages of up to twice the award for willful and malicious misappropriation. Section 42C allows attorney's fees for willful and malicious misappropriation or bad faith. None of these remedies appears in the cited § 42, which contains only definitions, so the section cite is wrong.",
+        "evidence_excerpt": "§ 42B(b): \"If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a).\" § 42C: \"The court may award reasonable attorney's fees and costs to the prevailing party if ... (iii) willful and malicious misappropriation exists.\"",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42A",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42B",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42C"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. I read the official text. Section 42 is headed \"Trade secrets; definitions applicable to Secs. 42 to 42G\" and begins \"As used in this section and in sections 42A to 42G, inclusive, the following words...\". It defines only \"improper means\", \"misappropriation\", \"person\" and \"trade secret\", and contains no remedies. The remedies the complaint claims are in other sections. § 42A covers injunctions: \"Actual or threatened misappropriation may be enjoined upon principles of equity...\". § 42B covers damages, including unjust enrichment, and § 42B(b) adds exemplary damages: \"If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a).\" § 42C covers fees: \"The court may award reasonable attorney's fees and costs to the prevailing party if ... (iii) willful and malicious misappropriation exists.\" The proposition is correct under the Act, but the bare cite to § 42 points to the definitions section. In paragraph 118 the complaint writes the cite without \"et seq.\" (the cease-and-desist letter uses \"§ 42 et seq.\"). The right statute with the wrong section is closest to WRONG_CITATION_REAL_CASE. VERIFIED_MINOR_DEFECT would also be a defensible reading if a wrong section is treated like a wrong pin page. The correct cite is Mass. Gen. Laws ch. 93, §§ 42A–42C.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42A",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42B",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42C"
+        ]
+      }
+    },
+    {
+      "ref": 27,
+      "document": "verified-complaint.docx.md",
+      "location": "VI. Prayer for Relief (d)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act exemplary damages",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Exemplary damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Exemplary damages as permitted by the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C), the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42, and applicable common law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to twice the damages awarded under subparagraph (B) when a trade secret is willfully and maliciously misappropriated. The cite is exact.",
+        "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "verified-complaint.docx.md",
+      "location": "VI. Prayer for Relief (d)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Exemplary damages under MTSA",
+      "quotes": [],
+      "context": "the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42, and applicable common law, for willful and malicious misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, § 42B(b)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The MTSA authorizes exemplary damages for willful and malicious misappropriation, capped at twice the compensatory award, but that provision is § 42B(b). Section 42 is only the definitions section, so the cite points to the wrong section of the right statute.",
+        "evidence_excerpt": "Section 42B ... (b) If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a).",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42B",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. Prayer (d) of the complaint cites \"Mass. Gen. Laws ch. 93, § 42\" for exemplary damages for willful and malicious misappropriation. The official text of § 42 is headed \"Trade secrets; definitions applicable to Secs. 42 to 42G\" and contains only definitions. Exemplary damages are in § 42B, headed \"Trade secrets; damages\": \"If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a).\" The remedy is real and correctly described, but the section cited is the wrong one. The correct cite is Mass. Gen. Laws ch. 93, § 42B(b). VERIFIED_MINOR_DEFECT would also be arguable on the same basis as ref 26.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42B"
+        ]
+      }
+    },
+    {
+      "ref": 29,
+      "document": "employment-agreement.docx.md",
+      "location": "Section 8.1, second paragraph (Trade Secrets definition)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Contractual definition of \"Trade Secrets\" incorporates the meaning in the MTSA",
+      "quotes": [
+        "\"Trade Secrets\" shall have the meaning set forth in the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42"
+      ],
+      "context": "\"Trade Secrets\" shall have the meaning set forth in the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42, and the Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq. (the \"DTSA\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted language is the employment agreement's own drafting (found verbatim at employment-agreement.docx.md line 109). It is not attributed to the statute, so no statutory quote needs checking.",
+        "explanation": "The contract borrows the statutory meaning of 'Trade Secrets'. The MTSA definition of 'trade secret' is in fact in § 42, at paragraph (4), so the cross-reference points to the right place.",
+        "evidence_excerpt": "(4) ''Trade secret'', specified or specifiable information, whether or not fixed in tangible form ... including but not limited to a formula, pattern, compilation, program, device, method, technique, process, business strategy, customer list ...",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "employment-agreement.docx.md",
+      "location": "Section 8.1, second paragraph",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Contractual definition of \"Trade Secrets\" incorporates the DTSA meaning",
+      "quotes": [
+        "the Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq."
+      ],
+      "context": "and shall include all Confidential Information that qualifies as a trade secret under either or both of such statutes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted string is the employment agreement's own drafting, not a quotation from the statute. It appears verbatim in Section 8.1 of the agreement.",
+        "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153) added the private civil action at 18 U.S.C. § 1836(b) and amended § 1839, so '18 U.S.C. § 1836 et seq.' is the conventional cite. The statutory trade-secret definition the contract borrows is at § 1839(3), which falls within 'et seq.'",
+        "evidence_excerpt": "Pub. L. 114–153, § 2(a), added subsecs. (b) to (d) ... Amendment by Pub. L. 114–153 applicable with respect to any misappropriation of a trade secret (as defined in section 1839 of this title)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "cease-and-desist-letter.docx.md",
+      "location": "Consequences of Non-Compliance; Reservation of Rights",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Greenfield reserves right to sue for trade secret misappropriation under DTSA",
+      "quotes": [],
+      "context": "bringing actions for misappropriation of trade secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The letter's reservation of the right to sue for misappropriation under the DTSA is supported by the civil action § 1836(b)(1) creates for trade secret owners. 'Et seq.' is appropriate.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "cease-and-desist-letter.docx.md",
+      "location": "Consequences of Non-Compliance; Reservation of Rights",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42 et seq.",
+      "pincite": "",
+      "cited_for": "Greenfield reserves right to sue for misappropriation under MTSA",
+      "quotes": [],
+      "context": "and the Massachusetts Trade Secrets Act, Mass. Gen. Laws ch. 93, § 42 et seq.; asserting claims for breach of fiduciary duty and the duty of loyalty",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "'§ 42 et seq.' correctly identifies the MTSA, codified at ch. 93, §§ 42–42G. The Act provides misappropriation claims with injunctive relief (§ 42A) and damages (§ 42B), so reserving the right to sue under it is accurate.",
+        "evidence_excerpt": "Section 42: Trade secrets; definitions applicable to Secs. 42 to 42G",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "forensic-it-report.docx.md",
+      "location": "Section 5.3, final paragraph",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act definition of trade secret",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "Transferred files constitute trade secrets (independent economic value, reasonable measures)",
+      "quotes": [],
+      "context": "These files constitute trade secrets under both the Defend Trade Secrets Act (18 U.S.C. § 1839(3)) and the Massachusetts Trade Secrets Act (Mass. Gen. Laws ch. 93, § 42)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1839(3) defines 'trade secret' to require (A) reasonable measures to keep the information secret and (B) independent economic value from not being generally known. That matches the forensic report's use of the cite. Whether the particular files qualify is a factual question for the scenario.",
+        "evidence_excerpt": "(3) the term \"trade secret\" means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to...",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "forensic-it-report.docx.md",
+      "location": "Section 5.3, final paragraph",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Transferred files constitute trade secrets under MTSA",
+      "quotes": [],
+      "context": "and the Massachusetts Trade Secrets Act (Mass. Gen. Laws ch. 93, § 42), as they derive independent economic value from not being generally known or readily ascertainable by proper means",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, § 42 (definition of 'Trade secret', para. (4))",
+        "quote_check": "No quotes attributed. The report's paraphrase 'derive independent economic value' is DTSA wording. The MTSA says 'provided economic advantage, actual or potential'.",
+        "explanation": "Section 42 is the correct location of the MTSA's trade-secret definition, which requires value from secrecy and reasonable protective efforts. The report applies the DTSA's 'independent economic value' wording to both statutes, which is slightly inaccurate for the MTSA's 'economic advantage' formulation. In substance, though, it supports the proposition.",
+        "evidence_excerpt": "(i) at the time of the alleged misappropriation, provided economic advantage, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, others who might obtain economic advantage from its acquisition, disclosure or use; and",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "forensic-it-report.docx.md",
+      "location": "Section 2.4 Standards",
+      "authority_type": "other",
+      "authority": "NIST Special Publication 800-86, Guide to Integrating Forensic Techniques into Incident Response",
+      "citation_as_written": "NIST Special Publication 800-86",
+      "pincite": "",
+      "cited_for": "Forensic examination conducted in accordance with this standard",
+      "quotes": [],
+      "context": "The examination was conducted in accordance with NIST Special Publication 800-86 (Guide to Integrating Forensic Techniques into Incident Response) and the best practice guidelines established by the Scientific Working Group on Digital Evidence (SWGDE).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "NIST Special Publication 800-86, Guide to Integrating Forensic Techniques into Incident Response (Aug. 2006)",
+        "quote_check": "Title given in the document matches the official title.",
+        "explanation": "NIST SP 800-86 exists, and its title is exactly as cited. It is a recognized forensic guidance document, so the report reasonably cites it as the standard the examination followed. Whether the fictional examination actually complied with it is a fact question that cannot be checked.",
+        "evidence_excerpt": "Title: \"Guide to Integrating Forensic Techniques into Incident Response\"; Date Published: August 2006; Authors: Karen Kent, Suzanne Chevalier, Tim Grance, Hung Dang",
+        "source_urls": [
+          "https://csrc.nist.gov/pubs/sp/800/86/final"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 149, § 24L",
+      "pincite": "",
+      "cited_for": "MNAA applies to Vasquez's non-compete (agreement dated March 11, 2019, after Oct. 1, 2018; 12-month general limit, 24 months if fiduciary breach; garden leave consideration)",
+      "quotes": [],
+      "context": "PASS if the memorandum discusses the Massachusetts Noncompetition Agreement Act (MNAA), Mass. Gen. Laws ch. 149, § 24L, as applicable to Dr. Vasquez's non-compete.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 24L is the Massachusetts Noncompetition Agreement Act. It covers agreements entered on or after October 1, 2018 (St. 2018, c. 228, § 71), which includes a March 11, 2019 agreement. Section 24L(b)(iv) sets the 12-month general limit and allows up to 2 years for a fiduciary breach or unlawful taking. Section 24L(b)(vii) requires garden leave or other agreed consideration. Every element of the rubric's description matches the statute.",
+        "evidence_excerpt": "SECTION 71. Section 24L of chapter 149 of the General Laws may be referred to as the Massachusetts Noncompetition Agreement Act and shall apply to employee noncompetition agreements entered into on or after October 1, 2018. / (vii) The noncompetition agreement shall be supported by a garden leave clause or other mutually-agreed upon consideration",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L",
+          "https://malegislature.gov/Laws/SessionLaws/Acts/2018/Chapter228"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "task.json.md",
+      "location": "rubric C-019",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Memorandum should address DTSA trade secret misappropriation",
+      "quotes": [],
+      "context": "PASS if the memorandum addresses trade secret misappropriation under the federal Defend Trade Secrets Act (18 U.S.C. § 1836).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836 ('Civil proceedings') is the DTSA private civil cause of action for misappropriation of trade secrets; citing it for DTSA misappropriation claims is accurate.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "task.json.md",
+      "location": "rubric C-020",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Mass. Gen. Laws ch. 93, § 42",
+      "pincite": "",
+      "cited_for": "Memorandum should address MTSA misappropriation",
+      "quotes": [],
+      "context": "PASS if the memorandum addresses trade secret misappropriation under the Massachusetts Trade Secrets Act (Mass. Gen. Laws ch. 93, § 42).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rubric simply names the MTSA as a topic to address. Section 42 is the MTSA's opening and definitions section, and it defines 'misappropriation', so it is an acceptable identifier for an MTSA misappropriation analysis. A full cite would be §§ 42–42G.",
+        "evidence_excerpt": "(ii) an act of disclosure or of use of a trade secret of another without that person's express or implied consent by a person who (A) used improper means to acquire knowledge of the trade secret",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "task.json.md",
+      "location": "rubric C-036",
+      "authority_type": "statute",
+      "authority": "DTSA whistleblower immunity notice",
+      "citation_as_written": "18 U.S.C. § 1833(b)",
+      "pincite": "",
+      "cited_for": "Absence of whistleblower immunity notice in Employment Agreement limits exemplary damages and attorneys' fees but does not bar injunctive relief",
+      "quotes": [],
+      "context": "proactively addresses the absence of the DTSA whistleblower immunity notice (18 U.S.C. § 1833(b)) in the Employment Agreement, noting that this limits recovery of exemplary damages and attorneys' fees but does not bar injunctive relief",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1833(b)(3)(A), (C)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1833(b)(3)(A) requires employers to give notice of whistleblower immunity in any employee contract governing trade secrets; (b)(3)(C) says a non-compliant employer may not be awarded exemplary damages or attorney fees under § 1836(b)(3)(C)-(D) against an employee who did not get notice. The statute sets no other penalty, so injunctive relief under § 1836(b)(3)(A) is unaffected. That supports the rubric's proposition. The general cite to § 1833(b) is adequate; (b)(3)(C) is the precise pin.",
+        "evidence_excerpt": "If an employer does not comply with the notice requirement in subparagraph (A), the employer may not be awarded exemplary damages or attorney fees under subparagraph (C) or (D) of section 1836(b)(3) in an action against an employee to whom notice was not provided.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1833"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "task.json.md",
+      "location": "rubric C-037",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction based on DTSA",
+      "quotes": [],
+      "context": "referencing federal question jurisdiction based on the DTSA (18 U.S.C. § 1836), supplemental jurisdiction under 28 U.S.C. § 1367 for state claims, and/or diversity jurisdiction",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1836 creates a federal civil action and § 1836(c) gives district courts original jurisdiction, supporting federal-question jurisdiction based on the DTSA.",
+        "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "task.json.md",
+      "location": "rubric C-037",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state claims",
+      "quotes": [],
+      "context": "supplemental jurisdiction under 28 U.S.C. § 1367 for state claims",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1367 provides supplemental jurisdiction over related claims that form part of the same case or controversy. That covers state-law claims that accompany a federal claim.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "task.json.md",
+      "location": "rubric C-008 (line 98)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act (MNAA)",
+      "citation_as_written": "MNAA",
+      "pincite": "",
+      "cited_for": "Rubric requires memo to connect the March 11, 2019 agreement date to MNAA applicability (agreements on/after Oct. 1, 2018)",
+      "quotes": [],
+      "context": "PASS if the memorandum states or implies the employment agreement was entered into on or after October 1, 2018 (specifically March 11, 2019), triggering the MNAA.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L; St. 2018, c. 228, § 71",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 71 of the 2018 session law makes the MNAA apply to employee noncompetition agreements entered on or after October 1, 2018. An agreement dated March 11, 2019 is therefore covered.",
+        "evidence_excerpt": "shall apply to employee noncompetition agreements entered into on or after October 1, 2018.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/SessionLaws/Acts/2018/Chapter228"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "task.json.md",
+      "location": "rubric C-010 (line 106)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act (MNAA)",
+      "citation_as_written": "MNAA",
+      "pincite": "",
+      "cited_for": "MNAA generally limits non-compete duration to 12 months",
+      "quotes": [],
+      "context": "PASS if the memorandum acknowledges that the MNAA generally limits non-compete duration to 12 months (and that the contractual 24-month term exceeds this general limit).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(iv)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 24L(b)(iv) caps the restricted period at 12 months from cessation of employment, except for a fiduciary breach or unlawful taking of property, where the limit is 2 years. A 24-month contractual term exceeds the general limit.",
+        "evidence_excerpt": "In no event may the stated restricted period exceed 12 months from the date of cessation of employment, unless...",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "task.json.md",
+      "location": "rubric C-012 (line 114)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act (MNAA) fiduciary duty breach exception",
+      "citation_as_written": "MNAA",
+      "pincite": "",
+      "cited_for": "MNAA exception permitting up to 24 months where employee breached fiduciary duty",
+      "quotes": [],
+      "context": "which triggers the MNAA's exception permitting up to 24 months, OR alternatively argues for enforcement of at least 12 mont",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(iv)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Section 24L(b)(iv) limits the restricted period to 12 months but allows up to 2 years where the employee breached a fiduciary duty or unlawfully took employer property. That supports the rubric's description of the exception.",
+        "evidence_excerpt": "In no event may the stated restricted period exceed 12 months from the date of cessation of employment, unless the employee has breached his or her fiduciary duty to the employer or the employee has unlawfully taken, physically or electronically, property belonging to the employer, in which case the duration may not exceed 2 years",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "task.json.md",
+      "location": "rubric C-013 (line 122)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act (MNAA) garden leave / independent consideration",
+      "citation_as_written": "MNAA",
+      "pincite": "",
+      "cited_for": "Garden leave pay of 50% of base salary satisfies MNAA's independent consideration requirement",
+      "quotes": [],
+      "context": "= $162,500/year or $13,541.67/month during the restricted period) satisfies the MNAA's requirement for independent consideration to support the non-compete.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(vii)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Section 24L(b)(vii) requires a noncompete to be supported by either a garden leave clause or other mutually agreed consideration. A garden leave clause must pay at least 50% of the employee's highest annualized base salary, pro rata over the restricted period, so 50% garden leave pay satisfies the consideration requirement. The statute measures the 50% against the highest base salary paid in the 2 years before termination; the rubric's arithmetic assumes that figure is the current base salary.",
+        "evidence_excerpt": "at least 50 percent of the employee's highest annualized base salary paid by the employer within the 2 years preceding the employee's termination",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "task.json.md",
+      "location": "rubric C-016 (line 146)",
+      "authority_type": "statute",
+      "authority": "DTSA and Massachusetts trade secret law (independent economic value element)",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Independent economic value from not being generally known is a statutory element of trade secret status under DTSA and Massachusetts law",
+      "quotes": [],
+      "context": "(a statutory element of trade secret status under both DTSA and Massachusetts law)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1839(3)(B); Mass. Gen. Laws ch. 93, § 42(4)(i)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Both statutes support the rubric's parenthetical. The DTSA definition in § 1839(3)(B) requires independent economic value from not being generally known or readily ascertainable. The Massachusetts definition in ch. 93, § 42(4)(i) requires economic advantage, actual or potential, from not being generally known or readily ascertainable. That is substantively the same element, though worded as 'economic advantage' rather than 'independent economic value.' The rubric names the statute only generically, with no section number.",
+        "evidence_excerpt": "DTSA § 1839(3)(B): \"the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person\"; Mass. § 42(4): \"(i) at the time of the alleged misappropriation, provided economic advantage, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, others\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "task.json.md",
+      "location": "rubric C-021 (lines 182-186)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA)",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "DTSA provides no statutory presumption of irreparable harm for preliminary injunctions",
+      "quotes": [],
+      "context": "PASS if the memorandum does NOT claim that the DTSA provides a statutory presumption of irreparable harm for preliminary injunctions.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(3)(A)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rubric's premise holds: § 1836 lets a court grant an injunction against actual or threatened misappropriation, but it creates no presumption of irreparable harm. The only 'irreparable' language is in the ex parte civil-seizure provision (§ 1836(b)(2)), which requires a finding of irreparable injury before a seizure order; it does not presume one.",
+        "evidence_excerpt": "a court may grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable ... [seizure provision:] an immediate and irreparable injury will occur if such seizure is not ordered",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "task.json.md",
+      "location": "rubric C-042 (line 354)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act (MNAA) fiduciary duty exception",
+      "citation_as_written": "MNAA",
+      "pincite": "",
+      "cited_for": "Rebut defense argument that 24-month non-compete is unreasonable by invoking MNAA fiduciary duty exception",
+      "quotes": [],
+      "context": "by invoking the MNAA fiduciary duty exception, arguing the GBS-4400 development timeline justifies a longer restriction",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(iv)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The fiduciary-duty exception in § 24L(b)(iv) is real and allows a restricted period of up to 2 years. Using it to answer an objection to a 24-month term is a fair reading of the statute; whether the facts amount to a breach is argument, not a citation defect.",
+        "evidence_excerpt": "unless the employee has breached his or her fiduciary duty to the employer ... in which case the duration may not exceed 2 years from the date of cessation of employment",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "greenfield-declaration.docx.md",
+      "location": "Preamble, line 13",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746 (unsworn declarations under penalty of perjury)",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration made under penalty of perjury",
+      "quotes": [],
+      "context": "I, Dr. Marcus Greenfield, hereby declare under penalty of perjury pursuant to 28 U.S.C. § 1746 as follows:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "28 U.S.C. § 1746 permits unsworn declarations subscribed under penalty of perjury to substitute for sworn declarations, using the prescribed form for declarations executed in the United States. That supports the preamble's invocation. Whether the closing 'true and correct' form language is used would have to be checked against the declaration's signature block. The citation itself is accurate.",
+        "evidence_excerpt": "\"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)\".",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "greenfield-declaration.docx.md",
+      "location": "Paragraph 33",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 65(c)",
+      "citation_as_written": "Federal Rule of Civil Procedure 65(c)",
+      "pincite": "",
+      "cited_for": "Greenfield is prepared to post a bond or other security as the Court may require",
+      "quotes": [],
+      "context": "Greenfield is prepared to post a bond or other security as the Court may require pursuant to Federal Rule of Civil Procedure 65(c).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 65(c) lets a court issue a preliminary injunction only if the movant gives security in an amount the court considers proper. Greenfield's statement that it is prepared to post a bond or other security under Rule 65(c) correctly invokes the rule.",
+        "evidence_excerpt": "The court may issue a preliminary injunction or a temporary restraining order only if the movant gives security in an amount that the court considers proper to pay the costs and damages sustained by any party found to have been wrongfully enjoined or restrained.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_65"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "valuation-summary-report.docx.md",
+      "location": "Section 6, paragraph 4 (line 167)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "Defend Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Report disclaims opinion on whether information constitutes a trade secret under the DTSA (no section cited)",
+      "quotes": [
+        "trade secret"
+      ],
+      "context": "does not constitute an opinion on any legal matter, including whether any particular item of information constitutes a \"trade secret\" under the Defend Trade Secrets Act, the Massachusetts Trade Secrets Act, or any other applicable law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836 et seq. (definition of 'trade secret' at 18 U.S.C. § 1839(3))",
+        "quote_check": "\"trade secret\" found verbatim as the defined term in 18 U.S.C. § 1839(3).",
+        "explanation": "The report only disclaims a legal opinion on whether information is a 'trade secret' under the DTSA. The DTSA exists and defines 'trade secret' in § 1839(3), so the reference is accurate. No section was cited, which is fine for a non-legal valuation report.",
+        "evidence_excerpt": "the term \"trade secret\" means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "valuation-summary-report.docx.md",
+      "location": "Section 6, paragraph 4 (line 167)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Trade Secrets Act",
+      "citation_as_written": "Massachusetts Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Report disclaims opinion on whether information constitutes a trade secret under Massachusetts Trade Secrets Act (no section cited)",
+      "quotes": [
+        "trade secret"
+      ],
+      "context": "whether any particular item of information constitutes a \"trade secret\" under the Defend Trade Secrets Act, the Massachusetts Trade Secrets Act, or any other applicable law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 93, §§ 42-42G (Massachusetts Uniform Trade Secrets Act)",
+        "quote_check": "\"trade secret\" found verbatim as the defined term in M.G.L. ch. 93, § 42",
+        "explanation": "The Massachusetts trade secrets statute exists at M.G.L. ch. 93, §§ 42-42G and defines \"trade secret\". The report only disclaims any opinion on whether information qualifies under it, which is an accurate general reference. No section is cited, but none is needed for a disclaimer.",
+        "evidence_excerpt": "Section 42: Trade secrets; definitions applicable to Secs. 42 to 42G ... \"specified or specifiable information, whether or not fixed in tangible form ...\"",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section42"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Re line (line 11)",
+      "authority_type": "other",
+      "authority": "Greenfield Botanical Sciences, Inc. v. Dr. Elena Vasquez and Canopy Ridge Therapeutics, LLC, Case No. 1:25-cv-00482-DJC (D. Mass.)",
+      "citation_as_written": "Case No. 1:25-cv-00482-DJC (D. Mass.)",
+      "pincite": "",
+      "cited_for": "The pending matter in which the letter is written",
+      "quotes": [],
+      "context": "Greenfield Botanical Sciences, Inc. v. Dr. Elena Vasquez and Canopy Ridge Therapeutics, LLC, Case No. 1:25-cv-00482-DJC (D. Mass.) — Verified Complaint and Motion for Preliminary Injunction Filed March 10, 2025",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket number in the fictional scenario."
+    },
+    {
+      "ref": 54,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 1, paragraph 1 (line 19)",
+      "authority_type": "statute",
+      "authority": "Massachusetts Noncompetition Agreement Act (MNAA), Mass. Gen. Laws ch. 149, § 24L",
+      "citation_as_written": "Mass. Gen. Laws ch. 149, § 24L",
+      "pincite": "",
+      "cited_for": "Non-compete in Section 7.1 is unenforceable under the MNAA; Act took effect October 1, 2018 and governs agreements entered on or after that date",
+      "quotes": [],
+      "context": "unenforceable under the Massachusetts Noncompetition Agreement Act (\"MNAA\"), Mass. Gen. Laws ch. 149, § 24L. The MNAA took effect on October 1, 2018, and governs noncompetition agreements entered into on or after that date.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Mass. Gen. Laws ch. 149, § 24L is the Massachusetts Noncompetition Agreement Act. St. 2018, c. 228, § 71 names it and makes it apply to noncompetition agreements entered into on or after October 1, 2018, which matches the letter's statement. The claim that Section 7.1 is unenforceable is the defense's argument on the facts, not something the citation itself establishes.",
+        "evidence_excerpt": "SECTION 71. Section 24L of chapter 149 of the General Laws may be referred to as the Massachusetts Noncompetition Agreement Act and shall apply to employee noncompetition agreements entered into on or after October 1, 2018.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/SessionLaws/Acts/2018/Chapter228",
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 1, paragraph 2 (line 21)",
+      "authority_type": "statute",
+      "authority": "Mass. Gen. Laws ch. 149, § 24L (duration limit)",
+      "citation_as_written": "Section 24L",
+      "pincite": "",
+      "cited_for": "Limits duration of enforceable noncompetition agreement to twelve months as a general rule",
+      "quotes": [],
+      "context": "Section 24L limits the duration of any enforceable noncompetition agreement to twelve (12) months from the date of cessation of employment as a general rule.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(iv)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 24L(b)(iv) caps the restricted period at 12 months from cessation of employment. The only exception is a fiduciary breach or unlawful taking of property. That matches the letter's statement of a 12-month general rule.",
+        "evidence_excerpt": "(iv) In no event may the stated restricted period exceed 12 months from the date of cessation of employment, unless the employee has breached his or her fiduciary duty to the employer or the employee has unlawfully taken, physically or electronically, property belonging to the employer, in which case the duration may not exceed 2 years",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 1, paragraph 2 (line 21)",
+      "authority_type": "statute",
+      "authority": "Mass. Gen. Laws ch. 149, § 24L(b)(vii)",
+      "citation_as_written": "Mass. Gen. Laws ch. 149, § 24L(b)(vii)",
+      "pincite": "(b)(vii)",
+      "cited_for": "A 24-month restriction is permitted only where employee breached fiduciary duty or unlawfully took employer property",
+      "quotes": [
+        "the employee has breached his or her fiduciary duty to the employer or the employee has unlawfully taken, physically or electronically, property belonging to the employer."
+      ],
+      "context": "The statute permits a twenty-four (24) month restriction only where \"the employee has breached his or her fiduciary duty to the employer or the employee has unlawfully taken, physically or electronically, property belonging to the employer.\" Mass. Gen. Laws ch. 149, § 24L(b)(vii).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(iv)",
+        "quote_check": "Found verbatim, but in § 24L(b)(iv), not (b)(vii). Subsection (b)(vii), the garden-leave consideration provision, uses similar but not identical wording: \"the employee's breach of a fiduciary duty to the employer or the employee has unlawfully taken...\"",
+        "explanation": "The proposition is correct. The restricted period may run up to 2 years only if the employee breached a fiduciary duty or unlawfully took the employer's property. The quoted language is verbatim from (b)(iv), the duration cap. The letter cites (b)(vii), which governs garden leave and refers to the extension only in passing, so the pin cite is wrong.",
+        "evidence_excerpt": "unless the employee has breached his or her fiduciary duty to the employer or the employee has unlawfully taken, physically or electronically, property belonging to the employer, in which case the duration may not exceed 2 years from the date of cessation of employment.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 1, paragraph 3 (line 23)",
+      "authority_type": "statute",
+      "authority": "Mass. Gen. Laws ch. 149, § 24L(b)(iv) (cited as Id.)",
+      "citation_as_written": "Id. § 24L(b)(iv)",
+      "pincite": "(b)(iv)",
+      "cited_for": "Restriction must be no broader than necessary to protect employer's legitimate business interests including trade secrets and confidential information",
+      "quotes": [
+        "no broader than necessary to protect the employer's legitimate business interests"
+      ],
+      "context": "The MNAA requires that any restriction be \"no broader than necessary to protect the employer's legitimate business interests,\" including the protection of trade secrets and confidential information. Id. § 24L(b)(iv).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(iii)",
+        "quote_check": "Found with differences, and in (b)(iii), not (b)(iv). The statute reads \"no broader than necessary to protect one or more of the following legitimate business interests of the employer\"; the letter has \"no broader than necessary to protect the employer's legitimate business interests.\"",
+        "explanation": "The substance is right. The statute requires a noncompete to be no broader than necessary to protect the employer's legitimate business interests: trade secrets, confidential information, or goodwill. There are two defects. The pin cite is wrong, because this requirement is in (b)(iii) while (b)(iv) is the duration cap. The quotation also condenses the statutory wording, though the meaning is unchanged.",
+        "evidence_excerpt": "(iii) The agreement must be no broader than necessary to protect one or more of the following legitimate business interests of the employer: (A) the employer's trade secrets; (B) the employer's confidential information that otherwise would not qualify as a trade secret; or (C) the employer's goodwill.",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 1, paragraph 4 (line 25)",
+      "authority_type": "statute",
+      "authority": "MNAA (Mass. Gen. Laws ch. 149, § 24L), garden leave consideration",
+      "citation_as_written": "Massachusetts Noncompetition Agreement Act (MNAA) (referenced, no section)",
+      "pincite": "",
+      "cited_for": "Garden leave payment of 50% of salary is the statutory minimum consideration required under the MNAA and a floor condition for enforceability",
+      "quotes": [],
+      "context": "the garden leave payment specified in Section 7.3 ... is the statutory minimum consideration required under the MNAA. The payment of minimum statutory consideration is not evidence of the restriction's reasonableness; it is a floor condition for enforceability.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L(b)(vii)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 24L(b)(vii) requires a noncompete to be supported by either a garden leave clause paying at least 50% of the employee's highest annualized base salary from the prior two years, or other mutually agreed consideration specified in the agreement. The 50% figure is therefore a statutory minimum and an enforceability condition when consideration takes the form of garden leave. However, the letter calls it \"the statutory minimum consideration required under the MNAA\", which overstates the rule: the statute expressly allows other agreed consideration instead of garden leave. The core point, that the payment is a statutory floor rather than evidence of reasonableness, is supported.",
+        "evidence_excerpt": "\"The noncompetition agreement shall be supported by a garden leave clause or other mutually-agreed upon consideration between the employer and the employee, provided that such consideration is specified in the noncompetition agreement.\" ... \"at least 50 percent of the employee's highest annualized base salary paid by the employer within the 2 years preceding the employee's termination\"",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 3, paragraph 3 (line 41)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(A)(i)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(A)(i)",
+      "pincite": "(b)(3)(A)(i)",
+      "cited_for": "DTSA does not provide a statutory presumption of irreparable harm for preliminary injunction",
+      "quotes": [],
+      "context": "the Defend Trade Secrets Act (\"DTSA\") does not provide a statutory presumption of irreparable harm in the context of a motion for preliminary injunction. See 18 U.S.C. § 1836(b)(3)(A)(i).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(A)(i) authorizes an injunction 'on such terms as the court deems reasonable' to prevent actual or threatened misappropriation. It says nothing about presuming irreparable harm. The 'See' cite therefore fairly supports the argument from the statute's silence that the DTSA creates no statutory presumption. Ordinary equitable preliminary-injunction standards would apply; that conclusion comes from case law, not from this provision.",
+        "evidence_excerpt": "(A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable, provided the order does not— (I) prevent a person from entering into an employment relationship...",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "defense-counsel-letter.docx.md",
+      "location": "Section 5 (line 51)",
+      "authority_type": "statute",
+      "authority": "MNAA (declaratory judgment that Section 7.1 is void under the MNAA)",
+      "citation_as_written": "MNAA (no section cited)",
+      "pincite": "",
+      "cited_for": "Defendants reserve counterclaim for declaratory judgment that the non-compete is void and unenforceable under the MNAA",
+      "quotes": [],
+      "context": "declaratory judgment that the non-compete provision in Section 7.1 is void and unenforceable under the MNAA.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Mass. Gen. Laws ch. 149, § 24L",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Massachusetts Noncompetition Agreement Act exists at M.G.L. ch. 149, § 24L. It sets the requirements a noncompete must meet to be valid and enforceable, and subsection (c) makes noncompetes unenforceable against certain categories of workers. Reserving a declaratory-judgment counterclaim that a noncompete is void or unenforceable under the MNAA is consistent with the statute. No section is cited, but the reference is unambiguous.",
+        "evidence_excerpt": "\"A noncompetition agreement shall not be enforceable against the following types of workers: ...\" (§ 24L(c)); \"The noncompetition agreement shall be supported by a garden leave clause or other mutually-agreed upon consideration\" (§ 24L(b)(vii))",
+        "source_urls": [
+          "https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXXI/Chapter149/Section24L"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "chow-declaration.docx.md",
+      "location": "Preamble, line 18",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration made under penalty of perjury",
+      "quotes": [],
+      "context": "I, Dr. Lisa Chow, pursuant to 28 U.S.C. § 1746, hereby declare under penalty of perjury",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1746 allows an unsworn declaration signed under penalty of perjury to take the place of a sworn affidavit in federal matters. That is the purpose for which it is invoked here.",
+        "evidence_excerpt": "such matter may, with like force and effect, be supported ... by the unsworn declaration ... which is subscribed by him, as true under penalty of perjury, and dated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

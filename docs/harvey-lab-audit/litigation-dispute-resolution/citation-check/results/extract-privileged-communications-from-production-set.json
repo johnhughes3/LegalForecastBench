@@ -1,0 +1,2200 @@
+{
+  "task": "extract-privileged-communications-from-production-set",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "clawback-order.docx.md",
+    "engagement-letter.docx.md",
+    "flagged-doc-batch-a.eml.md",
+    "flagged-doc-batch-b.eml.md",
+    "flagged-doc-batch-c.eml.md",
+    "flagged-doc-batch-d.eml.md",
+    "flagged-doc-batch-e.eml.md",
+    "flagged-doc-batch-f.eml.md",
+    "flagged-doc-batch-g.docx.md",
+    "flagged-doc-batch-h.eml.md",
+    "flagged-doc-batch-i.eml.md",
+    "flagged-doc-batch-j.docx.md",
+    "grand-jury-subpoena.docx.md",
+    "northbridge-qc-report.docx.md",
+    "production-3-cover-letter.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "clawback-order.docx.md",
+      "location": "Preamble, penultimate WHEREAS clause",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Basis for entry of the order; authorizes a federal court to order that privilege or protection is not waived by disclosure connected with the litigation pending before the court",
+      "quotes": [
+        "which authorizes a federal court to order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court"
+      ],
+      "context": "request that this Court enter this Order pursuant to Federal Rule of Evidence 502(d), which authorizes a federal court to order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court, and pursuant to Federal Rule of Criminal Procedure 6(e), governing grand jury secrecy",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found essentially verbatim in FRE 502(d), with only the framing changed ('which authorizes a federal court to order' versus 'A federal court may order').",
+        "explanation": "Rule 502(d) authorizes a federal court to order that privilege or protection is not waived by disclosure connected with the pending litigation. That makes it a proper basis for entering the order.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "clawback-order.docx.md",
+      "location": "Preamble, penultimate WHEREAS clause",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 6(e)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 6(e)",
+      "pincite": "",
+      "cited_for": "Governs grand jury secrecy; additional basis for entry of the order",
+      "quotes": [
+        "governing grand jury secrecy"
+      ],
+      "context": "and pursuant to Federal Rule of Criminal Procedure 6(e), governing grand jury secrecy;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "'governing grand jury secrecy' is the order's own descriptive phrase, not a quotation from the rule. It accurately describes the rule.",
+        "explanation": "Rule 6(e), 'Recording and Disclosing the Proceedings,' contains the grand jury secrecy obligations in 6(e)(2) and the sealing requirement in 6(e)(6). Citing it as a basis for the order is appropriate.",
+        "evidence_excerpt": "Rule 6(e)(2)(A): \"No obligation of secrecy may be imposed on any person except in accordance with Rule 6(e)(2)(B).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_6"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "clawback-order.docx.md",
+      "location": "Section I.D (definition of Privileged Material)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(3)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(3)",
+      "pincite": "",
+      "cited_for": "Source of the work product doctrine (and its criminal analogues) for defining Privileged Material",
+      "quotes": [
+        "the work product doctrine (as set forth in Federal Rule of Civil Procedure 26(b)(3) and its criminal analogues)"
+      ],
+      "context": "means any document, communication, information, or thing that is protected by the attorney-client privilege, the work product doctrine (as set forth in Federal Rule of Civil Procedure 26(b)(3) and its criminal analogues), the joint defense or common interest privilege",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the order's own definitional language, not a quotation from the rule, so it cannot be checked against Rule 26(b)(3).",
+        "explanation": "Rule 26(b)(3), 'Trial Preparation: Materials,' codifies work-product protection in civil discovery. Calling it the source of the work product doctrine, together with its criminal analogues, is accurate.",
+        "evidence_excerpt": "Rule 26(b)(3)(A): \"Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial by or for another party or its representative (including the other party's attorney ...).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "clawback-order.docx.md",
+      "location": "Section I.G (definition of ESI)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure (use of term ESI)",
+      "citation_as_written": "Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "ESI defined as that term is used in the Federal Rules of Civil Procedure",
+      "quotes": [
+        "as that term is used in the Federal Rules of Civil Procedure"
+      ],
+      "context": "means electronically stored information, as that term is used in the Federal Rules of Civil Procedure and as commonly understood in federal litigation practice",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the order's own definitional language, not language attributed to the FRCP. The Federal Rules of Civil Procedure do use the term \"electronically stored information\" (Rule 34(a)(1)(A)).",
+        "explanation": "The FRCP uses the term \"electronically stored information\" and defines it broadly on purpose. The 2006 committee note says Rule 34(a)(1) is expansive and covers any type of electronically stored information. Defining ESI by reference to the FRCP usage is accurate.",
+        "evidence_excerpt": "\"Rule 34(a)(1) is expansive and includes any type of information that is stored electronically.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.B.2(iv) (Contents of Clawback Notice)",
+      "authority_type": "court_rule",
+      "authority": "Local Civil Rules of the District of New Jersey, Local Civil Rule 26.1(b)",
+      "citation_as_written": "Local Civil Rule 26.1(b)",
+      "pincite": "26.1(b)",
+      "cited_for": "Privilege log entries accompanying a Clawback Notice must conform to the Local Civil Rules, including L.Civ.R. 26.1(b)",
+      "quotes": [
+        "conforms to the requirements of the Local Civil Rules of the District of New Jersey, including Local Civil Rule 26.1(b)"
+      ],
+      "context": "a privilege log entry for each document that conforms to the requirements of the Local Civil Rules of the District of New Jersey, including Local Civil Rule 26.1(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted words are the clawback order's own text and appear in the document. They are not language from L.Civ.R. 26.1(b), which says nothing about privilege logs.",
+        "explanation": "D.N.J. L.Civ.R. 26.1(b) is real, but it is titled 'Meeting of Parties, Discovery Plans, and Initial Disclosures.' It covers the Rule 26(f) meeting, the timing and contents of the discovery plan, and initial disclosures. It sets no requirements for privilege logs or privilege-log entries. The only privilege-related text in L.Civ.R. 26.1 is in 26.1(d)(3)(a): parties must confer on 'procedures to deal with inadvertent production of privileged information.' Requiring clawback privilege-log entries to 'conform to' 26.1(b) attributes requirements to the rule that it does not contain.",
+        "evidence_excerpt": "\"(b) Meeting of Parties, Discovery Plans, and Initial Disclosures (1) The requirements currently codified in Fed. R. Civ. P. 26(a) and (f) pertaining to required disclosures, meetings of parties, and submission of discovery plans, shall apply to all civil cases...\"",
+        "source_urls": [
+          "https://www.njd.uscourts.gov/sites/njd/files/Order26-1signed.pdf",
+          "https://www.njd.uscourts.gov/sites/njd/files/2016SEPTEMBEROrderAmd26.pdf",
+          "https://www.njd.uscourts.gov/sites/njd/files/L.Civ_.R.26.1amendmentOrder.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The D.N.J. amendment order of September 30, 2016 gives L.Civ.R. 26.1(b) the heading '(b) Meeting of Parties, Discovery Plans, and Initial Disclosures'. Its text covers the Rule 26(f) meeting, the contents of the discovery plan (including '(g) Any orders, such as data preservation orders, protective orders, or orders reflecting agreements under Federal Rule of Evidence 502'), and the timing of initial disclosures. It says nothing about the form or contents of privilege logs. The only privilege language in Rule 26.1 is in 26.1(d)(3)(a): 'procedures to deal with inadvertent production of privileged information', which is a meet-and-confer topic, not a log requirement. The 2022 proposed amendment notice for 26.1(b) changed only the filing language ('shall not be filed with the Clerk, unless otherwise directed by the Magistrate Judge') and added nothing about privilege logs. Saying that clawback privilege-log entries must 'conform to the requirements of ... Local Civil Rule 26.1(b)' therefore attributes requirements to the rule that it does not contain. One further point: the order sits in a grand-jury (criminal) matter, where the Local Civil Rules would not apply of their own force anyway.",
+        "source_urls": [
+          "https://www.njd.uscourts.gov/sites/njd/files/Order26-1signed.pdf",
+          "https://www.njd.uscourts.gov/sites/njd/files/26.1_40.1_Amendments.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 5,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.A, first paragraph (Federal Rule of Evidence 502(d) Protection)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Disclosure in the productions is not a waiver in this or any other federal or state proceeding, whether inadvertent or intentional, if clawback procedures are followed; order intended to give maximum protection under 502(d)",
+      "quotes": [
+        "Pursuant to Federal Rule of Evidence 502(d), the disclosure of any document, communication, or information in connection with the productions made in this matter shall not constitute a waiver of the attorney-client privilege, work product protection, or any other applicable privilege or protection in this or any other federal or state proceeding",
+        "This Order is intended to provide the maximum protection available under Federal Rule of Evidence 502(d)"
+      ],
+      "context": "Pursuant to Federal Rule of Evidence 502(d), the disclosure of any document, communication, or information in connection with the productions made in this matter shall not constitute a waiver ... regardless of whether such disclosure was inadvertent or intentional, provided that the Producing Party complies with the clawback procedures set forth in this Order.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Both quotes are the order's own operative language invoking Rule 502(d), not quotations of the rule. Their substance matches the rule text and the Committee Note.",
+        "explanation": "Rule 502(d) provides that a non-waiver order also applies in any other federal or state proceeding. The Committee Note says such an order may provide for return 'irrespective of the care taken by the disclosing party,' which supports covering both inadvertent and intentional disclosure (clawback/quick-peek).",
+        "evidence_excerpt": "\"the court order may provide for return of documents without waiver irrespective of the care taken by the disclosing party; the rule contemplates enforcement of 'claw-back' and 'quick peek' arrangements\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.A, second paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Order is enforceable against all persons and in all federal and state proceedings as provided by 502(d)",
+      "quotes": [
+        "This Order is enforceable against all persons and entities, and in all federal and state proceedings, whether currently pending or subsequently filed, as provided by Federal Rule of Evidence 502(d)."
+      ],
+      "context": "This Order is enforceable against all persons and entities, and in all federal and state proceedings, whether currently pending or subsequently filed, as provided by Federal Rule of Evidence 502(d).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the order's own language. Its substance matches the rule text and the Committee Note.",
+        "explanation": "Rule 502(d) extends non-waiver to any other federal or state proceeding. The Committee Note states that the order's terms are enforceable against non-parties in any federal or state proceeding.",
+        "evidence_excerpt": "\"its terms are enforceable against non-parties in any federal or state proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.A, second paragraph (last sentence)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Federal Rule of Evidence 502(b)",
+      "pincite": "",
+      "cited_for": "Compliance with Section IV procedures deemed to satisfy 502(b) as a matter of law, subject to timing requirements of Subsection IV.B",
+      "quotes": [
+        "Compliance with the procedures set forth in this Section IV shall be deemed to satisfy the requirements of Federal Rule of Evidence 502(b) as a matter of law, subject to the specific timing and procedural requirements of Subsection IV.B below."
+      ],
+      "context": "Compliance with the procedures set forth in this Section IV shall be deemed to satisfy the requirements of Federal Rule of Evidence 502(b) as a matter of law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the order's own operative text (clawback-order Section IV.A), not language attributed to FRE 502(b). It appears verbatim in the order.",
+        "explanation": "FRE 502(b) sets three conditions for non-waiver: the disclosure was inadvertent, the holder took reasonable steps to prevent it, and the holder promptly took reasonable steps to rectify it. The order does not misstate 502(b). It stipulates that following its procedures satisfies those requirements. The power to enter such a stipulated order actually comes from 502(d)/(e), which the order also invokes, so the reference to 502(b) is a fair cross-reference rather than a mischaracterization.",
+        "evidence_excerpt": "502(b): \"the disclosure does not operate as a waiver ... if: (1) the disclosure is inadvertent; (2) the holder ... took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error.\" 502(d): \"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.D, first paragraph (Preservation of Privilege)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Non-waiver protection extends to all federal and state proceedings and is intended to have the broadest effect permitted by 502(d)",
+      "quotes": [
+        "is intended to have the broadest possible effect permitted by Federal Rule of Evidence 502(d)"
+      ],
+      "context": "This non-waiver protection extends to all federal and state proceedings, whether currently pending or subsequently filed, and is intended to have the broadest possible effect permitted by Federal Rule of Evidence 502(d).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted words are the order's own language, not a quotation of the rule. That is consistent with the rule.",
+        "explanation": "Rule 502(d) makes a non-waiver order effective in any other federal or state proceeding. Citing it for the broadest effect in all federal and state proceedings is accurate.",
+        "evidence_excerpt": "in which event the disclosure is also not a waiver in any other federal or state proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.D, second paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(a)",
+      "citation_as_written": "Federal Rule of Evidence 502(a)",
+      "pincite": "",
+      "cited_for": "No inadvertent production gives rise to subject-matter waiver under 502(a)",
+      "quotes": [
+        "No inadvertent production shall give rise to a claim of subject-matter waiver under Federal Rule of Evidence 502(a) or any analogous state-law provision."
+      ],
+      "context": "No inadvertent production shall give rise to a claim of subject-matter waiver under Federal Rule of Evidence 502(a) or any analogous state-law provision.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the clawback order's own operative language, not language attributed to FRE 502(a). It appears verbatim in clawback-order Section IV.",
+        "explanation": "FRE 502(a) extends a waiver to undisclosed material only when the waiver is intentional, the material concerns the same subject matter, and fairness requires considering it together. The Committee Note says an inadvertent disclosure can never result in subject-matter waiver. A provision barring subject-matter-waiver claims under 502(a) from inadvertent production is therefore consistent with the rule.",
+        "evidence_excerpt": "502(a): \"the waiver extends to an undisclosed communication or information ... only if: (1) the waiver is intentional\"; Committee Note: \"an inadvertent disclosure of protected information can never result in a subject matter waiver.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "clawback-order.docx.md",
+      "location": "Section V.D",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)(2)",
+      "citation_as_written": "Federal Rule of Evidence 502(b)(2)",
+      "pincite": "",
+      "cited_for": "Retention of qualified e-discovery vendors (e.g., NorthBridge) is a reasonable step to prevent inadvertent disclosure for purposes of 502(b)(2)",
+      "quotes": [
+        "shall be considered a reasonable step in preventing inadvertent disclosure for purposes of Federal Rule of Evidence 502(b)(2)"
+      ],
+      "context": "including but not limited to NorthBridge Document Solutions, for the processing, hosting, and management of ESI review shall be considered a reasonable step in preventing inadvertent disclosure for purposes of Federal Rule of Evidence 502(b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted words are the order's own operative language, not language attributed to Rule 502. The order cites Rule 502(b)(2) by name, and that subdivision exists.",
+        "explanation": "FRE 502(b)(2) is the reasonable-steps-to-prevent-disclosure element, so the order refers to the right subdivision. The rule does not itself say that hiring a vendor is a reasonable step. The order's deeming clause is the court's own designation. The Committee Note recognizes that review tools and records-management systems may count as reasonable steps, which is consistent with the order. Note that a 502(d) order can make 502(b) unnecessary.",
+        "evidence_excerpt": "(2) the holder of the privilege or protection took reasonable steps to prevent disclosure; ... Committee Note: \"a party that uses advanced analytical software applications and linguistic tools in screening for privilege and work product may be found to have taken 'reasonable steps' to prevent inadvertent disclosure.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "clawback-order.docx.md",
+      "location": "Section IX.B",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 6(e)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 6(e)",
+      "pincite": "",
+      "cited_for": "Order does not alter grand jury secrecy obligations; persons remain bound by Rule 6(e)",
+      "quotes": [
+        "All persons subject to this Order remain bound by Rule 6(e) to the extent applicable."
+      ],
+      "context": "This Order does not alter, modify, or affect any obligation imposed by Federal Rule of Criminal Procedure 6(e) regarding the secrecy of grand jury proceedings, materials, and deliberations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the order's own text, not a quotation from Rule 6(e), so it cannot be checked against the rule.",
+        "explanation": "Rule 6(e) imposes secrecy obligations on the persons listed in 6(e)(2)(B). An order saying it does not alter those obligations, and that persons remain bound 'to the extent applicable,' is consistent with the rule. The 'to the extent applicable' qualifier correctly reflects that 6(e)(2)(A) limits secrecy duties to the listed persons.",
+        "evidence_excerpt": "Rule 6(e)(2)(A): \"No obligation of secrecy may be imposed on any person except in accordance with Rule 6(e)(2)(B).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_6"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "clawback-order.docx.md",
+      "location": "Section IX.E",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 6(e)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 6(e)",
+      "pincite": "",
+      "cited_for": "Order filed under seal to the extent required to protect grand jury secrecy",
+      "quotes": [
+        "to the extent required to protect grand jury secrecy under Federal Rule of Criminal Procedure 6(e)"
+      ],
+      "context": "The Clerk of Court is directed to file this Order under seal to the extent required to protect grand jury secrecy under Federal Rule of Criminal Procedure 6(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "Fed. R. Crim. P. 6(e)(6)",
+        "quote_check": "The quoted phrase is the order's own directive language, not a quotation from the rule. It is consistent with Rule 6(e)(6).",
+        "explanation": "Rule 6(e)(6) requires records, orders, and subpoenas relating to grand jury proceedings to be kept under seal to the extent necessary to prevent unauthorized disclosure. This directly supports filing the order under seal to that extent.",
+        "evidence_excerpt": "Rule 6(e)(6): \"Records, orders, and subpoenas relating to grand-jury proceedings must be kept under seal to the extent and as long as necessary to prevent the unauthorized disclosure of a matter occurring before a grand jury.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_6"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "northbridge-qc-report.docx.md",
+      "location": "Section 1 Executive Summary, last paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Federal Rule of Evidence 502(b)",
+      "pincite": "",
+      "cited_for": "Clawback demand recommended pursuant to the Clawback Order and FRE 502(b)",
+      "quotes": [
+        "issuance of a clawback demand to the government pursuant to the Court's Stipulated Confidentiality and Clawback Order and Federal Rule of Evidence 502(b)"
+      ],
+      "context": "including issuance of a clawback demand to the government pursuant to the Court's Stipulated Confidentiality and Clawback Order and Federal Rule of Evidence 502(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the QC report's own recommendation (Section 1, last paragraph), not text attributed to the rule. It appears verbatim in the report.",
+        "explanation": "FRE 502(b) protects against waiver for inadvertent disclosures made in a federal proceeding or to a federal office or agency, here a grand jury production to DOJ, when the holder promptly takes reasonable steps to rectify the error. A clawback demand is such a step. Citing 502(b) as a basis for the demand is appropriate.",
+        "evidence_excerpt": "\"When made in a federal proceeding or to a federal office or agency, the disclosure does not operate as a waiver ... if: ... (3) the holder promptly took reasonable steps to rectify the error.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "northbridge-qc-report.docx.md",
+      "location": "Section 2, Clawback Order paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Clawback Order incorporates 502(d) protections: inadvertent production not a waiver if the producing party promptly notifies; 10-business-day deadline",
+      "quotes": [
+        "On February 28, 2024, Judge Liu entered a Stipulated Confidentiality and Clawback Order incorporating protections under Federal Rule of Evidence 502(d)."
+      ],
+      "context": "On February 28, 2024, Judge Liu entered a Stipulated Confidentiality and Clawback Order incorporating protections under Federal Rule of Evidence 502(d). The Order provides that inadvertent production of privileged material shall not constitute a waiver of privilege",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the document's own description of the Clawback Order, not language attributed to Rule 502(d). Nothing to match in the rule text.",
+        "explanation": "FRE 502(d) lets a federal court order that disclosure connected with the pending litigation does not waive privilege. The committee note says such an order may require return of documents without waiver regardless of the care taken. An order that incorporates 502(d) protections and sets its own notice procedure (the 10-business-day deadline is a term of the order, not of the rule) is consistent with the rule.",
+        "evidence_excerpt": "\"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "northbridge-qc-report.docx.md",
+      "location": "Section 7.2, item 2 (Clawback Demand)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Federal Rule of Evidence 502(b)",
+      "pincite": "",
+      "cited_for": "Clawback demand to AUSA Cooperman recommended under the Clawback Order and FRE 502(b); ten-business-day deadline from discovery",
+      "quotes": [
+        "promptly issue a written clawback demand to AUSA Brian Cooperman pursuant to the Court's February 28, 2024 Stipulated Confidentiality and Clawback Order and Federal Rule of Evidence 502(b)"
+      ],
+      "context": "For documents confirmed as privileged, promptly issue a written clawback demand to AUSA Brian Cooperman pursuant to the Court's February 28, 2024 Stipulated Confidentiality and Clawback Order and Federal Rule of Evidence 502(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the report's own text (Section 7.2, item 2) and appears verbatim. It is not attributed to the rule.",
+        "explanation": "FRE 502(b)(3) requires the holder to promptly take reasonable steps to rectify the error, so a prompt clawback demand is consistent with the rule. The ten-business-day deadline is attributed to the Clawback Order, not to 502(b), which sets no fixed deadline.",
+        "evidence_excerpt": "502(b)(3): \"the holder promptly took reasonable steps to rectify the error.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, Viklund comment dated 7/11/2022",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b",
+      "pincite": "",
+      "cited_for": "Counsel recommends the policy explicitly call out the Anti-Kickback Statute because DOJ pursues off-label promotion cases under it",
+      "quotes": [],
+      "context": "I'd recommend we explicitly call out the Anti-Kickback Statute (42 U.S.C. § 1320a-7b) and the False Claims Act (31 U.S.C. §§ 3729–3733) here.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "42 U.S.C. § 1320a-7b is the criminal-penalties section for federal health care programs, and subsection (b) is the Anti-Kickback Statute. The citation correctly identifies the AKS. The comment's statement that DOJ pursues off-label promotion cases under it is commentary in the fictional scenario, not a statutory proposition.",
+        "evidence_excerpt": "Criminal penalties for acts involving Federal health care programs ... (b)(2) Whoever knowingly and willfully offers or pays any remuneration (including any kickback, bribe, or rebate) ... to induce such person ... shall be guilty of a felony",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, Viklund comment dated 7/11/2022",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. §§ 3729–3733",
+      "pincite": "",
+      "cited_for": "Counsel recommends the policy explicitly call out the False Claims Act; DOJ pursuing off-label promotion cases under it",
+      "quotes": [],
+      "context": "the False Claims Act (31 U.S.C. §§ 3729–3733) here. From a legal risk perspective, the DOJ has been increasingly aggressive in pursuing off-label promotion cases under both statutes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "31 U.S.C. 3729-3733 is the False Claims Act subchapter: 3729 false claims, 3730 civil actions, 3731 procedure, 3732 jurisdiction, 3733 civil investigative demands. The cite is correct. The comment only recommends naming the FCA in the policy, and the citation identifies that statute correctly.",
+        "evidence_excerpt": "§ 3729 'False claims'; § 3730 'Civil actions for false claims'; § 3731 'False claims procedure'; § 3732 'False claims jurisdiction'; § 3733 'Civil investigative demands'",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-III/chapter-37/subchapter-III"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, Viklund comment dated 7/11/2022",
+      "authority_type": "case",
+      "authority": "United States v. Caronia (referred to as 'The Caronia decision (2012)')",
+      "citation_as_written": "The Caronia decision (2012)",
+      "pincite": "",
+      "cited_for": "Provides some First Amendment protection for truthful off-label speech, but is narrow, and the Second Circuit has not extended it; should not be relied upon as a defense for any systematic promotional strategy",
+      "quotes": [],
+      "context": "The Caronia decision (2012) provides some First Amendment protection for truthful off-label speech, but it's narrow and the Second Circuit hasn't extended it. We should not rely on it as a defense for any systematic promotional strategy.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United States v. Caronia, 703 F.3d 149 (2d Cir. 2012)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Caronia (2d Cir., Dec. 3, 2012) construed the FDCA misbranding provisions not to criminalize truthful off-label promotion of FDA-approved drugs, to avoid a First Amendment problem, and expressly limited that holding to FDA-approved drugs whose off-label use is lawful. That supports describing it as giving some First Amendment protection for truthful off-label speech while being narrow. The comment in the document is informal and gives no reporter cite, so the full cite is supplied here. Its further claim that the Second Circuit has not extended the decision is about later case law. Caronia itself cannot confirm that, and I did not check it independently. It is the comment's own caution and does not misstate the case.",
+        "evidence_excerpt": "We construe the misbranding provisions of the FDCA as not prohibiting and criminalizing the truthful off-label promotion of FDA-approved prescription drugs. Our conclusion is limited to FDA-approved drugs for which off-label use is not prohibited, and we do not hold, of course, that the FDA cannot regulate the marketing of prescription drugs.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/812956/united-states-v-caronia/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, inserted tracked-change text (insertion dated 2024-01-01)",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute and False Claims Act (named without cite)",
+      "citation_as_written": "Anti-Kickback Statute and the False Claims Act",
+      "pincite": "",
+      "cited_for": "Policy states commitment to compliance with requirements under AKS and FCA (tracked insertion)",
+      "quotes": [
+        ", including requirements under the Anti-Kickback Statute and the False Claims Act"
+      ],
+      "context": "comply with applicable laws, regulations, and industry standards, including requirements under the Anti-Kickback Statute and the False Claims Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7b(b); 31 U.S.C. §§ 3729-3733",
+        "quote_check": "The quoted phrase is the policy document's own tracked-change language, not a quotation attributed to the statutes, so there is nothing to match in the statutes.",
+        "explanation": "A general statement of commitment to comply with the AKS and FCA. Both statutes exist, and the AKS is § 1320a-7b(b). There is no substantive legal proposition to mischaracterize.",
+        "evidence_excerpt": "a claim that includes items or services resulting from a violation of this section constitutes a false or fraudulent claim for purposes of subchapter III of chapter 37 of title 31.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, paragraph beginning 'This Policy has been developed'",
+      "authority_type": "statute",
+      "authority": "Federal Food, Drug, and Cosmetic Act",
+      "citation_as_written": "Federal Food, Drug, and Cosmetic Act (\"FDCA\")",
+      "pincite": "",
+      "cited_for": "Policy developed in accordance with the FDCA",
+      "quotes": [],
+      "context": "This Policy has been developed in accordance with the Federal Food, Drug, and Cosmetic Act (\"FDCA\"), the regulations promulgated by the U.S. Food and Drug Administration (\"FDA\") at 21 C.F.R. Parts 202 and 314",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Federal Food, Drug, and Cosmetic Act is a real statute codified in Title 21, Chapter 9 of the U.S. Code; its prohibited-acts provision is 21 U.S.C. § 331. The policy names the FDCA only as a governing framework, which is accurate.",
+        "evidence_excerpt": "21 U.S.C. § 331 – Prohibited acts: \"The following acts and the causing thereof are prohibited: (a) The introduction or delivery for introduction into interstate commerce of any food, drug, device, tobacco product, or cosmetic that is adulterated or misbranded.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, paragraph beginning 'This Policy has been developed'",
+      "authority_type": "regulation",
+      "authority": "FDA regulations, 21 C.F.R. Parts 202 and 314",
+      "citation_as_written": "21 C.F.R. Parts 202 and 314",
+      "pincite": "",
+      "cited_for": "Policy developed in accordance with FDA regulations at these Parts",
+      "quotes": [],
+      "context": "the regulations promulgated by the U.S. Food and Drug Administration (\"FDA\") at 21 C.F.R. Parts 202 and 314",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "21 C.F.R. Part 202 is 'Prescription Drug Advertising' (section 202.1, prescription-drug advertisements). Part 314 is 'Applications for FDA Approval to Market a New Drug', which includes 314.81(b)(3)(i) on submitting promotional labeling and advertisements. Both are real FDA regulations and fit as a basis for a promotional compliance policy.",
+        "evidence_excerpt": "Part 202 title: 'PRESCRIPTION DRUG ADVERTISING'; Part 314 title: 'APPLICATIONS FOR FDA APPROVAL TO MARKET A NEW DRUG'.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/21/part-202",
+          "https://www.law.cornell.edu/cfr/text/21/part-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 5.4 New Hire Training",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute; False Claims Act (named without cite)",
+      "citation_as_written": "the Anti-Kickback Statute, the False Claims Act",
+      "pincite": "",
+      "cited_for": "New hire training must include a module on the AKS and FCA",
+      "quotes": [],
+      "context": "must include a dedicated module on promotional compliance, the Anti-Kickback Statute, the False Claims Act, and related legal and regulatory requirements.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7b(b); 31 U.S.C. §§ 3729-3733",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This is an internal training requirement that refers to the AKS and FCA by name. Both statutes exist (the AKS at § 1320a-7b(b), with the FCA in 31 U.S.C. ch. 37, subch. III). The reference makes no legal claim that could be wrong.",
+        "evidence_excerpt": "Criminal penalties for acts involving Federal health care programs ... subchapter III of chapter 37 of title 31",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 4, Regulatory Framework bullet",
+      "authority_type": "statute",
+      "authority": "FDCA Section 502(a) (21 U.S.C. § 352(a))",
+      "citation_as_written": "FDCA Section 502(a)",
+      "pincite": "",
+      "cited_for": "A drug is misbranded if its labeling is false or misleading",
+      "quotes": [],
+      "context": "Under FDCA Section 502(a), a drug is misbranded if its labeling is false or misleading.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "21 U.S.C. § 352(a)(1)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "FDCA 502(a), codified at 21 U.S.C. 352(a), deems a drug misbranded if its labeling is false or misleading in any particular. The subsection is now numbered (a)(1), but citing it as 502(a) is conventional and accurate.",
+        "evidence_excerpt": "'A drug or device shall be deemed to be misbranded—(a) False or misleading label (1) If its labeling is false or misleading in any particular.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/352"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 4, Regulatory Framework bullet",
+      "authority_type": "statute",
+      "authority": "FDCA Section 502(f) (21 U.S.C. § 352(f))",
+      "citation_as_written": "Section 502(f)",
+      "pincite": "",
+      "cited_for": "A drug is misbranded if its labeling does not bear adequate directions for use, which under implementing regulations means directions for all intended uses",
+      "quotes": [],
+      "context": "Under Section 502(f), a drug is misbranded if its labeling does not bear adequate directions for use — which, under implementing regulations, means directions for all intended uses.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "21 U.S.C. 352(f) deems a drug misbranded unless its labeling bears adequate directions for use. The implementing regulation, 21 C.F.R. 201.5, defines adequate directions as directions for the purposes for which the drug is intended. It requires statements of all conditions, purposes, or uses for which the drug is intended, including uses suggested in advertising (see also 201.128 on intended uses). This matches the description.",
+        "evidence_excerpt": "352(f): 'Unless its labeling bears (1) adequate directions for use'; 21 C.F.R. 201.5: 'All conditions, purposes, or uses for which such drug is intended, including conditions, purposes, or uses for which it is prescribed, recommended, or suggested in its oral, written, printed, or graphic advertising'",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/352",
+          "https://www.law.cornell.edu/cfr/text/21/201.5",
+          "https://www.law.cornell.edu/cfr/text/21/201.128"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 4, Industry Enforcement Trends bullet",
+      "authority_type": "statute",
+      "authority": "False Claims Act (settlements, named without cite)",
+      "citation_as_written": "False Claims Act settlements",
+      "pincite": "",
+      "cited_for": "DOJ resolved several FCA settlements of $100 million to $900 million involving off-label promotion",
+      "quotes": [],
+      "context": "the DOJ has resolved several significant False Claims Act settlements in the range of $100 million to $900 million involving allegations of off-label promotion.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The False Claims Act exists (31 U.S.C. § 3729 et seq.), and DOJ has resolved off-label promotion allegations through large FCA settlements (for example Eli Lilly's Zyprexa resolution and Celgene's $280M settlement). However, the slide's specific claim, that 'in the past three fiscal years' before December 2023 DOJ resolved several off-label FCA settlements of $100M–$900M, is an empirical statement about enforcement that no statute or case establishes. I did not find primary DOJ sources confirming settlements in that range and window. Note that the Biogen $900M settlement (2022), which I identified from memory and did not check against a source, involved kickback allegations, not off-label promotion.",
+        "evidence_excerpt": "Search results: \"Celgene agreed to pay $280 million to resolve allegations it promoted two cancer treatment drugs for uses not approved by the FDA\" (older settlement, outside the FY2021-2023 window)",
+        "source_urls": [
+          "https://www.justice.gov/opa/pr/eli-lilly-and-company-agrees-pay-1415-billion-resolve-allegations-label-promotion-zyprexa",
+          "https://www.law.cornell.edu/uscode/text/31/3729"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 10, item 1",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. § 3729(a)(1)(A)-(B)",
+      "pincite": "§ 3729(a)(1)(A)-(B)",
+      "cited_for": "Government's primary anticipated theory of liability: off-label promotion caused providers to submit claims to federal healthcare programs for non-reimbursable uses; treble damages exposure",
+      "quotes": [],
+      "context": "1. False Claims Act — 31 U.S.C. § 3729(a)(1)(A)-(B) ... treble damages under the FCA could produce exposure well in excess of $1 billion before per-claim penalties.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "31 U.S.C. 3729(a)(1)(A) makes liable anyone who 'knowingly presents, or causes to be presented' a false claim, which supports the theory that off-label promotion caused providers to submit claims. (B) covers false records or statements material to a false claim. 3729(a)(1) provides for 3 times the government's damages plus per-claim civil penalties, which matches the treble-damages description.",
+        "evidence_excerpt": "(A) 'knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval'; (B) 'knowingly makes, uses, or causes to be made or used, a false record or statement material to a false or fraudulent claim'; '3 times the amount of damages which the Government sustains'",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 10, item 2",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b(b)",
+      "pincite": "§ 1320a-7b(b)",
+      "cited_for": "Speaker program payments as remuneration to induce prescribing; AKS liability as predicate for FCA claims",
+      "quotes": [],
+      "context": "2. Anti-Kickback Statute — 42 U.S.C. § 1320a-7b(b) ... AKS liability creates per-violation exposure and serves as a predicate for FCA claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Section 1320a-7b(b)(2) makes it a felony to knowingly and willfully pay remuneration to induce someone to order or recommend items payable by federal health care programs, which covers speaker payments meant to induce prescribing. The predicate-for-FCA point is supported by § 1320a-7b(g), which provides that a claim including items or services resulting from an AKS violation is a false claim under the FCA. Section 1320a-7a(a)(7) supplies per-violation civil penalties.",
+        "evidence_excerpt": "(g) In addition to the penalties provided for in this section or section 1320a-7a of this title, a claim that includes items or services resulting from a violation of this section constitutes a false or fraudulent claim for purposes of subchapter III of chapter 37 of title 31.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 10, item 3",
+      "authority_type": "statute",
+      "authority": "FDCA misbranding provisions",
+      "citation_as_written": "21 U.S.C. §§ 331, 352",
+      "pincite": "§§ 331, 352",
+      "cited_for": "Promotion for unapproved indications renders the drug misbranded; parallel criminal track",
+      "quotes": [],
+      "context": "3. FDCA Misbranding — 21 U.S.C. §§ 331, 352 ... Promotion of Veratrine XR for unapproved indications renders the drug misbranded under the FDCA.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "21 U.S.C. 352 defines misbranding, including (f), adequate directions for use. 21 U.S.C. 331 prohibits introducing misbranded drugs into interstate commerce. Read with 21 C.F.R. 201.5 and 201.128 (intended uses include uses shown by advertising and promotion), promoting a drug for an unapproved use can leave its labeling without adequate directions for that use, which makes the drug misbranded. That is the standard off-label misbranding theory. One small point: criminal penalties appear in 21 U.S.C. 333, which is not cited, but 331 supplies the prohibited acts that 333 punishes.",
+        "evidence_excerpt": "331: 'The following acts and the causing thereof are prohibited: (a) The introduction or delivery for introduction into interstate commerce of any ... drug ... that is adulterated or misbranded.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/331",
+          "https://www.law.cornell.edu/uscode/text/21/352",
+          "https://www.law.cornell.edu/cfr/text/21/201.128"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 10, item 4",
+      "authority_type": "statute",
+      "authority": "Federal conspiracy statute",
+      "citation_as_written": "18 U.S.C. § 371",
+      "pincite": "§ 371",
+      "cited_for": "Conspiracy to promote Veratrine XR for unapproved uses; DOJ umbrella charge",
+      "quotes": [],
+      "context": "4. Conspiracy — 18 U.S.C. § 371 ... Agreement among Ridgeline employees and/or external consultants to promote Veratrine XR for unapproved uses.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "18 U.S.C. § 371 is the general federal conspiracy statute. It covers conspiracies to commit any offense against the United States or to defraud the United States, plus an overt act. A conspiracy to promote a drug for unapproved uses (that is, misbranding offenses) fits within it. Calling it an \"umbrella\" charge is fair commentary.",
+        "evidence_excerpt": "\"If two or more persons conspire either to commit any offense against the United States, or to defraud the United States, or any agency thereof in any manner or for any purpose, and one or more of such persons do any act to effect the object of the conspiracy...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/371"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 11, False Claims Act Liability",
+      "authority_type": "statute",
+      "authority": "False Claims Act (treble damages and per-claim penalties, named without cite)",
+      "citation_as_written": "False Claims Act Liability",
+      "pincite": "",
+      "cited_for": "Estimated exposure of $200M to $650M reflecting treble damages plus per-claim penalties of $13,508–$27,018 per claim",
+      "quotes": [],
+      "context": "This range reflects treble damages plus per-claim penalties ($13,508–$27,018 per claim under current penalty guidelines).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 3729(a)(1) provides treble damages plus a per-claim penalty of $5,000–$10,000 'as adjusted by' the Federal Civil Penalties Inflation Adjustment Act. DOJ's adjustment in effect from January 30, 2023 set the range at $13,508–$27,018 per claim. The February 12, 2024 Federal Register notice lists those as the 2023 figures and raises them to $13,946–$27,894. The slide deck is dated December 5, 2023, so '$13,508–$27,018 per claim under current penalty guidelines' was accurate when written. The $200M–$650M exposure figure is the deck's own estimate, not something the statute states.",
+        "evidence_excerpt": "FR 2024-02829 table, 31 U.S.C. 3729(a)(1): 2023 penalty \"Min 13,508, Max 27,018\"; 2024 \"Min 13,946, Max 27,894\"; statute: \"3 times the amount of damages which the Government sustains\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2024-02-12/html/2024-02829.htm",
+          "https://www.law.cornell.edu/uscode/text/31/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 11, Anti-Kickback Statute Liability",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute (penalties, named without cite)",
+      "citation_as_written": "Anti-Kickback Statute Liability",
+      "pincite": "",
+      "cited_for": "AKS violations carry penalties up to $100,000 per violation plus three times remuneration; predicate for FCA exposure",
+      "quotes": [],
+      "context": "AKS violations carry penalties of up to $100,000 per violation plus three times the amount of remuneration.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7a(a)(7) (civil monetary penalties); see also 42 U.S.C. § 1320a-7b(b) (criminal fine up to $100,000), (g) (FCA predicate)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This is named without a citation. The civil monetary penalty provision for AKS violations imposes $100,000 for each act plus damages of up to three times the total remuneration, and the criminal provision also sets fines up to $100,000. Section 1320a-7b(g) makes resulting claims false claims under the FCA. The slide's description matches the statute.",
+        "evidence_excerpt": "in cases under paragraph (7), $100,000 for each such act ... (or, in cases under paragraph (7), damages of not more than 3 times the total amount of remuneration offered, paid, solicited, or received",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7a",
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 13, item 1",
+      "authority_type": "other",
+      "authority": "DOJ Corporate Enforcement Policy (2023 updates)",
+      "citation_as_written": "the 2023 updates to the DOJ Corporate Enforcement Policy",
+      "pincite": "",
+      "cited_for": "Cooperate-and-defend posture maximizes cooperation credit under DOJ policy",
+      "quotes": [],
+      "context": "maximizes the potential for cooperation credit under DOJ policy (including the 2023 updates to the DOJ Corporate Enforcement Policy)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Criminal Division Corporate Enforcement and Voluntary Self-Disclosure Policy, Justice Manual 9-47.120 (rev. Jan. 2023)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "In January 2023 DOJ's Criminal Division revised its policy and renamed the FCPA Corporate Enforcement Policy as the Corporate Enforcement and Voluntary Self-Disclosure Policy. The policy gives credit, including limited credit without self-disclosure, for full cooperation and timely, appropriate remediation. In the scenario, the CID and grand jury subpoena come from the DOJ Fraud Section, which is part of the Criminal Division, so the policy applies. A cooperate-while-defending posture seeking cooperation credit is a fair, general characterization. The January 17, 2023 date was confirmed only through law-firm summaries; the justice.gov policy text itself was read.",
+        "evidence_excerpt": "\"9-47.120 - Criminal Division Corporate Enforcement and Voluntary Self-Disclosure Policy This policy—previously known as the FCPA Corporate Enforcement Policy... 3. Limited Credit for Full Cooperation and Timely and Appropriate Remediation in Criminal Division Corporate Matters Without Voluntary Self-Disclosure\"",
+        "source_urls": [
+          "https://www.justice.gov/criminal/criminal-fraud/file/1562831/dl",
+          "https://www.hugheshubbard.com/news/doj-criminal-division-revises-corporate-enforcement-policy-to-further-incentivize-voluntary-self-disclosure-and-extraordinary-cooperation"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 6, KOL Engagement bullet",
+      "authority_type": "statute",
+      "authority": "Physician Payments Sunshine Act",
+      "citation_as_written": "Physician Payments Sunshine Act",
+      "pincite": "",
+      "cited_for": "KOL engagement subject to transparency reporting obligations",
+      "quotes": [],
+      "context": "is subject to the company's transparency reporting obligations under the Physician Payments Sunshine Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Physician Payments Sunshine Act, Patient Protection and Affordable Care Act § 6002, codified at 42 U.S.C. § 1320a-7h",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Physician Payments Sunshine Act is the popular name for ACA § 6002 (42 U.S.C. § 1320a-7h, 'Transparency reports...'). It requires applicable manufacturers to report payments and other transfers of value to covered recipients, including speaking fees and consulting. That supports the statement that KOL engagement is subject to transparency reporting obligations.",
+        "evidence_excerpt": "\"any applicable manufacturer that provides a payment or other transfer of value to a covered recipient...shall submit to the Secretary...the following information with respect to the preceding calendar year\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7h",
+          "https://www.cms.gov/openpayments/downloads/affordable-care-act-section-6002-final-rule.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 14, Phase 2",
+      "authority_type": "case",
+      "authority": "Upjohn warnings (Upjohn Co. v. United States, referenced by name only)",
+      "citation_as_written": "Upjohn warnings",
+      "pincite": "",
+      "cited_for": "Witness interviews to be conducted under Upjohn warnings (corporate representation clarification)",
+      "quotes": [],
+      "context": "All interviews to be conducted under Upjohn warnings (corporate representation clarification).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Upjohn Co. v. United States, 449 U.S. 383 (1981)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The slide mentions 'Upjohn warnings' by name only, describing them as clarifying that counsel represents the corporation. Upjohn Co. v. United States, 449 U.S. 383 (1981), is real and is the source of the name. It held that employee interviews by corporate counsel for the purpose of advising the corporation fall within the corporation's privilege, and it stressed that the employees knew the questioning was to get legal advice for the corporation. The opinion does not literally prescribe a warning; that is an industry practice derived from the case. As a shorthand reference, it is accurate.",
+        "evidence_excerpt": "the employees themselves were sufficiently aware that they were being questioned in order that the corporation could obtain legal advice.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "task.json.md",
+      "location": "tags",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "FRE-502(b)",
+      "pincite": "",
+      "cited_for": "Tag identifying the task's subject matter (clawback of inadvertently produced privileged documents)",
+      "quotes": [],
+      "context": "\"clawback\", \"FRE-502(b)\", \"privilege-log\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 502(b)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a subject-matter tag. FRE 502(b) is the real rule on non-waiver after inadvertent disclosure, which fits a clawback task.",
+        "evidence_excerpt": "502(b): \"the disclosure does not operate as a waiver in a federal or state proceeding if: (1) the disclosure is inadvertent ...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "task.json.md",
+      "location": "rubric C-025 through C-028",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)(3)",
+      "citation_as_written": "FRE 502(b)(3)",
+      "pincite": "502(b)(3)",
+      "cited_for": "Timeliness of the clawback demand: June 10, 2024 production, June 17, 2024 discovery, prompt rectification, 7-day gap",
+      "quotes": [],
+      "context": "PASS if the memo addresses the timeliness of the clawback demand under FRE 502(b)(3) and identifies that the production occurred on June 10, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "FRE 502(b)(3) requires that the holder promptly took reasonable steps to rectify the error, which is the timeliness element of a clawback. The case-specific dates are facts from the scenario, not from the rule.",
+        "evidence_excerpt": "(3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "task.json.md",
+      "location": "rubric C-031",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)(1)",
+      "citation_as_written": "FRE 502(b)(1)",
+      "pincite": "502(b)(1)",
+      "cited_for": "Inadvertence element: disclosure caused by technical coding error in Relativity analytics model",
+      "quotes": [],
+      "context": "PASS if the memo addresses FRE 502(b)(1) by explaining that the disclosure was inadvertent",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 502(b)(1) is the inadvertence element: the disclosure must be inadvertent. The rubric item cites it for that element, applied to a disclosure caused by a technical coding error, which is a fair use.",
+        "evidence_excerpt": "502(b): \"... does not operate as a waiver ... if: (1) the disclosure is inadvertent\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "task.json.md",
+      "location": "rubric C-032",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)(2)",
+      "citation_as_written": "FRE 502(b)(2)",
+      "pincite": "502(b)(2)",
+      "cited_for": "Reasonable preventive steps element: privilege review workflow, TAR, QC process",
+      "quotes": [],
+      "context": "PASS if the memo addresses FRE 502(b)(2) by describing the steps Ridgeline/Harwick took to prevent disclosure",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "FRE 502(b)(2) is the reasonable-preventive-steps element. The Committee Note confirms that screening software and linguistic tools (TAR-like review) and records management are relevant, so it supports evaluating the review workflow, TAR, and QC under (b)(2).",
+        "evidence_excerpt": "(2) the holder of the privilege or protection took reasonable steps to prevent disclosure",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "task.json.md",
+      "location": "rubric C-033",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)(3)",
+      "citation_as_written": "FRE 502(b)(3)",
+      "pincite": "502(b)(3)",
+      "cited_for": "Prompt rectification element after discovery",
+      "quotes": [],
+      "context": "PASS if the memo addresses FRE 502(b)(3) by discussing whether the holder promptly took steps to rectify the error after discovery.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "FRE 502(b)(3) is the prompt-rectification element. The rubric describes it accurately.",
+        "evidence_excerpt": "(3) the holder promptly took reasonable steps to rectify the error",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "task.json.md",
+      "location": "rubric C-054",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d)",
+      "pincite": "502(d)",
+      "cited_for": "Stipulated Confidentiality and Clawback Order of Feb. 28, 2024 is a 502(d) order providing inadvertent disclosure does not waive privilege",
+      "quotes": [],
+      "context": "PASS if the memo references the FRE 502(d) Stipulated Confidentiality and Clawback Order entered on February 28, 2024, noting that it provides that inadvertent disclosure does not waive privilege.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 502(d) authorizes a court order providing that disclosure, including inadvertent disclosure, does not waive privilege. Describing the Stipulated Clawback Order as a 502(d) order with that effect is accurate.",
+        "evidence_excerpt": "\"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "task.json.md",
+      "location": "rubric C-002, C-048 (crime-fraud exception)",
+      "authority_type": "other",
+      "authority": "Crime-fraud exception to attorney-client privilege (doctrine, no cite)",
+      "citation_as_written": "crime-fraud exception",
+      "pincite": "",
+      "cited_for": "DOC_006 may be subject to challenge because legal advice may have been sought to further the alleged off-label promotion scheme",
+      "quotes": [],
+      "context": "PASS if the memo flags that DOC_006 may be subject to challenge under the crime-fraud exception because the legal advice may have been sought to further the alleged off-label promotion scheme",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United States v. Zolin, 491 U.S. 554, 562-63 (1989) (doctrine; no cite given)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The crime-fraud exception is a well-established doctrine. The privilege does not cover communications made to get advice for committing a future crime or fraud. Flagging that DOC_006 could be challenged if the legal advice was sought to further an off-label promotion scheme is a correct application of the doctrine as Zolin describes it.",
+        "evidence_excerpt": "\"It is the purpose of the crime-fraud exception to the attorney-client privilege to assure that the 'seal of secrecy' ... between lawyer and client does not extend to communications 'made for the purpose of getting advice for the commission of a fraud' or crime.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112308/united-states-v-zolin/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "clawback-order.docx.md",
+      "location": "Section IV.D, third paragraph",
+      "authority_type": "other",
+      "authority": "Crime-fraud exception to the attorney-client privilege",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Receiving Party may argue that the crime-fraud exception defeats a privilege claim notwithstanding the non-waiver order",
+      "quotes": [],
+      "context": "Nothing in this Order shall preclude the Receiving Party from seeking a determination by the Court that a particular document or communication is not, in fact, privileged or protected, including but not limited to arguments that the crime-fraud exception to the attorney-client privilege applies",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United States v. Zolin, 491 U.S. 554, 556, 562-63 (1989) (doctrine; no cite given)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The clawback order only preserves the Receiving Party's right to argue the crime-fraud exception, and that exception is a real, generally recognized exception to attorney-client privilege. A non-waiver order deals with waiver by production. It does not decide whether a document is privileged in the first place, so preserving a crime-fraud challenge is consistent with the doctrine.",
+        "evidence_excerpt": "\"the generally recognized exception to that privilege for communications in furtherance of future illegal conduct -- the so-called 'crime-fraud' exception\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112308/united-states-v-zolin/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "clawback-order.docx.md",
+      "location": "Section I.D (definition of Privileged Material)",
+      "authority_type": "other",
+      "authority": "Fifth Amendment privilege against self-incrimination",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Listed as a privilege/protection within the definition of Privileged Material",
+      "quotes": [],
+      "context": "including but not limited to the Fifth Amendment privilege against self-incrimination and any privilege applicable to communications between a corporation and its in-house or outside legal counsel",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "The Fifth Amendment does establish a privilege against compelled self-incrimination, so listing it as an example of an applicable privilege in the order's definition is accurate. One caveat: corporations like Ridgeline cannot claim it. But the order defines \"Producing Party\" to include individual third parties (for example, current or former employees producing through their own counsel), who can. The order also says \"applicable\" privilege.",
+        "evidence_excerpt": "\"nor shall be compelled in any criminal case to be a witness against himself\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/constitution/fifth_amendment"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, paragraph beginning 'This Policy has been developed'",
+      "authority_type": "other",
+      "authority": "PhRMA Code on Interactions with Health Care Professionals",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Policy developed in accordance with the PhRMA Code (industry code); also invoked in Section 4.7 for speaker program venue selection",
+      "quotes": [],
+      "context": "the Pharmaceutical Research and Manufacturers of America (\"PhRMA\") Code on Interactions with Health Care Professionals (the \"PhRMA Code\")",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The title 'Code on Interactions with Health Care Professionals' matches the document.",
+        "explanation": "PhRMA publishes the Code on Interactions with Health Care Professionals under that title. It is a voluntary industry code covering speaker programs, consultants, meals, and similar matters, so a company policy can properly be developed in accordance with it. The name and description are accurate.",
+        "evidence_excerpt": "\"CODE ON INTERACTIONS with Health Care Professionals TABLE OF CONTENTS Preamble 4 1. Basis of Interactions 6 ...\"",
+        "source_urls": [
+          "https://www.phrma.org/-/media/Project/PhRMA/PhRMA-Org/PhRMA-Org/PDF/P-R/PhRMA-Code---Final.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 4.7 Venue Selection",
+      "authority_type": "other",
+      "authority": "PhRMA Code (short-form reference)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Speaker program venue selection must comply with the PhRMA Code",
+      "quotes": [],
+      "context": "Venue selection must comply with the PhRMA Code and the Company's Meeting and Venue Policy.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "PhRMA Code on Interactions with Health Care Professionals § 7 (Speaker Programs) (rev. eff. Jan. 1, 2022)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The PhRMA Code's speaker-program section addresses venue selection directly. Venues must be conducive to informational communication and not extravagant, and luxury resorts and high-end restaurants are not appropriate. That supports the policy's statement that speaker-program venue selection must comply with the PhRMA Code and avoid resort-like venues.",
+        "evidence_excerpt": "\"The speaker program should occur in a venue and manner conducive to informational communication... the third-party venue selected by the company should not be extravagant or the main attraction of the event or perceived as such. Luxury resorts, high-end restaurants, and entertainment, sporting, or other recreational venues or events are not appropriate.\"",
+        "source_urls": [
+          "https://www.phrma.org/-/media/Project/PhRMA/PhRMA-Org/PhRMA-Org/PDF/P-R/PhRMA-Code---Final.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, Viklund comment dated 7/11/2022 (short-form second reference to Caronia and First Amendment)",
+      "authority_type": "case",
+      "authority": "United States v. Caronia (Second Circuit) / First Amendment protection for truthful off-label speech",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Narrow First Amendment protection for truthful off-label speech; Second Circuit has not extended it",
+      "quotes": [],
+      "context": "The Caronia decision (2012) provides some First Amendment protection for truthful off-label speech, but it's narrow and the Second Circuit hasn't extended it.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United States v. Caronia, 703 F.3d 149 (2d Cir. 2012)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Caronia (2d Cir., Dec. 3, 2012) construed the FDCA misbranding provisions as not criminalizing truthful off-label promotion of FDA-approved drugs, to avoid a First Amendment problem, and expressly said its holding was limited. That supports 'some First Amendment protection... but it's narrow.' The further remark that the Second Circuit has not extended Caronia describes later developments that this opinion cannot confirm. It is a reasonable practitioner's gloss and is not contradicted by the text.",
+        "evidence_excerpt": "\"We construe the misbranding provisions of the FDCA as not prohibiting and criminalizing the truthful off-label promotion of FDA-approved prescription drugs. Our conclusion is limited to FDA-approved drugs for which off-label use is not prohibited...\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/812956/united-states-v-caronia/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "flagged-doc-batch-j.docx.md",
+      "location": "Section 1, TV Comment dated 7/14/2022 (Section 2 Definitions)",
+      "authority_type": "other",
+      "authority": "FDA guidance on responding to unsolicited requests for off-label information",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Responding to unsolicited questions about off-label uses is permissible under FDA guidance",
+      "quotes": [],
+      "context": "could be read to prohibit our reps from responding to unsolicited questions about off-label uses, which is actually permissible under FDA guidance.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FDA, Draft Guidance, Responding to Unsolicited Requests for Off-Label Information About Prescription Drugs and Medical Devices (Dec. 2011)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The 2011 draft guidance (still draft in 2022) confirms that firms may respond to genuinely unsolicited requests for off-label information, so the general proposition is supported. The comment's framing is loose, though: it says it is permissible for 'our reps' to respond. The guidance recommends that sales representatives refer such questions to medical or scientific staff, and that sales and marketing personnel have no input on the content of responses. Read strictly as a claim about reps answering themselves, it overstates the guidance.",
+        "evidence_excerpt": "\"FDA has long taken the position that firms can respond to unsolicited requests for information...\"; \"FDA recommends that questions or requests about off-label uses be referred to the firm's medical or scientific representative or department\"; \"FDA recommends that sales and marketing personnel have no input on the content of responses\"",
+        "source_urls": [
+          "https://www.fda.gov/media/82660/download",
+          "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/responding-unsolicited-requests-label-information-about-prescription-drugs-and-medical-devices"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 11, False Claims Act Liability bullet",
+      "authority_type": "regulation",
+      "authority": "Civil monetary penalty guidelines for FCA per-claim penalties (inflation-adjusted)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Per-claim FCA penalties of $13,508-$27,018 under current penalty guidelines",
+      "quotes": [],
+      "context": "This range reflects treble damages plus per-claim penalties ($13,508–$27,018 per claim under current penalty guidelines).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "28 C.F.R. § 85.5 (2023 inflation adjustment, Civil Monetary Penalties Inflation Adjustments for 2023, 88 Fed. Reg. 5776 (Jan. 30, 2023)), adjusting 31 U.S.C. § 3729(a)(1) penalties",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The deck is dated December 5, 2023. DOJ's 2023 inflation adjustment, effective Jan. 30, 2023, set the FCA per-claim penalty at $13,508 minimum and $27,018 maximum. The Feb. 12, 2024 adjustment confirms those were the prior 2023 figures and raised them to $13,946 to $27,894. The range was therefore current when the deck was written. No formal cite was given.",
+        "evidence_excerpt": "2024 DOJ inflation rule, 31 U.S.C. 3729(a) row: prior 2023 penalty \"Min 13,508, Max 27,018\"; new 2024 penalty \"Min 13,946, Max 27,894\"; effective \"February 12, 2024\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2024-02-12/html/2024-02829.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 11, defenses bullet",
+      "authority_type": "other",
+      "authority": "First Amendment defense to off-label promotion liability",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Potential defenses to FCA liability include First Amendment, materiality, knowledge",
+      "quotes": [],
+      "context": "the applicability of potential defenses (First Amendment, materiality, knowledge).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "The First Amendment is a recognized potential defense to off-label promotion theories. In United States v. Caronia, 703 F.3d 149 (2d Cir. 2012), the court read the FDCA misbranding provisions as not criminalizing truthful off-label promotion, to avoid a free-speech problem. The document only calls it a \"potential\" defense that adds uncertainty to exposure, which is a fair characterization (Caronia was a criminal misbranding case, not an FCA case).",
+        "evidence_excerpt": "\"We construe the misbranding provisions of the FDCA as not prohibiting and criminalizing the truthful off-label promotion of FDA-approved prescription drugs.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/812956/united-states-v-caronia/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 4, Regulatory Framework bullet",
+      "authority_type": "regulation",
+      "authority": "FDA implementing regulations on adequate directions for use",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Under implementing regulations, adequate directions for use means directions for all intended uses",
+      "quotes": [],
+      "context": "which, under implementing regulations, means directions for all intended uses.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. § 201.5(a); see also 21 C.F.R. § 201.128 (no cite given)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The FDA regulation (21 C.F.R. § 201.5) defines adequate directions for use as directions under which a layperson can use the drug safely 'for the purposes for which it is intended.' It requires statements of 'all conditions, purposes, or uses for which such drug is intended.' Section 201.128 defines intended use by objective intent. This supports the paraphrase 'directions for all intended uses.'",
+        "evidence_excerpt": "\"Adequate directions for use means directions under which the layman can use a drug safely and for the purposes for which it is intended.\" (a) \"Statements of all conditions, purposes, or uses for which such drug is intended...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/21/201.5",
+          "https://www.law.cornell.edu/cfr/text/21/201.128"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "flagged-doc-batch-g.docx.md",
+      "location": "Slide 11, Operational Risks (Corporate Integrity Agreement / exclusion)",
+      "authority_type": "other",
+      "authority": "HHS-OIG Corporate Integrity Agreement and exclusion from federal healthcare programs",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Resolution would likely require a CIA with OIG-HHS; exclusion from federal healthcare programs is a theoretical risk",
+      "quotes": [],
+      "context": "A resolution with the government will almost certainly require entry into a CIA with the OIG-HHS",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "OIG's corporate integrity agreement page confirms three points. CIAs are used in False Claims Act resolutions involving federal health care programs. They typically run five years and require an independent review organization and annual reports. In exchange, OIG agrees not to seek exclusion. That fits the slide's risk assessment: a resolution likely brings a CIA with OIG-HHS, and exclusion is the backstop risk. The slide's '3-5 years' is close to OIG's standard five-year term.",
+        "evidence_excerpt": "\"CIAs may be used as part of a False Claims Act resolution involving alleged fraud against the Federal health care programs.\" \"The period of a CIA is five years.\" \"OIG agrees not to seek the entity's exclusion from participation in Medicare, Medicaid, or other Federal health care programs.\"",
+        "source_urls": [
+          "https://oig.hhs.gov/compliance/corporate-integrity-agreements/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "flagged-doc-batch-c.eml.md",
+      "location": "RDGL-00020345, Ochoa email of July 25, 2022; RDGL-00020344, Viklund reply",
+      "authority_type": "other",
+      "authority": "FDA promotional guidance framework / OPDP guidance (promotional materials consistent with approved labeling)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Off-label study references in detail aids would face FDA promotional requirements and OPDP review; risk of Warning Letter or Untitled Letter",
+      "quotes": [],
+      "context": "Any promotional reference to a study conducted in a non-approved indication would need to be carefully evaluated against FDA's requirements that promotional materials be consistent with approved labeling... under current OPDP guidance.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The reference is general and gives no specific citation. The proposition is accurate. Under FDA regulations, prescription drug advertisements may not recommend or suggest a use that is not in the approved labeling (21 C.F.R. 202.1(e)(4)(i)(a)). Using literature to recommend unapproved conditions of use is a violation (202.1(e)(6)(xi)). Promotional materials must be submitted on Form FDA-2253 (21 C.F.R. 314.81(b)(3)(i)). OPDP reviews promotional materials and issues compliance letters (untitled and warning letters). The email's loose reference to 'current OPDP guidance' fairly describes this framework.",
+        "evidence_excerpt": "21 C.F.R. 202.1(e)(4)(i)(a): 'shall not recommend or suggest any use that is not in the labeling accepted in such approved new-drug application'; OPDP: 'reviewing prescription drug advertising and promotional labeling to ensure that the information contained in these promotional materials is not false or misleading.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/21/202.1",
+          "https://www.law.cornell.edu/cfr/text/21/314.81",
+          "https://www.fda.gov/about-fda/cder-offices-and-divisions/office-prescription-drug-promotion-opdp"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 2(e), Scope of Engagement",
+      "authority_type": "statute",
+      "authority": "federal Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b(b)",
+      "pincite": "",
+      "cited_for": "Regulatory compliance counseling within the scope of the engagement",
+      "quotes": [],
+      "context": "General regulatory compliance counseling related to FDA promotional regulations, the federal Anti-Kickback Statute (42 U.S.C. § 1320a-7b(b)), and the False Claims Act (31 U.S.C. §§ 3729–3733) as they pertain to the Company's commercial operations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 U.S.C. § 1320a-7b(b) is the federal Anti-Kickback Statute; subsection (b) is headed 'Illegal remunerations' and makes it a crime to knowingly and willfully solicit, receive, offer, or pay kickbacks. The engagement letter cites it only to identify a regulatory area within the scope of compliance counseling, and the cite is correct for that purpose.",
+        "evidence_excerpt": "(b) Illegal remunerations ... Whoever knowingly and willfully solicits or receives any remuneration (including any kickback, bribe, or rebate) directly or indirectly, overtly or covertly, in cash or in kind—",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 2(e), Scope of Engagement",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. §§ 3729–3733",
+      "pincite": "",
+      "cited_for": "Regulatory compliance counseling within the scope of the engagement",
+      "quotes": [],
+      "context": "General regulatory compliance counseling related to FDA promotional regulations, the federal Anti-Kickback Statute (42 U.S.C. § 1320a-7b(b)), and the False Claims Act (31 U.S.C. §§ 3729–3733) as they pertain to the Company's commercial operations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The False Claims Act is codified at 31 U.S.C. §§ 3729–3733: § 3729 False claims, § 3730 civil actions, § 3731 procedure, § 3732 jurisdiction, § 3733 civil investigative demands. The engagement letter cites it only to name an area of compliance counseling, and the section range is correct.",
+        "evidence_excerpt": "\"§ 3729. False claims\" ... \"§ 3733. Civil investigative demands\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/subtitle-III/chapter-37/subchapter-III"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 4, Client Contact and Communication",
+      "authority_type": "case",
+      "authority": "Upjohn Co. v. United States",
+      "citation_as_written": "449 U.S. 383 (1981)",
+      "pincite": "",
+      "cited_for": "Principles for corporate counsel warnings (Upjohn warnings) to employees interviewed by the Firm",
+      "quotes": [],
+      "context": "the Firm represents the Company and not the individual being interviewed, consistent with the principles articulated in Upjohn Co. v. United States, 449 U.S. 383 (1981), and applicable ethical guidelines.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Upjohn Co. v. United States, 449 U.S. 383 (1981), is cited correctly. It held that employees' communications to corporate counsel, made at the direction of their superiors so that the corporation could get legal advice, are covered by the corporation's attorney-client privilege. The privilege therefore belongs to the corporate client. The Court relied on the fact that the employees knew they were being questioned so the corporation could get legal advice. Upjohn does not itself require 'Upjohn warnings'; that interview practice grew out of the case. Still, a letter saying counsel represents the company rather than the individual 'consistent with the principles articulated in Upjohn' is a fair reading of the case.",
+        "evidence_excerpt": "The communications at issue were made by Upjohn employees to counsel for Upjohn acting as such, at the direction of corporate superiors in order to secure legal advice from counsel. ... the employees themselves were sufficiently aware that they were being questioned in order that the corporation could obtain legal advice.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 7, Confidentiality and Privilege",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Protective/clawback order to guard against claims of inadvertent waiver",
+      "quotes": [],
+      "context": "the parties will seek entry of a protective order or clawback order incorporating the protections of Federal Rule of Evidence 502(d) to guard against claims of inadvertent waiver.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 502(d) orders and clawback arrangements protect against claims of waiver from inadvertent production. The committee note expressly contemplates enforcing \"claw-back\" arrangements under the rule.",
+        "evidence_excerpt": "\"the court order may provide for return of documents without waiver irrespective of the care taken by the disclosing party; the rule contemplates enforcement of 'claw-back' and 'quick peek' arrangements\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Caption, 'Issued Pursuant to'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 17(c)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 17(c)",
+      "pincite": "",
+      "cited_for": "Authority under which the subpoena is issued",
+      "quotes": [],
+      "context": "Issued Pursuant to Federal Rule of Criminal Procedure 17(c)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 17(c) authorizes criminal subpoenas, including grand jury subpoenas, to compel production of documents and objects. It is the correct authority for a grand jury subpoena duces tecum.",
+        "evidence_excerpt": "Rule 17(c)(1): \"A subpoena may order the witness to produce any books, papers, documents, data, or other objects the subpoena designates.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section I, Notice paragraph",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1826 (recalcitrant witnesses / contempt)",
+      "citation_as_written": "28 U.S.C. § 1826",
+      "pincite": "",
+      "cited_for": "Failure to comply may result in contempt proceeding",
+      "quotes": [],
+      "context": "Failure to comply with this Subpoena may result in a proceeding for contempt of court pursuant to 28 U.S.C. § 1826 and any other applicable provisions of law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "28 U.S.C. § 1826 ('Recalcitrant witnesses') authorizes summary confinement (civil contempt) of a witness before a court or grand jury who refuses without just cause to comply with a court order to testify or produce documents. It supports the notice that noncompliance with a grand jury subpoena may lead to contempt proceedings. Strictly, § 1826 applies once a witness refuses a court order compelling compliance, but the subpoena also says 'and any other applicable provisions of law,' so the citation is a fair reference.",
+        "evidence_excerpt": "Whenever a witness in any proceeding before or ancillary to any court or grand jury of the United States refuses without just cause shown to comply with an order of the court to testify or provide other information, including any book, paper, document, record ... the court ... may summarily order his confinement",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1826"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section I, Notice paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 6(e)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 6(e)",
+      "pincite": "",
+      "cited_for": "Unauthorized disclosure of the existence or contents of the subpoena may violate grand jury secrecy",
+      "quotes": [],
+      "context": "the unauthorized disclosure of the existence or contents of this Subpoena may constitute a violation of Federal Rule of Criminal Procedure 6(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 6(e) is real and governs grand jury secrecy, but it binds only the persons listed in 6(e)(2)(B): grand jurors, interpreters, court reporters, recording operators, transcribers, government attorneys, and persons receiving authorized disclosures. Rule 6(e)(2)(A) expressly forbids imposing secrecy on anyone else, and the 1944 Advisory Committee Note says the rule imposes no secrecy obligation on witnesses. This subpoena is addressed to a witness, Ridgeline Therapeutics (custodian/general counsel). Ridgeline cannot violate Rule 6(e) by disclosing the subpoena's existence or contents, so the warning misstates what the rule covers.",
+        "evidence_excerpt": "Rule 6(e)(2)(A): \"No obligation of secrecy may be imposed on any person except in accordance with Rule 6(e)(2)(B).\" Advisory Committee Note (1944): \"The rule does not impose any obligation of secrecy on witnesses.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_6"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Rule 6(e)(2)(A) states: 'No obligation of secrecy may be imposed on any person except in accordance with Rule 6(e)(2)(B).' Rule 6(e)(2)(B) lists the persons bound: grand jurors, interpreters, court reporters, recording-device operators, transcribers, attorneys for the government, and persons who receive disclosure under 6(e)(3)(A)(ii) or (iii). The 1944 Advisory Committee Note says: 'The rule does not impose any obligation of secrecy on witnesses.' The notice is addressed to the subpoena recipient ('You are further advised...'), Ridgeline Therapeutics, which is a witness/custodian and not a listed person. Its disclosure of the subpoena therefore cannot violate Rule 6(e). The hedge 'may constitute' does not save the notice, because it implies the recipient is bound, and Rule 6(e)(2)(A) affirmatively forbids imposing that obligation.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_6"
+        ]
+      }
+    },
+    {
+      "ref": 60,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section II, Definition C ('Document')",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)",
+      "pincite": "",
+      "cited_for": "Definition of ESI incorporated by reference into the subpoena's definition of Document",
+      "quotes": [],
+      "context": "any other tangible or electronically stored information (ESI) as defined under Federal Rule of Civil Procedure 34(a), which definition is incorporated herein by reference.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "Fed. R. Civ. P. 34(a)(1)(A)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a)(1)(A) describes documents and electronically stored information broadly. It is the standard reference for the scope of ESI, so incorporating its description by reference is accurate. Strictly, it describes ESI rather than formally defining it, which is a trivial point.",
+        "evidence_excerpt": "\"any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium from which information can be obtained\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "flagged-doc-batch-a.eml.md",
+      "location": "Email RDGL-00020114, Ellsworth to Nagarajan, 22 Sep 2020, item 2",
+      "authority_type": "statute",
+      "authority": "Federal Food, Drug, and Cosmetic Act § 502(a) (misbranding, false or misleading labeling)",
+      "citation_as_written": "FDCA § 502(a)",
+      "pincite": "",
+      "cited_for": "A drug is deemed misbranded if its labeling is false or misleading in any particular",
+      "quotes": [],
+      "context": "Under FDCA § 502(a), a drug is deemed misbranded if its labeling is false or misleading in any particular, and FDA's 2014 draft guidance on communications consistent with the approved labeling provides a useful (if still evolving) framework",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "FDCA § 502(a), 21 U.S.C. § 352(a)",
+        "quote_check": "No quotations attributed. The paraphrase 'false or misleading in any particular' matches the statutory text verbatim.",
+        "explanation": "Section 352(a) deems a drug misbranded if its labeling is false or misleading in any particular. The proposition is accurate. A side note that falls outside the cited proposition: the same sentence of the email calls FDA's guidance on communications consistent with labeling a '2014 draft guidance.' This was not verified here and may be misdated.",
+        "evidence_excerpt": "21 U.S.C. 352: A drug or device shall be deemed to be misbranded \"(a) ... If its labeling is false or misleading in any particular.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/352"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "flagged-doc-batch-a.eml.md",
+      "location": "Email RDGL-00020114, Ellsworth to Nagarajan, 22 Sep 2020, item 2",
+      "authority_type": "other",
+      "authority": "FDA 2014 draft guidance on communications consistent with the approved labeling",
+      "citation_as_written": "FDA's 2014 draft guidance on communications consistent with the approved labeling",
+      "pincite": "",
+      "cited_for": "Framework for evaluating where the line falls on promotional communications",
+      "quotes": [],
+      "context": "FDA's 2014 draft guidance on communications consistent with the approved labeling provides a useful (if still evolving) framework for evaluating where that line falls.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "FDA, Medical Product Communications That Are Consistent With the FDA-Required Labeling—Questions and Answers (draft Jan. 2017, 82 Fed. Reg. 6575 (Jan. 19, 2017); final June 2018)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "There was no 2014 FDA draft guidance on communications consistent with approved labeling. The guidance on that subject was issued as a draft in January 2017 and finalized in June 2018. When the email was written (Sept. 22, 2020), it had been final for two years, so calling it a '2014 draft' that is 'still evolving' misidentifies both its year and its status. FDA's 2014 draft dealt with distributing scientific publications on unapproved uses, a different subject. The real guidance does support the proposition: it is FDA's framework for judging which communications are consistent with the labeling.",
+        "evidence_excerpt": "79... 82 FR 6575 (Jan. 19, 2017): \"announcing the availability of a draft guidance for industry entitled 'Medical Product Communications That Are Consistent With the FDA-Required Labeling—Questions and Answers.'\" FDA page: Issue Date \"June 2018\", status \"Final\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2017-01-19/pdf/2017-01012.pdf",
+          "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/medical-product-communications-are-consistent-fda-required-labeling-questions-and-answers"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. The FDA guidance on this subject is 'Medical Product Communications That Are Consistent With the FDA-Required Labeling—Questions and Answers'. Its draft was noticed at 82 Fed. Reg. 6575 (Jan. 19, 2017), under a new docket opened in 2016 (Docket No. FDA-2016-D-2285); it was not a revision of any 2014 draft. FDA's guidance page lists it as 'Issue Date: June 2018', 'Status: Final'. The citing email is dated September 22, 2020, so calling it a '2014 draft guidance' that is 'still evolving' gets both the year and the status wrong. FDA's 2014 drafts were on other subjects, such as distributing publications on unapproved uses. The real guidance does provide FDA's framework for judging whether communications are consistent with labeling, so the substance is supported. Because the identifying year and draft status are wrong and could point a reader to a different 2014 FDA draft, this is a garbled citation rather than a minor defect.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2017-01-19/pdf/2017-01012.pdf",
+          "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/medical-product-communications-are-consistent-fda-required-labeling-questions-and-answers"
+        ]
+      }
+    },
+    {
+      "ref": 63,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020231, Viklund memo, Section I",
+      "authority_type": "statute",
+      "authority": "Federal Food, Drug, and Cosmetic Act",
+      "citation_as_written": "21 U.S.C. § 331 et seq.",
+      "pincite": "",
+      "cited_for": "Off-label promotion would violate the FDCA",
+      "quotes": [],
+      "context": "would constitute off-label promotion in violation of the Federal Food, Drug, and Cosmetic Act (\"FDCA\"), 21 U.S.C. § 331 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 U.S.C. § 331 is the FDCA's prohibited-acts section. It bars introducing misbranded drugs into interstate commerce, which is the statutory route by which off-label promotion is treated as an FDCA violation (the promotion creates a new intended use, so the labeling is inadequate and the drug is misbranded). The statute does not mention 'off-label promotion' expressly, but the memo's statement is a fair reading. The conventional general cite for the whole Act is 21 U.S.C. § 301 et seq.; using § 331 et seq. is a stylistic variation, not an error.",
+        "evidence_excerpt": "\"The following acts and the causing thereof are prohibited: (a) The introduction or delivery for introduction into interstate commerce of any food, drug, device, tobacco product, or cosmetic that is adulterated or misbranded.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020232, Viklund memo, Section I",
+      "authority_type": "other",
+      "authority": "FDA June 2014 draft guidance, Distributing Scientific and Medical Information on Unapproved Uses of Approved Drugs and Cleared or Approved Medical Devices",
+      "citation_as_written": "FDA's June 2014 draft guidance, \"Distributing Scientific and Medical Information on Unapproved Uses of Approved Drugs and Cleared or Approved Medical Devices,\"",
+      "pincite": "",
+      "cited_for": "Provides a limited framework for dissemination of information on unapproved uses; safe harbors are narrow and do not extend to promotional speaker programs",
+      "quotes": [
+        "Distributing Scientific and Medical Information on Unapproved Uses of Approved Drugs and Cleared or Approved Medical Devices"
+      ],
+      "context": "The FDA's June 2014 draft guidance, \"Distributing Scientific and Medical Information on Unapproved Uses of Approved Drugs and Cleared or Approved Medical Devices,\" provides a limited framework for the dissemination of certain types of information regarding unapproved uses",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "FDA, Revised Draft Guidance, Distributing Scientific and Medical Publications on Unapproved New Uses—Recommended Practices (Feb. 2014), 79 Fed. Reg. 11793 (Mar. 3, 2014)",
+        "quote_check": "Quoted title not found verbatim; no FDA guidance carries it. It reads as a mix of the 2014 revised draft title ('Distributing Scientific and Medical Publications on Unapproved New Uses—Recommended Practices') and the 2009 final title ('Good Reprint Practices ... on Unapproved New Uses of Approved Drugs and Approved or Cleared Medical Devices'). Both appear in the FR notice.",
+        "explanation": "FDA's 2014 draft on distributing off-label scientific information was issued in February 2014, not June 2014, under a different title. Its scope is narrow: journal articles, reference texts and clinical practice guidelines distributed to health care professionals. That supports the memo's point that the guidance offers a limited framework that does not reach promotional speaker programs. So the authority exists and supports the proposition, but its title and date are garbled.",
+        "evidence_excerpt": "\"Revised Draft Guidance for Industry on Distributing Scientific and Medical Publications on Unapproved New Uses—Recommended Practices; Availability ... Dated: February 26, 2014\" ... \"scientific or medical journal articles, scientific or medical reference texts, or clinical practice guidelines\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2014-03-03/pdf/2014-04560.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. I found no FDA guidance titled 'Distributing Scientific and Medical Information on Unapproved Uses of Approved Drugs and Cleared or Approved Medical Devices'; an exact-title web search returned only the February 2014 guidance under its real name. The real 2014 document is the 'Revised Draft Guidance for Industry on Distributing Scientific and Medical Publications on Unapproved New Uses—Recommended Practices' (Docket FDA-2008-D-0053), dated February 26, 2014 and noticed at 79 Fed. Reg. (Mar. 3, 2014). It revised the 2009 'Good Reprint Practices for the Distribution of Medical Journal Articles and Medical or Scientific Reference Publications on Unapproved New Uses of Approved Drugs and Approved or Cleared Medical Devices'. The cited title looks like a blend of those two titles, and the month (June) is wrong. On substance, the real guidance covers only 'scientific or medical journal articles, scientific or medical reference texts, or clinical practice guidelines' distributed to health care professionals. That supports the memo's point that the framework is narrow and does not reach promotional speaker programs. The authority is real and supports the point, but its title and date are garbled.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2014-03-03/pdf/2014-04560.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 65,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020232, Viklund memo, Section I",
+      "authority_type": "other",
+      "authority": "HHS OIG guidance and Special Fraud Alerts concerning speaker programs",
+      "citation_as_written": "Office of Inspector General guidance and Special Fraud Alerts",
+      "pincite": "",
+      "cited_for": "Speaker programs must serve a legitimate educational purpose and compensation must reflect fair market value",
+      "quotes": [],
+      "context": "The Office of Inspector General (\"OIG\") has further issued guidance and Special Fraud Alerts concerning speaker programs, emphasizing that such programs must serve a legitimate educational purpose",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "HHS-OIG, Special Fraud Alert: Speaker Programs (Nov. 16, 2020)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The OIG Special Fraud Alert on speaker programs (Nov. 16, 2020) exists. It says OIG is skeptical about the educational value of speaker programs, flags programs held in places not conducive to education, and lists paying speakers more than fair market value as a suspect characteristic. That supports the memo's general characterization that programs must serve a legitimate educational purpose and that pay must reflect fair market value.",
+        "evidence_excerpt": "\"OIG is skeptical about the educational value of such programs\" ... \"The company pays HCP speakers more than fair market value for the speaking service or pays compensation that takes into account the volume or value of past business\"",
+        "source_urls": [
+          "https://oig.hhs.gov/documents/special-fraud-alerts/865/SpecialFraudAlertSpeakerPrograms.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020234, Viklund memo, Section IV (first bullet)",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. § 3729 et seq.",
+      "pincite": "",
+      "cited_for": "FCA liability if off-label promotion leads to federal healthcare program claims for non-covered indications; treble damages and per-claim penalties",
+      "quotes": [],
+      "context": "False Claims Act, 31 U.S.C. § 3729 et seq.: If off-label promotion leads to prescriptions that are submitted to federal healthcare programs for non-covered or non-medically-accepted indications, the government could pursue False Claims Act liability.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 3729(a)(1) makes liable any person who knowingly presents, or causes to be presented, a false claim. It imposes a per-claim civil penalty, adjusted for inflation, plus three times the government's damages. That supports the memo's description: FCA exposure on a 'causes to be presented' theory where off-label promotion leads to non-covered federal program claims, with treble damages and per-claim penalties. The off-label causation theory comes from case law and enforcement practice, not from the statute's text, but the statute is the correct authority for the proposition.",
+        "evidence_excerpt": "\"knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval\" ... \"3 times the amount of damages which the Government sustains\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020234, Viklund memo, Section IV (second bullet)",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b(b)",
+      "pincite": "",
+      "cited_for": "Speaker honoraria could be characterized as remuneration to induce prescribing",
+      "quotes": [],
+      "context": "Anti-Kickback Statute, 42 U.S.C. § 1320a-7b(b): Speaker honoraria paid to physicians who are also prescribers of Veratrine XR could be characterized as remuneration intended to induce prescribing",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The cited section bars knowingly and willfully offering or paying remuneration to induce a person to order or recommend items payable by federal programs. Characterizing speaker honoraria paid to prescribers as possible inducement remuneration is a fair reading.",
+        "evidence_excerpt": "Whoever knowingly and willfully offers or pays any remuneration (including any kickback, bribe, or rebate) directly or indirectly, overtly or covertly, in cash or in kind to any person to induce such person ... (B) to purchase, lease, order, or arrange for or recommend purchasing, leasing, or ordering any good ... or item for which payment may be made in whole or in part under a Federal health care program",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020234, Viklund memo, Section IV (second bullet)",
+      "authority_type": "regulation",
+      "authority": "Anti-Kickback personal services safe harbor (42 C.F.R. § 1001.952(d), cited by name only)",
+      "citation_as_written": "personal services safe harbor",
+      "pincite": "",
+      "cited_for": "Honoraria structured to fall within the safe harbor, which is narrowly construed and could be undermined if program is promotional",
+      "quotes": [],
+      "context": "While we structure our honoraria to fall within the personal services safe harbor, that safe harbor is narrowly construed, and its protections could be undermined",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 C.F.R. § 1001.952(d)",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The personal services safe harbor in 42 C.F.R. § 1001.952(d) excludes agent compensation from 'remuneration' only if all of its standards are met. These include a signed written agreement, a term of at least one year, compensation set in advance at fair market value and not based on referral volume or value, and services that do not involve promoting illegal activity. That cumulative, all-standards-required structure supports calling the safe harbor narrowly construed, and the point that a promotional program could undermine its protection.",
+        "evidence_excerpt": "(d) Personal services and management contracts and outcomes-based payment arrangements. (1) As used in section 1128B of the Act, 'remuneration' does not include any payment made by a principal to an agent as compensation for the services of the agent, as long as all of the following standards are met:",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/42/1001.952"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "flagged-doc-batch-b.eml.md",
+      "location": "Email RDGL-00020234, Viklund memo, Section IV (third bullet)",
+      "authority_type": "statute",
+      "authority": "FDCA misbranding provisions",
+      "citation_as_written": "21 U.S.C. §§ 331, 352",
+      "pincite": "",
+      "cited_for": "Promotion of a drug for uses not in approved labeling constitutes misbranding; DOJ has pursued civil and criminal misbranding actions",
+      "quotes": [],
+      "context": "FDCA Misbranding, 21 U.S.C. §§ 331, 352: Promotion of a drug for uses not included in the approved labeling constitutes misbranding.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This is the same authority as ref 28. 331 prohibits introducing misbranded drugs into interstate commerce, and 352(f) together with 21 C.F.R. 201.5 and 201.128 treats a drug as lacking adequate directions for uses promoted outside its labeling. The statute does not use the words 'off-label promotion', but citing these sections for the off-label misbranding theory is a fair paraphrase. The memo's statement about DOJ enforcement history is a factual assertion that the statutes themselves do not address.",
+        "evidence_excerpt": "21 C.F.R. 201.5: adequate directions must state 'All conditions, purposes, or uses for which such drug is intended, including ... uses for which it is prescribed, recommended, or suggested in its ... advertising'",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/331",
+          "https://www.law.cornell.edu/uscode/text/21/352",
+          "https://www.law.cornell.edu/cfr/text/21/201.5"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "flagged-doc-batch-i.eml.md",
+      "location": "Email RDGL-00020645, Nagarajan to Correa, 9 Oct 2023",
+      "authority_type": "statute",
+      "authority": "Federal Food, Drug, and Cosmetic Act (responsible corporate officer misdemeanor liability)",
+      "citation_as_written": "Federal Food, Drug, and Cosmetic Act",
+      "pincite": "",
+      "cited_for": "Individual liability in off-label promotion arises under FDCA, with misdemeanor strict liability for responsible corporate officers",
+      "quotes": [],
+      "context": "arises under the Federal Food, Drug, and Cosmetic Act — which does carry misdemeanor strict liability for responsible corporate officers under the Park doctrine",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "21 U.S.C. §§ 331, 333(a)(1); see United States v. Park, 421 U.S. 658 (1975)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The FDCA makes a violation of § 331 (including introducing misbranded drugs into commerce) a misdemeanor punishable by up to one year, and Park, applying Dotterweich, holds that a corporate officer standing in a responsible relation to the violation can be convicted without awareness of wrongdoing. That is the responsible corporate officer doctrine. The email's general description is accurate.",
+        "evidence_excerpt": "21 U.S.C. 333(a)(1): \"Any person who violates a provision of section 331 of this title shall be imprisoned for not more than one year or fined not more than $1,000, or both.\" Park: the Act \"dispenses with the conventional requirement for criminal conduct — awareness of some wrongdoing. ... upon a person otherwise innocent but standing in responsible relation to a public danger.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/21/333",
+          "https://www.courtlistener.com/opinion/109264/united-states-v-park/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "flagged-doc-batch-i.eml.md",
+      "location": "Email RDGL-00020645, Nagarajan to Correa, 9 Oct 2023",
+      "authority_type": "case",
+      "authority": "Park doctrine (United States v. Park, responsible corporate officer doctrine), cited by doctrine name only",
+      "citation_as_written": "the Park doctrine",
+      "pincite": "",
+      "cited_for": "Misdemeanor strict liability for responsible corporate officers under the FDCA",
+      "quotes": [],
+      "context": "misdemeanor strict liability for responsible corporate officers under the Park doctrine",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United States v. Park, 421 U.S. 658 (1975)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Park confirms responsible-corporate-officer liability under the FDCA. The Act 'dispenses with the conventional requirement for criminal conduct — awareness of some wrongdoing' for those who stand in 'responsible relation' to a violation. Park discusses the offense as a misdemeanor (quoting Dotterweich), and the conviction there was punished by fines. That supports 'misdemeanor strict liability for responsible corporate officers under the Park doctrine.'",
+        "evidence_excerpt": "\"dispenses with the conventional requirement for criminal conduct — awareness of some wrongdoing. In the interest of the larger good it puts the burden of acting at hazard upon a person otherwise innocent but standing in responsible relation to a public danger.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/109264/united-states-v-park/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "flagged-doc-batch-i.eml.md",
+      "location": "Email RDGL-00020645, Nagarajan to Correa, 9 Oct 2023",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "the False Claims Act",
+      "pincite": "",
+      "cited_for": "Potential individual FCA liability if promotion tied to claims submitted to federal healthcare programs; civil exposure",
+      "quotes": [],
+      "context": "potentially under the False Claims Act if the government can tie promotional activity to claims submitted to federal healthcare programs.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The FCA reaches 'any person' who knowingly presents or causes a false claim to be presented, so an individual executive can be civilly liable if the government ties promotional activity to false claims submitted to federal healthcare programs. The email's hedged statement ('potentially') fits the statute.",
+        "evidence_excerpt": "\"Subject to paragraph (2), any person who— (A) knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "production-3-cover-letter.docx.md",
+      "location": "Reservation of Privilege and Clawback Rights paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Production made subject to non-waiver protections of the Clawback Order and FRE 502(d) as incorporated therein",
+      "quotes": [],
+      "context": "subject to and pursuant to the protections of the Stipulated Confidentiality and Clawback Order entered by the Honorable Margaret Liu on February 28, 2024, in Case No. 2:24-gj-00417-ML (the \"Clawback Order\"), and Federal Rule of Evidence 502(d) as incorporated therein.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Making a production subject to a court clawback order entered under 502(d) is consistent with the rule. Under 502(d), such an order makes disclosure a non-waiver in this proceeding and in any other federal or state proceeding.",
+        "evidence_excerpt": "\"in which event the disclosure is also not a waiver in any other federal or state proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "production-3-cover-letter.docx.md",
+      "location": "Reservation of Privilege and Clawback Rights paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Federal Rule of Evidence 502(b)",
+      "pincite": "",
+      "cited_for": "Right to demand return of inadvertently produced privileged documents",
+      "quotes": [],
+      "context": "reserves the right to demand the return of any inadvertently produced privileged or protected documents consistent with the terms of the Clawback Order and Federal Rule of Evidence 502(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 502(b) protects inadvertently disclosed privileged material from waiver if the holder promptly takes reasonable steps to rectify the error. Demanding return of the documents is such a step, so reserving that right consistent with the Clawback Order and 502(b) is accurate.",
+        "evidence_excerpt": "502(b): \"(1) the disclosure is inadvertent; (2) the holder ... took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "production-3-cover-letter.docx.md",
+      "location": "Reservation of Privilege and Clawback Rights; Confidentiality Designations",
+      "authority_type": "other",
+      "authority": "Stipulated Confidentiality and Clawback Order, Case No. 2:24-gj-00417-ML (D.N.J., Liu, J., Feb. 28, 2024)",
+      "citation_as_written": "Stipulated Confidentiality and Clawback Order entered by the Honorable Margaret Liu on February 28, 2024, in Case No. 2:24-gj-00417-ML",
+      "pincite": "Paragraph 7",
+      "cited_for": "Governs non-waiver, clawback and confidentiality designations including Highly Confidential AEO",
+      "quotes": [],
+      "context": "Stipulated Confidentiality and Clawback Order entered by the Honorable Margaret Liu on February 28, 2024, in Case No. 2:24-gj-00417-ML (the \"Clawback Order\")",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe court order in the fictional matter's own docket."
+    },
+    {
+      "ref": 76,
+      "document": "flagged-doc-batch-i.eml.md",
+      "location": "Email RDGL-00020645, Nagarajan to Correa, 9 Oct 2023, assessment paragraph",
+      "authority_type": "statute",
+      "authority": "False Claims Act (short form, FCA)",
+      "citation_as_written": "FCA",
+      "pincite": "",
+      "cited_for": "Civil exposure of an individual executive for off-label promotion under the False Claims Act is harder to rule out entirely",
+      "quotes": [],
+      "context": "Civil exposure under the FCA is harder to rule out entirely, but I think you'd have strong arguments.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "'FCA' is a short form for the False Claims Act, 31 U.S.C. § 3729 et seq. The statute imposes civil liability on 'any person,' including individuals. The email gives a judgment that civil exposure is harder to rule out, which fits a statute that reaches individuals who cause false claims to be presented.",
+        "evidence_excerpt": "\"any person who— (A) knowingly presents, or causes to be presented, a false or fraudulent claim\" ... \"is liable to the United States Government for a civil penalty\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "production-3-cover-letter.docx.md",
+      "location": "Confidentiality Designations paragraph",
+      "authority_type": "other",
+      "authority": "Stipulated Confidentiality and Clawback Order, Paragraph 7 (Highly Confidential - Attorneys' Eyes Only designation)",
+      "citation_as_written": "Paragraph 7 of the Clawback Order",
+      "pincite": "Paragraph 7",
+      "cited_for": "Order permits the higher designation 'Highly Confidential - Attorneys' Eyes Only'",
+      "quotes": [
+        "Highly Confidential — Attorneys' Eyes Only"
+      ],
+      "context": "Certain documents within this production may bear the higher designation of \"Highly Confidential — Attorneys' Eyes Only\" as permitted by Paragraph 7 of the Clawback Order.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe court order in the fictional matter's own docket (Case No. 2:24-gj-00417-ML)."
+    }
+  ]
+}

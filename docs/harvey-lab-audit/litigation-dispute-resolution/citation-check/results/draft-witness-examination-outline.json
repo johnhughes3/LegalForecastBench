@@ -1,0 +1,2161 @@
+{
+  "task": "draft-witness-examination-outline",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "cascade-trial-brief-excerpt.docx.md",
+    "distribution-agreement.docx.md",
+    "elliston-deposition-excerpts.docx.md",
+    "elliston-email-chain.docx.md",
+    "elliston-severance-agreement.docx.md",
+    "forensic-accounting-summary.docx.md",
+    "pretrial-order-evidentiary-rulings.docx.md",
+    "q3-unit-discrepancy-spreadsheet.xlsx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "forensic-accounting-summary.docx.md",
+      "location": "Report header, 'Report Type' line (line 13)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "26(a)(2)(B)",
+      "cited_for": "The report is a Summary Expert Report prepared pursuant to the expert-disclosure rule for retained experts.",
+      "quotes": [],
+      "context": "Report Type: Summary Expert Report pursuant to Fed. R. Civ. P. 26(a)(2)(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 26(a)(2)(B) requires a written report, prepared and signed by the witness, from any witness retained or specially employed to give expert testimony. The report says Kowalski was retained by plaintiff's counsel as a forensic accounting expert, so the rule fits. The 'Summary' label is the fictional report's own wording and is not a citation defect.",
+        "evidence_excerpt": "\"this disclosure must be accompanied by a written report—prepared and signed by the witness—if the witness is one retained or specially employed to provide expert testimony in the case\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "forensic-accounting-summary.docx.md",
+      "location": "Confidentiality footer at end of report (line 352)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "26(a)(2)(B)",
+      "cited_for": "The report is submitted pursuant to the expert-disclosure rule in the Ridgeline v. Cascade litigation.",
+      "quotes": [],
+      "context": "CONFIDENTIAL — This Summary Expert Report was prepared at the direction of Whitfield & Crane LLP in connection with Ridgeline Manufacturing, Inc. v. Cascade Supply Group, LLC, Case No. 2:24-cv-01847-PDR. It contains the opinions and work product of Thornton Greer & Associates and is submitted pursuant to Fed. R. Civ. P. 26(a)(2)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is the same citation as ref 0, in the report's footer. Rule 26(a)(2)(B) is the correct rule for a retained expert's written report.",
+        "evidence_excerpt": "\"if the witness is one retained or specially employed to provide expert testimony in the case\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "elliston-deposition-excerpts.docx.md",
+      "location": "STIPULATIONS paragraph (line 37)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure (general reference, no rule number)",
+      "citation_as_written": "Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "The parties stipulated that the deposition would be taken pursuant to the Federal Rules of Civil Procedure.",
+      "quotes": [],
+      "context": "It was stipulated and agreed by counsel for the respective parties that the deposition be taken pursuant to the Federal Rules of Civil Procedure and the Local Rules of the Western District of Pennsylvania.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a general reference to the Federal Rules of Civil Procedure in a standard deposition stipulation. The FRCP exist and govern depositions; Rule 30 covers depositions by oral examination. No specific proposition of law is at stake.",
+        "evidence_excerpt": "Rule 30. Depositions by Oral Examination ... \"A party may, by oral questions, depose any person, including a party, without leave of court except as provided in Rule 30(a)(2).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "elliston-deposition-excerpts.docx.md",
+      "location": "STIPULATIONS paragraph (line 37)",
+      "authority_type": "court_rule",
+      "authority": "Local Rules of the Western District of Pennsylvania (general reference, no rule number)",
+      "citation_as_written": "Local Rules of the Western District of Pennsylvania",
+      "pincite": "",
+      "cited_for": "The parties stipulated that the deposition would be taken pursuant to the W.D. Pa. Local Rules.",
+      "quotes": [],
+      "context": "the deposition be taken pursuant to the Federal Rules of Civil Procedure and the Local Rules of the Western District of Pennsylvania. All objections except as to form are reserved to the time of trial.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The U.S. District Court for the Western District of Pennsylvania has published Local Rules (LCvR). A deposition stipulation referring to them generally is accurate. The case caption in the documents is W.D. Pa., so the reference fits.",
+        "evidence_excerpt": "PAWD Local Rules of Court ... Effective Date: November 1, 2016",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/court-info/local-rules-and-orders/local-rules"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.C (Prong Two), para. beginning 'Under Federal Rule of Evidence 608(b)'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 608(b)",
+      "citation_as_written": "Federal Rule of Evidence 608(b)",
+      "pincite": "",
+      "cited_for": "Specific instances of a witness's conduct may be inquired into on cross-examination if probative of character for truthfulness or untruthfulness; applied to Elliston's USB copying",
+      "quotes": [],
+      "context": "Under Federal Rule of Evidence 608(b), specific instances of a witness's conduct may be inquired into on cross-examination if they are probative of the witness's character for truthfulness or untruthfulness.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; the paraphrase closely tracks the second sentence of 608(b).",
+        "explanation": "FRE 608(b) lets the court, on cross-examination, allow inquiry into specific instances of conduct that are probative of character for truthfulness or untruthfulness. The brief's statement of the rule is accurate. Applying it to Elliston's USB copying is advocacy about probativeness, not a misstatement of the rule. The rule also bars extrinsic evidence of such conduct, but the brief proposes only inquiry on cross-examination.",
+        "evidence_excerpt": "But the court may, on cross-examination, allow them to be inquired into if they are probative of the character for truthfulness or untruthfulness of: (1) the witness",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_608"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.D (Prong Three), final paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 613",
+      "citation_as_written": "Federal Rule of Evidence 613",
+      "pincite": "",
+      "cited_for": "Prior inconsistent statements are admissible to impeach credibility; applied to date and unit-count inconsistencies",
+      "quotes": [],
+      "context": "Under Federal Rule of Evidence 613, prior inconsistent statements are admissible to impeach a witness's credibility.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 613 (Witness's Prior Statement) governs examining a witness about a prior statement and the foundation for extrinsic evidence of a prior inconsistent statement. It presupposes that such statements may be used to impeach. Strictly, the rule sets foundation and procedure and does not itself declare the statements admissible; the impeachment use rests on Rules 607 and 613 together. The brief's shorthand is common and reasonable, so it supports the proposition.",
+        "evidence_excerpt": "(b) Extrinsic Evidence of a Prior Inconsistent Statement. Unless the court orders otherwise, extrinsic evidence of a witness's prior inconsistent statement may not be admitted until after the witness is given an opportunity to explain or deny the statement...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_613"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.E (Prong Four), paragraph beginning 'Cascade respectfully requests that the Court bear in mind'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 701",
+      "citation_as_written": "Federal Rule of Evidence 701",
+      "pincite": "",
+      "cited_for": "Elliston is a lay witness; opinions must be rationally based on perception and not on specialized knowledge",
+      "quotes": [
+        "rationally based on [his] perception",
+        "not based on scientific, technical, or other specialized knowledge within the scope of Rule 702"
+      ],
+      "context": "Elliston is a lay witness under Federal Rule of Evidence 701 and that his opinions, if any are permitted, must be \"rationally based on [his] perception\" and \"not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'rationally based on [his] perception': found in Rule 701(a), with the bracket replacing \"the witness's\". 'not based on scientific, technical, or other specialized knowledge within the scope of Rule 702': found verbatim in Rule 701(c).",
+        "explanation": "Rule 701 limits a non-expert witness's opinion testimony to opinions rationally based on the witness's perception, helpful, and not based on specialized knowledge within the scope of Rule 702. This supports the proposition.",
+        "evidence_excerpt": "(a) rationally based on the witness's perception; ... (c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.E (Prong Four), same paragraph (internal reference within Rule 701 quotation)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Rule 702",
+      "pincite": "",
+      "cited_for": "Specialized knowledge boundary that lay opinion under Rule 701 may not cross",
+      "quotes": [
+        "not based on scientific, technical, or other specialized knowledge within the scope of Rule 702"
+      ],
+      "context": "\"not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.\" To the extent Elliston offers conclusions at trial about the nature, scope, or financial impact of the alleged diversion, such testimony should be disregarded",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is found verbatim in Rule 701(c), not in Rule 702. In context it is correctly attributed to Rule 701 and only cross-references Rule 702.",
+        "explanation": "Rule 702 governs testimony by qualified experts based on 'scientific, technical, or other specialized knowledge.' That is the boundary Rule 701(c) incorporates, so the cross-reference supports the proposition.",
+        "evidence_excerpt": "Rule 702: \"...the expert's scientific, technical, or other specialized knowledge will help the trier of fact to understand the evidence or to determine a fact in issue\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702",
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.G (Cumulative Effect), final paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 607",
+      "citation_as_written": "Federal Rule of Evidence 607",
+      "pincite": "",
+      "cited_for": "Any party may attack the credibility of a witness",
+      "quotes": [],
+      "context": "Federal Rule of Evidence 607 provides that any party may attack the credibility of a witness;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; the brief's paraphrase closely tracks the rule text.",
+        "explanation": "FRE 607 provides that any party, including the party that called the witness, may attack the witness's credibility.",
+        "evidence_excerpt": "Any party, including the party that called the witness, may attack the witness's credibility.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_607"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.G (Cumulative Effect), final paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 608(b)",
+      "citation_as_written": "Rule 608(b)",
+      "pincite": "",
+      "cited_for": "Permits inquiry into specific instances of conduct probative of untruthfulness",
+      "quotes": [],
+      "context": "Rule 608(b) permits inquiry into specific instances of conduct probative of a witness's character for untruthfulness;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 608(b) permits inquiry on cross-examination, at the court's discretion, into specific instances of conduct probative of character for untruthfulness. This accurately summarizes the rule.",
+        "evidence_excerpt": "But the court may, on cross-examination, allow them to be inquired into if they are probative of the character for truthfulness or untruthfulness of: (1) the witness",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_608"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. IV.G (Cumulative Effect), final paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 613",
+      "citation_as_written": "Rule 613",
+      "pincite": "",
+      "cited_for": "Governs use of prior inconsistent statements to impeach",
+      "quotes": [],
+      "context": "and Rule 613 governs the use of prior inconsistent statements to impeach.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 613 governs examining a witness about prior statements and the use of extrinsic evidence of prior inconsistent statements. That matches the statement that it 'governs the use of prior inconsistent statements to impeach.'",
+        "evidence_excerpt": "(a) Showing or Disclosing the Statement During Examination. When examining a witness about the witness's prior statement, a party need not show it or disclose its contents to the witness.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_613"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. V (Conclusion)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 701",
+      "citation_as_written": "Federal Rule of Evidence 701",
+      "pincite": "",
+      "cited_for": "Cascade reserves right to move to strike testimony exceeding permissible lay opinion",
+      "quotes": [],
+      "context": "any Elliston testimony that exceeds the permissible scope of lay witness opinion under Federal Rule of Evidence 701 or that constitutes improper expert testimony within the meaning of Federal Rule of Evidence 702.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 701 defines the permissible scope of lay opinion testimony. Reserving a motion to strike testimony beyond that scope is a correct use of the rule.",
+        "evidence_excerpt": "If a witness is not testifying as an expert, testimony in the form of an opinion is limited to one that is: (a) rationally based on the witness's perception...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "cascade-trial-brief-excerpt.docx.md",
+      "location": "Sec. V (Conclusion)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Federal Rule of Evidence 702",
+      "pincite": "",
+      "cited_for": "Improper expert testimony by a lay witness",
+      "quotes": [],
+      "context": "or that constitutes improper expert testimony within the meaning of Federal Rule of Evidence 702.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 702 governs expert testimony, and Rule 701(c) sends any opinion based on specialized knowledge to Rule 702. The 2000 committee note says the amendment's purpose is to stop parties from evading Rule 702 by 'proffering an expert in lay witness clothing.' Citing Rule 702 for improper expert testimony from a lay witness is accurate.",
+        "evidence_excerpt": "Rule 701 has been amended to eliminate the risk that the reliability requirements set forth in Rule 702 will be evaded through the simple expedient of proffering an expert in lay witness clothing.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702",
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.A (Plaintiff's MIL No. 1, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(D)",
+      "citation_as_written": "FRE 801(d)(2)(D)",
+      "pincite": "",
+      "cited_for": "Ridgeline argues Elliston's emails are non-hearsay statements of a party-opponent's employee",
+      "quotes": [],
+      "context": "Ridgeline argues the emails are admissible as non-hearsay statements of a party-opponent under FRE 801(d)(2)(D) and alternatively as business records under FRE 803(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Ridgeline argues that emails Elliston wrote as Cascade's employee are non-hearsay when offered against Cascade. That argument fits Rule 801(d)(2)(D) (statements by the party's agent or employee on a matter within the scope of the relationship while it existed).",
+        "evidence_excerpt": "(D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.A (Plaintiff's MIL No. 1, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 803(6)",
+      "citation_as_written": "FRE 803(6)",
+      "pincite": "",
+      "cited_for": "Alternative argument that the emails are business records",
+      "quotes": [],
+      "context": "and alternatively as business records under FRE 803(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "FRE 803(6) is the hearsay exception for records of a regularly conducted activity (business records). Citing it as an alternative ground for admitting the emails is an accurate description of what the rule covers.",
+        "evidence_excerpt": "(6) Records of a Regularly Conducted Activity. A record of an act, event, condition, opinion, or diagnosis if: (A) the record was made at or near the time by — or from information transmitted by — someone with knowledge",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_803"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.A",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A) and (D)",
+      "citation_as_written": "FRE 801(d)(2)(A) and (D)",
+      "pincite": "",
+      "cited_for": "Responsive communications from Voss, Trimble and Greer independently admissible as party-opponent statements",
+      "quotes": [],
+      "context": "Ridgeline further argues the responsive communications from Voss, Trimble, and Greer are independently admissible under FRE 801(d)(2)(A) and (D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The passage describes Ridgeline's argument that the replies from Cascade's CEO, CFO, and General Counsel are opposing-party statements. Rule 801(d)(2)(D) directly covers statements by a party's agent or employee within the scope of the relationship. Citing (A) together with (D) is harmless because (D) independently supports the argument.",
+        "evidence_excerpt": "(D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.A",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Cascade argues admission of emails would create unfair prejudice",
+      "quotes": [],
+      "context": "their admission would create unfair prejudice under FRE 403.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 403 lets a court exclude relevant evidence when unfair prejudice substantially outweighs its probative value. Describing Cascade's unfair-prejudice objection as a Rule 403 argument is correct.",
+        "evidence_excerpt": "\"The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.B, 'Elliston's Emails'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(D)",
+      "citation_as_written": "FRE 801(d)(2)(D)",
+      "pincite": "",
+      "cited_for": "Elliston's emails, authored as Cascade's VP within scope of employment, are non-hearsay party-opponent statements",
+      "quotes": [
+        "was made by the party's agent or employee on a matter within the scope of that relationship and while it existed"
+      ],
+      "context": "Under FRE 801(d)(2)(D), a statement is not hearsay if it is offered against an opposing party and \"was made by the party's agent or employee on a matter within the scope of that relationship and while it existed.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "found verbatim in FRE 801(d)(2)(D)",
+        "explanation": "Rule 801(d)(2)(D) excludes from hearsay a statement offered against an opposing party that was made by the party's agent or employee on a matter within the scope of that relationship while it existed; it supports treating a VP's emails, offered against the company, as non-hearsay.",
+        "evidence_excerpt": "(D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.B, 'Responsive Communications'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A) and (D)",
+      "citation_as_written": "FRE 801(d)(2)(A) and (D)",
+      "pincite": "",
+      "cited_for": "Voss's, Trimble's and Greer's responses are statements by Cascade agents within scope of authority",
+      "quotes": [],
+      "context": "They are admissible under FRE 801(d)(2)(A) and (D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The court finds the Voss, Trimble, and Greer responses are statements by Cascade agents within the scope of their authority. Rule 801(d)(2)(D) supports this. The rule speaks of 'scope of that relationship' rather than 'authority,' but that paraphrase is broader in the rule's favor, so it is harmless. (A) is surplus when cited together with (D).",
+        "evidence_excerpt": "(D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.B, 'Rule of Completeness'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 106",
+      "citation_as_written": "FRE 106",
+      "pincite": "",
+      "cited_for": "Email chains must be admitted in their entirety, including responses; applies equally to both parties",
+      "quotes": [
+        "[i]f a party introduces all or part of a writing or recorded statement, an adverse party may require the introduction, at that time, of any other part — or any other writing or recorded statement — that in fairness ought to be considered at the same time."
+      ],
+      "context": "The Court further finds that under FRE 106, the email chains must be admitted in their entirety rather than as isolated excerpts. FRE 106 provides that \"[i]f a party introduces all or part of a writing or recorded statement, an adverse party may require the introduction...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Matches word for word the pre-December 1, 2023 text of FRE 106 (2022 U.S. Code edition). The order is dated August 22, 2025, so it should quote the amended rule, which reads 'all or part of a statement' and 'any other statement' and adds that the adverse party may do so over a hearsay objection.",
+        "explanation": "FRE 106, the rule of completeness, does support letting the adverse party require introduction of the rest of a writing that in fairness ought to be considered at the same time. Ordering the complete email chains admitted is a fair discretionary use of the rule. The defect is that the 2025 order quotes language the 2023 amendment had already replaced.",
+        "evidence_excerpt": "Pre-2023 text: \"If a party introduces all or part of a writing or recorded statement, an adverse party may require the introduction, at that time, of any other part—or any other writing or recorded statement—that in fairness ought to be considered at the same time.\" Current text: \"If a party introduces all or part of a statement, an adverse party may require the introduction, at that time, of any other part — or any other statement — that in fairness ought to be considered at the same time.\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2022-title28/html/USCODE-2022-title28-app-federalru-dup2-rule106.htm",
+          "https://www.law.cornell.edu/rules/fre/rule_106"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. III.B, 'FRE 403 Objection'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Cascade's 403 objection rejected; probative value of email chains substantially outweighs unfair prejudice",
+      "quotes": [],
+      "context": "Cascade's FRE 403 argument is rejected. The probative value of these email chains ... substantially outweighs any danger of unfair prejudice.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed to the rule.",
+        "explanation": "Rule 403 allows exclusion only when unfair prejudice substantially outweighs probative value. The order reverses that test, saying probative value 'substantially outweighs' any danger of unfair prejudice. That bar is higher than the rule requires. Rejecting the objection is still consistent with Rule 403, since meeting the stricter bar also meets the actual one, but the order misstates the standard.",
+        "evidence_excerpt": "\"The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.A (Plaintiff's MIL No. 2, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A)",
+      "citation_as_written": "FRE 801(d)(2)(A)",
+      "pincite": "",
+      "cited_for": "Voss's 'business decision, nothing personal' statement is a party-opponent admission",
+      "quotes": [
+        "Marcus, this is a business decision, nothing personal."
+      ],
+      "context": "Ridgeline argues this is a party-opponent admission under FRE 801(d)(2)(A). Cascade objects on hearsay grounds",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FRE 801(d)(2)(D) (or (C))",
+        "quote_check": "The quoted words ('Marcus, this is a business decision, nothing personal.') are evidence from the case record, not language from the rule, so they cannot be checked against the rule. They appear in the pretrial order's account of the record (Sec. IV.A).",
+        "explanation": "The only party is Cascade Supply Group, LLC; Voss is its CEO and is not himself a party. Rule 801(d)(2)(A) covers statements 'made by the party.' The note's discussion of 'representative capacity' concerns a party sued in a representative capacity, such as a trustee. A CEO's statement offered against the company fits more naturally under (D), as an agent or employee speaking within the scope of the relationship, or under (C), as an authorized speaker. Even so, the conclusion that the statement is a party-opponent statement is supportable, so the defect is the subsection label.",
+        "evidence_excerpt": "(A) was made by the party in an individual or representative capacity; ... (D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.A",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Cascade argues statement invites speculation about retaliatory motive",
+      "quotes": [],
+      "context": "Cascade further argues under FRE 403 that the statement will invite the jury to speculate about retaliatory motive",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "An argument that evidence will lead the jury to speculate about a retaliatory motive that is not at issue is a proper Rule 403 objection. It falls under unfair prejudice, confusing the issues, and misleading the jury.",
+        "evidence_excerpt": "\"unfair prejudice, confusing the issues, misleading the jury, undue delay, wasting time, or needlessly presenting cumulative evidence.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A)",
+      "citation_as_written": "FRE 801(d)(2)(A)",
+      "pincite": "",
+      "cited_for": "CEO's statement while conducting termination meeting is a statement of the party-opponent",
+      "quotes": [
+        "is offered against an opposing party and was made by the party in an individual or representative capacity"
+      ],
+      "context": "Under FRE 801(d)(2)(A), a statement is not hearsay if it \"is offered against an opposing party and was made by the party in an individual or representative capacity.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FRE 801(d)(2)(A), (D)",
+        "quote_check": "Found verbatim, spliced from the 801(d)(2) stem ('The statement is offered against an opposing party and:') and clause (A) ('was made by the party in an individual or representative capacity').",
+        "explanation": "The quote is accurate, and the conclusion (Voss's statement is a non-hearsay opposing-party statement) is supported by Rule 801(d)(2). The subsection is imprecise, though. The only defendant is Cascade Supply Group, LLC. Voss is its CEO, not a party. Clause (A) covers statements 'made by the party,' and the Advisory Committee Note reads 'representative capacity' as covering a party who itself holds a representative role, not an entity's agents. A CEO's statement while conducting a termination meeting fits clause (D) on its face: a statement by the party's agent or employee on a matter within the scope of that relationship. Treating a top officer's statement as the entity's own under (A) is a defensible reading some practitioners use, but the rule text squarely supports only (D). Rated a loose subsection cite, not a mischaracterization.",
+        "evidence_excerpt": "(2) An Opposing Party's Statement. The statement is offered against an opposing party and: (A) was made by the party in an individual or representative capacity; ... (D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.B, second paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)",
+      "citation_as_written": "FRE 801(d)(2)",
+      "pincite": "",
+      "cited_for": "Rule does not require statement be self-inculpatory; any statement by opposing party admissible",
+      "quotes": [],
+      "context": "FRE 801(d)(2) does not require that the statement constitute a confession or acknowledgment of liability.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No direct quotations attributed. The document's paraphrase of the Advisory Committee Note (that a party's freedom 'to deny, explain, or qualify' a statement weighs against an against-interest requirement) was not found in the note's text. The note instead relies on the absence of any 'against-interest circumstance' requirement and on party responsibility, and the 2011 note states the point directly.",
+        "explanation": "The text of Rule 801(d)(2) contains no against-interest or inculpatory requirement. The 2011 committee note says a statement qualifies 'even if it admitted nothing and was not against the party's interest when made.' The proposition is supported. The same paragraph of the document slightly mischaracterizes the reasoning of the Advisory Committee Note.",
+        "evidence_excerpt": "a statement can be within the exclusion even if it \"admitted\" nothing and was not against the party's interest when made.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.B, second paragraph",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Advisory Committee Note to FRE 801(d)(2)",
+      "citation_as_written": "Advisory Committee Note to FRE 801(d)(2)",
+      "pincite": "",
+      "cited_for": "Freedom of opposing party to deny, explain or qualify a statement militates against any threshold against-interest requirement",
+      "quotes": [],
+      "context": "The Advisory Committee Note to FRE 801(d)(2) confirms that the freedom of an opposing party to deny, explain, or qualify a statement militates against the need for any threshold showing of against-interest content.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 801(d)(2) advisory committee's note to proposed rules (1972)",
+        "quote_check": "No direct quotation. The paraphrased rationale (the opposing party's 'freedom ... to deny, explain, or qualify') does not appear in the (d)(2) note. 'Deny,' 'explain,' and 'qualify' appear only in the note's discussion of (d)(1) prior statements by a testifying witness.",
+        "explanation": "The note supports the conclusion. It says no guarantee of trustworthiness is required for an admission, and that admissions are free from any 'against-interest circumstance' requirement because their admissibility rests on the adversary system. It does not, however, base that conclusion on the party's freedom to deny, explain, or qualify the statement. The order's paraphrase uses language from the (d)(1) part of the note, so the reasoning is misattributed even though the holding is correctly stated.",
+        "evidence_excerpt": "\"No guarantee of trustworthiness is required in the case of an admission. The freedom which admissions have enjoyed from technical demands of searching for an assurance of trustworthiness in some against-interest circumstance ... calls for generous treatment of this avenue to admissibility.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.B, third paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "403 objection to Voss statement overruled",
+      "quotes": [],
+      "context": "The FRE 403 objection is overruled.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 403 permits exclusion only where probative value is substantially outweighed by unfair prejudice and similar dangers; the (fictional) court's overruling of a 403 objection after finding the Voss statement significantly probative is a proper application of that balancing standard.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IV.B, fourth paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A)",
+      "citation_as_written": "FRE 801(d)(2)(A)",
+      "pincite": "",
+      "cited_for": "Counsel should lay foundation (date, participants, purpose) so statement is attributable to opposing party",
+      "quotes": [],
+      "context": "to ensure the statement is properly attributable to the opposing party under FRE 801(d)(2)(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FRE 801(d)(2)(A), (D)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Counsel advice to lay a foundation (date, participants, purpose) so the statement is attributable to the opposing party is consistent with Rule 801(d)(2), which requires the statement to be the party's or its agent's. The rule text does not prescribe foundation steps, so this is reasonable practice guidance, not a rule requirement. As with ref 23, Voss is a non-party officer of the LLC defendant, so (D) is the textually apt subsection. The Advisory Committee Note to 801(d)(2) also says the statement does not by itself establish the existence or scope of the relationship under (D), which supports laying an independent foundation.",
+        "evidence_excerpt": "The statement must be considered but does not by itself establish ... the existence or scope of the relationship under (D)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. V.A (Plaintiff's MIL No. 3, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 803(6)",
+      "citation_as_written": "FRE 803(6)",
+      "pincite": "",
+      "cited_for": "MidAmerican bank records offered as business records",
+      "quotes": [],
+      "context": "Ridgeline argues the records are admissible as business records under FRE 803(6)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "FRE 803(6) is the business-records hearsay exception, so it is properly cited as the basis for offering bank records as business records.",
+        "evidence_excerpt": "(B) the record was kept in the course of a regularly conducted activity of a business, organization, occupation, or calling, whether or not for profit",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_803"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. V.A",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 902(11)",
+      "citation_as_written": "FRE 902(11)",
+      "pincite": "",
+      "cited_for": "Foundation via records custodian certification",
+      "quotes": [],
+      "context": "intends to establish foundation through a records custodian certification under FRE 902(11).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 902(11) makes domestic business records self-authenticating through a certification of the custodian or another qualified person, with notice to the adverse party; establishing foundation via a records custodian certification is exactly what it provides.",
+        "evidence_excerpt": "The original or a copy of a domestic record that meets the requirements of Rule 803(6)(A)-(C), as shown by a certification of the custodian or another qualified person that complies with a federal statute or a rule prescribed by the Supreme Court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_902"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. V.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 803(6)",
+      "citation_as_written": "FRE 803(6)",
+      "pincite": "",
+      "cited_for": "Elements of business-records exception; bank records admissible",
+      "quotes": [],
+      "context": "Under FRE 803(6), a record of a regularly conducted activity is not excluded by the hearsay rule if the record was made at or near the time by someone with knowledge",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotation marks; the paraphrase tracks 803(6)(A) closely",
+        "explanation": "The order's summary of the elements (made at or near the time by someone with knowledge, kept in the course of a regularly conducted activity, and so on) accurately tracks Rule 803(6)(A)-(E). Applying the rule to bank records is consistent with its text.",
+        "evidence_excerpt": "(A) the record was made at or near the time by — or from information transmitted by — someone with knowledge; ... (C) making the record was a regular practice of that activity",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_803"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. V.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 902(11)",
+      "citation_as_written": "FRE 902(11)",
+      "pincite": "",
+      "cited_for": "Keyworth Savings Bank custodian certification satisfies the rule",
+      "quotes": [],
+      "context": "Ridgeline has provided a certification from Keyworth Savings Bank's records custodian satisfying FRE 902(11).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "A bank records custodian's certification is the mechanism FRE 902(11) contemplates. Whether this fictional certification actually complies is a fact of the scenario, but the citation to the rule is accurate.",
+        "evidence_excerpt": "as shown by a certification of the custodian or another qualified person",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_902"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. V.B, ruling paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 902(11)",
+      "citation_as_written": "FRE 902(11)",
+      "pincite": "",
+      "cited_for": "MIL 3 granted subject to certification or live testimony",
+      "quotes": [],
+      "context": "GRANTED subject to Ridgeline providing proper foundation through the Keyworth Savings Bank records custodian certification under FRE 902(11) or live testimony at trial.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 902(11) supplies the certification route. Live testimony is the alternative under FRE 803(6)(D), which allows the business-record foundation to be shown by custodian testimony or by a 902(11) certification. The ruling's 'certification or live testimony' is therefore accurate.",
+        "evidence_excerpt": "FRE 803(6)(D): \"all these conditions are shown by the testimony of the custodian or another qualified witness, or by a certification that complies with Rule 902(11) or (12)\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_902",
+          "https://www.law.cornell.edu/rules/fre/rule_803"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VI.A (Plaintiff's MIL No. 4, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 408",
+      "citation_as_written": "FRE 408",
+      "pincite": "",
+      "cited_for": "Cascade argues severance release is settlement-related and excludable",
+      "quotes": [],
+      "context": "the release is a settlement-related document excludable under FRE 408",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Cited as a party's argument that a settlement-related document is excludable. FRE 408 bars evidence of compromise offers or consideration given in compromising a claim when it is offered to prove or disprove the claim's validity or amount, so the argument correctly identifies the rule's subject. Whether the argument succeeds is a separate question; the court rejected it.",
+        "evidence_excerpt": "Evidence of the following is not admissible on behalf of any party—either to prove or disprove the validity or amount of a disputed claim ... (1) furnishing, promising, or offering ... a valuable consideration in compromising or attempting to compromise the claim",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_408"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VI.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 408",
+      "citation_as_written": "FRE 408",
+      "pincite": "",
+      "cited_for": "Rule inapplicable because severance agreement not offered to prove validity or amount of disputed claim between Ridgeline and Cascade",
+      "quotes": [],
+      "context": "FRE 408 is inapplicable because the severance agreement is not offered to prove the validity or amount of a disputed claim between Ridgeline and Cascade",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 408(a) bars compromise evidence only when offered to prove or disprove the validity or amount of a disputed claim, and 408(b) allows it for other purposes. The court's reasoning that the rule does not apply because the agreement is not offered for that purpose matches the rule's text.",
+        "evidence_excerpt": "(a) ... not admissible ... either to prove or disprove the validity or amount of a disputed claim ... (b) Exceptions. The court may admit this evidence for another purpose...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_408"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VII.A (Defendant's MIL No. 1, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence 701 and 702",
+      "citation_as_written": "FRE 701 and FRE 702",
+      "pincite": "",
+      "cited_for": "Cascade argues Elliston testimony quantifying total diverted revenue/damages is improper expert opinion",
+      "quotes": [],
+      "context": "such testimony would constitute improper expert opinion in violation of FRE 701 and FRE 702.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This cite is in a statement of a party's position. Cascade argues that a lay witness quantifying total diversion or damages would give improper expert opinion. FRE 701(c) bars lay opinion based on specialized knowledge within the scope of Rule 702, and Rule 702 governs qualified experts, so the cite fits the argument.",
+        "evidence_excerpt": "Rule 701: \"(c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.\" Rule 702: \"A witness who is qualified as an expert by knowledge, skill, experience, training, or education may testify in the form of an opinion ...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701",
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VII.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 701",
+      "citation_as_written": "FRE 701",
+      "pincite": "",
+      "cited_for": "Standard for lay opinion testimony",
+      "quotes": [
+        "(a) rationally based on the witness's perception; (b) helpful to clearly understanding the witness's testimony or to determining a fact in issue; and (c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702."
+      ],
+      "context": "Under FRE 701, a lay witness may testify in the form of an opinion only if it is \"(a) rationally based on the witness's perception; (b) helpful to clearly understanding ...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted (a)-(c) text is found verbatim in Rule 701. The lead-in 'only if it is' paraphrases the rule's 'limited to one that is' and sits outside the quotation marks.",
+        "explanation": "This accurately states the Rule 701 standard for lay opinion testimony.",
+        "evidence_excerpt": "(a) rationally based on the witness's perception; (b) helpful to clearly understanding the witness's testimony or to determining a fact in issue; and (c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VII.B, 'Permissible Lay Testimony'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 701",
+      "citation_as_written": "FRE 701",
+      "pincite": "",
+      "cited_for": "Elliston's personal observations (unit gap, MidAmerican POs, DVOSS01, etc.) fall within permissible lay scope",
+      "quotes": [],
+      "context": "These observations are rationally based on Elliston's personal perception and fall within the permissible scope of FRE 701.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 701(a) permits lay opinion rationally based on the witness's own perception. Treating personal observations as within the permissible lay scope is a reasonable application. The underlying facts are fictional and were not checked.",
+        "evidence_excerpt": "(a) rationally based on the witness's perception;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VII.B, 'Impermissible Expert-Level Testimony'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Aggregate financial calculations require specialized analysis within Rule 702",
+      "quotes": [],
+      "context": "Such testimony would require specialized financial analysis within the scope of FRE 702 and is properly the domain of qualified expert witnesses.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 702 covers testimony based on 'scientific, technical, or other specialized knowledge.' Under the Rule 701 committee note, any testimony that rests on such knowledge must meet Rule 702's standards. Whether aggregate financial calculations count as specialized is a fact question for the court, and treating them as Rule 702 territory is a reasonable reading. One nuance: the same note recognizes that business insiders may give some financial opinions based on 'particularized knowledge' of their own business.",
+        "evidence_excerpt": "the expert's scientific, technical, or other specialized knowledge will help the trier of fact to understand the evidence or to determine a fact in issue",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702",
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VIII.B (Defendant's MIL No. 2)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence 401 and 402",
+      "citation_as_written": "FRE 401 and FRE 402",
+      "pincite": "",
+      "cited_for": "Circumstances of Elliston's termination are relevant to consciousness of guilt",
+      "quotes": [],
+      "context": "the circumstances of Elliston's termination are relevant under FRE 401 and FRE 402.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 401 defines relevance broadly as any tendency to make a consequential fact more or less probable, and FRE 402 makes relevant evidence admissible. Citing them for the point that the circumstances of the termination (suggesting concealment and consciousness of guilt) are relevant to the fraud claim is a fair application of the rules. FRE 403 balancing is handled separately in the order.",
+        "evidence_excerpt": "Evidence is relevant if: (a) it has any tendency to make a fact more or less probable than it would be without the evidence; and (b) the fact is of consequence in determining the action. ... Relevant evidence is admissible unless ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_401",
+          "https://www.law.cornell.edu/rules/fre/rule_402"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VIII.B",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Risk of unfair prejudice does not substantially outweigh probative value of termination testimony",
+      "quotes": [],
+      "context": "the risk of unfair prejudice does not substantially outweigh it under FRE 403.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The order's statement that the risk of unfair prejudice does not substantially outweigh probative value tracks the text of FRE 403 accurately.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IX.A (Defendant's MIL No. 3, Parties' Positions)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 901(a)",
+      "citation_as_written": "FRE 901(a)",
+      "pincite": "",
+      "cited_for": "Cascade argues spreadsheet not properly authenticated",
+      "quotes": [],
+      "context": "the spreadsheet has not been properly authenticated under FRE 901(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "FRE 901(a) sets the authentication requirement for an item of evidence. It is properly cited for the argument that the spreadsheet was not authenticated.",
+        "evidence_excerpt": "To satisfy the requirement of authenticating or identifying an item of evidence, the proponent must produce evidence sufficient to support a finding that the item is what the proponent claims it is.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IX.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 901(a)",
+      "citation_as_written": "FRE 901(a)",
+      "pincite": "",
+      "cited_for": "Authentication standard",
+      "quotes": [
+        "evidence sufficient to support a finding that the item is what the proponent claims it is"
+      ],
+      "context": "Under FRE 901(a), authentication requires \"evidence sufficient to support a finding that the item is what the proponent claims it is.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "found verbatim in FRE 901(a)",
+        "explanation": "The quoted authentication standard appears word for word in Rule 901(a).",
+        "evidence_excerpt": "the proponent must produce evidence sufficient to support a finding that the item is what the proponent claims it is",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IX.B, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 901(b)(1)",
+      "citation_as_written": "FRE 901(b)(1)",
+      "pincite": "",
+      "cited_for": "Testimony of a witness with knowledge satisfies authentication; Elliston as creator can authenticate spreadsheet",
+      "quotes": [
+        "that an item is what it is claimed to be"
+      ],
+      "context": "FRE 901(b)(1) provides that testimony of a witness with knowledge — including testimony \"that an item is what it is claimed to be\" — satisfies this requirement.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"that an item is what it is claimed to be\" found verbatim in FRE 901(b)(1).",
+        "explanation": "FRE 901(b)(1), titled 'Testimony of a Witness with Knowledge,' lists as an example of sufficient authentication evidence testimony that an item is what it is claimed to be; a spreadsheet's creator is a witness with knowledge who can so testify.",
+        "evidence_excerpt": "(1) Testimony of a Witness with Knowledge. Testimony that an item is what it is claimed to be.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. IX.B, ruling paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 901(a)",
+      "citation_as_written": "FRE 901(a)",
+      "pincite": "",
+      "cited_for": "Denial without prejudice to renewal if proper foundation not established",
+      "quotes": [],
+      "context": "DENIED without prejudice to renewal at trial if proper foundation is not established under FRE 901(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "FRE 901(a) is the authentication-foundation standard, so it is properly cited as the standard governing whether a proper foundation is laid at trial. The denial without prejudice is the court's own procedural choice and does not misdescribe the rule.",
+        "evidence_excerpt": "To satisfy the requirement of authenticating or identifying an item of evidence, the proponent must produce evidence sufficient to support a finding that the item is what the proponent claims it is.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XI.B (Defendant's MIL No. 5)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence 607 and 611(b)",
+      "citation_as_written": "FRE 607 and FRE 611(b)",
+      "pincite": "",
+      "cited_for": "Trimble commission dispute is relevant to bias",
+      "quotes": [],
+      "context": "The commission-structure dispute between Elliston and Trimble is relevant to bias under FRE 607 and FRE 611(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 607 lets any party attack a witness's credibility. FRE 611(b) allows cross-examination on 'matters affecting the witness's credibility.' Bias is a recognized credibility matter, so citing these rules for the commission dispute's relevance to bias is a reasonable reading. Neither rule's text uses the word 'bias,' and the LII page for Rule 607 showed no advisory-note sentence mentioning it, but the rules still support the proposition. The order separately cites 611(a) for control over the order of proof, which is also accurate.",
+        "evidence_excerpt": "Rule 607: \"Any party, including the party that called the witness, may attack the witness's credibility.\" Rule 611(b): \"Cross-examination should not go beyond the subject matter of the direct examination and matters affecting the witness's credibility.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_607",
+          "https://www.law.cornell.edu/rules/fre/rule_611"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XI.B",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 611(a)",
+      "citation_as_written": "FRE 611(a)",
+      "pincite": "",
+      "cited_for": "Court's discretion to control order of proof permits addressing commission dispute on direct",
+      "quotes": [],
+      "context": "the Court will permit that under its broad discretion to control the order of proof under FRE 611(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 611(a) directs the court to exercise reasonable control over the mode and order of examining witnesses and presenting evidence. That supports the court's discretion to let a party address an anticipated impeachment topic on direct examination.",
+        "evidence_excerpt": "The court should exercise reasonable control over the mode and order of examining witnesses and presenting evidence so as to: (1) make those procedures effective for determining the truth",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_611"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XII(1) Lay Opinion Boundaries",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence 701 and 702",
+      "citation_as_written": "FRE 701; FRE 702",
+      "pincite": "",
+      "cited_for": "Elliston is a fact witness; testimony must not cross into specialized knowledge; objections to expert-level questions will be sustained",
+      "quotes": [],
+      "context": "Under FRE 701, his testimony must be rationally based on his personal perception and must not cross into territory requiring the specialized knowledge described in FRE 702.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The order's paraphrase ('rationally based on his personal perception', 'specialized knowledge described in FRE 702') closely tracks Rule 701(a) and (c). Elsewhere (Sec. VII.B) the order quotes Rule 701(a)-(c), and that quotation matches the current text verbatim.",
+        "explanation": "Rule 701 limits lay opinion to opinion that is rationally based on the witness's perception and not based on specialized knowledge within the scope of Rule 702. That supports the order's limits on Elliston's testimony as a fact witness. Sustaining objections is the court's own ruling applying the rule.",
+        "evidence_excerpt": "\"If a witness is not testifying as an expert, testimony in the form of an opinion is limited to one that is: (a) rationally based on the witness's perception; (b) helpful ...; and (c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701",
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XII(2) Rule of Completeness",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 106",
+      "citation_as_written": "FRE 106",
+      "pincite": "",
+      "cited_for": "Complete email chains admitted together; either party may invoke rule against partial writings",
+      "quotes": [],
+      "context": "Counsel are reminded that FRE 106 applies broadly and that either party may invoke it at trial if an adverse party attempts to introduce partial writings or recorded statements out of context.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 106 lets an adverse party require introduction of other parts of a statement when a party introduces only part of it. Either side can invoke it, and since the 2023 amendment it covers all statements, so 'applies broadly' is accurate.",
+        "evidence_excerpt": "\"If a party introduces all or part of a statement, an adverse party may require the introduction, at that time, of any other part — or any other statement — that in fairness ought to be considered at the same time.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_106"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XII(3) Party-Opponent Statements",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)",
+      "citation_as_written": "FRE 801(d)(2)",
+      "pincite": "",
+      "cited_for": "Counsel should establish declarant identity, role and context before eliciting agents' statements",
+      "quotes": [],
+      "context": "When offering statements by Cascade's agents through Elliston's testimony, plaintiff's counsel should establish the foundational elements",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 801(d)(2)(D) requires that the statement be made by the party's agent or employee, on a matter within the scope of that relationship, while the relationship existed. The rule also says the statement alone does not establish the relationship. Advising counsel to establish the declarant's identity, role, and the context of the statement tracks these elements.",
+        "evidence_excerpt": "(D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XII(4) Deposition Impeachment",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(1)(A)",
+      "citation_as_written": "FRE 801(d)(1)(A)",
+      "pincite": "",
+      "cited_for": "Deposition testimony may be used to impeach at trial with page-and-line foundation",
+      "quotes": [],
+      "context": "Deposition testimony may be used to impeach a witness at trial under FRE 801(d)(1)(A), provided proper foundation is laid by directing the witness to the specific page and line",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FRE 613 (impeachment by prior statement); FRE 801(d)(1)(A) (substantive use of inconsistent sworn deposition statements)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 801(d)(1)(A) does cover a testifying witness's prior inconsistent statement 'given under penalty of perjury ... in a deposition,' so deposition testimony falls within it. But the rule's purpose is to make such statements substantive evidence, not to authorize impeachment. The advisory committee note says these statements were traditionally admissible to impeach anyway. The page-and-line foundation requirement does not appear in Rule 801; it comes from impeachment practice under Rule 613 and Fed. R. Civ. P. 32. The proposition is generally sound, but it is attached to a loosely chosen rule.",
+        "evidence_excerpt": "(A) is inconsistent with the declarant's testimony and was given under penalty of perjury at a trial, hearing, or other proceeding or in a deposition ... Prior inconsistent statements traditionally have been admissible to impeach but not as substantive evidence. Under the rule they are substantive evidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XIII, Order para. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A), (D) and FRE 106",
+      "citation_as_written": "FRE 801(d)(2)(A), (D), and FRE 106",
+      "pincite": "",
+      "cited_for": "Three email chains admitted in complete form",
+      "quotes": [],
+      "context": "The three email chains shall be admitted in their complete form under FRE 801(d)(2)(A), (D), and FRE 106.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed in this ref. Note: elsewhere (Sec. III.B) the order quotes FRE 106's pre-December 2023 wording ('writing or recorded statement'). The current rule says 'statement' and adds that the adverse party may do so over a hearsay objection. That quote is not one of the refs checked here.",
+        "explanation": "Rule 801(d)(2)(D) covers Elliston's emails (written while he was Cascade's VP of Sales Operations, on matters within his employment) and the executives' replies. Rule 106 lets an adverse party require introduction of any other part of a statement that in fairness ought to be considered at the same time. Together they support admitting the complete email chains.",
+        "evidence_excerpt": "If a party introduces all or part of a statement, an adverse party may require the introduction, at that time, of any other part — or any other statement — that in fairness ought to be considered at the same time.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801",
+          "https://www.law.cornell.edu/rules/fre/rule_106"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XIII, Order para. 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A)",
+      "citation_as_written": "FRE 801(d)(2)(A)",
+      "pincite": "",
+      "cited_for": "Voss statement admissible as party-opponent admission",
+      "quotes": [],
+      "context": "Voss's statement is admissible as a party-opponent admission under FRE 801(d)(2)(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FRE 801(d)(2)(A), (D)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Holding Voss's termination-meeting statement admissible as a party-opponent statement is supported by Rule 801(d)(2). The defect is that the statement comes from a non-party CEO of the LLC defendant, so it fits (D) (agent or employee within scope) more naturally than (A) (statement 'made by the party'). The Advisory Committee Note also confirms that admissions need no against-interest showing, which matches the order's reasoning.",
+        "evidence_excerpt": "(A) was made by the party in an individual or representative capacity; ... (D) was made by the party's agent or employee on a matter within the scope of that relationship and while it existed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XIII, Order para. 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 902(11)",
+      "citation_as_written": "FRE 902(11)",
+      "pincite": "",
+      "cited_for": "Bank records admitted subject to certification or live foundation",
+      "quotes": [],
+      "context": "GRANTED subject to proper FRE 902(11) certification or live foundation testimony.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same as the prior ruling: bank records are admitted subject to a 902(11) certification, or to live foundation testimony as FRE 803(6)(D) permits. This is an accurate statement of the rules.",
+        "evidence_excerpt": "FRE 902(11): \"a domestic record that meets the requirements of Rule 803(6)(A)-(C), as shown by a certification of the custodian or another qualified person\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_902",
+          "https://www.law.cornell.edu/rules/fre/rule_803"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. XIII, Order para. 7",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 901(a)",
+      "citation_as_written": "FRE 901(a)",
+      "pincite": "",
+      "cited_for": "Spreadsheet motion denied without prejudice to renewal if authentication foundation not laid",
+      "quotes": [],
+      "context": "DENIED without prejudice to renewal at trial if Ridgeline fails to lay proper authentication foundation under FRE 901(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 901(a) is the general authentication requirement; denying a motion without prejudice to renewal if the proponent fails to lay an authentication foundation under 901(a) is a proper application of the rule.",
+        "evidence_excerpt": "To satisfy the requirement of authenticating or identifying an item of evidence, the proponent must produce evidence sufficient to support a finding that the item is what the proponent claims it is.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 1(c) (Separation from Employment)",
+      "authority_type": "statute",
+      "authority": "Consolidated Omnibus Budget Reconciliation Act (COBRA)",
+      "citation_as_written": "Consolidated Omnibus Budget Reconciliation Act (\"COBRA\")",
+      "pincite": "",
+      "cited_for": "Employee's right to elect continuation health coverage",
+      "quotes": [],
+      "context": "subject to Employee's right to elect continuation coverage under the Consolidated Omnibus Budget Reconciliation Act (\"COBRA\") in accordance with applicable law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consolidated Omnibus Budget Reconciliation Act of 1985, Pub. L. 99-272, tit. X (29 U.S.C. §§ 1161-1168)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "COBRA gives qualified beneficiaries who lose group health coverage because of a qualifying event, including job loss, the right to elect continuation coverage. That matches the proposition.",
+        "evidence_excerpt": "\"each qualified beneficiary who would lose coverage under the plan as a result of a qualifying event is entitled, under the plan, to elect, within the election period, continuation coverage under the plan.\" (29 U.S.C. 1161(a), as added Pub. L. 99-272)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/1161",
+          "https://www.dol.gov/general/topic/health-plans/cobra"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b) (General Release of Claims)",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "Title VII of the Civil Rights Act of 1964, as amended",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "Released Claims include but are not limited to any and all claims arising under: Title VII of the Civil Rights Act of 1964, as amended;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Title VII of the Civil Rights Act of 1964 (Pub. L. 88-352, title VII; 42 U.S.C. 2000e et seq.) is a real statute that prohibits employment discrimination. The release accurately names it among the claims released.",
+        "evidence_excerpt": "\"It shall be an unlawful employment practice for an employer—(1) to fail or refuse to hire or to discharge any individual...\" (Pub. L. 88–352, title VII, § 703, July 2, 1964, 78 Stat. 255)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Age Discrimination in Employment Act of 1967 (ADEA)",
+      "citation_as_written": "the Age Discrimination in Employment Act of 1967, as amended (\"ADEA\")",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Age Discrimination in Employment Act of 1967, as amended (\"ADEA\"); the Older Workers Benefit Protection Act (\"OWBPA\");",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Age Discrimination in Employment Act of 1967, Pub. L. 90-202, 29 U.S.C. § 621 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The statute's short title is correctly given, and it has been amended (including by the OWBPA). Listing it among the federal statutory claims released is accurate.",
+        "evidence_excerpt": "\"That this Act [enacting this chapter] may be cited as the 'Age Discrimination in Employment Act of 1967'.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/621"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Older Workers Benefit Protection Act (OWBPA)",
+      "citation_as_written": "the Older Workers Benefit Protection Act (\"OWBPA\")",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Older Workers Benefit Protection Act (\"OWBPA\"); the Americans with Disabilities Act, as amended;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Older Workers Benefit Protection Act (Pub. L. 101-433, 1990) is a real statute that amended the ADEA, including the waiver requirements at 29 U.S.C. 626(f). Naming it among the statutes whose claims are released is accurate.",
+        "evidence_excerpt": "\"This Act...may be cited as the 'Older Workers Benefit Protection Act'.\" (Pub. L. 101-433, Oct. 16, 1990); 626(f)(1): \"An individual may not waive any right or claim under this chapter unless the waiver is knowing and voluntary.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/621",
+          "https://www.law.cornell.edu/uscode/text/29/626"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Americans with Disabilities Act",
+      "citation_as_written": "the Americans with Disabilities Act, as amended",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Americans with Disabilities Act, as amended; the Family and Medical Leave Act;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Americans with Disabilities Act of 1990, Pub. L. 101-336, 42 U.S.C. § 12101 et seq., as amended by the ADA Amendments Act of 2008",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a real federal employment statute, and it has been amended (by the ADA Amendments Act of 2008). It is properly listed among the released claims.",
+        "evidence_excerpt": "\"may be cited as the 'Americans with Disabilities Act of 1990'.\" ... \"may be cited as the 'ADA Amendments Act of 2008'.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/12101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Family and Medical Leave Act",
+      "citation_as_written": "the Family and Medical Leave Act",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Family and Medical Leave Act; the Employee Retirement Income Security Act of 1974, as amended;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Family and Medical Leave Act of 1993, Pub. L. 103-3, 29 U.S.C. § 2601 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a real federal employment statute. It is properly listed among the released claims.",
+        "evidence_excerpt": "\"Pub. L. 103-3, Feb. 5, 1993, 107 Stat. 6, known as the Family and Medical Leave Act of 1993, which enacted this chapter\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/2601"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Employee Retirement Income Security Act of 1974",
+      "citation_as_written": "the Employee Retirement Income Security Act of 1974, as amended",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Employee Retirement Income Security Act of 1974, as amended; the Worker Adjustment and Retraining Notification Act;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Employee Retirement Income Security Act of 1974, Pub. L. 93-406, 29 U.S.C. § 1001 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The short title and year are correct, and the statute has been amended. It is properly listed among the released statutory claims.",
+        "evidence_excerpt": "\"may be cited as the 'Employee Retirement Income Security Act of 1974'.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/1001"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Worker Adjustment and Retraining Notification Act",
+      "citation_as_written": "the Worker Adjustment and Retraining Notification Act",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Worker Adjustment and Retraining Notification Act; the Equal Pay Act;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Worker Adjustment and Retraining Notification Act is a real federal statute (29 U.S.C. 2101 et seq.). Naming it among the statutes whose claims are released is accurate.",
+        "evidence_excerpt": "\"This Act may be cited as the 'Worker Adjustment and Retraining Notification Act'.\" (note to 29 U.S.C. 2101)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/2101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Equal Pay Act",
+      "citation_as_written": "the Equal Pay Act",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Equal Pay Act; the Genetic Information Nondiscrimination Act;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Equal Pay Act of 1963, Pub. L. 88-38, 29 U.S.C. § 206(d)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a real federal statute prohibiting sex-based wage discrimination. It is properly listed among the released claims.",
+        "evidence_excerpt": "\"Equal Pay Act of 1963 (EPA)(Pub. L. 88-38), as amended, as it appears in 29 U.S.C. 206(d)\"",
+        "source_urls": [
+          "https://www.eeoc.gov/statutes/equal-pay-act-1963",
+          "https://www.law.cornell.edu/uscode/text/29/206"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Genetic Information Nondiscrimination Act",
+      "citation_as_written": "the Genetic Information Nondiscrimination Act",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the Genetic Information Nondiscrimination Act; the National Labor Relations Act;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Genetic Information Nondiscrimination Act of 2008 (Pub. L. 110-233) is a real federal statute. Its Title II employment provisions are codified at 42 U.S.C. 2000ff et seq., so it is properly listed among the employment statutory claims released.",
+        "evidence_excerpt": "42 U.S. Code § 2000ff - Definitions ... Pub. L. 110–233, title II, § 201, May 21, 2008, 122 Stat. 905",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000ff"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "National Labor Relations Act",
+      "citation_as_written": "the National Labor Relations Act",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the National Labor Relations Act; the Sarbanes-Oxley Act;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The National Labor Relations Act is a real federal statute (29 U.S.C. 151 et seq.; short title at 29 U.S.C. 167). Listing it by name among the statutes whose claims a general release covers is an accurate reference. The record cites no pin and makes no substantive claim about the statute.",
+        "evidence_excerpt": "\"This subchapter may be cited as the 'National Labor Relations Act'.\" (29 U.S.C. 167)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/167",
+          "https://www.law.cornell.edu/uscode/text/29/151"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act",
+      "citation_as_written": "the Sarbanes-Oxley Act",
+      "pincite": "",
+      "cited_for": "Among statutory claims released",
+      "quotes": [],
+      "context": "the National Labor Relations Act; the Sarbanes-Oxley Act; the Ohio Revised Code, including but not limited to Ohio Revised Code Chapter 4112",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Sarbanes-Oxley Act of 2002 (Pub. L. 107-204) is a real statute, and its whistleblower provision is codified at 18 U.S.C. 1514A. The citation is accurate as a name reference in a release list. Side note on enforceability, not citation accuracy: 1514A(e)(1) says SOX whistleblower rights 'may not be waived by any agreement', so releasing those claims may be unenforceable.",
+        "evidence_excerpt": "\"This Act may be cited as the 'Sarbanes-Oxley Act of 2002'.\"; 1514A(e)(1): \"The rights and remedies provided for in this section may not be waived by any agreement, policy form, or condition of employment...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/7201",
+          "https://www.law.cornell.edu/uscode/text/18/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 3(b)",
+      "authority_type": "statute",
+      "authority": "Ohio Revised Code Chapter 4112 (Ohio Civil Rights Act)",
+      "citation_as_written": "Ohio Revised Code Chapter 4112 (Ohio Civil Rights Act)",
+      "pincite": "",
+      "cited_for": "Among statutory claims released (Ohio anti-discrimination law)",
+      "quotes": [],
+      "context": "the Ohio Revised Code, including but not limited to Ohio Revised Code Chapter 4112 (Ohio Civil Rights Act) and any other Ohio anti-discrimination, wage-and-hour, or employment statutes;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Ohio Revised Code Chapter 4112 exists and is Ohio's civil-rights and anti-discrimination statute. It includes 4112.02 (Unlawful discriminatory practices) and 4112.052 (Employment discrimination civil action). The official chapter title is 'Civil Rights Commission'. 'Ohio Civil Rights Act' is a common descriptive name rather than the official title, which is acceptable in a release.",
+        "evidence_excerpt": "Chapter 4112 - Civil Rights Commission ... Section 4112.02 - Unlawful discriminatory practices ... Section 4112.052 - Employment discrimination civil action",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-4112"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 8(a) (Exceptions and Carve-Outs)",
+      "authority_type": "other",
+      "authority": "Federal agency whistleblower programs (EEOC, SEC, OSHA, DOL)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Carve-out preserving agency charges, cooperation and whistleblower awards; named agencies only, no statutory cite",
+      "quotes": [],
+      "context": "filing a charge with, or participating in an investigation or proceeding conducted by, any federal, state, or local government agency, including but not limited to the Equal Employment Opportunity Commission, the Securities and Exchange Commission, the Occupational Safety and Health Administration, or the Department of Labor",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The EEOC, SEC, OSHA, and DOL are real federal agencies. The carve-out (agency charges, cooperation, and whistleblower awards) is consistent with federal law. ADEA/OWBPA 29 U.S.C. 626(f)(4) says no waiver may interfere with the right to file an EEOC charge or take part in an EEOC investigation. SEC Rule 21F-17(a) bars impeding communications with the SEC through confidentiality agreements. No statutory cite was made, and the general description is accurate.",
+        "evidence_excerpt": "29 U.S.C. 626(f)(4): \"No waiver may be used to justify interfering with the protected right of an employee to file a charge or participate in an investigation or proceeding conducted by the Commission.\" 17 CFR 240.21F-17(a): \"No person may take any action to impede an individual from communicating directly with the Commission staff about a possible securities law violation, including enforcing, or threatening to enforce, a confidentiality agreement\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/626",
+          "https://www.law.cornell.edu/cfr/text/17/240.21F-17"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "elliston-severance-agreement.docx.md",
+      "location": "Sec. 11 (ADEA / OWBPA Compliance Provisions)",
+      "authority_type": "statute",
+      "authority": "ADEA / OWBPA",
+      "citation_as_written": "ADEA / OWBPA",
+      "pincite": "",
+      "cited_for": "21-day consideration and 7-day revocation periods for the age-discrimination waiver",
+      "quotes": [],
+      "context": "11. ADEA / OWBPA COMPLIANCE PROVISIONS ... a period of twenty-one (21) calendar days ... may revoke this Agreement within seven (7) calendar days after executing it",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "29 U.S.C. § 626(f)(1)(F)(i), (G) (ADEA § 7(f), added by the Older Workers Benefit Protection Act, Pub. L. 101-433)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The OWBPA waiver provisions of the ADEA require that, for an individual waiver to be knowing and voluntary, the employee be given at least 21 days to consider the agreement and at least 7 days after execution to revoke it. That matches the agreement's 21-day consideration and 7-day revocation periods. The 45-day period applies only to group exit programs, and the record describes an individual termination.",
+        "evidence_excerpt": "\"the individual is given a period of at least 21 days within which to consider the agreement\" ... \"for a period of at least 7 days following the execution of such agreement, the individual may revoke the agreement\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/626"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "task.json.md",
+      "location": "rubric C-011",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 901(a)",
+      "citation_as_written": "FRE 901(a)",
+      "pincite": "",
+      "cited_for": "Authentication foundation for Elliston's Q3 2023 spreadsheet",
+      "quotes": [],
+      "context": "authentication foundation questions for Elliston's Q3 2023 unit discrepancy spreadsheet under FRE 901(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 901(a) governs the authentication foundation needed to admit an item such as a spreadsheet; cited appropriately as the basis for authentication foundation questions.",
+        "evidence_excerpt": "the proponent must produce evidence sufficient to support a finding that the item is what the proponent claims it is.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "task.json.md",
+      "location": "rubric C-012",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 803(6)",
+      "citation_as_written": "FRE 803(6)",
+      "pincite": "",
+      "cited_for": "Business records exception as electronic-document authentication consideration",
+      "quotes": [],
+      "context": "referencing FRE 803(6) business records exception, metadata, or chain of custody for the spreadsheet file",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "The rubric correctly calls FRE 803(6) the business records exception. Strictly, 803(6) is a hearsay exception rather than an authentication rule; authentication falls under 901 and certification under 902(11). However, the rubric only lists it as one consideration alongside metadata and chain of custody for admitting a spreadsheet, and 803(6)(D) itself refers to custodian testimony and 902(11) certification. That is a reasonable use.",
+        "evidence_excerpt": "(D) all these conditions are shown by the testimony of the custodian or another qualified witness, or by a certification that complies with Rule 902(11) or (12) or with a statute permitting certification",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_803"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "task.json.md",
+      "location": "rubric C-018",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 106",
+      "citation_as_written": "FRE 106",
+      "pincite": "",
+      "cited_for": "Rule of completeness for email chains",
+      "quotes": [],
+      "context": "references FRE 106 (the rule of completeness) or discusses the strategic importance of introducing complete email chains",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 106 is the federal rule of completeness. The rubric correctly ties it to introducing complete email chains.",
+        "evidence_excerpt": "\"an adverse party may require the introduction, at that time, of any other part — or any other statement — that in fairness ought to be considered at the same time.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_106"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)(A)",
+      "citation_as_written": "FRE 801(d)(2)(A)",
+      "pincite": "",
+      "cited_for": "Voss's termination statement is a party-opponent admission",
+      "quotes": [],
+      "context": "is admissible as a party-opponent admission under FRE 801(d)(2)(A)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "FRE 801(d)(2)(A), (D)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This rubric item repeats the order's ruling: Voss's 'business decision' statement is a party-opponent statement. Rule 801(d)(2) supports that result. Because Voss is an officer of the defendant LLC rather than a party himself, (D) is the more precise subsection; citing (A) alone is loose.",
+        "evidence_excerpt": "The statement is offered against an opposing party and: (A) was made by the party in an individual or representative capacity",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 801(d)(2)",
+      "citation_as_written": "FRE 801(d)(2)",
+      "pincite": "",
+      "cited_for": "Party-opponent admission framework",
+      "quotes": [],
+      "context": "FAIL if FRE 801(d)(2) is not referenced or the party-opponent admission framework is not discussed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 801(d)(2), titled 'An Opposing Party's Statement,' sets out the party-opponent exclusion from hearsay in subsections (A) through (E). The citation is correct.",
+        "evidence_excerpt": "(2) An Opposing Party's Statement. The statement is offered against an opposing party and: (A) was made by the party in an individual or representative capacity; ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_801"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "task.json.md",
+      "location": "rubric C-027",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 701",
+      "citation_as_written": "FRE 701",
+      "pincite": "",
+      "cited_for": "Lay opinion limits on Elliston's testimony",
+      "quotes": [],
+      "context": "his testimony must be bounded to avoid crossing into expert opinion territory under FRE 701",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 701(c) bars lay opinion based on specialized knowledge within the scope of Rule 702. This supports the rubric's point that lay testimony must not cross into expert opinion.",
+        "evidence_excerpt": "(c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "task.json.md",
+      "location": "rubric C-040",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence (general)",
+      "citation_as_written": "Federal Rules of Evidence",
+      "pincite": "",
+      "cited_for": "Part 3 should reference FRE and pretrial rulings",
+      "quotes": [],
+      "context": "with references to Federal Rules of Evidence and/or pretrial rulings",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Federal Rules of Evidence exist and are the governing evidentiary code for federal trials. The rubric item only says a Part 3 should reference the FRE and/or pretrial rulings, and a general reference to the FRE is accurate for that.",
+        "evidence_excerpt": "Federal Rules of Evidence ... Article VI. Witnesses ... Article VII. Opinions and Expert Testimony",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "pretrial-order-evidentiary-rulings.docx.md",
+      "location": "Sec. VII.B, first paragraph (internal reference within quoted Rule 701 text)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Rule 702",
+      "pincite": "",
+      "cited_for": "Lay opinion under Rule 701 must not be based on scientific, technical, or other specialized knowledge within the scope of Rule 702",
+      "quotes": [
+        "not based on scientific, technical, or other specialized knowledge within the scope of Rule 702"
+      ],
+      "context": "Under FRE 701, a lay witness may testify in the form of an opinion only if it is \"(a) rationally based on the witness's perception; (b) helpful to clearly understanding the witness's testimony or to determining a fact in issue; and (c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.\"",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in FRE 701(c). The rest of the quoted Rule 701 text, parts (a) and (b), also matches the current rule.",
+        "explanation": "The quotation is Rule 701(c), which cross-references Rule 702. The document reproduces the current text of Rule 701 accurately.",
+        "evidence_excerpt": "(c) not based on scientific, technical, or other specialized knowledge within the scope of Rule 702.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_701"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

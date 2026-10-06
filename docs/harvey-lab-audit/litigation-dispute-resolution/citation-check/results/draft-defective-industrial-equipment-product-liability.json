@@ -1,0 +1,2256 @@
+{
+  "task": "draft-defective-industrial-equipment-product-liability",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "damages-summary.xlsx.md",
+    "engagement-letter.docx.md",
+    "forensic-report.docx.md",
+    "incident-report.docx.md",
+    "insurance-dec-pages.docx.md",
+    "ironclad-emails.eml.md",
+    "ironclad-standard-terms.docx.md",
+    "osha-citations.docx.md",
+    "purchase-order.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "forensic-report.docx.md",
+      "location": "Section 1, scope item 4",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020, Recommended Practice — Hydraulic Fluid Power — System and Component Safety",
+      "citation_as_written": "NFPA T2.6.1-2020",
+      "pincite": "",
+      "cited_for": "Industry standard reviewed by the expert as part of the engagement scope",
+      "quotes": [],
+      "context": "Review applicable industry standards, including NFPA T2.6.1-2020 (Recommended Practice — Hydraulic Fluid Power — System and Component Safety) and ISO 4413:2010",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (R2019 or R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component",
+        "quote_check": "no quotes attributed",
+        "explanation": "This ref only identifies the standard as within the scope of review. The designation NFPA T2.6.1 is real (National Fluid Power Association), but it belongs to a different document from the one named. The real standard is a fatigue and burst-pressure rating test method for a metal fluid power component's pressure-containing envelope, not a 'Recommended Practice — Hydraulic Fluid Power — System and Component Safety'. No 2020 edition was located; the listings show R2-2001, reaffirmed in 2009, 2014, 2019 and 2024. The ISO 4413:2010 title in the same sentence is accurate.",
+        "evidence_excerpt": "NFPA/T2.6.1 R2-2001 (R2019) - Fluid power components - Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component",
+        "source_urls": [
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://standardsmanager.ir/en/document.aspx?org=NFPA(FLUID)&id=464272",
+          "https://standards.globalspec.com/std/9887521/nfpa-t2-6-1"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "explanation": "The finding holds. The forensic report (forensic-report.docx.md line 49) gives the title of NFPA T2.6.1-2020 as 'Recommended Practice — Hydraulic Fluid Power — System and Component Safety'. Sources I could reach consistently say the designation NFPA/T2.6.1 belongs to a different document. A web search on the designation returned the title 'NFPA/T2.6.1 R2-2001 (R2024) ... \"Fluid power components - Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component\"'. Power & Motion describes it as setting how many 'test specimens [are] required to verify the rated fatigue pressure'. Search results list only R2-2001 editions (R2005, R2009, R2014, R2024); none is a 2020 edition. A search for the exact cited title together with 'NFPA T2.6.1' found nothing. ANSI webstore pages returned 403, so I could not read the scope text directly. Even so, the designation is real but attached to a different title, year and subject. The ISO 4413:2010 title in the same sentence matches the ISO sample's header ('ISO 4413:2010(E)').",
+        "source_urls": [
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components",
+          "https://webstore.ansi.org/preview-pages/NFPA-Fluid/preview_NFPA+T2.6.1+R2-2001+(R2014).pdf",
+          "https://webstore.ansi.org/Standards/NFPA-Fluid/nfpat2r22001r2014",
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 1,
+      "document": "forensic-report.docx.md",
+      "location": "Section 1, scope item 4",
+      "authority_type": "other",
+      "authority": "ISO 4413:2010, Hydraulic fluid power — General rules and safety requirements for systems and their components",
+      "citation_as_written": "ISO 4413:2010",
+      "pincite": "",
+      "cited_for": "Industry standard reviewed by the expert as part of the engagement scope",
+      "quotes": [],
+      "context": "ISO 4413:2010 (Hydraulic fluid power — General rules and safety requirements for systems and their components)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation; the title as given matches the standard's official title.",
+        "explanation": "ISO 4413:2010 is a real ISO standard titled 'Hydraulic fluid power — General rules and safety requirements for systems and their components' (third edition, 2010). Listing it as an industry standard reviewed within the engagement scope is accurate.",
+        "evidence_excerpt": "\"ISO 4413:2010(E) ... Third edition 2010-11-15 Hydraulic fluid power — General rules and safety requirements for systems and their components\"",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/2cf1737c5e28404fb1fec5d096c983fe/iso-4413-2010.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "forensic-report.docx.md",
+      "location": "Section 3, items 13-14",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020 and ISO 4413:2010",
+      "citation_as_written": "NFPA T2.6.1-2020; ISO 4413:2010",
+      "pincite": "",
+      "cited_for": "Listed as documents and materials reviewed",
+      "quotes": [],
+      "context": "13. NFPA T2.6.1-2020, Recommended Practice — Hydraulic Fluid Power — System and Component Safety 14. ISO 4413:2010, Hydraulic fluid power — General rules and safety requirements",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (R2019 or R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component",
+        "quote_check": "no quotes attributed",
+        "explanation": "This ref only lists the materials reviewed. The ISO 4413:2010 entry is accurate: the title matches the third edition, dated 2010-11-15. The NFPA entry pairs a real designation (NFPA/T2.6.1) with a title and year that belong to no located standard. The real T2.6.1 is a fatigue and burst-pressure rating test method for a component's metal pressure envelope, not a 'Recommended Practice — Hydraulic Fluid Power — System and Component Safety'. No 2020 edition was located; the current edition is R2-2001, reaffirmed through 2019 and 2024.",
+        "evidence_excerpt": "ISO 4413:2010 ... Hydraulic fluid power — General rules and safety requirements for systems and their components; NFPA T2.6.1R2:2019 - Fluid Power Systems and Products - Method for Verifying the Fatigue and Establishing the Burst Pressure Ratings of the Pressure Containing Envelope of a Metal Fluid Power Component",
+        "source_urls": [
+          "https://standardsmanager.ir/en/document.aspx?org=NFPA(FLUID)&id=464272",
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "explanation": "The finding holds. Item 13 in the list of materials reviewed (forensic-report.docx.md line 101) pairs the real designation NFPA T2.6.1 with a title and year that belong to no standard I could find. The real NFPA/T2.6.1 is 'Fluid power components - Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component', listed only as R2-2001 with reaffirmations; no 2020 edition was found. Item 14, ISO 4413:2010 ('Hydraulic fluid power — General rules and safety requirements for systems and their components'), is accurate; the ISO sample PDF header reads 'ISO 4413:2010(E)'. The status applies to the NFPA half only.",
+        "source_urls": [
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components",
+          "https://webstore.ansi.org/Standards/NFPA-Fluid/nfpat2r22001r2009",
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 3,
+      "document": "forensic-report.docx.md",
+      "location": "Section 6.2, Tensile Strength Testing",
+      "authority_type": "other",
+      "authority": "ASTM D412, Standard Test Methods for Vulcanized Rubber and Thermoplastic Elastomers — Tension",
+      "citation_as_written": "ASTM D412",
+      "pincite": "",
+      "cited_for": "Test method used for bladder tensile strength testing",
+      "quotes": [],
+      "context": "tested in accordance with ASTM D412, Standard Test Methods for Vulcanized Rubber and Thermoplastic Elastomers — Tension",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The stated title matches the ASTM title verbatim.",
+        "explanation": "ASTM D412 is titled Standard Test Methods for Vulcanized Rubber and Thermoplastic Elastomers—Tension and covers tensile properties, so it is the right method for testing bladder tensile strength.",
+        "evidence_excerpt": "Standard Test Methods for Vulcanized Rubber and Thermoplastic Elastomers—Tension ... These test methods cover procedures used to evaluate the tensile (tension) properties of vulcanized thermoset rubbers and thermoplastic elastomers.",
+        "source_urls": [
+          "https://store.astm.org/d0412-16r21.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "forensic-report.docx.md",
+      "location": "Section 6.2, Plasticizer Content Analysis",
+      "authority_type": "other",
+      "authority": "ASTM D297, Standard Test Methods for Rubber Products — Chemical Analysis",
+      "citation_as_written": "ASTM D297",
+      "pincite": "",
+      "cited_for": "Test method used for plasticizer content analysis",
+      "quotes": [],
+      "context": "analyzed in accordance with ASTM D297, Standard Test Methods for Rubber Products — Chemical Analysis",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The title 'Standard Test Methods for Rubber Products — Chemical Analysis' matches the ASTM title.",
+        "explanation": "ASTM D297 is titled Standard Test Methods for Rubber Products—Chemical Analysis. It covers analysis of the composition of rubber products, and its general methods include extract analysis, which is the route for measuring plasticizer/extractable content. That is a reasonable use for plasticizer content analysis. The page I read did not set out the detailed extract procedure.",
+        "evidence_excerpt": "Standard Test Methods for Rubber Products-Chemical Analysis ... These test methods cover the qualitative and quantitative analysis of the composition of rubber products ... general test methods shall include determination of rubber polymer content by the indirect method, determination of density, and extract, sulfur, fillers, and ash analyses",
+        "source_urls": [
+          "https://store.astm.org/d0297-93r06.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "forensic-report.docx.md",
+      "location": "Section 6.2, Hardness Testing",
+      "authority_type": "other",
+      "authority": "ASTM D2240 (Shore A durometer hardness)",
+      "citation_as_written": "ASTM D2240",
+      "pincite": "",
+      "cited_for": "Test method for hardness testing of bladder compound",
+      "quotes": [],
+      "context": "Hardness Testing (ASTM D2240). Shore A durometer hardness measurements yielded a result of 48 ± 2 Shore A.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ASTM D2240 is the standard test method for durometer hardness of rubber and expressly covers Type A (Shore A) durometers, so it is a proper method for measuring the Shore A hardness of a bladder compound.",
+        "evidence_excerpt": "Standard Test Method for Rubber Property—Durometer Hardness ... This test method covers twelve types of rubber hardness measurement devices known as durometers: Types A, B, C, D, DO, E, M, O, OO, OOO, OOO-S, and R.",
+        "source_urls": [
+          "https://store.astm.org/d2240-15r21.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "forensic-report.docx.md",
+      "location": "Section 6.2, Accelerated Aging Test",
+      "authority_type": "other",
+      "authority": "ASTM D573 (accelerated heat aging)",
+      "citation_as_written": "ASTM D573",
+      "pincite": "",
+      "cited_for": "Test method for accelerated heat aging at 100°C for 70 hours",
+      "quotes": [],
+      "context": "Specimens were subjected to accelerated heat aging at 100°C for 70 hours in accordance with ASTM D573.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ASTM D573 (Rubber—Deterioration in an Air Oven) is an accelerated heat-aging method for vulcanized rubber, so it fits the use described. The ASTM summary page did not show the specific 100°C / 70 h conditions; the standard leaves time and temperature to the specified test conditions, so that detail is consistent but was not confirmed from text I read.",
+        "evidence_excerpt": "Standard Test Method for Rubber—Deterioration in an Air Oven ... This test method covers a procedure to determine the influence of elevated temperature on the physical properties of vulcanized rubber.",
+        "source_urls": [
+          "https://store.astm.org/d0573-04r19.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "forensic-report.docx.md",
+      "location": "Section 7.1, first block quote",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020, Section 7.3.4",
+      "citation_as_written": "NFPA T2.6.1-2020 ... Section 7.3.4",
+      "pincite": "Section 7.3.4",
+      "cited_for": "Requires redundant pressure-relief provisions in the accumulator circuit independent of the main system relief valve",
+      "quotes": [
+        "Where failure of an accumulator bladder, piston, or diaphragm could result in a hazardous release of stored energy, redundant pressure-relief provisions shall be provided in the accumulator circuit, independent of the main system relief valve."
+      ],
+      "context": "NFPA T2.6.1-2020 (Recommended Practice — Hydraulic Fluid Power — System and Component Safety), Section 7.3.4, provides: \"Where failure of an accumulator bladder, piston, or diaphragm could result in a hazardous release of stored energy, redundant pressure-relief provisions shall be provided...\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (reaffirmed through R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component",
+        "quote_check": "Not found: the quoted §7.3.4 sentence on redundant pressure relief for accumulator circuits could not be located. The full text is paywalled, but the quoted sentence is a system-design safety rule, while the real T2.6.1 is a component fatigue and burst-pressure test method. No 2020 'Recommended Practice — System and Component Safety' edition was located.",
+        "explanation": "The report presents NFPA T2.6.1-2020, titled 'Recommended Practice — Hydraulic Fluid Power — System and Component Safety', as requiring at §7.3.4 redundant accumulator-circuit relief independent of the main relief valve. The real NFPA/T2.6.1 has a different title, has no located 2020 edition (current: R2-2001, reaffirmed 2009/2014/2019/2024), and is a method for verifying fatigue and burst-pressure ratings of a component's metal pressure envelope. A requirement for redundant relief in the accumulator circuit falls outside that stated scope. The quoted requirement and the attributed proposition are therefore unsupported. Medium confidence: this rests on the standard's official title and scope, not the full paywalled text.",
+        "evidence_excerpt": "NFPA(FLUID) T2.6.1R2:2019 - Fluid Power Systems and Products - Method for Verifying the Fatigue and Establishing the Burst Pressure Ratings of the Pressure Containing Envelope of a Metal Fluid Power Component",
+        "source_urls": [
+          "https://standardsmanager.ir/en/document.aspx?org=NFPA(FLUID)&id=464272",
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://standards.globalspec.com/std/9887521/nfpa-t2-6-1"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The report quotes NFPA T2.6.1-2020 §7.3.4 as requiring 'redundant pressure-relief provisions ... in the accumulator circuit, independent of the main system relief valve.' The real NFPA/T2.6.1 is a test and statistical method for verifying fatigue and burst pressure ratings of a metal component's pressure envelope. Public descriptions say it covers 'test and statistical methods for generating fatigue distribution data' and verifying 'pressure ratings on fluid power components'. Nothing indicates it contains circuit-design requirements for accumulator relief. No 2020 edition exists, and a search for the cited title found nothing. The quoted 'shall' language therefore almost certainly does not appear in the real standard. One could argue for MISQUOTED or for treating the whole citation as fabricated. The core defect, though, is that real standard is cited for a requirement outside its subject, so MISCHARACTERIZED stands. Limitation: the full text is paywalled (ANSI returned 403), so this rests on the official title and scope descriptions rather than the full text.",
+        "source_urls": [
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components",
+          "https://webstore.ansi.org/preview-pages/NFPA-Fluid/preview_NFPA+T2.6.1+R2-2001+(R2014).pdf"
+        ]
+      }
+    },
+    {
+      "ref": 8,
+      "document": "forensic-report.docx.md",
+      "location": "Section 7.1, second block quote",
+      "authority_type": "other",
+      "authority": "ISO 4413:2010, Clause 5.4.7.2",
+      "citation_as_written": "ISO 4413:2010 ... Clause 5.4.7.2",
+      "pincite": "Clause 5.4.7.2",
+      "cited_for": "Requires accumulator circuit safety devices and redundant pressure relief where single failure could be hazardous",
+      "quotes": [
+        "Accumulator circuits shall be provided with safety devices that limit pressure to the maximum allowable working pressure of the circuit. Where a single failure of a safety device could result in a hazardous condition, redundant means of pressure relief shall be employed."
+      ],
+      "context": "ISO 4413:2010 (...), Clause 5.4.7.2, similarly requires: \"Accumulator circuits shall be provided with safety devices that limit pressure...\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Not checked: the full text of ISO 4413:2010 is paywalled. The only public samples found (an iTeh sample PDF) contain just the cover and front matter; the ISO OBP preview returned 403. The text of Clause 5.4.7.2 could not be read.",
+        "explanation": "ISO 4413:2010 exists (third edition, 2010-11-15). Neither the heading of Clause 5.4.7.2 nor the quoted sentence about accumulator safety devices and redundant pressure relief could be checked against the standard's text. The quotation reads like specification language and may be invented to fit the scenario, but no source available here confirms or refutes it. It should be checked against a licensed copy.",
+        "evidence_excerpt": "\"INTERNATIONAL STANDARD ISO 4413 Third edition 2010-11-15 Hydraulic fluid power — General rules and safety requirements for systems and their components\"",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/2cf1737c5e28404fb1fec5d096c983fe/iso-4413-2010.pdf",
+          "https://www.iso.org/standard/44781.html"
+        ],
+        "confidence": "low"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "forensic-report.docx.md",
+      "location": "Section 7.1, paragraph beginning 'Had a secondary pressure-relief valve'",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020 Section 7.3.4 and ISO 4413:2010 Clause 5.4.7.2",
+      "citation_as_written": "NFPA T2.6.1-2020, Section 7.3.4 and ISO 4413:2010, Clause 5.4.7.2",
+      "pincite": "Section 7.3.4; Clause 5.4.7.2",
+      "cited_for": "Secondary relief valve on accumulator circuit was 'required' by these standards",
+      "quotes": [],
+      "context": "Had a secondary pressure-relief valve been installed directly on the accumulator circuit — as required by NFPA T2.6.1-2020, Section 7.3.4 and ISO 4413:2010, Clause 5.4.7.2",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (reaffirmed through R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component; ISO 4413:2010",
+        "quote_check": "no quotes attributed",
+        "explanation": "The report says a secondary relief valve on the accumulator circuit is 'required by' NFPA T2.6.1-2020 §7.3.4 and ISO 4413:2010 cl. 5.4.7.2. NFPA: the real T2.6.1 has a different title and is a fatigue and burst-pressure rating test method for a component's metal pressure envelope. No 2020 edition was located, and a circuit-level relief requirement is outside its stated scope. ISO 4413:2010 exists. Its general rule (5.2.2.1–5.2.2.2) requires protection against excessive pressure in all related parts of the system, preferably by 'one or more' relief valves. That loosely supports protecting the accumulator circuit but does not mandate a dedicated secondary or redundant valve. The specific text of 5.4.7.2 could not be read. The status is driven by the NFPA defect. Medium confidence: the full texts are paywalled.",
+        "evidence_excerpt": "5.2.2.1 All related parts of the system shall be designed or otherwise protected against foreseeable pressures exceeding the maximum working pressure of a system or the rated pressure of any part of the system if the excessive pressure can cause a hazard.",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf",
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://standards.globalspec.com/std/9887521/nfpa-t2-6-1"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The report says a secondary relief valve on the accumulator circuit is 'required by' NFPA T2.6.1-2020 §7.3.4 and ISO 4413:2010 cl. 5.4.7.2. The real NFPA T2.6.1 is a fatigue and burst-pressure rating test method; it has no 2020 edition and its described scope has no circuit-design mandate. For ISO 4413:2010 I extracted text from the iTeh sample PDF. Clause 5.2.2.2 reads: 'The preferred means of protection against excessive pressure is one or more pressure-relief valves located to limit the pressure in all related parts of the system.' That supports pressure protection generally but does not require a dedicated secondary or redundant valve on the accumulator circuit. Clause 5.4 is 'Specific requirements for components and controls', but the sample does not include 5.4.7.2, and the word 'accumulator' does not appear in the accessible pages. The ISO pin therefore remains unverified. The NFPA defect alone supports MISCHARACTERIZED.",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf",
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components"
+        ]
+      }
+    },
+    {
+      "ref": 10,
+      "document": "forensic-report.docx.md",
+      "location": "Section 9, Opinion 2",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020 Section 7.3.4 and ISO 4413:2010 Clause 5.4.7.2",
+      "citation_as_written": "NFPA T2.6.1-2020, Section 7.3.4, and ISO 4413:2010, Clause 5.4.7.2",
+      "pincite": "Section 7.3.4; Clause 5.4.7.2",
+      "cited_for": "Press lacks redundant accumulator pressure relief contrary to these standards",
+      "quotes": [],
+      "context": "The press lacks a redundant pressure-relief mechanism on the accumulator circuit, contrary to the requirements of NFPA T2.6.1-2020, Section 7.3.4, and ISO 4413:2010, Clause 5.4.7.2.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (reaffirmed through R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component; ISO 4413:2010",
+        "quote_check": "no quotes attributed",
+        "explanation": "Opinion 2 says the press's lack of redundant accumulator relief is 'contrary to the requirements of' NFPA T2.6.1-2020 §7.3.4 and ISO 4413:2010 cl. 5.4.7.2. NFPA: the title is wrong, no 2020 edition was located, and the real T2.6.1 is a fatigue and burst-pressure rating test method whose stated scope does not cover circuit-design relief redundancy. ISO 4413:2010 exists with the correct title. Its accessible general rule (5.2.2.2) prefers 'one or more pressure-relief valves' limiting pressure in all related parts of the system. That supports relief protection generally but not redundancy. Clause 5.4.7.2 could not be read. Medium confidence.",
+        "evidence_excerpt": "Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component",
+        "source_urls": [
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://standardsmanager.ir/en/document.aspx?org=NFPA(FLUID)&id=464272",
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds, for the same reasons as ref 9. Opinion 2 (forensic-report.docx.md line 315) says the press's lack of redundant accumulator relief is 'contrary to the requirements of' NFPA T2.6.1-2020 §7.3.4 and ISO 4413:2010 cl. 5.4.7.2. The real NFPA/T2.6.1 is the fatigue and burst-pressure rating test method; it has no 2020 edition and the cited title is wrong. The accessible ISO text (5.2.2.2) prefers 'one or more pressure-relief valves ... to limit the pressure in all related parts of the system'. That is a general rule and does not mandate redundancy. Clause 5.4.7.2 itself was not in the accessible sample.",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf",
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components"
+        ]
+      }
+    },
+    {
+      "ref": 11,
+      "document": "forensic-report.docx.md",
+      "location": "Section 9, Opinion 6",
+      "authority_type": "regulation",
+      "authority": "OSHA regulations (general reference)",
+      "citation_as_written": "applicable OSHA regulations",
+      "pincite": "",
+      "cited_for": "Expert defers to workplace safety experts on adequacy of guarding and isolation under OSHA regulations",
+      "quotes": [],
+      "context": "Dr. Cordero defers to qualified workplace safety experts regarding the adequacy of these features under applicable OSHA regulations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "e.g., 29 C.F.R. § 1910.212 (machine guarding); 29 C.F.R. § 1910.147 (control of hazardous energy/LOTO)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a general reference to OSHA regulations on guarding and energy isolation. Those regulations exist, including 29 CFR 1910.212 (machine guarding) and 1910.147 (lockout/tagout), which the same document set cites. The expert's statement that he defers to safety experts on adequacy under them asserts no particular holding, so it is accurate.",
+        "evidence_excerpt": "1910.212 'General requirements for all machines.' (a)(1): 'One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards ...'",
+        "source_urls": [
+          "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.212"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "forensic-report.docx.md",
+      "location": "Appendix C",
+      "authority_type": "other",
+      "authority": "ASTM D412, D297, D2240, D573",
+      "citation_as_written": "ASTM D412; ASTM D297; ASTM D2240; ASTM D573",
+      "pincite": "",
+      "cited_for": "Appendix of testing data sheets per these methods",
+      "quotes": [],
+      "context": "Tensile strength testing per ASTM D412; plasticizer content analysis per ASTM D297; hardness testing per ASTM D2240; accelerated aging testing per ASTM D573",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "All four ASTM standards exist and match the tests listed in Appendix C: D412 covers tension, D297 chemical analysis (including extract), D2240 durometer hardness, and D573 air-oven deterioration (heat aging).",
+        "evidence_excerpt": "D412: 'These test methods cover procedures used to evaluate the tensile (tension) properties of vulcanized thermoset rubbers and thermoplastic elastomers.' D573: 'Standard Test Method for Rubber—Deterioration in an Air Oven.' D2240: 'Standard Test Method for Rubber Property—Durometer Hardness.'",
+        "source_urls": [
+          "https://store.astm.org/d0412-16r21.html",
+          "https://store.astm.org/d0297-93r06.html",
+          "https://store.astm.org/d2240-15r21.html",
+          "https://store.astm.org/d0573-04r19.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "forensic-report.docx.md",
+      "location": "Appendix F",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020 (Section 7.3.4) and ISO 4413:2010 (Clause 5.4.7.2)",
+      "citation_as_written": "NFPA T2.6.1-2020 (Section 7.3.4) and ISO 4413:2010 (Clause 5.4.7.2)",
+      "pincite": "",
+      "cited_for": "Appendix of relevant excerpts",
+      "quotes": [],
+      "context": "Relevant Excerpts from NFPA T2.6.1-2020 (Section 7.3.4) and ISO 4413:2010 (Clause 5.4.7.2)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (reaffirmed R2009/R2014/R2019/R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component; ISO 4413:2010, Hydraulic fluid power — General rules and safety requirements for systems and their components",
+        "quote_check": "no quotes attributed",
+        "explanation": "Appendix F says it reproduces 'excerpts' of NFPA T2.6.1-2020 Section 7.3.4 and ISO 4413:2010 Clause 5.4.7.2 requiring redundant accumulator relief. There are three NFPA defects. (1) The real NFPA (National Fluid Power Association) T2.6.1 has a different title: it is a fatigue and burst-pressure rating test method for a component's metal pressure envelope, not a 'Recommended Practice — Hydraulic Fluid Power — System and Component Safety'. (2) No 2020 edition was located; the listings show R2-2001, reaffirmed in 2009, 2014, 2019 and 2024. (3) A circuit-design mandate for redundant accumulator relief falls outside the standard's stated scope. ISO 4413:2010 exists and the title is correct. Its contents list confirms that 5.4 is 'Specific requirements for components and controls'. The text of 5.4.7.2 was not in any accessible preview; the iTeh sample ends at 5.4.2.12. Medium confidence: the NFPA conclusion rests on the standard's title and scope, not its full paywalled text.",
+        "evidence_excerpt": "NFPA/T2.6.1 R2-2001 (R2019) - Fluid power components - Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component",
+        "source_urls": [
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://standardsmanager.ir/en/document.aspx?org=NFPA(FLUID)&id=464272",
+          "https://standards.globalspec.com/std/9887521/nfpa-t2-6-1",
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Appendix F claims to reproduce 'Relevant Excerpts from NFPA T2.6.1-2020 (Section 7.3.4)', which presumably contains the same redundant-relief requirement quoted at line 247. The real NFPA/T2.6.1 is a component fatigue and burst-pressure test method with no 2020 edition, so excerpts with that content cannot come from it. The ISO 4413:2010 contents page confirms that '5.4 Specific requirements for components and controls' begins on p. 7, but the text of 5.4.7.2 could not be read. The defect lies in the NFPA attribution; the ISO half is unverified rather than shown wrong.",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf",
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components"
+        ]
+      }
+    },
+    {
+      "ref": 14,
+      "document": "incident-report.docx.md",
+      "location": "Section 3 timeline, ~4:00 PM entry",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1904.39 (OSHA fatality reporting)",
+      "citation_as_written": "29 CFR 1904.39",
+      "pincite": "",
+      "cited_for": "Dalton notified OSHA of the fatality in compliance with the 8-hour reporting requirement",
+      "quotes": [],
+      "context": "Dalton notified the Ohio OSHA Division of Safety & Hygiene of the workplace fatality, in compliance with the 8-hour reporting requirement under 29 CFR 1904.39.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1904.39(a)(1) requires an employer to report a work-related fatality to OSHA within eight hours, so the 8-hour rule is stated correctly. A report at about 4:00 PM for a 2:31 PM incident falls within that window. Minor defect: the regulation requires the report to go to OSHA, U.S. Department of Labor, through an OSHA Area Office, 1-800-321-OSHA, or OSHA's website. A report to an 'Ohio OSHA Division of Safety & Hygiene' is not one of the listed methods. Separately, the amputation suffered by a co-worker triggers the 24-hour report under (a)(2).",
+        "evidence_excerpt": "(1) Within eight (8) hours after the death of any employee as a result of a work-related incident, you must report the fatality to the Occupational Safety and Health Administration (OSHA), U.S. Department of Labor.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1904&section=1904.39",
+          "https://www.ecfr.gov/current/title-29/section-1904.39"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "incident-report.docx.md",
+      "location": "Section 6.1 Emergency Response",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1904.39 (OSHA fatality reporting)",
+      "citation_as_written": "29 CFR 1904.39",
+      "pincite": "",
+      "cited_for": "Fatality reported within 8-hour window",
+      "quotes": [],
+      "context": "within the 8-hour reporting window required by 29 CFR 1904.39",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1904.39(a)(1) sets the 8-hour window for reporting a fatality, so the proposition is supported. As with ref 14, the regulation requires the report to go to federal OSHA (Area Office, toll-free number, or online), not to a state 'Division of Safety & Hygiene.' That makes the claim of compliance slightly loose.",
+        "evidence_excerpt": "Within eight (8) hours after the death of any employee as a result of a work-related incident, you must report the fatality to the Occupational Safety and Health Administration (OSHA)... (i) By telephone or in person to the OSHA Area Office that is nearest to the site of the incident.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1904&section=1904.39"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "incident-report.docx.md",
+      "location": "Section 7 OSHA Inspection; Section 9 Observation / Section 11 rec. 6",
+      "authority_type": "regulation",
+      "authority": "Applicable regulatory standards (OSHA)",
+      "citation_as_written": "applicable regulatory standards",
+      "pincite": "",
+      "cited_for": "Contest OSHA citations not supported by facts or applicable standards (general reference, no specific provision)",
+      "quotes": [],
+      "context": "Contest any citations that are not supported by the facts or the applicable regulatory standards.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "This is a general recommendation to contest citations not supported by the facts or the applicable standards; it names no specific provision. The citations at issue rest on real standards (29 CFR 1910.147 and 1910.212). The OSHA citation document itself states the employer's right to contest within 15 working days. Nothing specific to verify beyond that, and the reference is not inaccurate. As with refs 68 and 70, the scenario's use of Ohio Chapter 4167 (public employers only) against a private employer is questionable.",
+        "evidence_excerpt": "1910.147(c)(4)(i): \"Procedures shall be developed, documented and utilized for the control of potentially hazardous energy...\"; 1910.212(a)(1): \"One or more methods of machine guarding shall be provided...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.147",
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 4.1 Delivery",
+      "authority_type": "statute",
+      "authority": "Uniform Commercial Code (as adopted in applicable jurisdiction)",
+      "citation_as_written": "Uniform Commercial Code",
+      "pincite": "",
+      "cited_for": "FOB Destination delivery terms to be construed per UCC",
+      "quotes": [],
+      "context": "delivery terms shall be FOB Destination ... in accordance with the Uniform Commercial Code as adopted in the applicable jurisdiction.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-319(1)(b) (F.O.B. place of destination)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The contract's general reference to the UCC as adopted in the applicable jurisdiction is valid, and UCC 2-319(1)(b) defines F.O.B. destination. Under that section the seller pays for and bears the risk of transporting the goods to the destination and tenders delivery there. The defect is in the contract text: it defines 'FOB Destination' as 'specifically Seller's facility'. Under 2-319, delivery at the seller's own place is F.O.B. place of shipment, not destination. This internal inconsistency, possibly a deliberate issue planted in the scenario, means the UCC does not straightforwardly support the clause as drafted.",
+        "evidence_excerpt": "F.O.B. the place of destination: \"the seller must at his own expense and risk transport the goods to that place and there tender delivery\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-319"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 7.2(b)",
+      "authority_type": "regulation",
+      "authority": "OSHA regulations, machine guarding and LOTO (general)",
+      "citation_as_written": "Occupational Safety and Health Administration (OSHA) regulations, machine guarding requirements, and lockout/tagout (LOTO) procedures",
+      "pincite": "",
+      "cited_for": "Buyer solely responsible for complying with OSHA regulations",
+      "quotes": [],
+      "context": "complying with all applicable federal, state, and local laws, regulations, codes, and standards, including but not limited to all Occupational Safety and Health Administration (OSHA) regulations, machine guarding requirements, and lockout/tagout (LOTO) procedures",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "29 C.F.R. § 1910.212; 29 C.F.R. § 1910.147",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a general contractual reference to OSHA regulations, machine-guarding requirements and LOTO procedures. Those regulations exist (29 CFR 1910.212 and 1910.147, which Section 18.3 of the same terms cites). The clause allocates compliance responsibility by contract and makes no claim about what the law holds. Whether the clause is enforceable against the seller is a separate question.",
+        "evidence_excerpt": "1910.212(a)(1): 'One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards such as those created by point of operation...'",
+        "source_urls": [
+          "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.212"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 10.4 Disclaimer",
+      "authority_type": "statute",
+      "authority": "Implied warranties of merchantability and fitness (UCC concepts)",
+      "citation_as_written": "implied warranties of merchantability, fitness for a particular purpose",
+      "pincite": "",
+      "cited_for": "Disclaimer of implied warranties to the maximum extent permitted by law",
+      "quotes": [],
+      "context": "SELLER MAKES NO WARRANTIES OF ANY KIND ... INCLUDING BUT NOT LIMITED TO ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.C.C. § 2-316(2) (Michigan enactment: Mich. Comp. Laws § 440.2316(2))",
+        "quote_check": "No attributed quotation; the clause uses the statutory terms 'merchantability' and 'fitness for a particular purpose'.",
+        "explanation": "The UCC recognizes implied warranties of merchantability and fitness and allows them to be disclaimed. A merchantability disclaimer must mention merchantability and, if written, be conspicuous; a fitness disclaimer must be written and conspicuous. The clause names merchantability, is in a writing and is in capitals, so it uses the statutory concepts accurately. How effective it is (conspicuousness, and whether it binds third-party tort claimants) is a separate merits question.",
+        "evidence_excerpt": "\"to exclude or modify the implied warranty of merchantability or any part of it the language must mention merchantability and in case of a writing must be conspicuous, and to exclude or modify any implied warranty of fitness the exclusion must be by a writing and conspicuous.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-316"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 12.3 Essential Purpose",
+      "authority_type": "statute",
+      "authority": "Failure of essential purpose doctrine (UCC § 2-719(2) concept, not cited by number)",
+      "citation_as_written": "fails of its essential purpose",
+      "pincite": "",
+      "cited_for": "Limitations apply even if remedy fails of essential purpose",
+      "quotes": [],
+      "context": "APPLY REGARDLESS OF WHETHER ANY REMEDY PROVIDED HEREIN FAILS OF ITS ESSENTIAL PURPOSE",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.C.C. § 2-719(2) (Michigan enactment: Mich. Comp. Laws § 440.2719(2))",
+        "quote_check": "No attributed quotation; the phrase 'fail of its essential purpose' appears verbatim in UCC § 2-719(2).",
+        "explanation": "The contract invokes the UCC failure-of-essential-purpose doctrine by its statutory terminology. Section 2-719(2) provides that when a limited remedy fails of its essential purpose, remedy may be had as provided in the Act. The clause tries to keep the Section 12 limitations in force even if that happens. That is a common drafting device, and it accurately uses the statutory concept. Whether it is enforceable (for example, whether a separate consequential-damages exclusion survives) is a question of law for analysis; it is not a citation defect.",
+        "evidence_excerpt": "\"Where circumstances cause an exclusive or limited remedy to fail of its essential purpose, remedy may be had as provided in this Act.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 14.2 Mandatory Binding Arbitration",
+      "authority_type": "other",
+      "authority": "AAA Commercial Arbitration Rules",
+      "citation_as_written": "AAA Commercial Arbitration Rules",
+      "pincite": "",
+      "cited_for": "Arbitration administered by AAA under its Commercial Arbitration Rules",
+      "quotes": [],
+      "context": "BINDING ARBITRATION ADMINISTERED BY THE AMERICAN ARBITRATION ASSOCIATION (\"AAA\") IN ACCORDANCE WITH ITS COMMERCIAL ARBITRATION RULES THEN IN EFFECT",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "The AAA publishes Commercial Arbitration Rules and Mediation Procedures (amended effective September 1, 2022). A contract clause choosing AAA administration under those rules 'then in effect' is a standard and accurate reference.",
+        "evidence_excerpt": "COMMERCIAL RULES Rules Amended and Effective September 1, 2022 ... Commercial Arbitration Rules and Mediation Procedures",
+        "source_urls": [
+          "https://www.adr.org/media/ueonklrv/2026_commercial-arbitration-rules-mediation-procedures.pdf",
+          "https://www.adr.org/industries/commercial/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 15.1 Governing Law",
+      "authority_type": "other",
+      "authority": "Michigan law (governing-law clause)",
+      "citation_as_written": "LAWS OF THE STATE OF MICHIGAN",
+      "pincite": "",
+      "cited_for": "Michigan law governs the Terms and disputes",
+      "quotes": [],
+      "context": "GOVERNED BY AND CONSTRUED IN ACCORDANCE WITH THE LAWS OF THE STATE OF MICHIGAN, WITHOUT REGARD TO ITS CONFLICT OF LAWS PRINCIPLES",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes attributed",
+        "explanation": "Not a citation to a specific authority; it is a contractual choice-of-law term in Ironclad's Standard Terms (Section 15.1) selecting the laws of the State of Michigan, a body of law that exists. The clause as written supports the proposition that the Terms select Michigan law to govern the Terms and related disputes; whether that clause reaches tort claims is a legal question outside this check.",
+        "evidence_excerpt": "SHALL BE GOVERNED BY AND CONSTRUED IN ACCORDANCE WITH THE LAWS OF THE STATE OF MICHIGAN, WITHOUT REGARD TO ITS CONFLICT OF LAWS PRINCIPLES",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 15.1 Governing Law",
+      "authority_type": "other",
+      "authority": "United Nations Convention on Contracts for the International Sale of Goods (CISG)",
+      "citation_as_written": "CISG",
+      "pincite": "",
+      "cited_for": "CISG excluded from application",
+      "quotes": [],
+      "context": "THE UNITED NATIONS CONVENTION ON CONTRACTS FOR THE INTERNATIONAL SALE OF GOODS (CISG) SHALL NOT APPLY",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United Nations Convention on Contracts for the International Sale of Goods, art. 6, Apr. 11, 1980, 1489 U.N.T.S. 3",
+        "quote_check": "No quotations attributed to the CISG; the contract quotes only its own clause.",
+        "explanation": "The CISG exists. Article 6 expressly lets the parties exclude its application, so the contract's exclusion clause is consistent with the Convention.",
+        "evidence_excerpt": "Article 6: \"The parties may exclude the application of this Convention or, subject to article 12, derogate from or vary the effect of any of its provisions.\"",
+        "source_urls": [
+          "https://uncitral.un.org/sites/uncitral.un.org/files/media-documents/uncitral/en/19-09951_e_ebook.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 16.1 Export Compliance",
+      "authority_type": "regulation",
+      "authority": "Export Administration Regulations (EAR); International Traffic in Arms Regulations (ITAR); OFAC regulations",
+      "citation_as_written": "EAR; ITAR; OFAC",
+      "pincite": "",
+      "cited_for": "Buyer must comply with export control and sanctions laws",
+      "quotes": [],
+      "context": "including without limitation the U.S. Export Administration Regulations (EAR), the International Traffic in Arms Regulations (ITAR), and the regulations administered by the U.S. Treasury Department's Office of Foreign Assets Control (OFAC)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "EAR, 15 C.F.R. ch. VII, subch. C (parts 730-774); ITAR, 22 C.F.R. ch. I, subch. M (parts 120-130); OFAC regulations, 31 C.F.R. ch. V",
+        "quote_check": "No quotes attributed.",
+        "explanation": "All three bodies of regulation exist and are correctly named: the EAR (Commerce/BIS, 15 C.F.R. subchapter C), the ITAR (22 C.F.R. subchapter M), and the regulations administered by Treasury's OFAC (31 C.F.R. chapter V). The contract clause refers to them generically as export control and sanctions laws, which is accurate.",
+        "evidence_excerpt": "EAR: 'references to the Export Administration Regulations (EAR) are references to 15 CFR chapter VII, subchapter C.' ITAR: 'SUBCHAPTER M—INTERNATIONAL TRAFFIC IN ARMS REGULATIONS.' OFAC: 'OFFICE OF FOREIGN ASSETS CONTROL, DEPARTMENT OF THE TREASURY.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/15/730.1",
+          "https://www.law.cornell.edu/cfr/text/22/120.1",
+          "https://www.law.cornell.edu/cfr/text/31/chapter-V"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 18.1 Safety and Compliance",
+      "authority_type": "other",
+      "authority": "ANSI, NFPA, and ISO standards applicable to hydraulic press systems",
+      "citation_as_written": "ANSI ... NFPA ... ISO",
+      "pincite": "",
+      "cited_for": "Products designed and manufactured per applicable industry standards",
+      "quotes": [],
+      "context": "designed and manufactured in accordance with applicable industry standards, including but not limited to ANSI (American National Standards Institute), NFPA (National Fire Protection Association), and ISO",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "This is a generic contract warranty of compliance with ANSI, NFPA, and ISO standards, with no specific standard cited. The bodies are real, and relevant hydraulic-press standards exist; for example, ISO 4413:2010 sets general rules and safety requirements for hydraulic fluid power systems. Whether Ironclad actually complied is a factual question for the scenario, not a citation defect.",
+        "evidence_excerpt": "ISO 4413:2010 - Hydraulic fluid power — General rules and safety requirements for systems and their components",
+        "source_urls": [
+          "https://www.iso.org/standard/44781.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 18.3",
+      "authority_type": "regulation",
+      "authority": "29 CFR § 1910.212 (machine guarding)",
+      "citation_as_written": "29 CFR § 1910.212",
+      "pincite": "",
+      "cited_for": "Buyer solely responsible for OSHA machine guarding compliance",
+      "quotes": [],
+      "context": "OSHA standards for machine guarding (29 CFR § 1910.212)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "29 CFR 1910.212, 'General requirements for all machines,' opens with paragraph (a) Machine guarding. It is correctly identified as an OSHA machine-guarding standard. The allocation of responsibility comes from the contract.",
+        "evidence_excerpt": "§ 1910.212 General requirements for all machines. (a) Machine guarding —(1) Types of guarding. One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area...",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1910&section=1910.212",
+          "https://www.ecfr.gov/current/title-29/section-1910.212"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 18.3",
+      "authority_type": "regulation",
+      "authority": "29 CFR § 1910.147 (control of hazardous energy / lockout-tagout)",
+      "citation_as_written": "29 CFR § 1910.147",
+      "pincite": "",
+      "cited_for": "Buyer solely responsible for LOTO compliance",
+      "quotes": [],
+      "context": "the control of hazardous energy and lockout/tagout procedures (29 CFR § 1910.147)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "29 CFR 1910.147 is the OSHA standard on the control of hazardous energy (lockout/tagout). It is correctly identified as the LOTO standard. Who bears responsibility under the contract is a matter of the contract, not the regulation.",
+        "evidence_excerpt": "§ 1910.147 The control of hazardous energy (lockout/tagout).",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1910&section=1910.147",
+          "https://www.ecfr.gov/current/title-29/section-1910.147"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "ironclad-standard-terms.docx.md",
+      "location": "Section 18.3",
+      "authority_type": "regulation",
+      "authority": "29 CFR § 1910 Subpart I (personal protective equipment)",
+      "citation_as_written": "29 CFR § 1910 Subpart I",
+      "pincite": "",
+      "cited_for": "Buyer solely responsible for PPE requirements",
+      "quotes": [],
+      "context": "personal protective equipment requirements (29 CFR § 1910 Subpart I)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "29 CFR Part 1910 Subpart I is titled 'Personal Protective Equipment' (§§ 1910.132-1910.140). The parenthetical description is accurate. Allocating responsibility to Buyer is a contract term, not something the regulation addresses; the citation is used only to identify the PPE standards.",
+        "evidence_excerpt": "Subpart I—Personal Protective Equipment; § 1910.132 General requirements. ... § 1910.140 Personal fall protection systems.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/2025-03-01/title-29.json",
+          "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XVII/part-1910/subpart-I"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cell C10",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2125.02",
+      "citation_as_written": "Ohio R.C. § 2125.02",
+      "pincite": "",
+      "cited_for": "Wrongful death claim to be brought by estate personal representative",
+      "quotes": [],
+      "context": "Wrongful death claim to be brought by estate personal representative per Ohio R.C. § 2125.02",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "R.C. 2125.02(A) requires an Ohio wrongful death action to be brought in the name of the decedent's personal representative, for the exclusive benefit of the surviving spouse, children, parents and other next of kin.",
+        "evidence_excerpt": "\"Except as provided in this division, a civil action for wrongful death shall be brought in the name of the personal representative of the decedent for the exclusive benefit of the surviving spouse, the children, and the parents of the decedent\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2125.02"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cells F28-F30",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2125.02(B)",
+      "citation_as_written": "Ohio R.C. § 2125.02(B)",
+      "pincite": "(B)",
+      "cited_for": "Basis for loss of consortium and loss of parental guidance damages",
+      "quotes": [],
+      "context": "Loss of Consortium — Spouse (Sofia Reyes) ... Ohio R.C. § 2125.02(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 2125.02(D)(3) (formerly § 2125.02(B)(3) before the April 4, 2023 amendment, H.B. 279)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 2125.02 does authorize wrongful-death damages for loss of society, including consortium, guidance, and counsel. But the damages list was moved from division (B) to division (D) by H.B. 279, effective April 4, 2023. The decedent died March 14, 2025, so the current version applies. Under it, division (B) covers which next of kin are 'interested persons' entitled to notice under Sup.R. 70, not damages. The citation was correct under the pre-2023 numbering (2005 version, (B)(3)) but is outdated now.",
+        "evidence_excerpt": "Current (D): \"Compensatory damages may be awarded in a civil action for wrongful death and may include damages for the following: ... (3) Loss of the society of the decedent, including loss of companionship, consortium, care, assistance, attention, protection, advice, guidance, counsel...\" Current (B): \"...for the purpose of determining who is an interested person entitled to notice pursuant to Rule 70...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2125.02",
+          "https://codes.ohio.gov/assets/laws/revised-code/authenticated/21/2125/2125.02/4-7-2005/2125.02-4-7-2005.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cells C31/F31",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2125.02(B)(3)",
+      "citation_as_written": "R.C. § 2125.02(B)(3)",
+      "pincite": "(B)(3)",
+      "cited_for": "Mental anguish of surviving beneficiaries recoverable",
+      "quotes": [],
+      "context": "Grief, emotional suffering of spouse and children; recoverable under R.C. § 2125.02(B)(3)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 2125.02(D)(5) (formerly § 2125.02(B)(5))",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The statute does make the mental anguish of surviving beneficiaries recoverable, but in the current version (effective April 4, 2023, which governs this March 2025 death) that is in division (D)(5). Current (B)(3) deals with when other next of kin remain 'interested persons' for notice of a probate settlement application. The subdivision is wrong under the old numbering too: pre-2023 (B)(3) was loss of society, and mental anguish was (B)(5). So the proposition is supported by the statute, but the cited subdivision is wrong under either version.",
+        "evidence_excerpt": "Current: \"(D) Compensatory damages ... may include damages for the following: ... (5) The mental anguish incurred by the surviving spouse, dependent children, parents, or next of kin of the decedent.\" Current (B)(3)(a): \"...if an application to approve settlement and distribution of wrongful death and survival claims is filed with the probate court after the date that is two years after the date of the decedent's death, no other next of kin are interested persons.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2125.02",
+          "https://codes.ohio.gov/assets/laws/revised-code/authenticated/21/2125/2125.02/4-7-2005/2125.02-4-7-2005.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "The first checker's facts all hold. Only the severity is overstated. The current R.C. 2125.02 (eff. 4/4/2023) puts mental anguish in (D)(5): \"The mental anguish incurred by the surviving spouse, dependent children, parents, or next of kin of the decedent.\" Current (B) covers 'interested persons', and (B)(3) is about filing deadlines for other next of kin. In the 2005 authenticated version, whose PDF I extracted, (B) listed compensatory damages: (B)(3) \"Loss of the society of the decedent...\" and (B)(5) \"The mental anguish incurred by the surviving spouse...\". So (B)(3) is the wrong subdivision under either numbering. But the cited section, R.C. 2125.02, does locate an authority that makes the beneficiaries' grief and mental anguish recoverable. Only the subdivision pointer is wrong (correct: (D)(5), formerly (B)(5)). That is a pin defect, which fits VERIFIED_MINOR_DEFECT better than a garbled citation.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2125.02",
+          "https://codes.ohio.gov/assets/laws/revised-code/authenticated/21/2125/2125.02/4-7-2005/2125.02-4-7-2005.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 32,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cell C35",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 4123.59",
+      "citation_as_written": "Ohio R.C. § 4123.59",
+      "pincite": "",
+      "cited_for": "Statutory workers' compensation death benefits payable to surviving spouse and dependents",
+      "quotes": [],
+      "context": "Statutory death benefits payable to surviving spouse and dependents under Ohio R.C. § 4123.59",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 4123.59 ('Benefits in case of death - dependency') provides workers' compensation death benefits to dependents, including a dependent spouse (until death or remarriage) and dependent children.",
+        "evidence_excerpt": "\"In case an injury to or an occupational disease contracted by an employee causes the employee's death, benefits shall be in the amount and to the persons following:\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.59"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cells C35 and F35",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 4123.931",
+      "citation_as_written": "R.C. § 4123.931",
+      "pincite": "",
+      "cited_for": "BWC/employer subrogation lien attaches to third-party recovery",
+      "quotes": [],
+      "context": "BWC subrogation lien will attach to any third-party recovery per R.C. § 4123.931.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 4123.931(A) creates a right of recovery in favor of a statutory subrogee (including the BWC administrator) against a third party and subrogates it to the claimant's rights; divisions (B) and (G) govern allocation of third-party recoveries. 'Lien' is a colloquial but fair description.",
+        "evidence_excerpt": "\"The payment of compensation or benefits pursuant to this chapter ... creates a right of recovery in favor of a statutory subrogee against a third party, and the statutory subrogee is subrogated to the rights of a claimant against that third party.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.931",
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.93"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cell C37",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2315.21",
+      "citation_as_written": "Ohio R.C. § 2315.21",
+      "pincite": "",
+      "cited_for": "Punitive damages claim supported by Ironclad's pre-incident knowledge and decision not to issue bulletin",
+      "quotes": [],
+      "context": "supports claim under Ohio R.C. § 2315.21",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 2315.21 governs punitive damages in tort actions, and its definition of 'tort action' expressly includes product liability claims under 2307.71-2307.80. Punitive damages require malice or aggravated or egregious fraud. Citing it as the basis for a punitive claim built on knowing inaction is a reasonable use. Note: R.C. 2307.80(A) separately requires, for product liability punitive damages against a manufacturer or supplier, clear and convincing evidence of 'flagrant disregard of the safety of persons who might be harmed by the product'. Whether punitive damages can be had in the wrongful-death claim (as opposed to a survival claim) was not checked.",
+        "evidence_excerpt": "\"(A)(1)(a) 'Tort action' includes ... (i) A product liability claim for damages for injury or loss to person or property that is subject to sections 2307.71 to 2307.80\"; \"(C) ... punitive or exemplary damages are not recoverable from a defendant in question in a tort action unless ... (1) The actions or omissions of that defendant demonstrate malice or aggravated or egregious fraud...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.21",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.80"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cell F37",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2315.21(D)",
+      "citation_as_written": "R.C. § 2315.21(D)",
+      "pincite": "(D)",
+      "cited_for": "Statutory cap on punitive damages, generally 2x compensatory",
+      "quotes": [],
+      "context": "Subject to Ohio statutory cap (R.C. § 2315.21(D)) — generally 2x compensatory damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 2315.21(D)(2)(a) caps punitive damages in tort actions at two times the compensatory damages awarded against that defendant. (D)(2)(b) sets a lower cap for small employers and individuals, and (D)(6) has exceptions, which fits the word 'generally'.",
+        "evidence_excerpt": "\"(D)(2) Except as provided in division (D)(6) of this section ... (a) The court shall not enter judgment for punitive or exemplary damages in excess of two times the amount of the compensatory damages awarded to the plaintiff from that defendant...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.21"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cell C39",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2315.33",
+      "citation_as_written": "Ohio R.C. § 2315.33",
+      "pincite": "",
+      "cited_for": "Jury will apportion fault between Ironclad and HydraCore",
+      "quotes": [],
+      "context": "Jury will apportion fault between Ironclad and HydraCore per Ohio R.C. § 2315.33.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "R.C. 2307.23(A) (with 2307.22); 2315.33 is the related contributory-fault rule",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 2315.33 is real and is part of Ohio's comparative-fault scheme (2315.32-.36), but by its terms it addresses the effect of the plaintiff's contributory fault (modified comparative fault bar and proportional reduction). The jury's apportionment of percentages of tortious conduct among the defendants (Ironclad and HydraCore) is directed by R.C. 2307.23(A), which applies to actions under 2307.22 or 2315.32-.36. Loose citation to the scheme rather than the specific apportionment provision.",
+        "evidence_excerpt": "2315.33: \"The contributory fault of a person does not bar the person as plaintiff from recovering damages ... if the contributory fault of the plaintiff was not greater than the combined tortious conduct of all other persons...\" 2307.23(A): \"the jury in a jury action shall return a general verdict accompanied by answers to interrogatories, that shall specify ... (1) The percentage of tortious conduct ... attributable to the plaintiff and to each party to the tort action\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.33",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.23"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Reyes - Wrongful Death, cell F39",
+      "authority_type": "other",
+      "authority": "Ohio law on joint and several liability (statute not cited)",
+      "citation_as_written": "under Ohio law",
+      "pincite": "",
+      "cited_for": "Both defendants jointly and severally liable if more than 50% at fault",
+      "quotes": [],
+      "context": "Both defendants jointly and severally liable under Ohio law if >50% at fault.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code 2307.22(A)(1), (C)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under R.C. 2307.22, only a defendant found more than 50% at fault is jointly and severally liable, and only for economic loss. Every defendant is liable only for its proportionate share of noneconomic loss (and a defendant at 50% or less is liable only for its proportionate share of economic loss). The note says 'both defendants jointly and severally liable ... if >50% at fault' with no economic-loss limit. That overstates the rule: the sheet's $3M to $7M of noneconomic damages would not be joint and several, and the two defendants cannot both exceed 50%. The 50% threshold itself is correct.",
+        "evidence_excerpt": "(A)(1): \"that defendant shall be jointly and severally liable in tort for all compensatory damages that represent economic loss.\" (C): \"each defendant ... shall be liable to the plaintiff only for that defendant's proportionate share of the compensatory damages that represent noneconomic loss.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.22"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. R.C. 2307.22(A)(1) says a defendant with more than 50% of the tortious conduct \"shall be jointly and severally liable in tort for all compensatory damages that represent economic loss.\" (C) says each defendant \"shall be liable to the plaintiff only for that defendant's proportionate share of the compensatory damages that represent noneconomic loss.\" The note in damages sheet cell F39, \"Both defendants jointly and severally liable under Ohio law if >50% at fault\", sits under the apportionment row of a claim whose largest part is $3M-$7M of noneconomic damages. It leaves out the economic-loss-only limit. Also, only one defendant can be over 50% at fault. The 50% threshold is right, but the rule as stated overstates the statute.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.22"
+        ]
+      }
+    },
+    {
+      "ref": 38,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Trask - Personal Injury, cells C47 and F47",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 4123.931",
+      "citation_as_written": "R.C. § 4123.931",
+      "pincite": "",
+      "cited_for": "BWC subrogation lien attaches to third-party recovery; employer subrogation rights",
+      "quotes": [],
+      "context": "BWC subrogation lien attaches to third-party recovery per R.C. § 4123.931. ... Employer (Dalton) subrogation rights per R.C. § 4123.931.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 4123.931(A) supports the BWC subrogation right against third-party recoveries. The 'employer (Dalton) subrogation rights' point is supported only if Dalton is a self-insuring employer (or direct-pay contractor), since R.C. 4123.93(B) defines statutory subrogee as the administrator, a self-insuring employer, or such an employer; a reasonable reading supports the proposition.",
+        "evidence_excerpt": "4123.93(B): \"'statutory subrogee' ... the administrator of workers' compensation, a self-insuring employer, or an employer that contracts for the direct payment of medical services\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.931",
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.93"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Anand - Personal Injury, cell C38",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 4123.931",
+      "citation_as_written": "R.C. § 4123.931",
+      "pincite": "",
+      "cited_for": "BWC subrogation lien attaches",
+      "quotes": [],
+      "context": "BWC subrogation lien attaches per R.C. § 4123.931.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 4123.931(A) gives the statutory subrogee (BWC) a subrogated right of recovery against third parties, which attaches to third-party recoveries.",
+        "evidence_excerpt": "\"creates a right of recovery in favor of a statutory subrogee against a third party, and the statutory subrogee is subrogated to the rights of a claimant against that third party\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.931"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Dalton - Direct Losses, cell C22",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.147(c)(4)(i)",
+      "citation_as_written": "29 CFR 1910.147(c)(4)(i)",
+      "pincite": "(c)(4)(i)",
+      "cited_for": "OSHA Citation 1: serious LOTO violation for inadequate energy-isolating devices on HX-9000 accumulator",
+      "quotes": [],
+      "context": "Serious violation — inadequate energy-isolating devices on HX-9000 accumulator per 29 CFR 1910.147(c)(4)(i); Inspection No. OH-2025-04218",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "29 CFR 1910.147(c)(2)(iii) (energy-isolating devices on newly installed equipment must accept a lockout device); (c)(4)(i) covers documented energy control procedures",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1910.147(c)(4)(i) requires energy control procedures to be developed, documented and used. It says nothing about whether energy-isolating devices are adequate or can be locked out. Those requirements are in (c)(2): (c)(2)(i)-(ii) cover tagout versus lockout, and (c)(2)(iii) requires the energy-isolating devices on newly installed machines to be designed to accept a lockout device. The fictional citation also faults the written LOTO procedure (element (b)), which would fit (c)(4)(i). But the cell describes the violation as 'inadequate energy-isolating devices per (c)(4)(i)', and that subsection does not contain that rule.",
+        "evidence_excerpt": "(4) Energy control procedure. (i) Procedures shall be developed, documented and utilized for the control of potentially hazardous energy when employees are engaged in the activities covered by this section.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1910&section=1910.147",
+          "https://www.ecfr.gov/current/title-29/section-1910.147"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. 29 CFR 1910.147(c)(4)(i) reads: \"Procedures shall be developed, documented and utilized for the control of potentially hazardous energy...\" Lockable or adequate energy-isolating devices are covered in (c)(2)(i)-(iii), e.g. (c)(2)(iii): new equipment's \"energy isolating devices ... shall be designed to accept a lockout device.\" The record's OSHA citation itself prints 'Regulatory Text' under (c)(4)(i) that is not (c)(4)(i); it paraphrases (c)(2) (lockable devices, tagout fallback). The damages sheet repeats that error by describing the violation as 'inadequate energy-isolating devices ... per (c)(4)(i)'. One element of the violation, (b) (the written LOTO procedure lacked accumulator-specific steps), would fit the real (c)(4)(i). The sheet's description picks the element that does not.",
+        "source_urls": [
+          "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.147"
+        ]
+      }
+    },
+    {
+      "ref": 41,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Dalton - Direct Losses, cell C23",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.212(a)(1)",
+      "citation_as_written": "29 CFR 1910.212(a)(1)",
+      "pincite": "(a)(1)",
+      "cited_for": "OSHA Citation 2: serious machine guarding violation for cylinder housing",
+      "quotes": [],
+      "context": "Serious violation — inadequate machine guarding of cylinder housing per 29 CFR 1910.212(a)(1); Inspection No. OH-2025-04218",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "29 CFR 1910.212(a)(1) is OSHA's general machine-guarding requirement ('Types of guarding'). It requires guarding that protects the operator and other employees from hazards such as point of operation, nip points, rotating parts, and flying chips and sparks. Citing it for inadequate guarding of the cylinder housing against ejected components is a reasonable fit. The violation and inspection number are facts of the fictional scenario.",
+        "evidence_excerpt": "(a) Machine guarding—(1) Types of guarding. One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards...",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "damages-summary.xlsx.md",
+      "location": "Sheet Dalton - Direct Losses, cells E22-E23",
+      "authority_type": "other",
+      "authority": "Ohio OSHA Citation dated April 28, 2025, Inspection No. OH-2025-04218",
+      "citation_as_written": "Ohio OSHA Citation dated April 28, 2025",
+      "pincite": "",
+      "cited_for": "Source of the two OSHA citations and penalties ($18,900; $12,500)",
+      "quotes": [],
+      "context": "Ohio OSHA Citation dated April 28, 2025",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe regulatory citation issued to the fictional party Dalton in the matter's own record."
+    },
+    {
+      "ref": 43,
+      "document": "task.json.md",
+      "location": "Rubric C-013 (ISSUE_001)",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act (FAA preemption)",
+      "citation_as_written": "FAA preemption",
+      "pincite": "",
+      "cited_for": "Memo should analyze Ohio public policy on arbitration of tort claims and FAA preemption",
+      "quotes": [],
+      "context": "analyzes FAA preemption principles in the context of the arbitration clause",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "9 U.S.C. § 2; see Marmet Health Care Center, Inc. v. Brown, 565 U.S. 530 (2012) (per curiam)",
+        "quote_check": "No attributed quotation.",
+        "explanation": "The FAA exists, and under § 2 arbitration agreements are 'valid, irrevocable, and enforceable' except on grounds that exist for revoking any contract. FAA preemption of a state public policy against arbitrating personal-injury or wrongful-death claims is a real and directly relevant doctrine. In Marmet, the Supreme Court held that a state public policy refusing to enforce predispute arbitration of personal-injury and wrongful-death claims was preempted. Telling the memo to analyze Ohio public policy together with FAA preemption is therefore a sound framing.",
+        "evidence_excerpt": "9 U.S.C. § 2: \"...shall be valid, irrevocable, and enforceable, save upon such grounds as exist at law or in equity for the revocation of any contract...\"; Marmet: \"The West Virginia court's interpretation of the FAA was both incorrect and inconsistent with clear instruction in the precedents of this Court.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/9/2",
+          "https://www.courtlistener.com/opinion/623142/marmet-health-care-center-inc-v-brown/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "task.json.md",
+      "location": "Rubric C-017 (ISSUE_002)",
+      "authority_type": "statute",
+      "authority": "UCC § 2-719(3)",
+      "citation_as_written": "UCC § 2-719(3)",
+      "pincite": "",
+      "cited_for": "Limitation of consequential damages for personal injury from consumer goods is prima facie unconscionable",
+      "quotes": [],
+      "context": "references UCC § 2-719(3) (or Ohio R.C. § 2307.72 et seq., the Ohio Products Liability Act, or equivalent ...) for the principle that limitations of consequential damages for personal injury from consumer/defective goods are prima facie unconscionable",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-719(3); Ohio R.C. 1302.93(C)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "UCC 2-719(3), adopted in Ohio as R.C. 1302.93(C), does make a limitation of consequential damages for personal injury from consumer goods prima facie unconscionable. The stated proposition is accurate. There are two defects. First, the rubric context extends the rule to 'consumer/defective goods.' The presumption applies only to consumer goods, and the HX-9000 is commercial industrial equipment, so it does not apply directly here. The statute also says limitation of damages where the loss is commercial is not prima facie unconscionable. Second, the alternative citation offered, R.C. 2307.72 et seq. (the Ohio Products Liability Act), is not a source for that unconscionability principle.",
+        "evidence_excerpt": "'Limitation of consequential damages for injury to the person in the case of consumer goods is prima facie unconscionable but limitation of damages where the loss is commercial is not.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://codes.ohio.gov/ohio-revised-code/section-1302.93"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "task.json.md",
+      "location": "Rubric C-017 (ISSUE_002)",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2307.72 et seq. (Ohio Products Liability Act)",
+      "citation_as_written": "Ohio R.C. § 2307.72 et seq.",
+      "pincite": "",
+      "cited_for": "Alternative authority for unenforceability of liability limitation for personal injury",
+      "quotes": [],
+      "context": "Ohio R.C. § 2307.72 et seq., the Ohio Products Liability Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 1302.93(C) (UCC § 2-719(3)) is the provision on limiting consequential damages for personal injury; the OPLA (R.C. 2307.71-2307.80) does not address it",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Ohio Products Liability Act (R.C. 2307.71-2307.80) exists. Rubric C-017 cites it as an alternative authority for the principle that limiting consequential damages for personal injury from defective goods is prima facie unconscionable, so a contractual liability cap is unenforceable for personal injury. I scanned the text of each section from 2307.71 to 2307.80 for 'disclaim', 'contract', 'waive', 'limitation of liability', 'exclusive', and 'unconscionable'. No section addresses contractual limitations, disclaimers, or unconscionability. Section 2307.72 only says recoveries for product liability claims are subject to 2307.71-2307.79/80. The OPLA creates the statutory product liability claim but does not contain the rule it is cited for.",
+        "evidence_excerpt": "R.C. 2307.72: \"(A) Any recovery of compensatory damages based on a product liability claim is subject to sections 2307.71 to 2307.79 of the Revised Code. (B) Any recovery of punitive or exemplary damages in connection with a product liability claim is subject to sections 2307.71 to 2307.80...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.72",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.71",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.80"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. I read R.C. 2307.72 in full. It is a scope provision: \"Any recovery of compensatory damages based on a product liability claim is subject to sections 2307.71 to 2307.79...\". It says nothing about contractual limits, disclaimers, or unconscionability. I also fetched the official text of 2307.71, .73-.80 and searched each for disclaim/waive/waiver/unconscionab/'limitation of liability'/'exclusive remedy'/contractual. There were no hits. I confirmed the pages held statute text (e.g. the .73 manufacturer-defect elements and the .80 punitive-damages standard). The OPLA creates the statutory product-liability claim but has no rule that a contractual limit on personal-injury damages is prima facie unconscionable. That rule is UCC 2-719(3), Ohio R.C. 1302.93(C).",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.72",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.71",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.73",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.74",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.75",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.76",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.77",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.78",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.79",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.80"
+        ]
+      }
+    },
+    {
+      "ref": 46,
+      "document": "task.json.md",
+      "location": "Rubric C-021",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2315.33",
+      "citation_as_written": "R.C. § 2315.33",
+      "pincite": "",
+      "cited_for": "Ohio comparative fault scheme for apportioning liability between Ironclad and HydraCore",
+      "quotes": [],
+      "context": "referencing Ohio's comparative fault scheme (R.C. § 2315.33 or equivalent)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "R.C. 2315.32-.36 and 2307.22-.23",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 2315.33 is Ohio's core comparative (contributory) fault statute, so citing it for Ohio's comparative fault scheme is reasonable, and the rubric says \"or equivalent.\" However, the specific apportionment of liability between co-defendants Ironclad and HydraCore is governed by R.C. 2307.22-.23 (and 2315.34(D) cross-referencing 2307.23); 2315.33 itself deals with the plaintiff's contributory fault.",
+        "evidence_excerpt": "\"The court shall diminish any compensatory damages recoverable by the plaintiff by an amount that is proportionately equal to the percentage of tortious conduct of the plaintiff as determined pursuant to section 2315.34\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.33",
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.34",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.23"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "task.json.md",
+      "location": "Rubric C-025 (ISSUE_004)",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2315.21",
+      "citation_as_written": "R.C. § 2315.21",
+      "pincite": "",
+      "cited_for": "Conscious disregard threshold for punitive damages under Ohio law",
+      "quotes": [],
+      "context": "evidence of conscious disregard for known safety risks, which is the threshold for punitive damages under Ohio law (R.C. § 2315.21 or equivalent)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "R.C. § 2315.21(C)(1); 'conscious disregard' gloss from Preston v. Murty, 32 Ohio St. 3d 334, 512 N.E.2d 1174 (1987)",
+        "quote_check": "No quotes attributed (the rubric phrase 'conscious disregard' is not presented as a quotation of the statute).",
+        "explanation": "R.C. 2315.21(C)(1) sets the threshold for punitive damages as 'malice or aggravated or egregious fraud'. The words 'conscious disregard' do not appear in the statute. They come from the Ohio Supreme Court's definition of actual malice in Preston v. Murty, which CourtListener returned for the phrase 'conscious disregard for the rights and safety of other persons'. The rubric says 'R.C. § 2315.21 or equivalent', so the statute does supply the malice threshold, but attributing the 'conscious disregard' standard to it alone is loose. For product claims, 2307.80 uses 'flagrant disregard'.",
+        "evidence_excerpt": "\"(C) ... punitive or exemplary damages are not recoverable from a defendant in question in a tort action unless both of the following apply: (1) The actions or omissions of that defendant demonstrate malice or aggravated or egregious fraud...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.21",
+          "https://www.courtlistener.com/opinion/6868477/preston-v-murty/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "task.json.md",
+      "location": "Rubric C-075",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2315.21",
+      "citation_as_written": "R.C. § 2315.21",
+      "pincite": "",
+      "cited_for": "Punitive damages standard of conscious disregard or malice",
+      "quotes": [],
+      "context": "referencing the standard of 'conscious disregard' or 'malice' or R.C. § 2315.21",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rubric C-075 accepts 'conscious disregard' or 'malice' or R.C. 2315.21 as the Ohio punitive damages standard. R.C. 2315.21(C)(1) requires malice or aggravated or egregious fraud, so it supports the proposition. 'Conscious disregard' is the case-law definition of actual malice (Preston v. Murty), offered as an alternative.",
+        "evidence_excerpt": "\"(C) ... punitive or exemplary damages are not recoverable from a defendant in question in a tort action unless ... (1) The actions or omissions of that defendant demonstrate malice or aggravated or egregious fraud...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.21",
+          "https://www.courtlistener.com/opinion/6868477/preston-v-murty/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "task.json.md",
+      "location": "Rubric C-026",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.147(c)(4)(i)",
+      "citation_as_written": "29 CFR 1910.147(c)(4)(i)",
+      "pincite": "(c)(4)(i)",
+      "cited_for": "OSHA serious LOTO citation with $18,900 penalty",
+      "quotes": [],
+      "context": "OSHA serious citation for LOTO deficiency under 29 CFR 1910.147(c)(4)(i) with a penalty of $18,900",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1910.147(c)(4)(i) is a lockout/tagout provision: it requires documented energy control procedures. Calling it a 'LOTO deficiency' citation is accurate. The $18,900 penalty is a fact from the fictional record, not something the regulation addresses. Note that the underlying fictional citation pairs (c)(4)(i) with device-lockability text that actually comes from (c)(2)-(c)(3).",
+        "evidence_excerpt": "§ 1910.147 The control of hazardous energy (lockout/tagout). ... (4) Energy control procedure. (i) Procedures shall be developed, documented and utilized for the control of potentially hazardous energy...",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1910&section=1910.147"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "task.json.md",
+      "location": "Rubric C-027",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.212(a)(1)",
+      "citation_as_written": "29 CFR 1910.212(a)(1)",
+      "pincite": "(a)(1)",
+      "cited_for": "OSHA serious machine guarding citation with $12,500 penalty",
+      "quotes": [],
+      "context": "OSHA serious citation for machine guarding under 29 CFR 1910.212(a)(1) with a penalty of $12,500",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "29 CFR 1910.212(a)(1) is the general machine-guarding standard, and the rubric cites it correctly for a machine-guarding citation. The $12,500 penalty is a scenario fact that matches the citation document; the regulation does not address it.",
+        "evidence_excerpt": "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "task.json.md",
+      "location": "Rubric C-029 (ISSUE_005)",
+      "authority_type": "other",
+      "authority": "Ohio law on negligence per se vs. evidence of negligence (OSHA citations)",
+      "citation_as_written": "negligence per se",
+      "pincite": "",
+      "cited_for": "Whether OSHA citations are negligence per se or merely evidence of negligence in Ohio",
+      "quotes": [],
+      "context": "discusses whether the OSHA citations constitute negligence per se or merely evidence of negligence in Ohio",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Hernandez v. Martin Chevrolet, Inc., 72 Ohio St.3d 302, 649 N.E.2d 1215 (1995)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric asks whether, in Ohio, OSHA citations are negligence per se or only evidence of negligence. The question is real and the Ohio Supreme Court has decided it: in Hernandez v. Martin Chevrolet it held that an OSHA violation does not constitute negligence per se, relying on 29 U.S.C. 653(b)(4). The framing is therefore legally sound.",
+        "evidence_excerpt": "\"Accordingly, we hold that a violation of OSHA does not constitute negligence per se.\" (72 Ohio St.3d at 304)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/6771684/hernandez-v-martin-chevrolet-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "task.json.md",
+      "location": "Rubric C-031 (ISSUE_006)",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 4123.931",
+      "citation_as_written": "R.C. § 4123.931",
+      "pincite": "",
+      "cited_for": "Employer/BWC subrogation rights against third-party tortfeasors",
+      "quotes": [],
+      "context": "under Ohio law (R.C. § 4123.931 or equivalent), the employer/BWC has a right of subrogation against third-party tortfeasors",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 4123.931(A) establishes the statutory subrogee's (BWC administrator or self-insuring employer, per 4123.93(B)) right of subrogation against third-party tortfeasors.",
+        "evidence_excerpt": "\"the statutory subrogee is subrogated to the rights of a claimant against that third party\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.931",
+          "https://codes.ohio.gov/ohio-revised-code/section-4123.93"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "task.json.md",
+      "location": "Rubric C-032",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2745.01",
+      "citation_as_written": "Ohio R.C. § 2745.01",
+      "pincite": "",
+      "cited_for": "Employer intentional tort; 'deliberate intent to injure' standard",
+      "quotes": [],
+      "context": "employer intentional tort claim against Dalton under Ohio R.C. § 2745.01 (or equivalent), noting the 'deliberate intent to injure' standard",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'deliberate intent to injure' (context phrase, not formally attributed): found with differences - 2745.01(B) says \"deliberate intent to cause an employee to suffer an injury\"; 2745.01(A) says \"intent to injure another\".",
+        "explanation": "R.C. 2745.01 is Ohio's employer intentional tort statute; it requires proof the employer acted with intent to injure or with belief injury was substantially certain, and defines 'substantially certain' as deliberate intent to cause injury. Supports the proposition; the 'deliberate intent to injure' phrase is a fair paraphrase.",
+        "evidence_excerpt": "\"(B) As used in this section, 'substantially certain' means that an employer acts with deliberate intent to cause an employee to suffer an injury, a disease, a condition, or death.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2745.01"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "task.json.md",
+      "location": "Rubric C-038/C-039 (ISSUE_008)",
+      "authority_type": "case",
+      "authority": "J. McIntyre Machinery, Ltd. v. Nicastro",
+      "citation_as_written": "J. McIntyre Machinery v. Nicastro (2011)",
+      "pincite": "",
+      "cited_for": "Post-Nicastro limits on stream-of-commerce personal jurisdiction over component manufacturer",
+      "quotes": [],
+      "context": "references J. McIntyre Machinery v. Nicastro (2011), Bristol-Myers Squibb v. Superior Court (2017), or other post-Nicastro Supreme Court jurisprudence narrowing the stream-of-commerce doctrine",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "J. McIntyre Machinery, Ltd. v. Nicastro, 564 U.S. 873 (2011)",
+        "quote_check": "No attributed quotation.",
+        "explanation": "The Supreme Court decided J. McIntyre Machinery, Ltd. v. Nicastro on June 27, 2011. It reversed the New Jersey court's stream-of-commerce-based exercise of jurisdiction over a foreign machinery manufacturer and narrowed the doctrine, requiring purposeful availment or targeting of the forum. This supports citing it for post-Nicastro limits on stream-of-commerce jurisdiction. Minor nuance: the lead opinion (Kennedy) was a plurality, and Justice Breyer concurred only in the judgment.",
+        "evidence_excerpt": "\"the 'stream of commerce' metaphor carried the decision far afield. Due process protects the defendant's right not to be coerced except by lawful judicial power.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/220342/j-mcintyre-machinery-ltd-v-nicastro/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "task.json.md",
+      "location": "Rubric C-039 (ISSUE_008)",
+      "authority_type": "case",
+      "authority": "Bristol-Myers Squibb Co. v. Superior Court",
+      "citation_as_written": "Bristol-Myers Squibb v. Superior Court (2017)",
+      "pincite": "",
+      "cited_for": "Supreme Court jurisprudence narrowing specific personal jurisdiction / stream-of-commerce",
+      "quotes": [],
+      "context": "Bristol-Myers Squibb v. Superior Court (2017), or other post-Nicastro Supreme Court jurisprudence narrowing the stream-of-commerce doctrine",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Bristol-Myers Squibb Co. v. Superior Court of Cal., San Francisco Cty., 582 U.S. 255 (2017)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a real 2017 Supreme Court decision. It reversed the California Supreme Court's 'sliding scale' approach and narrowed specific jurisdiction by requiring a link between the forum and the specific claims. Strictly, it is a claim-relatedness case rather than a stream-of-commerce case. But the rubric cites it as post-Nicastro jurisprudence narrowing specific personal jurisdiction, and it supports that general proposition. The rubric gives the citation without a reporter cite.",
+        "evidence_excerpt": "Our settled principles regarding specific jurisdiction control this case ... Our cases provide no support for this approach, which resembles a loose and spurious form of general jurisdiction. For specific jurisdiction, a defendant's general connections with the forum are not enough.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4403809/bristol-myers-squibb-co-v-superior-court-of-cal-san-francisco-cty/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "task.json.md",
+      "location": "Rubric C-040 (ISSUE_008)",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2307.382 (Ohio long-arm statute)",
+      "citation_as_written": "R.C. § 2307.382",
+      "pincite": "",
+      "cited_for": "Personal jurisdiction over HydraCore under Ohio long-arm statute",
+      "quotes": [],
+      "context": "references Ohio's long-arm statute (R.C. § 2307.382 or equivalent citation) in analyzing personal jurisdiction over HydraCore",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. 2307.382 is Ohio's long-arm statute, headed 'Personal jurisdiction.' It lists bases for jurisdiction, including tortious injury in Ohio caused by an act outside Ohio by someone who derives substantial revenue from goods used in Ohio. That fits analysis of jurisdiction over an out-of-state component maker.",
+        "evidence_excerpt": "\"Section 2307.382 | Personal jurisdiction. (A) A court may exercise personal jurisdiction over a person who acts directly or by an agent, as to a cause of action arising from the person's: (1) Transacting any business in this state; ... (4) Causing tortious injury in this state by an act or omission outside this state if the person ... derives substantial revenue from goods used or consumed ... in this state\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.382"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "task.json.md",
+      "location": "Rubric C-042 (ISSUE_009)",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Restatement (Second) of Conflict of Laws §§ 145, 146, 188",
+      "citation_as_written": "Restatement (Second) of Conflict of Laws ... §§ 145, 146, or 188",
+      "pincite": "§§ 145, 146, 188",
+      "cited_for": "Ohio choice-of-law methodology (most significant relationship test; lex loci delicti)",
+      "quotes": [],
+      "context": "references Ohio's choice-of-law methodology, such as the Restatement (Second) of Conflict of Laws, lex loci delicti, or the most-significant-relationship test (§§ 145, 146, or 188)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Restatement (Second) of Conflict of Laws §§ 145, 146 (torts), as adopted in Morgan v. Biro Mfg. Co., 15 Ohio St.3d 339, 474 N.E.2d 286 (1984); § 188 (contracts), as adopted in Gries Sports Enterprises, Inc. v. Modell, 15 Ohio St.3d 284, 473 N.E.2d 807 (1984)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Ohio follows the Restatement (Second) most-significant-relationship approach. For torts it applies §§ 145–146 (Morgan v. Biro), with a presumption that the law of the place of injury governs. For contracts it applies § 188 (Gries v. Modell). Ohayon v. Safeco (Ohio 2001) confirms both points. Strict lex loci delicti no longer controls in Ohio, but the rubric lists it only as one alternative reference, so this is accurate.",
+        "evidence_excerpt": "Ohayon, 2001-Ohio-100: 'the Restatement's presumption that the law of the place of injury controls unless another jurisdiction has a more significant relationship. See Morgan v. Biro Mfg., 15 Ohio St.3d at 341-342 ... citing 1 Restatement of Conflicts at 430, Section 146' and 'this court expressly adopted Section 188 in Gries Sports Ent., Inc. v. Modell (1984), 15 Ohio St.3d 284'",
+        "source_urls": [
+          "https://www.supremecourt.ohio.gov/rod/docs/pdf/0/2001/2001-Ohio-100.pdf",
+          "https://www.courtlistener.com/opinion/6867724/morgan-v-biro-manufacturing-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "task.json.md",
+      "location": "Rubric C-051 (ISSUE_012)",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 2125.02",
+      "citation_as_written": "Ohio R.C. § 2125.02",
+      "pincite": "",
+      "cited_for": "Wrongful death claim must be brought by appointed estate administrator/personal representative",
+      "quotes": [],
+      "context": "must be brought by an appointed estate administrator/personal representative under Ohio R.C. § 2125.02 or equivalent",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "R.C. 2125.02(A) requires the wrongful death action to be brought in the name of the decedent's personal representative, that is, an appointed executor or administrator of the estate. That supports the rubric's statement about who has standing to sue.",
+        "evidence_excerpt": "\"a civil action for wrongful death shall be brought in the name of the personal representative of the decedent\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2125.02"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "task.json.md",
+      "location": "Rubric C-065",
+      "authority_type": "statute",
+      "authority": "Ohio 2-year statute of limitations for products liability and wrongful death (no section cited)",
+      "citation_as_written": "Ohio 2-year statute of limitations",
+      "pincite": "",
+      "cited_for": "Deadline of March 14, 2027",
+      "quotes": [],
+      "context": "identifies the Ohio 2-year statute of limitations for products liability and wrongful death claims with a deadline of March 14, 2027",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code 2305.10(A) (product liability / bodily injury); Ohio Rev. Code 2125.02 (wrongful death: within two years after the decedent's death)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio does impose a two-year limitations period for product liability and bodily-injury claims (R.C. 2305.10(A)) and for wrongful death, running from the date of death (R.C. 2125.02). With a March 14, 2025 incident and death, March 14, 2027 is the correct two-year date. The only defect is that the rubric cites no statute section.",
+        "evidence_excerpt": "R.C. 2305.10(A): \"an action based on a product liability claim and an action for bodily injury or injuring personal property shall be brought within two years after the cause of action accrues.\" R.C. 2125.02: \"a civil action for wrongful death shall be commenced within two years after the decedent's death.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2305.10",
+          "https://codes.ohio.gov/ohio-revised-code/section-2125.02"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "task.json.md",
+      "location": "Rubric C-066",
+      "authority_type": "statute",
+      "authority": "UCC 4-year warranty statute of limitations (section not cited)",
+      "citation_as_written": "4-year UCC warranty statute of limitations",
+      "pincite": "",
+      "cited_for": "Warranty claims deadline of December 16, 2028",
+      "quotes": [],
+      "context": "identifies the 4-year UCC warranty statute of limitations with a deadline of December 16, 2028",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-725; Ohio R.C. 1302.98",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Ohio's UCC limitations period for breach of a contract for sale is four years (R.C. 1302.98(A)). However, a warranty breach accrues on 'tender of delivery,' not acceptance, unless the warranty explicitly extends to future performance. The press was delivered November 22, 2024. Measured from that date, the conservative deadline is November 22, 2028. Tender might arguably be complete only once installation and commissioning finished on December 16, 2024. If the 24-month warranty counts as explicitly extending to future performance, the claim accrues on discovery, which gives a later date. The four-year period is correct, but the rubric's December 16, 2028 date, computed from the acceptance date, does not follow directly from the statute's accrual rule.",
+        "evidence_excerpt": "R.C. 1302.98(A): 'An action for breach of any contract for sale must be commenced within four years after the cause of action has accrued.' (B): 'A breach of warranty occurs when tender of delivery is made, except that where a warranty explicitly extends to future performance of the goods and discovery of the breach must await the time of such performance, the cause of action accrues when the breach is or should have been discovered.'",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1302.98"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "task.json.md",
+      "location": "Rubric C-071",
+      "authority_type": "other",
+      "authority": "NFPA T2.6.1-2020 and ISO 4413:2010",
+      "citation_as_written": "NFPA T2.6.1-2020 and/or ISO 4413:2010",
+      "pincite": "",
+      "cited_for": "Industry standards calling for redundant pressure relief on accumulator circuits",
+      "quotes": [],
+      "context": "references industry standards (NFPA T2.6.1-2020 and/or ISO 4413:2010) as calling for redundant pressure relief on accumulator circuits",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "NFPA/T2.6.1 R2-2001 (reaffirmed through R2024), Fluid power components – Method for verifying the fatigue and establishing the burst pressure ratings of the pressure containing envelope of a metal fluid power component; ISO 4413:2010",
+        "quote_check": "no quotes attributed",
+        "explanation": "The rubric treats NFPA T2.6.1-2020 and/or ISO 4413:2010 as calling for redundant pressure relief on accumulator circuits. NFPA: the real T2.6.1 is a component fatigue and burst-pressure rating test method; no 2020 edition was located; and a redundancy mandate for accumulator relief falls outside its stated scope. ISO 4413:2010: 5.2.2.1 and 5.2.2.2 require protection against excessive pressure in all related parts of the system, with pressure-relief valves as the preferred means. That partly supports the idea that a relief device should protect the accumulator circuit. It does not establish redundancy, since the clause says 'one or more'. The cited Clause 5.4.7.2 could not be read in any accessible preview. Medium confidence.",
+        "evidence_excerpt": "5.2.2.2 The preferred means of protection against excessive pressure is one or more pressure-relief valves located to limit the pressure in all related parts of the system.",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf",
+          "https://webstore.ansi.org/standards/nfpa-fluid/nfpat2r22001r2019",
+          "https://standardsmanager.ir/en/document.aspx?org=NFPA(FLUID)&id=464272"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds, at medium confidence. ISO 4413:2010: I read the sample text I extracted. 5.2.2.1 requires parts to be \"designed or otherwise protected against foreseeable pressures exceeding the maximum working pressure\". 5.2.2.2 says \"The preferred means of protection against excessive pressure is one or more pressure-relief valves located to limit the pressure in all related parts of the system.\" That supports relief protection on the circuit but not redundancy. The sample table of contents shows only 5.4 'Specific requirements for components and controls'. I could not read clause 5.4.7.2, which the forensic report quotes as requiring 'redundant means of pressure relief'. NFPA T2.6.1: ANSI webstore pages returned 403. A WebSearch summary and the PowerMotionTech article ('In NFPA T2.6.1, the number of test specimens required to verify the rated fatigue pressure depends on...') describe it as a fatigue/burst pressure-rating method, not the 'Recommended Practice — System and Component Safety' title the forensic report uses. No 2020 edition was found. The record's own title for T2.6.1 does not match the real standard's subject, which corroborates that the redundancy requirement attributed to it is not in it.",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/iso/iso-4413-2010/96bf33b81df442b2a14c9522624bfa98/c044781e.pdf",
+          "https://www.powermotiontech.com/technologies/pressure-rating-hydraulic-components"
+        ]
+      }
+    },
+    {
+      "ref": 62,
+      "document": "task.json.md",
+      "location": "Rubric C-038 (ISSUE_008)",
+      "authority_type": "other",
+      "authority": "Stream-of-commerce theory of personal jurisdiction",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Ohio courts' personal jurisdiction over component manufacturer HydraCore analyzed under the stream-of-commerce theory",
+      "quotes": [],
+      "context": "PASS if the memo analyzes whether Ohio courts can exercise personal jurisdiction over HydraCore (Indiana LLC) under the stream-of-commerce theory, noting that HydraCore sold components to Ironclad in Michigan that were incorporated into a product sold and installed in Ohio.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "e.g., World-Wide Volkswagen Corp. v. Woodson, 444 U.S. 286, 297-98 (1980); Asahi Metal Indus. Co. v. Superior Court, 480 U.S. 102, 112 (1987) (plurality); J. McIntyre Mach., Ltd. v. Nicastro, 564 U.S. 873 (2011)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Stream of commerce is a recognized theory of specific personal jurisdiction over component and product manufacturers, developed in World-Wide Volkswagen and Asahi. It fits analysis of a component maker (HydraCore) whose part reached the forum inside a finished product. The rubric cites no specific case. Under the Asahi plurality, placement in the stream without more is not enough, so the analysis has to address 'something more.'",
+        "evidence_excerpt": "Asahi, 480 U.S. at 112: 'The placement of a product into the stream of commerce, without more, is not an act of the defendant purposefully directed toward the forum State.'; quoting World-Wide Volkswagen: 'The forum State does not exceed its powers under the Due Process Clause if it asserts personal jurisdiction over a corporation that delivers its products into the stream of commerce with the expectation that they will be purchased by consumers in the forum State.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/480/102"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "task.json.md",
+      "location": "Rubric C-063",
+      "authority_type": "statute",
+      "authority": "Federal diversity jurisdiction (complete diversity; 28 U.S.C. § 1332, not cited by number)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Complete diversity exists among Dalton, Ironclad and HydraCore, supporting federal subject-matter jurisdiction",
+      "quotes": [],
+      "context": "PASS if the memo correctly identifies that complete diversity exists: Dalton (Delaware corporation, Ohio PPB) vs. Ironclad (Michigan corporation, Michigan PPB) and HydraCore (Indiana LLC, Indiana PPB). FAIL if diversity jurisdiction analysis is absent or incorrectly states diversity is lacking.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1332(a)(1), (c)(1); Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003, 1005 (6th Cir. 2009) (LLC has the citizenship of each of its members)",
+        "quote_check": "No attributed quotation.",
+        "explanation": "Section 1332 exists, and § 1332(c)(1) correctly places Dalton (Delaware/Ohio) and Ironclad (Michigan/Michigan) by state of incorporation and principal place of business. The rubric then treats HydraCore, an Indiana LLC, as a citizen of Indiana because it was organized and has its principal place of business there. That applies the corporate test to an LLC. The § 1332(c)(1) rule covers corporations only, and the state-of-organization/principal-place-of-business rule for unincorporated associations in § 1332(d)(10) is limited to class actions. In the Sixth Circuit, the controlling circuit for an Ohio forum, an LLC has the citizenship of each of its members. Nothing in the record identifies HydraCore's members, so the record cannot establish complete diversity. Requiring the memo to state that complete diversity exists on this basis misstates the governing rule. A memo that correctly flags the open member-citizenship question could be graded down for it. The conclusion may still prove correct once the members are identified.",
+        "evidence_excerpt": "§ 1332(c)(1): \"a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business\"; Delay: \"we held in an unpublished decision that a limited liability company has the citizenship of each of its members... And we so hold today.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332",
+          "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003 (6th Cir. 2009), confirmed on CourtListener, holds: \"a limited liability company has the citizenship of each of its members... And we so hold today. In doing so, we join every other circuit that has addressed this issue.\" The rubric treats HydraCore (an Indiana LLC) as an Indiana citizen because of where it was organized and its principal place of business. That is the 1332(c)(1) corporate test, applied to an LLC. The record (e.g. the engagement letter: 'an Indiana limited liability company headquartered in Evansville, Indiana') never names HydraCore's members. So the rubric's stated basis for complete diversity misstates the governing rule, even though diversity may turn out to exist once the members are identified.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/",
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ]
+      }
+    },
+    {
+      "ref": 64,
+      "document": "task.json.md",
+      "location": "Rubric C-049 (ISSUE_011)",
+      "authority_type": "statute",
+      "authority": "FOIA (Freedom of Information Act) request for OSHA inspection records",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Obtaining OSHA's inspection records, photographs and samples via FOIA",
+      "quotes": [],
+      "context": "obtaining OSHA's inspection records/photographs/samples via FOIA or other means, or both.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "5 U.S.C. § 552(a)(3)(A)",
+        "quote_check": "No attributed quotation.",
+        "explanation": "FOIA requires each agency to make records 'promptly available to any person' when the request reasonably describes them and follows the published procedures. OSHA is a federal agency (part of the Department of Labor), so a FOIA request is a recognized way to obtain its inspection records. Practice note: while an enforcement case is still open, materials may be withheld under the law-enforcement exemption, but that does not undermine the recommendation.",
+        "evidence_excerpt": "\"each agency, upon any request for records which (i) reasonably describes such records and (ii) is made in accordance with published rules ... shall make the records promptly available to any person.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/5/552"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "task.json.md",
+      "location": "Rubric C-016",
+      "authority_type": "other",
+      "authority": "Unconscionability / public policy doctrine against limitation of liability for personal injury",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Limitation of liability and consequential damages exclusion likely unenforceable for personal injury/wrongful death tort claims on unconscionability or public policy grounds",
+      "quotes": [],
+      "context": "PASS if the memo concludes that the limitation of liability and consequential damages exclusion are likely unenforceable as applied to personal injury and wrongful death tort claims, citing unconscionability or public policy grounds.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-719(3); Ohio Rev. Code § 1302.93(C) (Ohio enactment)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric names no specific authority, only an unconscionability/public-policy doctrine. That doctrine exists in statute: UCC 2-719(3), which Ohio enacted as R.C. 1302.93(C), allows consequential damages to be excluded unless the exclusion is unconscionable, and makes a limitation for personal injury prima facie unconscionable only for consumer goods. For commercial loss the statute says the opposite: such a limitation is not prima facie unconscionable. Here the goods are industrial equipment, so the statutory presumption does not apply directly. A conclusion that the cap is 'likely unenforceable' for personal injury and wrongful death tort claims therefore rests on general unconscionability or public policy, or on the fact that injured third parties never agreed to the contract, rather than on the statutory presumption. The doctrine reasonably supports the proposition, but less strongly than the rubric's wording implies.",
+        "evidence_excerpt": "\"Consequential damages may be limited or excluded unless the limitation or exclusion is unconscionable. Limitation of consequential damages for injury to the person in the case of consumer goods is prima facie unconscionable, but limitation of damages where the loss is commercial is not.\" (R.C. 1302.93(C))",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-719",
+          "https://codes.ohio.gov/ohio-revised-code/section-1302.93"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "task.json.md",
+      "location": "Rubric C-029 / comparative fault rubric",
+      "authority_type": "other",
+      "authority": "Ohio comparative fault / contributory negligence defense",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Ironclad will use OSHA citations to assert comparative fault or contributory negligence against Dalton",
+      "quotes": [],
+      "context": "Ironclad will likely use the OSHA citations to argue Dalton's own safety failures contributed to the incident as a comparative fault or contributory negligence defense.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code 2315.33; Ohio Rev. Code 2307.711(A)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio has a modified comparative fault scheme. A plaintiff's contributory fault reduces recovery proportionately, and bars recovery only if it is greater than the combined fault of others (R.C. 2315.33). R.C. 2307.711(A) applies R.C. 2315.32 to 2315.36 to product liability claims. A contributory or comparative fault defense based on the plaintiff's own safety failures is therefore a real defense under Ohio law. One nuance: contributory negligence is no longer a complete bar in Ohio, and the statutory term is 'contributory fault.'",
+        "evidence_excerpt": "R.C. 2315.33: \"The contributory fault of a person does not bar the person as plaintiff from recovering damages ... if the contributory fault of the plaintiff was not greater than the combined tortious conduct of all other persons\". R.C. 2307.711(A): \"sections 2315.32 to 2315.36 of the Revised Code apply to a product liability claim\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2315.33",
+          "https://codes.ohio.gov/ohio-revised-code/section-2307.711"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "osha-citations.docx.md",
+      "location": "Transmittal Letter, paragraph 2 (line 36)",
+      "authority_type": "statute",
+      "authority": "Ohio Revised Code Chapter 4167",
+      "citation_as_written": "Ohio Revised Code Chapter 4167",
+      "pincite": "",
+      "cited_for": "Source of the Ohio Division of Safety & Hygiene's authority to inspect the workplace and issue citations for violations of Ohio occupational safety and health standards",
+      "quotes": [],
+      "context": "Pursuant to the authority vested in the Ohio Division of Safety & Hygiene under Ohio Revised Code Chapter 4167 and the rules adopted thereunder, the Division conducted an inspection of your workplace",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "For a private-sector employer in Ohio, inspection and citation authority lies with federal OSHA under 29 U.S.C. § 657–658. R.C. Chapter 4167 covers only public employers.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "R.C. Chapter 4167 is real. It is Ohio's public-employment risk reduction program, and it gives the administrator power to inspect and cite under R.C. 4167.10. But under R.C. 4167.01 it applies only to 'public employers' (the state, political subdivisions and their instrumentalities) and 'public employees.' The only private-employer exception covers employees of a contractor with a public employer over whom the NLRB has declined jurisdiction. The inspected workplace belongs to Dalton Precision Manufacturing, a private manufacturer in Dayton. The chapter therefore gives no authority to inspect and cite that employer, so the transmittal letter cites the chapter for authority it does not confer.",
+        "evidence_excerpt": "R.C. 4167.01(A) 'Public employer' means: 'The state and its instrumentalities; any political subdivisions and their instrumentalities ... any other branch of public employment.' (B) 'Public employee' means 'Any individual who engages to furnish services subject to the direction and control of a public employer, including those individuals working for a private employer who has contracted with a public employer and over whom the national labor relations board has declined jurisdiction.'",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-4167",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. R.C. Chapter 4167 is real and does give inspection and citation authority. R.C. 4167.10 lets the administrator 'enter without delay ... to inspect and investigate any plant, facility, establishment ...' and to 'issue a citation to the public employer.' But that authority reaches only public employers. R.C. 4167.01 defines 'public employer' as the state, political subdivisions and their instrumentalities, and 'any other branch of public employment.' The only private-sector workers it covers are 'individuals working for a private employer who has contracted with a public employer and over whom the national labor relations board has declined jurisdiction.' The cited employer, Dalton Precision Manufacturing, Inc., is a private manufacturer in Dayton, and nothing in the document says it contracts with a public employer. So the chapter does not authorize the inspection and citations it is cited for. I found nothing to support a broader reading.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.10"
+        ]
+      }
+    },
+    {
+      "ref": 68,
+      "document": "osha-citations.docx.md",
+      "location": "Citation 1, Item 1 - Standard Cited (line 62)",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.147(c)(4)(i) (lockout/tagout, as adopted under Ohio Administrative Code 4167)",
+      "citation_as_written": "29 CFR 1910.147(c)(4)(i), as adopted under Ohio Administrative Code 4167",
+      "pincite": "(c)(4)(i)",
+      "cited_for": "Standard cited for serious violation: energy-isolating devices on the HX-9000 accumulator circuit were not adequate or lockable (lockout/tagout)",
+      "quotes": [
+        "Energy isolating devices for each machine or piece of equipment shall be capable of being locked out. When an energy isolating device is not capable of being locked out, the employer's energy control program shall use a tagout system, and the employer shall use additional means to provide a level of protection equivalent to that obtained by the use of a lockout device."
+      ],
+      "context": "Standard Cited: 29 CFR 1910.147(c)(4)(i), as adopted under Ohio Administrative Code 4167. Regulatory Text: \"Energy isolating devices for each machine or piece of equipment shall be capable of being locked out.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISQUOTED",
+        "authority_exists": "yes",
+        "correct_citation": "29 CFR 1910.147(c)(2)(iii) (new or modified equipment must accept a lockout device); see also (c)(2)(i)-(ii) and (c)(3). (c)(4)(i) covers written energy-control procedures.",
+        "quote_check": "not found: the quoted 'Regulatory Text' does not appear verbatim anywhere in 29 CFR 1910.147. It is a paraphrase that blends (c)(2)(i)-(iii) and (c)(3)(i)-(ii).",
+        "explanation": "29 CFR 1910.147 is the real lockout/tagout standard. But (c)(4)(i) requires that energy-control procedures be 'developed, documented and utilized.' It does not say devices must be capable of being locked out. The quoted text is invented: it echoes (c)(2)(i) (use tagout if a device can't be locked out), (c)(2)(iii) (equipment installed after 1990 must accept a lockout device), and (c)(3) (tagout must give safety equivalent to lockout). Charge (b), the missing accumulator steps in the written LOTO procedure, does fit (c)(4)(i). The main charge, a non-lockable isolation valve on newly installed equipment, fits (c)(2)(iii) better. Separate jurisdiction problem: Ohio Revised Code Chapter 4167, and OAC 4167-3, which adopts Part 1910, cover public employers only. A private manufacturer would normally be cited by federal OSHA.",
+        "evidence_excerpt": "(c)(4)(i): \"Procedures shall be developed, documented and utilized for the control of potentially hazardous energy when employees are engaged in the activities covered by this section.\" (c)(2)(iii): \"...energy isolating devices for such machine or equipment shall be designed to accept a lockout device.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.147",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01",
+          "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISQUOTED",
+        "explanation": "The finding holds. 29 CFR 1910.147(c)(4)(i) reads: 'Procedures shall be developed, documented and utilized for the control of potentially hazardous energy when employees are engaged in the activities covered by this section.' The quoted sentence, 'Energy isolating devices for each machine or piece of equipment shall be capable of being locked out ...', appears nowhere in § 1910.147. Its parts loosely echo three other paragraphs. (c)(2)(i): 'If an energy isolating device is not capable of being locked out, the employer's energy control program ... shall utilize a tagout system.' (c)(2)(iii): new or modified equipment 'shall be designed to accept a lockout device.' (c)(3) requires tagout to give equivalent protection. The standard is real and fits the lockout/tagout subject, but the quoted 'regulatory text' is invented and is attributed to the wrong subsection. MISQUOTED is the right status. A secondary problem: OAC 4167-3-01 adopts Part 1910 only as 'Ohio employment risk reduction standards' under the public-employer program in R.C. Chapter 4167, so the 'as adopted under Ohio Administrative Code 4167' framing does not fit a private employer either.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.147",
+          "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01"
+        ]
+      }
+    },
+    {
+      "ref": 69,
+      "document": "osha-citations.docx.md",
+      "location": "Citation 1, Item 1 - Standard Cited (line 62)",
+      "authority_type": "regulation",
+      "authority": "Ohio Administrative Code 4167",
+      "citation_as_written": "Ohio Administrative Code 4167",
+      "pincite": "",
+      "cited_for": "Ohio rules under which the federal lockout/tagout standard is adopted for the Item 1 citation",
+      "quotes": [],
+      "context": "29 CFR 1910.147(c)(4)(i), as adopted under Ohio Administrative Code 4167",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Adm. Code 4167-3-01",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio Adm. Code 4167-3-01 does incorporate 29 CFR Part 1910, Subparts C through T and Subpart Z, as Ohio employment risk reduction standards. Section 1910.147, the lockout/tagout standard in Subpart J, falls inside that range, so the 'as adopted under' statement is accurate. Defects: the document cites only the chapter, not the rule. More substantively, Chapter 4167 is Ohio's public-employer program: R.C. 4167.01 defines covered employers as the state, its political subdivisions and their instrumentalities. A private manufacturer like Dalton would normally be cited by federal OSHA, not under Chapter 4167. That is a flaw in the fictional scenario, not in the adoption statement itself.",
+        "evidence_excerpt": "OAC 4167-3-01 incorporates \"Title 29, Subtitle B, Chapter XVII, Part 1910 occupational safety and health standards Subpart C to and including Subpart T, and Subpart Z.\" R.C. 4167.01: \"Public employer\" means \"The state and its instrumentalities\" ... \"Any political subdivisions and their instrumentalities\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01",
+          "https://codes.ohio.gov/ohio-administrative-code/chapter-4167-3",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "osha-citations.docx.md",
+      "location": "Citation 1, Item 2 - Standard Cited (line 94)",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.212(a)(1) (machine guarding, as adopted under Ohio Administrative Code 4167)",
+      "citation_as_written": "29 CFR 1910.212(a)(1), as adopted under Ohio Administrative Code 4167",
+      "pincite": "(a)(1)",
+      "cited_for": "Standard cited for serious violation: inadequate machine guarding on the HX-9000 main hydraulic cylinder housing against ejected components",
+      "quotes": [
+        "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards such as those created by point of operation, ingoing nip points, rotating parts, flying chips and sparks. Examples of guarding methods are — barrier guards, two-hand tripping devices, electronic safety devices, etc."
+      ],
+      "context": "Standard Cited: 29 CFR 1910.212(a)(1), as adopted under Ohio Administrative Code 4167. Regulatory Text: \"One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "29 CFR 1910.212(a)(1)",
+        "quote_check": "found verbatim (spacing around the em dash differs only trivially) in 29 CFR 1910.212(a)(1)",
+        "explanation": "The quoted regulatory text matches 1910.212(a)(1) word for word, and the standard reasonably supports a citation for failing to guard against ejected components. Minor defect in the 'as adopted under Ohio Administrative Code 4167' framing: OAC 4167-3 does adopt Part 1910, but ORC Chapter 4167 applies to public employers only. A private manufacturer like Dalton would fall under federal OSHA, not the Ohio Division of Safety & Hygiene.",
+        "evidence_excerpt": "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards such as those created by point of operation, ingoing nip points, rotating parts, flying chips and sparks. Examples of guarding methods are— barrier guards, two-hand tripping devices, electronic safety devices, etc.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.212",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01",
+          "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "osha-citations.docx.md",
+      "location": "Citation 1, Item 2 - Standard Cited (line 94)",
+      "authority_type": "regulation",
+      "authority": "Ohio Administrative Code 4167",
+      "citation_as_written": "Ohio Administrative Code 4167",
+      "pincite": "",
+      "cited_for": "Ohio rules under which the federal machine guarding standard is adopted for the Item 2 citation",
+      "quotes": [],
+      "context": "29 CFR 1910.212(a)(1), as adopted under Ohio Administrative Code 4167",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Adm. Code 4167-3-01",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio Adm. Code 4167-3-01 incorporates 29 CFR Part 1910, Subparts C through T. Section 1910.212(a)(1), the machine-guarding standard in Subpart O, is within that range, so it is 'adopted under' OAC Chapter 4167. Defects: the citation is to the chapter rather than rule 4167-3-01. Chapter 4167 (R.C. 4167.01) also covers only public employers, so applying it to a private manufacturer is a flaw in the fictional scenario.",
+        "evidence_excerpt": "OAC 4167-3-01 incorporates \"Title 29, Subtitle B, Chapter XVII, Part 1910 occupational safety and health standards Subpart C to and including Subpart T, and Subpart Z.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-administrative-code/rule-4167-3-01",
+          "https://codes.ohio.gov/ohio-revised-code/section-4167.01"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "osha-citations.docx.md",
+      "location": "Summary of Penalties table (line 124)",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.147(c)(4)(i)",
+      "citation_as_written": "29 CFR 1910.147(c)(4)(i)",
+      "pincite": "",
+      "cited_for": "Penalty summary row: Citation 1 Item 1, Serious, $18,900.00",
+      "quotes": [],
+      "context": "| 1 | 1 | 29 CFR 1910.147(c)(4)(i) | Serious | $18,900.00 |",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Device-lockability requirements are at 29 CFR 1910.147(c)(2)(i)-(iii) and (c)(3); (c)(4)(i) covers energy control procedures",
+        "quote_check": "No quotes attributed to this row. However, the same document's 'Regulatory Text' for Citation 1 Item 1 ('Energy isolating devices for each machine or piece of equipment shall be capable of being locked out...') does not appear in (c)(4)(i). It loosely paraphrases (c)(2)(i)-(iii) and (c)(3).",
+        "explanation": "The penalty-table row cites a real LOTO standard, and (c)(4)(i) can support the part of the citation that faults the written procedure (element (b)). But the citation's main theory is inadequate, non-lockable isolation devices, and the regulatory text the document quotes for (c)(4)(i) actually belongs to (c)(2)/(c)(3). The subsection pin is therefore a loose fit.",
+        "evidence_excerpt": "(2) Lockout/tagout. (i) If an energy isolating device is not capable of being locked out, the employer's energy control program under paragraph (c)(1) of this section shall utilize a tagout system. ... (4) Energy control procedure. (i) Procedures shall be developed, documented and utilized...",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-03-01/title-29.xml?part=1910&section=1910.147"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "osha-citations.docx.md",
+      "location": "Summary of Penalties table (line 125)",
+      "authority_type": "regulation",
+      "authority": "29 CFR 1910.212(a)(1)",
+      "citation_as_written": "29 CFR 1910.212(a)(1)",
+      "pincite": "",
+      "cited_for": "Penalty summary row: Citation 1 Item 2, Serious, $12,500.00",
+      "quotes": [],
+      "context": "| 1 | 2 | 29 CFR 1910.212(a)(1) | Serious | $12,500.00 |",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "no quotes",
+        "explanation": "The penalty summary row cites 29 CFR 1910.212(a)(1), a real machine-guarding standard, which matches Item 2. The $12,500 amount is a scenario fact.",
+        "evidence_excerpt": "(a) Machine guarding—(1) Types of guarding. One or more methods of machine guarding shall be provided...",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/29/1910.212"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 9, Termination of Engagement (line 99)",
+      "authority_type": "court_rule",
+      "authority": "Ohio Rules of Professional Conduct",
+      "citation_as_written": "Ohio Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "The firm will comply with the Ohio Rules of Professional Conduct and court rules governing withdrawal of counsel if it withdraws from the representation",
+      "quotes": [],
+      "context": "If the firm withdraws from the representation, it will do so in compliance with the applicable Ohio Rules of Professional Conduct and any court rules governing the withdrawal of counsel.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rules of Professional Conduct, Prof.Cond.R. 1.16",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Ohio Rules of Professional Conduct exist. Rule 1.16 (Declining or Terminating Representation) governs withdrawal. It requires leave of court when a tribunal's rules require it, and it requires steps to protect the client's interests. The engagement letter's general promise to comply with these rules and with court rules on withdrawal is accurate.",
+        "evidence_excerpt": "Rule 1.16(c) prohibits a lawyer from withdrawing from representation in a proceeding without leave of court if the rules of the tribunal so require, and Rule 1.16(d) requires a lawyer withdrawing from representation to take reasonably practicable steps to protect the client's interest.",
+        "source_urls": [
+          "https://www.supremecourt.ohio.gov/docs/LegalResources/Rules/ProfConduct/profConductRules.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "insurance-dec-pages.docx.md",
+      "location": "Umbrella Declarations, Section 5 Key Exclusions, item 8 (line 214)",
+      "authority_type": "statute",
+      "authority": "Employee Retirement Income Security Act of 1974",
+      "citation_as_written": "Employee Retirement Income Security Act of 1974, as amended",
+      "pincite": "",
+      "cited_for": "Umbrella policy exclusion for claims arising under ERISA or similar federal, state, or local statutes",
+      "quotes": [],
+      "context": "ERISA — This policy does not apply to claims arising under the Employee Retirement Income Security Act of 1974, as amended, or any similar federal, state, or local statute.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Employee Retirement Income Security Act of 1974, Pub. L. 93-406, 29 U.S.C. § 1001 et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ERISA is a real federal statute and its short title is exactly as stated. The policy exclusion only refers to it by name, which is accurate.",
+        "evidence_excerpt": "This Act ... may be cited as the 'Employee Retirement Income Security Act of 1974'.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/1001"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

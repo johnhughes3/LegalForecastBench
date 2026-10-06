@@ -1,0 +1,795 @@
+{
+  "task": "draft-complaint",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "agrinova-press-release.docx.md",
+    "damages-analysis-summary.xlsx.md",
+    "kowalski-declaration.docx.md",
+    "okonkwo-declaration.docx.md",
+    "sentinel-forensics-report.docx.md",
+    "showalter-memo-to-counsel.docx.md",
+    "task.json.md",
+    "tate-ciaa.docx.md",
+    "tate-employment-agreement.docx.md",
+    "tate-resignation-letter.docx.md",
+    "verdant-trade-secret-summary.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "kowalski-declaration.docx.md",
+      "location": "Preamble, line 17",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration made under penalty of perjury",
+      "quotes": [],
+      "context": "I, Dr. Anya Kowalski, hereby declare under penalty of perjury pursuant to 28 U.S.C. § 1746 as follows:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1746 allows an unsworn declaration subscribed as true under penalty of perjury to stand in for a sworn affidavit. The declarant's preamble properly invokes the statute. The statute's form also calls for a dated, signed closing statement that the foregoing is true and correct; that is a drafting point, not a citation defect.",
+        "evidence_excerpt": "such matter may, with like force and effect, be supported ... by the unsworn declaration ... which is subscribed by him, as true under penalty of perjury, and dated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "damages-analysis-summary.xlsx.md",
+      "location": "Sheet 'DCF Valuation & Damages Estimat', cell B39",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act exemplary damages, 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Up to 2x actual damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "DTSA Exemplary Damages | Up to 2x actual damages for willful and malicious misappropriation under 18 U.S.C. § 1836(b)(3)(C)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under (b)(3)(B) when the misappropriation is willful and malicious. This matches the spreadsheet's description.",
+        "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "damages-analysis-summary.xlsx.md",
+      "location": "Sheet 'DCF Valuation & Damages Estimat', cell D39",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1833(b) (whistleblower immunity notice)",
+      "citation_as_written": "18 U.S.C. § 1833(b)",
+      "pincite": "",
+      "cited_for": "Availability of DTSA exemplary damages may depend on compliance with whistleblower immunity notice requirements",
+      "quotes": [],
+      "context": "Availability may depend on compliance with 18 U.S.C. § 1833(b) whistleblower immunity notice requirements — refer to legal counsel",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under 18 U.S.C. § 1833(b)(3)(A), an employer must give notice of the whistleblower immunity in any contract or agreement with an employee that governs trade secrets or confidential information. Section 1833(b)(3)(C) provides that an employer who does not give that notice may not be awarded exemplary damages or attorney fees under 18 U.S.C. § 1836(b)(3)(C)-(D) against an employee who did not receive it. The statute supports the hedged statement that DTSA exemplary damages 'may depend on' compliance. The precise provision is § 1833(b)(3). Under (b)(3)(D), the rule reaches only contracts entered into or updated after the 2016 enactment.",
+        "evidence_excerpt": "If an employer does not comply with the notice requirement in subparagraph (A), the employer may not be awarded exemplary damages or attorney fees under subparagraph (C) or (D) of section 1836(b)(3) in an action against an employee to whom notice was not provided.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1833",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "damages-analysis-summary.xlsx.md",
+      "location": "Sheet 'DCF Valuation & Damages Estat', cell D33 and A55 (references)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA), general reference",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Exemplary damages up to 2x under DTSA (excluded from total); interstate/foreign commerce relation of trade secrets",
+      "quotes": [],
+      "context": "Excludes: (i) punitive / exemplary damages (up to 2x under DTSA)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(3)(C) (exemplary damages); § 1836(b)(1) (interstate commerce)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Under the DTSA, exemplary damages are capped at 2 times the actual damages award for willful and malicious misappropriation, and the civil action requires that the trade secret relate to a product or service in interstate or foreign commerce. Both general references are accurate.",
+        "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "tate-ciaa.docx.md",
+      "location": "Section 3.3 Work Made for Hire, line 83",
+      "authority_type": "statute",
+      "authority": "United States Copyright Act, 17 U.S.C. § 101",
+      "citation_as_written": "17 U.S.C. § 101",
+      "pincite": "",
+      "cited_for": "Definition of 'work made for hire'",
+      "quotes": [
+        "work made for hire"
+      ],
+      "context": "To the extent any Company Invention constitutes a \"work made for hire\" as defined under the United States Copyright Act, 17 U.S.C. § 101, the Employee acknowledges that such work is a work made for hire",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"work made for hire\": found verbatim as a defined term in 17 U.S.C. § 101.",
+        "explanation": "17 U.S.C. § 101 defines 'work made for hire' to include (1) a work prepared by an employee within the scope of employment, and (2) certain specially commissioned works covered by a signed written agreement. The contract correctly references this definition.",
+        "evidence_excerpt": "A \"work made for hire\" is— (1) a work prepared by an employee within the scope of his or her employment; or (2) a work specially ordered or commissioned ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/17/101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "verdant-trade-secret-summary.docx.md",
+      "location": "Section 4 (Protective Measures), line 85",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1839(3)(A)",
+      "citation_as_written": "18 U.S.C. § 1839(3)(A)",
+      "pincite": "(3)(A)",
+      "cited_for": "Reasonable measures to protect secrecy required for trade secret status under DTSA",
+      "quotes": [],
+      "context": "reasonable measures to protect the secrecy of its trade secret information, as required under both the Defend Trade Secrets Act, 18 U.S.C. § 1839(3)(A), and the North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152(3)(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1839(3)(A) makes it a condition of trade secret status under the DTSA that the owner has taken reasonable measures to keep the information secret. This supports the proposition. (The same sentence in the document also cites N.C. Gen. Stat. § 66-152(3)(a). In the NC statute, the reasonable-efforts element appears to be sub-part b., not a. That NC cite is outside this ref and was not checked here.)",
+        "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "verdant-trade-secret-summary.docx.md",
+      "location": "Section 4 (Protective Measures), line 85",
+      "authority_type": "statute",
+      "authority": "North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152(3)(a)",
+      "citation_as_written": "N.C. Gen. Stat. § 66-152(3)(a)",
+      "pincite": "(3)(a)",
+      "cited_for": "Reasonable efforts to maintain secrecy required for trade secret status under NC TSPA",
+      "quotes": [],
+      "context": "as required under both the Defend Trade Secrets Act, 18 U.S.C. § 1839(3)(A), and the North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. § 66-152(3)(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "N.C. Gen. Stat. § 66-152(3)(b)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 66-152(3) defines a trade secret with two prongs. Prong a covers independent commercial value from not being generally known. The reasonable-efforts-to-maintain-secrecy requirement is in prong b, not (3)(a). The statute does support the proposition, but the pin cite points to the wrong subparagraph. NC also styles the subparagraphs with lowercase letters.",
+        "evidence_excerpt": "(3) \"Trade secret\" means business or technical information ... that: a. Derives independent actual or potential commercial value from not being generally known ...; and b. Is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-152.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "showalter-memo-to-counsel.docx.md",
+      "location": "Section II, line 27",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "Defend Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Interstate/foreign commerce jurisdictional predicate for a federal trade secret claim",
+      "quotes": [],
+      "context": "establishing the jurisdictional predicate for any federal trade secret claim under the Defend Trade Secrets Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(1) (Defend Trade Secrets Act of 2016, Pub. L. 114-153)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The DTSA civil action is available only if the trade secret relates to a product or service used in, or intended for use in, interstate or foreign commerce. That supports the memo's 'jurisdictional predicate' characterization.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "showalter-memo-to-counsel.docx.md",
+      "location": "Section IX, claim (1), line 155",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. §§ 1836–1839",
+      "citation_as_written": "18 U.S.C. §§ 1836–1839",
+      "pincite": "",
+      "cited_for": "Federal trade secret misappropriation claim against Tate and AgriNova",
+      "quotes": [],
+      "context": "Federal trade secret misappropriation under the Defend Trade Secrets Act (18 U.S.C. §§ 1836–1839) — against both Tate and AgriNova.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same authority as ref 23. Sections 1836–1839 give the private civil cause of action for trade secret misappropriation and define its terms. The citation is accurate for a federal trade secret misappropriation claim.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "showalter-memo-to-counsel.docx.md",
+      "location": "Section IX, claim (2), line 157",
+      "authority_type": "statute",
+      "authority": "North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. §§ 66-152 to 66-157",
+      "citation_as_written": "N.C. Gen. Stat. §§ 66-152 to 66-157",
+      "pincite": "",
+      "cited_for": "State trade secret misappropriation claim against Tate and AgriNova",
+      "quotes": [],
+      "context": "State trade secret misappropriation under the North Carolina Trade Secrets Protection Act (N.C. Gen. Stat. §§ 66-152 to 66-157)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Article 24 of Chapter 66 is the Trade Secrets Protection Act and spans §§ 66-152 (Definitions) through 66-157 (Statute of limitations); §§ 66-158 to 66-162 are reserved. § 66-153 creates a civil action for misappropriation, so the statute supports a state trade secret misappropriation claim.",
+        "evidence_excerpt": "Article 24. Trade Secrets Protection Act. ... § 66-153. Action for misappropriation. The owner of a trade secret shall have remedy by civil action for misappropriation of his trade secret.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-153.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "showalter-memo-to-counsel.docx.md",
+      "location": "Section IX, Jurisdiction and Venue, line 175",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction",
+      "quotes": [],
+      "context": "Federal question jurisdiction lies under the DTSA (18 U.S.C. § 1836), with supplemental jurisdiction (28 U.S.C. § 1367) for the state-law claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(c); 28 U.S.C. § 1331",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(c) gives federal district courts original jurisdiction over civil actions under the section. A DTSA claim arises under federal law, so citing § 1836 as the basis for federal question jurisdiction is a fair general reference. The more precise pin is § 1836(c), together with 28 U.S.C. § 1331.",
+        "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "showalter-memo-to-counsel.docx.md",
+      "location": "Section IX, Jurisdiction and Venue, line 175",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state-law claims",
+      "quotes": [],
+      "context": "with supplemental jurisdiction (28 U.S.C. § 1367) for the state-law claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under § 1367(a), district courts have supplemental jurisdiction over related state-law claims that form part of the same case or controversy as the claims within their original jurisdiction.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "task.json.md",
+      "location": "rubric C-010 (line 94)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal subject-matter jurisdiction based on DTSA",
+      "quotes": [],
+      "context": "federal subject-matter jurisdiction based on the Defend Trade Secrets Act (18 U.S.C. § 1836) as a federal question (28 U.S.C. § 1331)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rubric bases federal-question jurisdiction on the DTSA (18 U.S.C. § 1836) and 28 U.S.C. § 1331. That is accurate: § 1836(c) confers original jurisdiction over DTSA civil actions, and a DTSA claim arises under federal law.",
+        "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "task.json.md",
+      "location": "rubric C-010 (line 94)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction",
+      "quotes": [],
+      "context": "as a federal question (28 U.S.C. § 1331)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1331 is the general federal-question jurisdiction statute. A DTSA claim arises under federal law.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "task.json.md",
+      "location": "rubric C-011 (line 102)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction for state-law claims",
+      "quotes": [],
+      "context": "PASS if the complaint asserts supplemental jurisdiction under 28 U.S.C. § 1367 for the state-law claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1367(a) grants supplemental jurisdiction over state-law claims that are related to the claims within the court's original jurisdiction.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "task.json.md",
+      "location": "rubric C-012 (line 110)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "(b)",
+      "cited_for": "Venue proper where defendants reside / substantial part of events occurred",
+      "quotes": [],
+      "context": "PASS if the complaint alleges venue is proper under 28 U.S.C. § 1391(b), noting that defendants reside in the district and/or a substantial part of the events occurred there.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(1) makes venue proper where any defendant resides if all defendants reside in the same State. Section 1391(b)(2) makes venue proper where a substantial part of the events or omissions occurred. Both bases match the rubric's description.",
+        "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "task.json.md",
+      "location": "rubric C-016 (line 142)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(1)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(1)",
+      "pincite": "(b)(1)",
+      "cited_for": "Trade secret related to product or service used in or intended for use in interstate or foreign commerce",
+      "quotes": [],
+      "context": "relate to products or services used in, or intended for use in, interstate or foreign commerce (per 18 U.S.C. § 1836(b)(1))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No formal quotes. The rubric's phrase 'used in, or intended for use in, interstate or foreign commerce' tracks the statutory text verbatim.",
+        "explanation": "Section 1836(b)(1) requires that the trade secret be related to a product or service used in, or intended for use in, interstate or foreign commerce. The rubric states this accurately and cites the correct subsection.",
+        "evidence_excerpt": "if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "task.json.md",
+      "location": "rubric C-018 (line 159)",
+      "authority_type": "statute",
+      "authority": "DTSA ex parte seizure, 18 U.S.C. § 1836(b)(2)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(2)",
+      "pincite": "(b)(2)",
+      "cited_for": "Ex parte seizure available in extraordinary circumstances",
+      "quotes": [],
+      "context": "mention the DTSA's ex parte seizure provision (18 U.S.C. § 1836(b)(2)) as an available remedy or strategic option, noting it applies in extraordinary circumstances",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(2) is the DTSA civil seizure provision. Under (b)(2)(A)(i), a court may order seizure of property on an ex parte application, but only in extraordinary circumstances. This matches the proposition.",
+        "evidence_excerpt": "(b)(2)(A)(i) ... the court may, upon ex parte application but only in extraordinary circumstances, issue an order providing for the seizure of property necessary to prevent the propagation or dissemination of the trade secret",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "task.json.md",
+      "location": "rubric C-019 (line 167)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1833(b) whistleblower immunity notice",
+      "citation_as_written": "18 U.S.C. § 1833(b)",
+      "pincite": "(b)",
+      "cited_for": "Employment agreements must contain whistleblower immunity notice; omission may preclude exemplary damages/attorney fees",
+      "quotes": [],
+      "context": "neither the Employment Agreement nor the CIAA contains the whistleblower immunity notice required by 18 U.S.C. § 1833(b), and note that this omission may preclude Verdant from recovering exemplary damages and/or attorney fees under the DTSA",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1833(b)(3)(A) requires an employer to give notice of the immunity in any contract or agreement with an employee that governs the use of trade secrets or other confidential information. An employment agreement or CIAA is that kind of agreement. Under (b)(3)(C), failing to give notice bars exemplary damages and attorney fees against an employee who was not notified. The proposition's hedged 'may preclude' is accurate. The more precise pin is § 1833(b)(3). The requirement applies only to agreements entered into or updated after the May 2016 enactment (b)(3)(D).",
+        "evidence_excerpt": "An employer shall provide notice of the immunity set forth in this subsection in any contract or agreement with an employee that governs the use of a trade secret or other confidential information.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1833"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "task.json.md",
+      "location": "rubric C-020 (line 175)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1833(b) / DTSA exemplary damages and fees",
+      "citation_as_written": "§ 1833(b)",
+      "pincite": "",
+      "cited_for": "Missing notice makes exemplary damages (up to 2x) and/or attorney fees unavailable",
+      "quotes": [],
+      "context": "without the § 1833(b) whistleblower immunity notice in the employment agreements, exemplary damages (up to 2x under DTSA) and/or attorney fees under the DTSA may be unavailable or subject to challenge",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under § 1833(b)(3)(C), an employer who fails to give the notice may not be awarded exemplary damages or attorney fees under § 1836(b)(3)(C)-(D) against an employee who did not receive it. The 'up to 2x' figure comes from the cross-referenced § 1836(b)(3)(C), which caps exemplary damages at 2 times the damages awarded. The rubric's statement is accurate. Its 'may be unavailable or subject to challenge' wording fits the statute's limits: the bar applies only against the employee who was not notified, and only to agreements entered into or updated after enactment.",
+        "evidence_excerpt": "the employer may not be awarded exemplary damages or attorney fees under subparagraph (C) or (D) of section 1836(b)(3) in an action against an employee to whom notice was not provided. ... § 1836(b)(3)(C): award exemplary damages in an amount not more than 2 times the amount of the damages awarded",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1833",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "task.json.md",
+      "location": "rubric C-024 (line 209)",
+      "authority_type": "statute",
+      "authority": "N.C. Gen. Stat. § 66-157 (NC TSPA statute of limitations)",
+      "citation_as_written": "N.C. Gen. Stat. § 66-157",
+      "pincite": "",
+      "cited_for": "3-year statute of limitations for NC trade secret claims",
+      "quotes": [],
+      "context": "reference the 3-year statute of limitations under N.C. Gen. Stat. § 66-157 and allege or note that the filing is timely",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. Gen. Stat. § 66-157 is the statute of limitations for the NC Trade Secrets Protection Act. An action must be brought within three years after the misappropriation is discovered or reasonably should have been discovered. This supports the '3-year statute of limitations' proposition.",
+        "evidence_excerpt": "An action for misappropriation of a trade secret must be commenced within three years after the misappropriation complained of is or reasonably should have been discovered.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-157.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "task.json.md",
+      "location": "rubric C-027 (line 234)",
+      "authority_type": "statute",
+      "authority": "N.C. Gen. Stat. § 66-157(a) (NC TSPA preemption)",
+      "citation_as_written": "N.C. Gen. Stat. § 66-157(a)",
+      "pincite": "(a)",
+      "cited_for": "NC TSPA may preempt unjust enrichment and/or civil conspiracy claims based solely on trade secret misappropriation",
+      "quotes": [],
+      "context": "the NC Trade Secrets Protection Act (N.C. Gen. Stat. § 66-157(a)) may preempt the unjust enrichment and/or civil conspiracy claims insofar as they are based solely on trade secret misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "N.C. Gen. Stat. § 66-157 (statute of limitations; it has no subsection (a))",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. Gen. Stat. § 66-157 has no subsection (a). The section is one sentence setting the 3-year limitations period, and it says nothing about preemption. No section of the NC Trade Secrets Protection Act (§§ 66-152 to 66-157) contains a preemption or displacement clause like the one in the Uniform Trade Secrets Act. So the cited provision cannot support the claim that the Act may preempt unjust enrichment or civil conspiracy claims. Any such argument would have to come from case law, not from § 66-157(a).",
+        "evidence_excerpt": "G.S. 66-157. Statute of limitations. An action for misappropriation of a trade secret must be commenced within three years after the misappropriation complained of is or reasonably should have been discovered.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-157.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The citation appears in the task.json rubric (ISSUE_008), which says the NC Trade Secrets Protection Act, cited as \"N.C. Gen. Stat. § 66-157(a)\", may preempt the unjust enrichment and civil conspiracy claims. I read the official NC General Assembly text of Article 24 (§§ 66-152 to 66-157). § 66-157 has no subsections. It is one sentence titled \"Statute of limitations\": \"An action for misappropriation of a trade secret must be commenced within three years after the misappropriation complained of is or reasonably should have been discovered.\" I searched the full article text for \"preempt\", \"displace\", \"exclusive\", \"supersede\" and \"other remed\". None of those terms appears. No section has a UTSA-style displacement clause; §§ 66-158 through 66-162 are \"Reserved for future codification purposes.\" The only nearby language is in § 66-155, which says the section \"shall not be construed to deprive the person against whom relief is sought of any other defenses provided under the law.\" That is about defenses, not preemption. So the statute is real but does not support the preemption proposition, and the pinpoint \"(a)\" does not exist. MISCHARACTERIZED is the right status. The wrong subsection is a secondary defect.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-157.html"
+        ]
+      }
+    },
+    {
+      "ref": 22,
+      "document": "task.json.md",
+      "location": "rubric C-034 (line 290)",
+      "authority_type": "statute",
+      "authority": "DTSA exemplary damages, 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Up to 2x damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "reference to the DTSA's provision for up to 2x damages for willful and malicious misappropriation (18 U.S.C. § 1836(b)(3)(C))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Under § 1836(b)(3)(C), when a trade secret is willfully and maliciously misappropriated, a court may award exemplary damages of up to 2 times the damages awarded under (b)(3)(B). This matches the 'up to 2x' proposition.",
+        "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "task.json.md",
+      "location": "rubric C-040 (line 338)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. §§ 1836-1839",
+      "citation_as_written": "18 U.S.C. §§ 1836-1839",
+      "pincite": "",
+      "cited_for": "Count I DTSA misappropriation against Tate and AgriNova",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Defend Trade Secrets Act (18 U.S.C. §§ 1836-1839) asserted against both Tate and AgriNova",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. §§ 1836–1839 contain the DTSA civil action (§ 1836(b)(1)) and the definitions (§ 1839), so they support a DTSA misappropriation count. The statute lets the trade secret owner sue whoever misappropriated the secret, and nothing in it stops that count being pleaded against both an individual and a company.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "task.json.md",
+      "location": "rubric C-041 (line 346)",
+      "authority_type": "statute",
+      "authority": "North Carolina Trade Secrets Protection Act, N.C. Gen. Stat. §§ 66-152 to 66-157",
+      "citation_as_written": "N.C. Gen. Stat. §§ 66-152 to 66-157",
+      "pincite": "",
+      "cited_for": "Count II NC TSPA misappropriation against both defendants",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the North Carolina Trade Secrets Protection Act (N.C. Gen. Stat. §§ 66-152 to 66-157) asserted against both Tate and AgriNova",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is the same authority as ref 9. The NC Trade Secrets Protection Act is codified at §§ 66-152 through 66-157 and provides a civil action for misappropriation. § 66-152(1) defines misappropriation broadly enough to reach any person, so the claim can be asserted against both an individual and a corporate defendant (§ 66-152(2) defines 'person' to include corporations).",
+        "evidence_excerpt": "(2) \"Person\" means an individual, corporation, government, ... or any other legal or commercial entity. ... § 66-153. ... The owner of a trade secret shall have remedy by civil action for misappropriation of his trade secret.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/ByArticle/Chapter_66/Article_24.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-152.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "task.json.md",
+      "location": "rubric C-062 (line 514)",
+      "authority_type": "statute",
+      "authority": "Computer Fraud and Abuse Act (CFAA), by abbreviation",
+      "citation_as_written": "CFAA",
+      "pincite": "",
+      "cited_for": "No standalone CFAA/computer fraud claim should be asserted based on Protonmail use",
+      "quotes": [],
+      "context": "a separate standalone cause of action for computer fraud, unauthorized computer access (e.g., CFAA), or a similar claim",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1030 (Computer Fraud and Abuse Act of 1986)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The CFAA is real and is codified at 18 U.S.C. § 1030 ('Fraud and related activity in connection with computers'). It includes a civil cause of action in § 1030(g). The rubric names it only as an example of a claim the complaint should not assert, so the reference to the statute is accurate. Whether such a claim would actually fail on these facts is a judgment for the rubric and was not checked here.",
+        "evidence_excerpt": "This Act [amending section 1030 of this title] may be cited as the 'Computer Fraud and Abuse Act of 1986'. ... Any person who suffers damage or loss by reason of a violation of this section may maintain a civil action against the violator",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1001",
+          "https://www.law.cornell.edu/uscode/text/18/1030"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "sentinel-forensics-report.docx.md",
+      "location": "Section 3.4 Standards, line 83 (and Section 9, line 289)",
+      "authority_type": "other",
+      "authority": "NIST SP 800-86, Guide to Integrating Forensic Techniques into Incident Response",
+      "citation_as_written": "NIST SP 800-86",
+      "pincite": "",
+      "cited_for": "Forensic work performed in accordance with this standard",
+      "quotes": [],
+      "context": "All work was performed in accordance with NIST SP 800-86 (Guide to Integrating Forensic Techniques into Incident Response) and the Scientific Working Group on Digital Evidence (SWGDE) best practices",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "NIST SP 800-86 exists and has the title the report gives: 'Guide to Integrating Forensic Techniques into Incident Response' (August 2006). It is a NIST practical guidance document on computer and network forensics, so it is a fitting standard to cite for forensic work. Whether the fictional examiner actually followed it is a fact in the scenario and cannot be checked.",
+        "evidence_excerpt": "Guide to Integrating Forensic Techniques into Incident Response ... This publication is intended to help organizations in investigating computer security incidents and troubleshooting some information technology (IT) operational problems by providing practical guidance on performing computer and network forensics.",
+        "source_urls": [
+          "https://csrc.nist.gov/pubs/sp/800/86/final"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "okonkwo-declaration.docx.md",
+      "location": "Declaration title block, line 17 (\"Pursuant to 28 U.S.C. § 1746\")",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746 (unsworn declarations under penalty of perjury)",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration is made pursuant to the statute permitting unsworn declarations under penalty of perjury in lieu of sworn affidavits.",
+      "quotes": [],
+      "context": "DECLARATION OF DR. JAMES OKONKWO\n\nPursuant to 28 U.S.C. § 1746\n\nI, Dr. James Okonkwo, hereby declare and state as follows:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1746 permits matters required or permitted to be supported by sworn declaration or affidavit to be supported instead by an unsworn declaration subscribed as true under penalty of perjury and dated. The declaration's invocation of it is accurate.",
+        "evidence_excerpt": "such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

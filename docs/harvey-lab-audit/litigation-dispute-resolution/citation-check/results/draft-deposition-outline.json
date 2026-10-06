@@ -1,0 +1,1280 @@
+{
+  "task": "draft-deposition-outline",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "2023-performance-review.docx.md",
+    "discrimination-complaint-email.eml.md",
+    "first-amended-complaint.docx.md",
+    "hr-investigation-report.docx.md",
+    "it-service-ticket.docx.md",
+    "performance-improvement-plan.docx.md",
+    "q4-risk-report-email.eml.md",
+    "ridgeline-eeo-policy.docx.md",
+    "svp-performance-data-2023.xlsx.md",
+    "task.json.md",
+    "termination-letter.docx.md",
+    "whitford-cho-email-chain.eml.md",
+    "whitford-personnel-yazzie.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "first-amended-complaint.docx.md",
+      "location": "I. Introduction, ¶1",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Basis for national origin discrimination and retaliation claims",
+      "quotes": [],
+      "context": "brings this action against her former employer ... for national origin discrimination and retaliation in violation of Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and race and ethnicity discrimination in violation of 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Title VII is codified starting at 42 U.S.C. § 2000e (definitions), followed by §§ 2000e-1 and onward. It prohibits national origin discrimination (§ 2000e-2) and retaliation (§ 2000e-3). Citing it as '42 U.S.C. § 2000e et seq.' is the standard form.",
+        "evidence_excerpt": "§ 2000e-2(m): \"race, color, religion, sex, or national origin was a motivating factor for any employment practice\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "first-amended-complaint.docx.md",
+      "location": "I. Introduction, ¶1",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Basis for race and ethnicity discrimination claim",
+      "quotes": [],
+      "context": "and race and ethnicity discrimination in violation of 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1981 guarantees all persons the same right to make and enforce contracts, defined to include termination and the terms and conditions of the contractual relationship. It is the standard basis for race and ethnicity discrimination claims in employment. The complaint frames the claim as race and ethnicity discrimination rather than national-origin discrimination, which suits § 1981.",
+        "evidence_excerpt": "§ 1981(b): \"the term 'make and enforce contracts' includes the making, performance, modification, and termination of contracts, and the enjoyment of all benefits, privileges, terms, and conditions of the contractual relationship.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶3",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. §§ 1331 and 1343",
+      "citation_as_written": "28 U.S.C. §§ 1331 and 1343",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction because action arises under Title VII and § 1981",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction pursuant to 28 U.S.C. §§ 1331 and 1343 because this action arises under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1331 grants original jurisdiction over civil actions arising under federal law, which covers Title VII and § 1981. § 1343(a)(4) grants jurisdiction over actions for relief under any Act of Congress protecting civil rights. Both support subject-matter jurisdiction here.",
+        "evidence_excerpt": "§ 1331: \"The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.\" § 1343(a)(4): \"To recover damages or to secure equitable or other relief under any Act of Congress providing for the protection of civil rights\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/28/1343"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶3",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Federal question basis for jurisdiction",
+      "quotes": [],
+      "context": "because this action arises under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Title VII, codified at 42 U.S.C. § 2000e et seq., is a federal statute. A claim arising under it supports federal-question jurisdiction, and the cite form is standard.",
+        "evidence_excerpt": "§ 2000e-5(k): \"In any action or proceeding under this subchapter the court...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶3",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Federal question basis for jurisdiction",
+      "quotes": [],
+      "context": "arises under Title VII ... and 42 U.S.C. § 1981. This Court has original jurisdiction over all federal claims asserted herein.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1981 is a federal statute, so a claim under it arises under federal law for § 1331 purposes. It is correctly cited as one of the federal claims supporting original jurisdiction.",
+        "evidence_excerpt": "§ 1981(a): \"All persons within the jurisdiction of the United States shall have the same right in every State and Territory to make and enforce contracts...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶4",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over related state law claims",
+      "quotes": [],
+      "context": "This Court has supplemental jurisdiction over any and all state law claims ... pursuant to 28 U.S.C. § 1367, as such claims form part of the same case or controversy under Article III of the United States Constitution.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The paraphrase 'form part of the same case or controversy under Article III' tracks § 1367(a) nearly verbatim.",
+        "explanation": "§ 1367(a) grants supplemental jurisdiction over claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. The complaint pleads this only generically: 'any and all state law claims that may be related.' It does not appear to assert any state-law count, but that is a drafting point, not a citation defect.",
+        "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶4",
+      "authority_type": "other",
+      "authority": "U.S. Constitution, Article III",
+      "citation_as_written": "Article III of the United States Constitution",
+      "pincite": "",
+      "cited_for": "Same case or controversy standard for supplemental jurisdiction",
+      "quotes": [],
+      "context": "as such claims form part of the same case or controversy under Article III of the United States Constitution.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations. The complaint's phrase 'form part of the same case or controversy under Article III of the United States Constitution' tracks 28 U.S.C. § 1367(a) verbatim.",
+        "explanation": "The 'same case or controversy under Article III' standard for supplemental jurisdiction comes from 28 U.S.C. § 1367(a), which refers to Article III. The complaint's reference to Article III is accurate as used in that statutory standard.",
+        "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶5",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "(b)",
+      "cited_for": "Venue proper in District of Arizona",
+      "quotes": [],
+      "context": "Venue is proper in the District of Arizona under 28 U.S.C. § 1391(b) because a substantial part of the events or omissions giving rise to the claims occurred in Phoenix, Arizona",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "28 U.S.C. § 1391(b)(2) (more precise pincite)",
+        "quote_check": "No quotations attributed. The 'substantial part of the events or omissions giving rise to the claims' language tracks § 1391(b)(2).",
+        "explanation": "§ 1391(b)(2) makes venue proper in a district where a substantial part of the events or omissions giving rise to the claim occurred, which matches the Phoenix allegations. The (b)(2) pincite would be more precise. Title VII also has its own venue provision in 42 U.S.C. § 2000e-5(f)(3). I did not read its venue text, so I did not check it. On the pleaded facts, § 1391(b) properly supports venue for the § 1981 claim.",
+        "evidence_excerpt": "§ 1391(b)(2): \"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "first-amended-complaint.docx.md",
+      "location": "II. Jurisdiction and Venue, ¶6",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "§ 1981 claim does not require administrative exhaustion",
+      "quotes": [],
+      "context": "Plaintiff's claim under 42 U.S.C. § 1981 does not require administrative exhaustion and is independently actionable.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1981 contains no administrative-exhaustion requirement. Johnson v. Railway Express Agency, 421 U.S. 454 (1975), held that § 1981 is a remedy separate from and independent of Title VII's administrative procedures, and that a § 1981 action may be filed at any time after accrual without first going to the EEOC.",
+        "evidence_excerpt": "Johnson, 421 U.S. at 465-66: \"Congress clearly has retained § 1981 as a remedy against private employment discrimination separate from and independent of the more elaborate and time-consuming procedures of Title VII.\" Id. at 461: \"the remedies available under Title VII and under § 1981 ... are separate, distinct, and independent.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.courtlistener.com/opinion/109254/johnson-v-railway-express-agency-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "first-amended-complaint.docx.md",
+      "location": "III.B Defendant, ¶8",
+      "authority_type": "statute",
+      "authority": "Title VII definition of employer",
+      "citation_as_written": "42 U.S.C. § 2000e(b)",
+      "pincite": "(b)",
+      "cited_for": "Defendant is an employer under Title VII (15 or more employees for 20 or more weeks)",
+      "quotes": [
+        "employer"
+      ],
+      "context": "Defendant was an \"employer\" within the meaning of Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e(b), employing fifteen or more employees for each working day in each of twenty or more calendar weeks",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"employer\": found verbatim. It is the term defined in § 2000e(b).",
+        "explanation": "Section 2000e(b) defines 'employer' as a person in an industry affecting commerce with fifteen or more employees for each working day in each of twenty or more calendar weeks in the current or preceding calendar year. The complaint's paraphrase matches.",
+        "evidence_excerpt": "\"a person engaged in an industry affecting commerce who has fifteen or more employees for each working day in each of twenty or more calendar weeks in the current or preceding calendar year\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "first-amended-complaint.docx.md",
+      "location": "IV.C, ¶31",
+      "authority_type": "statute",
+      "authority": "Title VII anti-retaliation provision",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Written discrimination complaint was protected activity",
+      "quotes": [],
+      "context": "constituted protected activity under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-3(a), and under 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 2000e-3(a) bars discrimination against an employee who has 'opposed any practice made an unlawful employment practice'. A written internal complaint of national-origin discrimination is opposition activity under that provision. One note: the text of § 1981 does not mention retaliation, so the paragraph's parallel reference to § 1981 depends on case law that I did not check here. The § 2000e-3(a) citation being checked is accurate and supports the point.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "first-amended-complaint.docx.md",
+      "location": "IV.C, ¶31",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Complaint was protected activity under § 1981",
+      "quotes": [],
+      "context": "constituted protected activity under Title VII ... 42 U.S.C. § 2000e-3(a), and under 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "42 U.S.C. § 1981 guarantees the equal right to make and enforce contracts. Its text does not mention retaliation, but the Supreme Court held in CBOCS West, Inc. v. Humphries, 553 U.S. 442 (2008), that § 1981 covers retaliation claims. Citing the statute to say that complaining about discrimination is protected activity under § 1981 is therefore a fair reading.",
+        "evidence_excerpt": "\"We consequently hold that 42 U.S.C. §1981 encompasses claims of retaliation.\" (CBOCS West v. Humphries); § 1981(a): \"All persons ... shall have the same right ... to make and enforce contracts\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/supct/html/06-1431.ZO.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "first-amended-complaint.docx.md",
+      "location": "IV.H, ¶77",
+      "authority_type": "other",
+      "authority": "\"cat's paw\" or \"rubber stamp\" doctrine (no case cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Whitford's discriminatory intent imputed to final decision-maker (Cho) and Defendant",
+      "quotes": [
+        "cat's paw",
+        "rubber stamp"
+      ],
+      "context": "Under the \"cat's paw\" or \"rubber stamp\" doctrine, Whitford's discriminatory intent is properly imputed to the final decision-maker and to Defendant.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "VERIFIED",
+        "correct_citation": "",
+        "quote_check": "\"cat's paw\" and \"rubber stamp\" are doctrine labels, not quotations from a cited source. Both terms appear verbatim in Poland v. Chertoff, 494 F.3d 1174 (9th Cir. 2007) (\"Courts have termed this narrow standard the 'rubber stamp' or 'cat's paw' approach\"). \"Cat's-paw\" appears in Staub v. Proctor Hospital, 562 U.S. 411 (2011).",
+        "explanation": "The complaint cites no case. The doctrine is real and supports imputing a biased subordinate's intent to the employer when the final decision-maker defers without independent review. Staub holds the employer liable when a supervisor's animus-driven act, intended to cause an adverse action, proximately causes it. Staub arose under USERRA. Poland is a Ninth Circuit Title VII case (Arizona sits in the Ninth Circuit), and it imputes animus where the biased subordinate influenced or participated in the decision. Poland treats 'rubber stamp' as the narrower version of the rule. The complaint alleges that Cho deferred entirely to Whitford, which fits even that narrower version.",
+        "evidence_excerpt": "Staub: \"if a supervisor performs an act motivated by antimilitary animus that is intended by the supervisor to cause an adverse employment action, and if that act is a proximate cause of the ultimate employment action, then the employer is liable\"; Poland: \"Courts have termed this narrow standard the 'rubber stamp' or 'cat's paw' approach.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/205713/staub-v-proctor-hospital/",
+          "https://www.courtlistener.com/opinion/1426978/poland-v-chertoff/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "first-amended-complaint.docx.md",
+      "location": "V. Count I heading",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Count I national origin discrimination",
+      "quotes": [],
+      "context": "COUNT I — NATIONAL ORIGIN DISCRIMINATION IN VIOLATION OF TITLE VII OF THE CIVIL RIGHTS ACT OF 1964, 42 U.S.C. § 2000e et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The count heading uses the correct statute and the standard cite form. Title VII (42 U.S.C. § 2000e et seq.) prohibits national origin discrimination.",
+        "evidence_excerpt": "§ 2000e-2(m): \"race, color, religion, sex, or national origin was a motivating factor for any employment practice\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "first-amended-complaint.docx.md",
+      "location": "V. Count I, ¶102",
+      "authority_type": "statute",
+      "authority": "Title VII motivating factor provision",
+      "citation_as_written": "42 U.S.C. § 2000e-2(m)",
+      "pincite": "(m)",
+      "cited_for": "National origin was a motivating factor in challenged employment decisions",
+      "quotes": [],
+      "context": "Delgado-Reyes's Mexican-American national origin was a motivating factor in the challenged employment decisions within the meaning of 42 U.S.C. § 2000e-2(m).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 2000e-2(m) provides that an unlawful employment practice is established when national origin, among other protected traits, was a motivating factor for an employment practice. The complaint invokes it correctly.",
+        "evidence_excerpt": "\"an unlawful employment practice is established when the complaining party demonstrates that race, color, religion, sex, or national origin was a motivating factor for any employment practice, even though other factors also motivated the practice.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VI. Count II heading",
+      "authority_type": "statute",
+      "authority": "Title VII anti-retaliation provision",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Count II retaliation",
+      "quotes": [],
+      "context": "COUNT II — RETALIATION IN VIOLATION OF TITLE VII OF THE CIVIL RIGHTS ACT OF 1964, 42 U.S.C. § 2000e-3(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 U.S.C. § 2000e-3(a) is Title VII's anti-retaliation provision, the correct statutory basis for a Title VII retaliation count.",
+        "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VI. Count II, ¶106",
+      "authority_type": "statute",
+      "authority": "Title VII anti-retaliation provision",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Complaint opposed unlawful practices and was protected opposition activity",
+      "quotes": [],
+      "context": "This complaint opposed practices made unlawful by Title VII and constituted protected opposition activity under 42 U.S.C. § 2000e-3(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The opposition clause of § 2000e-3(a) protects an employee who 'opposed any practice made an unlawful employment practice'. A complaint opposing national-origin discrimination fits that language.",
+        "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VII. Count III heading",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Count III race and ethnicity discrimination",
+      "quotes": [],
+      "context": "COUNT III — RACE AND ETHNICITY DISCRIMINATION IN VIOLATION OF 42 U.S.C. § 1981",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1981 gives everyone the same right to make and enforce contracts as white citizens enjoy, and § 1981(b) extends that right to the terms and conditions of the contractual relationship. Employment discrimination based on race is actionable under it. Using it as the basis for a count of race and ethnicity discrimination is proper.",
+        "evidence_excerpt": "\"All persons within the jurisdiction of the United States shall have the same right in every State and Territory to make and enforce contracts ... as is enjoyed by white citizens\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VII. Count III, ¶118",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981(b)",
+      "citation_as_written": "42 U.S.C. § 1981(b)",
+      "pincite": "(b)",
+      "cited_for": "Right to make and enforce contracts covers making, performance, modification, termination and all benefits, privileges, terms and conditions",
+      "quotes": [
+        "make and enforce contracts"
+      ],
+      "context": "The right to \"make and enforce contracts\" encompasses the making, performance, modification, and termination of contracts and the enjoyment of all benefits, privileges, terms, and conditions of the contractual relationship. 42 U.S.C. § 1981(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"make and enforce contracts\": found verbatim in § 1981(b), which defines the term, and in § 1981(a).",
+        "explanation": "§ 1981(b) defines \"make and enforce contracts\" to include the making, performance, modification and termination of contracts, and the enjoyment of all benefits, privileges, terms and conditions of the contractual relationship. The complaint's paraphrase tracks the statute almost word for word.",
+        "evidence_excerpt": "\"For purposes of this section, the term 'make and enforce contracts' includes the making, performance, modification, and termination of contracts, and the enjoyment of all benefits, privileges, terms, and conditions of the contractual relationship.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VII. Count III, ¶125",
+      "authority_type": "statute",
+      "authority": "Title VII damages caps",
+      "citation_as_written": "42 U.S.C. § 1981a(b)(3)",
+      "pincite": "(b)(3)",
+      "cited_for": "§ 1981 damages are not subject to statutory caps applicable to Title VII",
+      "quotes": [],
+      "context": "Section 1981 provides for the recovery of compensatory and punitive damages without the statutory caps applicable to Title VII claims under 42 U.S.C. § 1981a(b)(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "42 U.S.C. § 1981a(b)(3) sets the caps on compensatory and punitive damages for Title VII claims brought under § 1981a. The citation correctly identifies the source of the caps. Section 1981a(b)(4) separately provides that nothing in the section limits relief available under § 1981, so § 1981 damages are not subject to those caps. That subsection is the more direct support for the proposition, but the cite to (b)(3) for 'the statutory caps applicable to Title VII claims' is accurate.",
+        "evidence_excerpt": "(b)(3): \"The sum of the amount of compensatory damages awarded under this section ... and the amount of punitive damages awarded under this section, shall not exceed, for each complaining party—\"; (b)(4): \"Nothing in this section shall be construed to limit the scope of, or the relief available under, section 1981 of this title.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VIII. Damages, ¶133",
+      "authority_type": "statute",
+      "authority": "Title VII and 42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Compensatory damages for emotional distress under Title VII and § 1981",
+      "quotes": [],
+      "context": "She is entitled to compensatory damages for emotional distress under both Title VII and 42 U.S.C. § 1981.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Compensatory damages for emotional distress are available under Title VII through 42 U.S.C. § 1981a. Section 1981a(b)(3) lists 'emotional pain, suffering, inconvenience, mental anguish' as recoverable, subject to caps. Under § 1981, Johnson v. Railway Express Agency, 421 U.S. 454, 460, confirms compensatory damages are available. One nuance: § 1981a(a)(1) allows Title VII compensatory damages only where the plaintiff 'cannot recover under section 1981', which bars double recovery. The complaint's statement of available remedies is still accurate.",
+        "evidence_excerpt": "§ 1981a(b)(3): \"future pecuniary losses, emotional pain, suffering, inconvenience, mental anguish, loss of enjoyment of life, and other nonpecuniary losses\"; Johnson, 421 U.S. at 460: \"An individual who establishes a cause of action under § 1981 is entitled to both equitable and legal relief, including compensatory and, under certain circumstances, punitive damages.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981a",
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.courtlistener.com/opinion/109254/johnson-v-railway-express-agency-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VIII. Damages, ¶134",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981a(b)(3)",
+      "citation_as_written": "42 U.S.C. § 1981a(b)(3)",
+      "pincite": "(b)(3)",
+      "cited_for": "Punitive damages under Title VII subject to statutory caps; uncapped under § 1981",
+      "quotes": [],
+      "context": "Defendant is liable for punitive damages under Title VII, subject to the statutory caps set forth in 42 U.S.C. § 1981a(b)(3), and under 42 U.S.C. § 1981, without statutory caps.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1981a(a)(1) and (b)(1) allow punitive damages in Title VII cases. § 1981a(b)(3) caps the combined compensatory and punitive damages at $50,000 to $300,000, depending on employer size. § 1981a(b)(4) says nothing in the section limits relief under § 1981, so § 1981 damages are not capped. This matches the proposition.",
+        "evidence_excerpt": "(b)(3): \"... the amount of punitive damages awarded under this section, shall not exceed ... (D) $300,000\"; (b)(4): \"Nothing in this section shall be construed to limit the scope of, or the relief available under, section 1981 of this title.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VIII. Damages, ¶135",
+      "authority_type": "statute",
+      "authority": "Title VII fee-shifting provision",
+      "citation_as_written": "42 U.S.C. § 2000e-5(k)",
+      "pincite": "(k)",
+      "cited_for": "Attorney's fees and costs for prevailing party under Title VII",
+      "quotes": [],
+      "context": "pursuant to 42 U.S.C. § 2000e-5(k) (Title VII) and 42 U.S.C. § 1988 (Section 1981).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 2000e-5(k) authorizes the court, in its discretion, to award the prevailing party in a Title VII action a reasonable attorney's fee, including expert fees, as part of the costs.",
+        "evidence_excerpt": "\"In any action or proceeding under this subchapter the court, in its discretion, may allow the prevailing party, other than the Commission or the United States, a reasonable attorney's fee (including expert fees) as part of the costs\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "first-amended-complaint.docx.md",
+      "location": "VIII. Damages, ¶135",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1988",
+      "citation_as_written": "42 U.S.C. § 1988",
+      "pincite": "",
+      "cited_for": "Attorney's fees and costs for prevailing party under § 1981",
+      "quotes": [],
+      "context": "pursuant to 42 U.S.C. § 2000e-5(k) (Title VII) and 42 U.S.C. § 1988 (Section 1981).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1988(b) lets the court award a reasonable attorney's fee, as part of costs, to the prevailing party in actions to enforce §§ 1981, 1981a, 1982, 1983 and other listed statutes. That supports a fee award for the § 1981 claim. (The fee is discretionary, which the complaint's paragraph doesn't need to say.)",
+        "evidence_excerpt": "\"the court, in its discretion, may allow the prevailing party, other than the United States, a reasonable attorney's fee as part of the costs\" (applies to proceedings to enforce sections 1981, 1981a, 1982, 1983 ...)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1988"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "first-amended-complaint.docx.md",
+      "location": "IX. Prayer for Relief, (a)",
+      "authority_type": "statute",
+      "authority": "Title VII and 42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 2000e et seq., and 42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Declaratory judgment that Defendant violated Title VII and § 1981",
+      "quotes": [],
+      "context": "A declaratory judgment that Defendant's actions ... violated Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and 42 U.S.C. § 1981;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both citations are correct: Title VII at 42 U.S.C. § 2000e et seq., and § 1981. The § 1981 claim is pleaded as race and ethnicity discrimination, and § 1981(b) covers the termination of contracts. A declaratory-judgment prayer under these statutes is ordinary pleading.",
+        "evidence_excerpt": "§ 1981(b): \"the term 'make and enforce contracts' includes the making, performance, modification, and termination of contracts\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "first-amended-complaint.docx.md",
+      "location": "IX. Prayer for Relief, (f)",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 2000e-5(k) and 42 U.S.C. § 1988",
+      "citation_as_written": "42 U.S.C. § 2000e-5(k) and 42 U.S.C. § 1988",
+      "pincite": "",
+      "cited_for": "Award of attorney's fees, expert fees and costs",
+      "quotes": [],
+      "context": "An award of reasonable attorney's fees, expert witness fees, and all taxable and non-taxable costs of suit, pursuant to 42 U.S.C. § 2000e-5(k) and 42 U.S.C. § 1988;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 2000e-5(k) lets the court award a Title VII prevailing party a reasonable attorney's fee, expressly including expert fees, as part of costs. § 1988(b) authorizes fees for § 1981 actions, and § 1988(c) allows expert fees in §§ 1981 and 1981a actions. Together they support a request for attorney's fees, expert fees and costs. Asking for 'non-taxable costs' is a common way to frame a prayer for relief, not something these statutes expressly grant, but that does not undercut the citation.",
+        "evidence_excerpt": "§ 2000e-5(k): \"the court, in its discretion, may allow the prevailing party ... a reasonable attorney's fee (including expert fees) as part of the costs\"; § 1988(c): court \"may include expert fees as part of the attorney's fee\" in §§ 1981/1981a actions",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5",
+          "https://www.law.cornell.edu/uscode/text/42/1988"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "first-amended-complaint.docx.md",
+      "location": "X. Jury Demand",
+      "authority_type": "other",
+      "authority": "U.S. Constitution, Seventh Amendment",
+      "citation_as_written": "Seventh Amendment to the United States Constitution",
+      "pincite": "",
+      "cited_for": "Right to jury trial",
+      "quotes": [],
+      "context": "demands a trial by jury on all claims and issues so triable in this action, as guaranteed by the Seventh Amendment to the United States Constitution and Rule 38 of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The Seventh Amendment preserves the right to a jury trial in suits at common law. The jury demand cites it, together with FRCP 38, for 'all claims and issues so triable,' which is an accurate general use.",
+        "evidence_excerpt": "\"In suits at common law, where the value in controversy shall exceed twenty dollars, the right of trial by jury shall be preserved...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/constitution/seventh_amendment"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "first-amended-complaint.docx.md",
+      "location": "X. Jury Demand",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 38",
+      "citation_as_written": "Rule 38 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Jury trial demand",
+      "quotes": [],
+      "context": "as guaranteed by the Seventh Amendment to the United States Constitution and Rule 38 of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRCP 38 preserves the Seventh Amendment jury right and governs jury demands, so citing it for a jury demand in a complaint is accurate.",
+        "evidence_excerpt": "Rule 38. Right to a Jury Trial; Demand (a) Right Preserved. The right of trial by jury as declared by the Seventh Amendment to the Constitution—or as provided by a federal statute—is preserved to the parties inviolate.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_38"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Verification",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1001",
+      "citation_as_written": "18 U.S.C. § 1001",
+      "pincite": "",
+      "cited_for": "Willful false statement may subject plaintiff to criminal penalties",
+      "quotes": [],
+      "context": "I understand that a willful false statement may subject me to criminal penalties under 18 U.S.C. § 1001.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "authority_exists": "yes",
+        "status": "MISCHARACTERIZED",
+        "correct_citation": "28 U.S.C. § 1746 (unsworn declaration under penalty of perjury); 18 U.S.C. § 1621 (perjury)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1001 exists and punishes knowing and willful false statements. But § 1001(b) expressly exempts a party to a judicial proceeding for statements submitted to a judge in that proceeding. A plaintiff's verification of a complaint filed in federal court therefore falls within the exemption, and § 1001 is not the source of criminal exposure. The verification already invokes 'penalty of perjury'; the governing provisions are the perjury statute (18 U.S.C. § 1621) and 28 U.S.C. § 1746.",
+        "evidence_excerpt": "§ 1001(b): \"Subsection (a) does not apply to a party to a judicial proceeding, or that party's counsel, for statements, representations, writings or documents submitted by such party or counsel to a judge or magistrate in that proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1001"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The citation appears in the plaintiff's verification of a First Amended Complaint filed in the U.S. District Court for the District of Arizona (Case No. 2:24-cv-03841-DLR): \"I understand that a willful false statement may subject me to criminal penalties under 18 U.S.C. § 1001.\" Section 1001(a) does criminalize knowing and willful false statements \"in any matter within the jurisdiction of the ... judicial branch.\" But § 1001(b), which I read on LII, says: \"Subsection (a) does not apply to a party to a judicial proceeding, or that party's counsel, for statements, representations, writings or documents submitted by such party or counsel to a judge or magistrate in that proceeding.\" The plaintiff is a party, and she is verifying a pleading she submitted in her own federal case, so on the statute's plain text § 1001(a) does not reach this statement. I found no alternative reading under which § 1001 is the source of her criminal exposure. The verification also invokes 'penalty of perjury'; the provisions that actually apply are the perjury statute (18 U.S.C. § 1621, plus 28 U.S.C. § 1746 for unsworn declarations). One limit on my check: I did not pull case law on whether a pleading filed with the clerk counts as 'submitted ... to a judge'; this conclusion rests on the statutory text alone. The statute is real and correctly cited, but it is invoked for a consequence it expressly excludes in this setting, so MISCHARACTERIZED is the right status. Note that this citation is in a supplied case document (the complaint), not in a model's work product.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1001"
+        ]
+      }
+    },
+    {
+      "ref": 29,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Policy adopted in compliance with Title VII",
+      "quotes": [],
+      "context": "This policy is adopted in compliance with, and in furtherance of, Title VII of the Civil Rights Act of 1964, as amended, 42 U.S.C. § 2000e et seq.; 42 U.S.C. § 1981;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The EEO policy correctly identifies Title VII of the Civil Rights Act of 1964, as amended, at 42 U.S.C. § 2000e et seq. Saying the policy was adopted in compliance with it makes no legal claim that needs a pin cite.",
+        "evidence_excerpt": "§ 2000e(b): \"a person engaged in an industry affecting commerce who has fifteen or more employees...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 1981",
+      "citation_as_written": "42 U.S.C. § 1981",
+      "pincite": "",
+      "cited_for": "Policy adopted in compliance with § 1981",
+      "quotes": [],
+      "context": "42 U.S.C. § 2000e et seq.; 42 U.S.C. § 1981; the Age Discrimination in Employment Act of 1967",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1981 is a real federal anti-discrimination statute (Equal rights under the law) that applies to private employers through § 1981(c). Listing it among the laws an EEO policy is meant to comply with is accurate.",
+        "evidence_excerpt": "\"(c) ... The rights protected by this section are protected against impairment by nongovernmental discrimination and impairment under color of State law.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1981"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Age Discrimination in Employment Act of 1967",
+      "citation_as_written": "29 U.S.C. § 621 et seq.",
+      "pincite": "",
+      "cited_for": "Policy adopted in compliance with ADEA",
+      "quotes": [],
+      "context": "the Age Discrimination in Employment Act of 1967 (\"ADEA\"), 29 U.S.C. § 621 et seq.;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "29 U.S.C. § 621 is the first section (findings and purpose) of the Age Discrimination in Employment Act of 1967, and the ADEA's short title confirms the name. Citing it as 29 U.S.C. § 621 et seq. is the standard form, and listing the Act as a law the EEO policy complies with is accurate.",
+        "evidence_excerpt": "§ 621: \"Congressional statement of findings and purpose\"; short title: may be cited as the \"Age Discrimination in Employment Act of 1967\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/621"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Americans with Disabilities Act of 1990",
+      "citation_as_written": "42 U.S.C. § 12101 et seq.",
+      "pincite": "",
+      "cited_for": "Policy adopted in compliance with ADA",
+      "quotes": [],
+      "context": "the Americans with Disabilities Act of 1990 (\"ADA\"), as amended, 42 U.S.C. § 12101 et seq.;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "42 U.S.C. § 12101 is the findings-and-purpose section that opens chapter 126 (the ADA of 1990); '§ 12101 et seq.' is the standard cite for the Act, and Title I covers employment. Citing it as a law the EEO policy complies with is accurate.",
+        "evidence_excerpt": "42 U.S. Code § 12101 - Findings and purpose ... (a) The Congress finds that—",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/12101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Genetic Information Nondiscrimination Act of 2008",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Policy adopted in compliance with GINA",
+      "quotes": [],
+      "context": "the Genetic Information Nondiscrimination Act of 2008 (\"GINA\"); the Uniformed Services Employment and Reemployment Rights Act (\"USERRA\");",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Genetic Information Nondiscrimination Act of 2008, Pub. L. No. 110-233 (Title II codified at 42 U.S.C. § 2000ff et seq.)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "GINA exists under that short title. Its Title II prohibits employment discrimination based on genetic information, so naming it as a law the EEO policy complies with is accurate. The policy gives no code cite, which is a stylistic omission, not an error. The suggested public-law and U.S. Code cites were not confirmed against a source page in this check: the EEOC page did not show the public-law number.",
+        "evidence_excerpt": "This Act may be cited as the 'Genetic Information Nondiscrimination Act of 2008' ... TITLE II—PROHIBITING EMPLOYMENT DISCRIMINATION ON THE BASIS OF GENETIC INFORMATION",
+        "source_urls": [
+          "https://www.eeoc.gov/statutes/genetic-information-nondiscrimination-act-2008"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Uniformed Services Employment and Reemployment Rights Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Policy adopted in compliance with USERRA",
+      "quotes": [],
+      "context": "the Uniformed Services Employment and Reemployment Rights Act (\"USERRA\"); and applicable state laws",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "USERRA (38 U.S.C. § 4301 et seq.) exists. Section 4311(a) bars employers from discriminating in employment based on uniformed-service membership or service, so it is properly listed among the laws an EEO policy complies with.",
+        "evidence_excerpt": "\"A person who is a member of ... a uniformed service shall not be denied initial employment, reemployment, retention in employment, promotion, or any benefit of employment by an employer on the basis of that membership...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/38/4311"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Arizona Civil Rights Act",
+      "citation_as_written": "A.R.S. § 41-1461 et seq.",
+      "pincite": "",
+      "cited_for": "State law with which policy complies",
+      "quotes": [],
+      "context": "the Arizona Civil Rights Act (A.R.S. § 41-1461 et seq.), the Colorado Anti-Discrimination Act (C.R.S. § 24-34-401 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "A.R.S. § 41-1461 is the definitions section that opens the employment-discrimination article of the Arizona Civil Rights Act. The Act as a whole begins earlier, at § 41-1401, but '§ 41-1461 et seq.' is the conventional cite for its employment provisions. Accurate as a state law the policy complies with.",
+        "evidence_excerpt": "41-1461 - Definitions ... \"Auxiliary aids and services\" includes: ...",
+        "source_urls": [
+          "https://www.azleg.gov/ars/41/01461.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.1, para 2",
+      "authority_type": "statute",
+      "authority": "Colorado Anti-Discrimination Act",
+      "citation_as_written": "C.R.S. § 24-34-401 et seq.",
+      "pincite": "",
+      "cited_for": "State law with which policy complies",
+      "quotes": [],
+      "context": "the Colorado Anti-Discrimination Act (C.R.S. § 24-34-401 et seq.), and the employment discrimination statutes of each state in which the Bank operates.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "C.R.S. § 24-34-401 is the definitions section of Article 34, Part 4 (employment practices), which is the core of the Colorado Anti-Discrimination Act. It defines employer, employee, and unfair employment practice. Accurate as a state law the policy complies with.",
+        "evidence_excerpt": "C.R.S. Section 24-34-401 ... Definitions ... Article 34, Part 4",
+        "source_urls": [
+          "https://colorado.public.law/statutes/crs_24-34-401"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.2.3 (Retaliation), para 3",
+      "authority_type": "statute",
+      "authority": "Title VII anti-retaliation provision",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Retaliation is unlawful under Title VII",
+      "quotes": [],
+      "context": "Retaliation is unlawful under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-3(a), and under other federal and state anti-retaliation statutes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 2000e-3(a) makes retaliation for opposing discrimination, or for participating in proceedings, an unlawful employment practice. The policy's statement that retaliation is unlawful under Title VII is accurate.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "ridgeline-eeo-policy.docx.md",
+      "location": "Section 7.6(f)",
+      "authority_type": "statute",
+      "authority": "Title VII, Section 1981, ADEA, ADA (enhanced supervisory training topics)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Supervisory training on legal standards for disparate treatment and hostile work environment claims",
+      "quotes": [],
+      "context": "(f) Legal standards for disparate treatment and hostile work environment claims under Title VII, Section 1981, the ADEA, the ADA, and applicable state laws;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Title VII, 42 U.S.C. § 1981, the ADEA (29 U.S.C. § 623), and the ADA (42 U.S.C. § 12112) all exist and prohibit employment discrimination on the respective protected bases. Disparate treatment and hostile work environment claims are recognized under these statutes, so they are appropriate supervisory-training topics. The policy cites them generically, and no pin cite or quotation is at issue.",
+        "evidence_excerpt": "ADEA § 623(a)(1): \"...otherwise discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's age\"; ADA § 12112(a): \"No covered entity shall discriminate against a qualified individual on the basis of disability...\"; § 1981(a): \"All persons ... shall have the same right ... to make and enforce contracts...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/1981",
+          "https://www.law.cornell.edu/uscode/text/29/623",
+          "https://www.law.cornell.edu/uscode/text/42/12112"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "task.json.md",
+      "location": "rubric C-044 (ISSUE_012)",
+      "authority_type": "case",
+      "authority": "Kolstad standard (Kolstad v. American Dental Association), cited by short name only",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Punitive damages foundation: knowledge or reckless indifference to federally protected rights",
+      "quotes": [],
+      "context": "laying foundation for punitive damages by establishing knowledge or reckless indifference to federally protected rights (Kolstad standard).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Kolstad v. American Dental Ass'n, 527 U.S. 526, 535-36 (1999)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Kolstad holds that punitive damages under 42 U.S.C. § 1981a(b)(1) require malice or reckless indifference to federally protected rights, which turns on the employer's knowledge that it may be acting in violation of federal law, meaning it discriminated despite a perceived risk of violating federal law. That supports using questions about training and knowledge that retaliation is unlawful to lay a foundation for punitive damages. The rubric cites the case by short name only, with no reporter cite.",
+        "evidence_excerpt": "The terms \"malice\" or \"reckless indifference\" pertain to the employer's knowledge that it may be acting in violation of federal law, not its awareness that it is engaging in discrimination. ... an employer must at least discriminate in the face of a perceived risk that its actions will violate federal law to be liable in punitive damages.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/118313/kolstad-v-american-dental-assn/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "task.json.md",
+      "location": "tags and rubric C-046",
+      "authority_type": "statute",
+      "authority": "Title VII",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Tag identifying governing statute for the matter",
+      "quotes": [],
+      "context": "\"employment-discrimination\", \"retaliation\", \"national-origin-discrimination\", \"Title VII\", \"witness-examination\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a topic tag naming Title VII as the governing statute. Title VII exists and is the statute the complaint sues under: Count I is national-origin discrimination and Count II is retaliation under § 2000e-3(a), whose text I read.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "2023-performance-review.docx.md",
+      "location": "Training and Compliance section (training completion paragraph)",
+      "authority_type": "statute",
+      "authority": "Bank Secrecy Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Annual Bank Secrecy Act/Anti-Money Laundering certification completed by plaintiff as a required training module",
+      "quotes": [],
+      "context": "completed all required training modules for the 2023 calendar year, including the annual Bank Secrecy Act/Anti-Money Laundering certification, the Fair Lending and Community Reinvestment Act refresher, and the Commercial Credit Risk Management continuing education module.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Bank Secrecy Act exists and is codified at 31 U.S.C. § 5311 et seq.; its declared purposes include preventing money laundering through financial-institution programs. The review mentions it only to describe a training module the plaintiff completed, and it makes no legal claim.",
+        "evidence_excerpt": "prevent the laundering of money and the financing of terrorism through the establishment by financial institutions of reasonably designed risk-based programs",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/31/5311"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "2023-performance-review.docx.md",
+      "location": "Training and Compliance section (training completion paragraph)",
+      "authority_type": "statute",
+      "authority": "Community Reinvestment Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Fair Lending and Community Reinvestment Act refresher training completed by plaintiff",
+      "quotes": [],
+      "context": "including the annual Bank Secrecy Act/Anti-Money Laundering certification, the Fair Lending and Community Reinvestment Act refresher, and the Commercial Credit Risk Management continuing education module.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Community Reinvestment Act of 1977 exists and is codified at 12 U.S.C. § 2901 et seq. The review mentions it only to describe a training refresher the plaintiff completed, and it makes no legal claim.",
+        "evidence_excerpt": "It is the purpose of this chapter to require each appropriate Federal financial supervisory agency to use its authority when examining financial institutions, to encourage such institutions to help meet the credit needs of the local communities",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/12/2901"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "task.json.md",
+      "location": "rubric criterion (case identification, caption of the matter)",
+      "authority_type": "case",
+      "authority": "Delgado-Reyes v. Ridgeline National Bank",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Outline should identify the case as Delgado-Reyes v. Ridgeline National Bank",
+      "quotes": [],
+      "context": "PASS if the outline identifies the deponent as Thomas Whitford and the case as Delgado-Reyes v. Ridgeline National Bank (or substantially equivalent identification).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand; fictional scenario caption."
+    },
+    {
+      "ref": 44,
+      "document": "task.json.md",
+      "location": "rubric criterion on cat's paw theory (ISSUE, approx. char 18817)",
+      "authority_type": "case",
+      "authority": "cat's paw theory of liability",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Biased subordinate's recommendation as proximate cause of adverse action establishes cat's paw liability (no case cited)",
+      "quotes": [],
+      "context": "establishing the basis for a cat's paw theory of liability where a biased subordinate's recommendation is the proximate cause of the a",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Staub v. Proctor Hospital, 562 U.S. 411 (2011)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "No case is cited, but the cat's-paw doctrine is real. Staub holds that an employer is liable when a biased supervisor's act, intended to cause an adverse action, is a proximate cause of the final employment decision. The rubric's 'biased subordinate's recommendation as proximate cause' is a fair paraphrase; courts also call this 'subordinate bias' liability. Staub itself concerned supervisors who did not make the final decision.",
+        "evidence_excerpt": "We therefore hold that if a supervisor performs an act motivated by antimilitary animus that is intended by the supervisor to cause an adverse employment action, and if that act is a proximate cause of the ultimate employment action, then the employer is liable under USERRA.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/205713/staub-v-proctor-hospital/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "discrimination-complaint-email.eml.md",
+      "location": "Body, paragraph beginning 'I believe these comments constitute discrimination' (under 'Pattern and Cumulative Impact'), line 52",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "Title VII of the Civil Rights Act of 1964",
+      "pincite": "",
+      "cited_for": "Delgado-Reyes asserts that Whitford's comments constitute national-origin discrimination in violation of federal law, including Title VII.",
+      "quotes": [],
+      "context": "I believe these comments constitute discrimination based on my national origin in violation of federal law, including Title VII of the Civil Rights Act of 1964, as well as Ridgeline National Bank's own anti-discrimination policies.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Title VII (42 U.S.C. § 2000e-2(a)(1)) prohibits employment discrimination because of national origin. The email's general assertion that national-origin-based comments by a supervisor violate federal law including Title VII is a correct general statement of the statute's scope (whether the facts meet the standard is a merits question, not a citation defect).",
+        "evidence_excerpt": "\"to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's race, color, religion, sex, or national origin\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

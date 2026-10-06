@@ -1,0 +1,958 @@
+{
+  "task": "identify-government-subpoena-issues",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "clearwater-audit-report.docx.md",
+    "code-of-ethics.docx.md",
+    "grand-jury-subpoena.docx.md",
+    "grayfield-zheng-email-chain.eml.md",
+    "ic-memo-veridian.docx.md",
+    "intake-memo-tsao.docx.md",
+    "mehta-tsao-phone-email.eml.md",
+    "preservation-notice.docx.md",
+    "task.json.md",
+    "trading-blotter-extract.xlsx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "task.json.md",
+      "location": "rubric C-005 and C-025",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Crim. P. 17(c)",
+      "citation_as_written": "Fed. R. Crim. P. 17(c)",
+      "pincite": "",
+      "cited_for": "Legal standard for narrowing or challenging an overbroad grand jury subpoena; motion to quash or modify for unreasonable burden",
+      "quotes": [],
+      "context": "referencing concepts such as relevance, proportionality, undue burden, or Fed. R. Crim. P. 17(c) standards",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Crim. P. 17(c)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 17(c)(1) authorizes subpoenas for documents and objects. Rule 17(c)(2) lets the court, on a prompt motion, quash or modify a subpoena if compliance would be unreasonable or oppressive. That is the rule-based standard for challenging or narrowing an overbroad or unduly burdensome grand jury subpoena.",
+        "evidence_excerpt": "\"On motion made promptly, the court may quash or modify the subpoena if compliance would be unreasonable or oppressive.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "case",
+      "authority": "United States v. Nixon",
+      "citation_as_written": "United States v. Nixon",
+      "pincite": "",
+      "cited_for": "Nixon standards (relevance, admissibility, specificity) for challenging a subpoena",
+      "quotes": [],
+      "context": "or mentions United States v. Nixon standards (relevance, admissibility, specificity), or discusses the availability of a motion to quash or modify",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United States v. Nixon, 418 U.S. 683, 699-700 (1974)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Nixon sets the Rule 17(c) subpoena standards: the proponent must clear three hurdles of relevancy, admissibility and specificity. That matches the rubric. The rubric gives the case name without a reporter cite.",
+        "evidence_excerpt": "the Special Prosecutor, in order to carry his burden, must clear three hurdles: (1) relevancy; (2) admissibility; (3) specificity.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/109101/united-states-v-nixon/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "task.json.md",
+      "location": "rubric C-017",
+      "authority_type": "other",
+      "authority": "ABA Model Rule of Professional Conduct 1.7 (concurrent conflicts)",
+      "citation_as_written": "Model Rule 1.7",
+      "pincite": "",
+      "cited_for": "Concurrent conflict of interest in joint representation of entity and Grayfield",
+      "quotes": [],
+      "context": "such as Model Rule 1.7 (concurrent conflicts), Model Rule 1.13 (organization as client), or their state equivalents",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Model Rule 1.7 governs concurrent conflicts of interest, including where representing one client may be materially limited by duties to another client. Rule 1.13(g) expressly makes joint representation of an organization and its officers or constituents subject to Rule 1.7. The rule therefore fits the joint entity/individual representation issue.",
+        "evidence_excerpt": "A concurrent conflict of interest exists if: (1) the representation of one client will be directly adverse to another client; or (2) there is a significant risk that the representation of one or more clients will be materially limited by the lawyer's responsibilities to another client...",
+        "source_urls": [
+          "https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_7_conflict_of_interest_current_clients/",
+          "https://judicialstudies.duke.edu/sites/default/files/centers/judicialstudies/panel_1-rule.7_conflict_of_interest-current_clients.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "task.json.md",
+      "location": "rubric C-017",
+      "authority_type": "other",
+      "authority": "ABA Model Rule of Professional Conduct 1.13 (organization as client)",
+      "citation_as_written": "Model Rule 1.13",
+      "pincite": "",
+      "cited_for": "Entity counsel's duty runs to the entity rather than its principals",
+      "quotes": [],
+      "context": "Model Rule 1.13 (organization as client), or their state equivalents, or discusses the principle that entity counsel's duty runs to the entity",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "ABA Model Rule of Professional Conduct 1.13(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Model Rule 1.13(a) says a lawyer retained by an organization represents the organization, acting through its constituents. That is the principle that entity counsel's duty runs to the entity rather than to its principals. Rule 1.13(g) adds that representing a constituent as well is subject to Rule 1.7.",
+        "evidence_excerpt": "(a) A lawyer employed or retained by an organization represents the organization acting through its duly authorized constituents.",
+        "source_urls": [
+          "https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_13_organization_as_client/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "task.json.md",
+      "location": "rubric C-019",
+      "authority_type": "case",
+      "authority": "Braswell v. United States",
+      "citation_as_written": "Braswell v. United States (487 U.S. 99 (1988))",
+      "pincite": "",
+      "cited_for": "Collective entity doctrine: corporate custodian/designee acts in representative capacity and corporation cannot claim Fifth Amendment privilege",
+      "quotes": [],
+      "context": "PASS if the memorandum references Braswell v. United States (487 U.S. 99 (1988)) or the collective entity doctrine in analyzing the Fifth Amendment issue for corporate representative testimony",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Braswell v. United States, 487 U.S. 99 (1988), reaffirmed the collective entity rule. A corporate custodian holds and produces records in a representative capacity, and that act is the corporation's act, not a personal one. So neither the corporation nor the custodian can resist a records subpoena on Fifth Amendment grounds. Nuance: Braswell concerns producing documents. It recognizes, through Curcio, that a representative cannot be compelled to give personally incriminating oral testimony. The rubric's use for representative testimony is therefore supported only as to the doctrine's framing.",
+        "evidence_excerpt": "\"We have consistently held that for Fifth Amendment purposes a corporate custodian acts in a representative capacity when he produces corporate documents under the compulsion of a subpoena.\" ... \"the custodian's act of production is not deemed a personal act, but rather an act of the corporation.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112120/braswell-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "task.json.md",
+      "location": "rubric C-027",
+      "authority_type": "statute",
+      "authority": "Stored Communications Act",
+      "citation_as_written": "18 U.S.C. § 2701 et seq.",
+      "pincite": "",
+      "cited_for": "Privacy concerns in compelling entity to produce employees' personal email and messaging communications",
+      "quotes": [],
+      "context": "Fourth Amendment, Stored Communications Act (18 U.S.C. § 2701 et seq.), or other privacy concerns raised by compelling the entity to produce personal email accounts",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. §§ 2701-2713",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Stored Communications Act is 18 U.S.C. ch. 121, beginning at § 2701. The rubric only names it as a possible privacy issue when an entity is compelled to produce employees' personal email and messages, which is a reasonable reference. Note that the Act's disclosure limits mainly bind communication service providers.",
+        "evidence_excerpt": "18 U.S. Code § 2701 - Unlawful access to stored communications ... intentionally accesses without authorization a facility through which an electronic communication service is provided",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/2701"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "task.json.md",
+      "location": "rubric C-030",
+      "authority_type": "case",
+      "authority": "United States v. Stringer",
+      "citation_as_written": "United States v. Stringer (535 F.3d 929 (9th Cir. 2008))",
+      "pincite": "",
+      "cited_for": "SEC-DOJ parallel proceedings doctrine",
+      "quotes": [],
+      "context": "such as United States v. Stringer (535 F.3d 929 (9th Cir. 2008)) or the broader principle that parallel civil and criminal investigations create strategic risks",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "In Stringer (9th Cir. July 31, 2008), the court reversed the dismissal of indictments and addressed parallel SEC civil and DOJ criminal investigations. It held them permissible absent bad faith or affirmative deception. That makes it a leading parallel-proceedings case, as the rubric uses it.",
+        "evidence_excerpt": "The Supreme Court has held that the government may conduct parallel civil and criminal investigations without violating the due process clause, so long as it does not act in bad faith.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1323530/united-states-v-stringer/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "task.json.md",
+      "location": "rubric C-052 and C-050",
+      "authority_type": "case",
+      "authority": "Upjohn (Upjohn warnings / corporate Miranda)",
+      "citation_as_written": "Upjohn warnings",
+      "pincite": "",
+      "cited_for": "Warnings to employees that firm counsel represents the entity, not the individuals",
+      "quotes": [],
+      "context": "recommends providing Upjohn warnings (or 'corporate Miranda') to individual employees before conducting internal interviews",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Upjohn Co. v. United States, 449 U.S. 383 (1981); see United States v. Ruehle, 583 F.3d 600, 604 n.3 (9th Cir. 2009) (describing 'Upjohn or corporate Miranda' warnings)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric uses 'Upjohn warnings' / 'corporate Miranda' as a practice term, not as a holding. Upjohn is real. It holds that the corporation's attorney-client privilege covers counsel's communications with employees made so the corporation can get legal advice, and it notes the employees knew they were being questioned for that purpose. Upjohn does not itself require any warning. The warning practice comes from its holding, and courts call it by that name. In Ruehle, the Ninth Circuit cites Upjohn, 449 U.S. at 393-96, for warnings telling the employee that corporate counsel does not represent them and that the company holds the privilege. That matches the stated proposition, so the reference is fair. No reporter cite or pin cite was given.",
+        "evidence_excerpt": "Ruehle n.3: \"a so-called Upjohn or corporate Miranda warning. Such warnings make clear that the corporate lawyers do not represent the individual employee; that anything said by the employee to the lawyers will be protected by the company's attorney-client privilege subject to waiver of the privilege in the sole discretion of the company ... See Upjohn Co. v. United States, 449 U.S. 383, 393-96 (1981).\" Upjohn: \"the employees themselves were sufficiently aware that they were being questioned in order that the corporation could obtain legal advice.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/",
+          "https://www.courtlistener.com/opinion/1266839/united-states-v-ruehle/",
+          "https://www.courtlistener.com/opinion/3065149/united-states-v-william-ruehle/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "code-of-ethics.docx.md",
+      "location": "Title block",
+      "authority_type": "regulation",
+      "authority": "Rule 204A-1 under the Investment Advisers Act of 1940",
+      "citation_as_written": "Rule 204A-1 under the Investment Advisers Act of 1940",
+      "pincite": "",
+      "cited_for": "Code of ethics adopted pursuant to the rule",
+      "quotes": [],
+      "context": "Adopted Pursuant to Rule 204A-1 under the Investment Advisers Act of 1940",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. 275.204A-1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 204A-1 requires registered investment advisers to establish, maintain and enforce a written code of ethics, so a code 'adopted pursuant to' the rule is an accurate description.",
+        "evidence_excerpt": "\"If you are an investment adviser registered or required to be registered under section 203 of the Act, you must establish, maintain and enforce a written code of ethics\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section I, para 2",
+      "authority_type": "statute",
+      "authority": "Investment Advisers Act of 1940, Section 204A and Rule 204A-1",
+      "citation_as_written": "Section 204A of the Investment Advisers Act of 1940 (the \"Advisers Act\") and Rule 204A-1 promulgated thereunder",
+      "pincite": "",
+      "cited_for": "Federal securities laws the Code is designed to ensure compliance with, incl. preventing misuse of MNPI",
+      "quotes": [],
+      "context": "to ensure compliance with federal securities laws — including Section 204A of the Investment Advisers Act of 1940 (the \"Advisers Act\") and Rule 204A-1 promulgated thereunder — to prevent the misuse of material non-public information",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Section 204A of the Advisers Act (15 U.S.C. § 80b-4a) requires advisers to keep and enforce written policies reasonably designed to prevent misuse of material, nonpublic information. Rule 204A-1 (17 C.F.R. § 275.204A-1) requires registered advisers to adopt a written code of ethics. Both support the stated purpose of the code.",
+        "evidence_excerpt": "15 U.S.C. 80b-4a: policies \"reasonably designed ... to prevent the misuse in violation of this chapter or the Securities Exchange Act of 1934 ... of material, nonpublic information\"; Rule 204A-1(a): \"you must establish, maintain and enforce a written code of ethics\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/80b-4a",
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section II, definition of Covered Security",
+      "authority_type": "statute",
+      "authority": "Investment Company Act of 1940, Section 2(a)(36)",
+      "citation_as_written": "Section 2(a)(36) of the Investment Company Act of 1940",
+      "pincite": "",
+      "cited_for": "Definition of security used for Covered Security",
+      "quotes": [],
+      "context": "means any security as defined in Section 2(a)(36) of the Investment Company Act of 1940",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 2(a)(36) of the Investment Company Act (15 U.S.C. 80a-2(a)(36)) does define 'security', so the Code's cross-reference is accurate. Side note: Rule 204A-1(e)(10), the adviser code rule, defines 'reportable security' by reference to Advisers Act section 202(a)(18), not ICA 2(a)(36). Even so, the ICA definition is real and substantively equivalent, so the citation is not wrong.",
+        "evidence_excerpt": "\"Security\" means any note, stock, treasury stock, security future, bond, debenture, evidence of indebtedness...",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/80a-2",
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section III.A, item 3",
+      "authority_type": "statute",
+      "authority": "Investment Advisers Act of 1940; Securities Act of 1933; Securities Exchange Act of 1934",
+      "citation_as_written": "the Investment Advisers Act of 1940, the Securities Act of 1933, and the Securities Exchange Act of 1934",
+      "pincite": "",
+      "cited_for": "Federal and state securities laws all Supervised Persons must comply with",
+      "quotes": [],
+      "context": "Comply with all applicable federal and state securities laws, including the Investment Advisers Act of 1940, the Securities Act of 1933, and the Securities Exchange Act of 1934.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "All three statutes exist under the stated short titles (15 U.S.C. 80b-20, 77a, 78a). The Code's instruction to comply with them is a general compliance statement that the statutes support.",
+        "evidence_excerpt": "\"This subchapter may be cited as the 'Investment Advisers Act of 1940'.\"; \"This subchapter may be cited as the 'Securities Act of 1933'.\"; \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/80b-20",
+          "https://www.law.cornell.edu/uscode/text/15/77a",
+          "https://www.law.cornell.edu/uscode/text/15/78a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section III.B (Prohibition on Insider Trading)",
+      "authority_type": "statute",
+      "authority": "Section 10(b) of the Securities Exchange Act of 1934 and Rule 10b-5",
+      "citation_as_written": "Section 10(b) of the Securities Exchange Act of 1934 and Rule 10b-5 thereunder",
+      "pincite": "",
+      "cited_for": "Civil and criminal penalties for insider trading, up to 20 years and $5,000,000 for individuals",
+      "quotes": [],
+      "context": "Violations may result in severe civil and criminal penalties under Section 10(b) of the Securities Exchange Act of 1934 and Rule 10b-5 thereunder, including imprisonment of up to twenty (20) years and fines of up to five million dollars ($5,000,000) for individuals.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Section 10(b) of the Securities Exchange Act of 1934, 15 U.S.C. § 78j(b), and Rule 10b-5, 17 C.F.R. § 240.10b-5; criminal penalties under Exchange Act § 32(a), 15 U.S.C. § 78ff(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 10(b) and Rule 10b-5 are the prohibitions on insider trading. The penalty amounts stated (up to 20 years and $5,000,000 for individuals) are correct. However, those penalties come from Exchange Act § 32(a), 15 U.S.C. § 78ff(a), not from § 10(b) or Rule 10b-5 themselves. Saying the penalties arise \"under\" § 10(b) is a loose attribution.",
+        "evidence_excerpt": "shall upon conviction be fined not more than $5,000,000, or imprisoned not more than 20 years, or both",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/78ff"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section VII.C (Political Contributions)",
+      "authority_type": "regulation",
+      "authority": "Rule 206(4)-5 under the Investment Advisers Act of 1940 (Pay-to-Play rule)",
+      "citation_as_written": "Rule 206(4)-5 under the Investment Advisers Act of 1940",
+      "pincite": "",
+      "cited_for": "Supervised Persons must comply with pay-to-play rule on political contributions",
+      "quotes": [],
+      "context": "Supervised Persons must comply with Rule 206(4)-5 under the Investment Advisers Act of 1940 (the \"Pay-to-Play\" rule).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. § 275.206(4)-5",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 206(4)-5 is the Advisers Act rule on political contributions by certain investment advisers, commonly called the pay-to-play rule. Requiring compliance with it in a code of ethics is accurate.",
+        "evidence_excerpt": "§ 275.206(4)-5 Political contributions by certain investment advisers.",
+        "source_urls": [
+          "https://www.ecfr.gov/current/title-17/part-275/section-275.206(4)-5"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section X.A (General Retention Requirements)",
+      "authority_type": "statute",
+      "authority": "Investment Advisers Act of 1940 Section 204 and Rules 204-2(a) and (e)",
+      "citation_as_written": "Section 204 of the Investment Advisers Act of 1940 and Rules 204-2(a) and (e) thereunder",
+      "pincite": "",
+      "cited_for": "Books and records the Firm must maintain",
+      "quotes": [],
+      "context": "The Firm shall maintain all books, records, and documents required by Section 204 of the Investment Advisers Act of 1940 and Rules 204-2(a) and (e) thereunder.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Section 204 of the Advisers Act (15 U.S.C. § 80b-4) requires advisers to make and keep records the SEC prescribes. Rule 204-2(a) (17 C.F.R. § 275.204-2(a)) lists the required books and records, and Rule 204-2(e) sets their retention periods. The citation fits the retention section of a code of ethics.",
+        "evidence_excerpt": "Rule 204-2(a): \"Every investment adviser registered or required to be registered under section 203 of the Act shall make and keep true, accurate and current the following books and records...\"; (e)(1): records \"shall be maintained and preserved in an easily accessible place for a period of not less than five years...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/80b-4",
+          "https://www.law.cornell.edu/cfr/text/17/275.204-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "code-of-ethics.docx.md",
+      "location": "Section XIV (Governing Law)",
+      "authority_type": "statute",
+      "authority": "Investment Advisers Act of 1940; Securities Exchange Act of 1934",
+      "citation_as_written": "the Investment Advisers Act of 1940 and the Securities Exchange Act of 1934",
+      "pincite": "",
+      "cited_for": "Governing law of the Code",
+      "quotes": [],
+      "context": "governed by and construed in accordance with applicable federal securities laws, including the Investment Advisers Act of 1940 and the Securities Exchange Act of 1934",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes exist under the stated short titles. A governing-law clause that points to applicable federal securities laws is a reasonable reference to them.",
+        "evidence_excerpt": "\"This subchapter may be cited as the 'Investment Advisers Act of 1940'.\"; \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/15/80b-20",
+          "https://www.law.cornell.edu/uscode/text/15/78a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "intake-memo-tsao.docx.md",
+      "location": "Section VI (Marcus Grayfield's Personal Trading)",
+      "authority_type": "regulation",
+      "authority": "Rule 204A-1 of the Investment Advisers Act",
+      "citation_as_written": "Rule 204A-1 of the Investment Advisers Act",
+      "pincite": "",
+      "cited_for": "Access persons must pre-clear personal trades; Grayfield's March 5 trade not pre-cleared",
+      "quotes": [],
+      "context": "this personal trade was not pre-cleared through the firm's compliance system as required by our Code of Ethics for \"access persons\" under Rule 204A-1 of the Investment Advisers Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. 275.204A-1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The sentence says the pre-clearance requirement comes from the firm's Code of Ethics and uses Rule 204A-1 only for the term 'access persons'. The rule defines access persons in (e)(1) and requires advisers to adopt and enforce a code. That reading is accurate. The rule itself requires pre-approval only for IPOs and limited offerings, and the sentence does not say otherwise.",
+        "evidence_excerpt": "\"you must establish, maintain and enforce a written code of ethics\"; (e)(1) access person = supervised person with access to nonpublic client securities information or involved in making recommendations",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "intake-memo-tsao.docx.md",
+      "location": "Section VII.A (Code of Ethics and Pre-Clearance)",
+      "authority_type": "regulation",
+      "authority": "Rule 204A-1 of the Investment Advisers Act",
+      "citation_as_written": "Rule 204A-1 of the Investment Advisers Act",
+      "pincite": "",
+      "cited_for": "Definition of access persons required to pre-clear personal securities transactions",
+      "quotes": [],
+      "context": "requires all \"access persons,\" as defined under Rule 204A-1 of the Investment Advisers Act, to obtain written pre-clearance approval before executing personal securities transactions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. 275.204A-1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 204A-1(e)(1) defines 'access person', and the sentence ties the pre-clearance obligation to the firm's Code. This is accurate.",
+        "evidence_excerpt": "Access Person Definition (e)(1): supervised persons with access to nonpublic client securities information or portfolio holdings, or those involved in making securities recommendations.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "clearwater-audit-report.docx.md",
+      "location": "Section I, scope item (b)",
+      "authority_type": "regulation",
+      "authority": "Rule 204A-1 under the Investment Advisers Act of 1940",
+      "citation_as_written": "Rule 204A-1 under the Investment Advisers Act of 1940",
+      "pincite": "",
+      "cited_for": "Compliance evaluation within audit scope",
+      "quotes": [],
+      "context": "evaluation of compliance with Rule 204A-1 under the Investment Advisers Act of 1940",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. § 275.204A-1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 204A-1 is the Advisers Act code-of-ethics rule requiring registered advisers to establish, maintain and enforce a written code of ethics. An audit that evaluates compliance with it is a reasonable reference.",
+        "evidence_excerpt": "If you are an investment adviser registered or required to be registered under section 203 of the Act, you must establish, maintain and enforce a written code of ethics...",
+        "source_urls": [
+          "https://www.ecfr.gov/current/title-17/part-275/section-275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "clearwater-audit-report.docx.md",
+      "location": "Section II, first Key Finding",
+      "authority_type": "regulation",
+      "authority": "Rule 204A-1 under the Investment Advisers Act",
+      "citation_as_written": "Rule 204A-1 under the Investment Advisers Act",
+      "pincite": "",
+      "cited_for": "Trades executed without prior written pre-clearance contrary to the Code and the rule",
+      "quotes": [],
+      "context": "executed without prior written pre-clearance as required by the Code of Ethics and Rule 204A-1 under the Investment Advisers Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. 275.204A-1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The audit finding says trades were executed without prior written pre-clearance 'as required by the Code of Ethics and Rule 204A-1'. The rule requires pre-approval only for acquisitions in an initial public offering or a limited offering (204A-1(c)). It does not require pre-clearance of all personal securities transactions. The trades at issue were ordinary personal trades, including in publicly listed NASDAQ stock. The rule does require the adviser to 'enforce' its code, which partly mitigates the error, but saying the rule itself requires general pre-clearance overstates it.",
+        "evidence_excerpt": "\"Your code of ethics must require your access persons to obtain your approval before they directly or indirectly acquire beneficial ownership in any security in an initial public offering or in a limited offering.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The audit report (clearwater-audit-report.docx.md, Key Findings) says senior personnel's trades were 'executed without prior written pre-clearance as required by the Code of Ethics and Rule 204A-1 under the Investment Advisers Act.' I read the rule text on LII (17 CFR 275.204A-1). Its only pre-approval requirement is in paragraph (c): 'Your code of ethics must require your access persons to obtain your approval before they directly or indirectly acquire beneficial ownership in any security in an initial public offering or in a limited offering.' Paragraph (a)(3) requires access persons to report their personal securities transactions and holdings, and the adviser to review them; it does not require pre-clearance. The broad rule that every transaction in a Covered Security needs pre-clearance comes from the firm's own Code (code-of-ethics.docx.md Section IV.A: 'All Access Persons must obtain written pre-clearance approval ... before executing any transaction in a Covered Security'), not from the rule. Nothing in the documents says the 2023 trades were IPO or limited-offering acquisitions; a search for 'IPO', 'initial public', 'limited offering' and 'private placement' found nothing. Two points cut the other way. Paragraph (a) of the rule requires an adviser to 'establish, maintain and enforce a written code of ethics,' so failing to enforce the Code's pre-clearance provision is a real Rule 204A-1 compliance problem. And the report elsewhere attributes the general pre-clearance requirement to the Code (Section III.A). Read fairly, the sentence still says the rule itself requires pre-clearance of these ordinary trades, and it does not. That makes this a mild mischaracterization rather than a fabrication. If the reader takes 'as required by' to mean 'required by the Code, which the rule obliges the adviser to enforce,' VERIFIED_MINOR_DEFECT would be a defensible alternative. The eCFR fetch redirected to an unblock page, so LII was the text actually read.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/17/275.204A-1"
+        ]
+      }
+    },
+    {
+      "ref": 20,
+      "document": "clearwater-audit-report.docx.md",
+      "location": "Section III.A",
+      "authority_type": "regulation",
+      "authority": "Rule 204A-1 under the Investment Advisers Act of 1940",
+      "citation_as_written": "Rule 204A-1 under the Investment Advisers Act of 1940",
+      "pincite": "",
+      "cited_for": "Definition of access persons",
+      "quotes": [],
+      "context": "requires all \"access persons\" (as defined in Rule 204A-1 under the Investment Advisers Act of 1940) to obtain written pre-clearance approval",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. § 275.204A-1(e)(1)",
+        "quote_check": "No quotations attributed. The term \"access persons\" is defined in the rule.",
+        "explanation": "Rule 204A-1 defines \"access person.\" The rule itself requires pre-approval only for IPO and limited-offering purchases; the broader pre-clearance duty is described as a requirement of the firm's Code, which is accurate. The citation is used only for the definition.",
+        "evidence_excerpt": "Access person means: Any of your supervised persons who has access to nonpublic information regarding any clients' purchase or sale of securities, or nonpublic information regarding the portfolio holdings of any reportable fund, or who is involved in making securities recommendations to clients...",
+        "source_urls": [
+          "https://www.ecfr.gov/current/title-17/part-275/section-275.204A-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "clearwater-audit-report.docx.md",
+      "location": "Section V (Conclusion)",
+      "authority_type": "regulation",
+      "authority": "Rule 206(4)-7 of the Investment Advisers Act",
+      "citation_as_written": "Rule 206(4)-7 of the Investment Advisers Act",
+      "pincite": "",
+      "cited_for": "Adequacy of the Firm's compliance program",
+      "quotes": [],
+      "context": "serious questions about the adequacy of the Firm's compliance program under Rule 206(4)-7 of the Investment Advisers Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. § 275.206(4)-7",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 206(4)-7, the compliance rule, requires written policies and procedures reasonably designed to prevent violations, plus an annual review of their adequacy. That fits the reference to the adequacy of the firm's compliance program. It is technically a rule \"under\" the Act rather than \"of\" the Act, which is trivial.",
+        "evidence_excerpt": "Review, no less frequently than annually, the adequacy of the policies and procedures established pursuant to this section and the effectiveness of their implementation",
+        "source_urls": [
+          "https://www.ecfr.gov/current/title-17/part-275/section-275.206(4)-7"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Caption header",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 17(c)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 17(c)",
+      "pincite": "",
+      "cited_for": "Authority under which the subpoena duces tecum is issued",
+      "quotes": [],
+      "context": "SUBPOENA DUCES TECUM (Grand Jury) Issued Pursuant to Federal Rule of Criminal Procedure 17(c)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Fed. R. Crim. P. 17(c) governs subpoenas for producing documents and objects (subpoenas duces tecum), so it is the correct authority for a grand jury subpoena duces tecum.",
+        "evidence_excerpt": "Rule 17(c)(1): \"A subpoena may order the witness to produce any books, papers, documents, data, or other objects the subpoena designates.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section I, Commanding Paragraph (contempt warning)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 401",
+      "citation_as_written": "18 U.S.C. § 401",
+      "pincite": "",
+      "cited_for": "Contempt of court for failure to comply with the subpoena",
+      "quotes": [],
+      "context": "FAILURE TO COMPLY WITH THIS SUBPOENA MAY SUBJECT YOU TO PUNISHMENT FOR CONTEMPT OF COURT PURSUANT TO 18 U.S.C. § 401 AND FEDERAL RULE OF CRIMINAL PROCEDURE 17.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 401(3) gives federal courts power to punish by fine or imprisonment disobedience of their lawful writ, process, or order, which covers noncompliance with a grand jury subpoena. Fed. R. Crim. P. 17(g), which the same sentence pairs with it, separately authorizes contempt against a witness who disobeys a subpoena.",
+        "evidence_excerpt": "A court of the United States shall have power to punish by fine or imprisonment, or both, at its discretion, such contempt of its authority ... as— ... (3) Disobedience or resistance to its lawful writ, process, order, rule, decree, or command.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/401",
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section I, Commanding Paragraph (contempt warning)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 17",
+      "citation_as_written": "Federal Rule of Criminal Procedure 17",
+      "pincite": "",
+      "cited_for": "Contempt for failure to comply with the subpoena",
+      "quotes": [],
+      "context": "CONTEMPT OF COURT PURSUANT TO 18 U.S.C. § 401 AND FEDERAL RULE OF CRIMINAL PROCEDURE 17.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Fed. R. Crim. P. 17(g) authorizes the court to hold in contempt a witness who disobeys a subpoena without adequate excuse, and 18 U.S.C. § 401(3) (cited alongside it) gives the contempt power for disobeying lawful process. Citing Rule 17 generally for the contempt warning is accurate. A more precise cite would be Rule 17(g).",
+        "evidence_excerpt": "Rule 17(g): \"The court (other than a magistrate judge) may hold in contempt a witness who, without adequate excuse, disobeys a subpoena issued by a federal court in that district.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17",
+          "https://www.law.cornell.edu/uscode/text/18/401"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section VI, Contempt Warning",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 401 and Fed. R. Crim. P. 17",
+      "citation_as_written": "18 U.S.C. § 401, Federal Rule of Criminal Procedure 17",
+      "pincite": "",
+      "cited_for": "Contempt punishment for noncompliance, plus inherent powers of the Court",
+      "quotes": [],
+      "context": "Failure to comply with this subpoena may subject you to punishment for contempt of court pursuant to 18 U.S.C. § 401, Federal Rule of Criminal Procedure 17, and the inherent powers of the Court.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both authorities support contempt for noncompliance. Under 18 U.S.C. § 401(3), disobedience of lawful process is punishable as contempt. Rule 17(g) lets the court hold in contempt a witness who disobeys a subpoena without adequate excuse. 'Inherent powers of the Court' is a general reference, not a cited authority.",
+        "evidence_excerpt": "Rule 17(g): \"The court (other than a magistrate judge) may hold in contempt a witness who, without adequate excuse, disobeys a subpoena issued by a federal court in that district.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/401",
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section VI, Witness Fees",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1821",
+      "citation_as_written": "28 U.S.C. § 1821",
+      "pincite": "",
+      "cited_for": "Grand jury witness entitled to witness fee and mileage",
+      "quotes": [],
+      "context": "A witness attending before a grand jury is entitled to a witness fee and mileage as provided by 28 U.S.C. § 1821.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1821 provides witness fees (an attendance fee per day) and travel/mileage allowances for a witness 'in attendance at any court of the United States.' The statute does not say 'grand jury' expressly, but courts apply it to grand jury witnesses. For example, In re Grand Jury Matter (Witness RW), 697 F.2d 103 (3d Cir. 1982), applied § 1821(b) to a grand jury witness's fee claim (cited in Demarest v. Manspeaker, 498 U.S. 184).",
+        "evidence_excerpt": "\"a witness in attendance at any court of the United States ... shall be paid the fees and allowances provided by this section.\" ... \"A witness shall be paid an attendance fee of $40 per day for each day's attendance.\" ... travel allowance \"shall be paid to each witness who travels by privately owned vehicle.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1821",
+          "https://www.courtlistener.com/opinion/412714/in-re-grand-jury-matter-witness-rw/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section VI, ADA Accommodation",
+      "authority_type": "statute",
+      "authority": "Americans with Disabilities Act",
+      "citation_as_written": "Americans with Disabilities Act",
+      "pincite": "",
+      "cited_for": "Accommodation for disabilities",
+      "quotes": [],
+      "context": "If you require accommodation pursuant to the Americans with Disabilities Act, please contact the Clerk of Court",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The ADA is a real statute, and this is a boilerplate accommodation notice. However, the subpoena issues from a federal district court (S.D.N.Y.), and federal courts are not subject to the ADA. Title II's 'public entity' covers state and local governments. Federal courts give accommodations under Judicial Conference policy, so an accommodation 'pursuant to the ADA' is technically inaccurate. This is a minor defect in a notice clause, not a substantive legal proposition.",
+        "evidence_excerpt": "\"The federal courts are not subject to the Americans with Disabilities Act\" (E.D.N.Y. accessibility page); 42 U.S.C. § 12131(1): public entity means \"any State or local government; any department, agency ... of a State or States or local government ...\"",
+        "source_urls": [
+          "https://www.nyed.uscourts.gov/accessibility",
+          "https://www.law.cornell.edu/uscode/text/42/12131"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "grand-jury-subpoena.docx.md",
+      "location": "Section VI, Governing Rule",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Criminal Procedure 17(c)",
+      "citation_as_written": "Federal Rule of Criminal Procedure 17(c)",
+      "pincite": "",
+      "cited_for": "Governing rule for issuance of the subpoena",
+      "quotes": [],
+      "context": "This subpoena is issued pursuant to Federal Rule of Criminal Procedure 17(c) and the authority of the Grand Jury sitting in the Southern District of New York.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 17(c) is the correct governing rule for a subpoena compelling production of documents. Rule 17(c)(2) also provides the motion to quash or modify.",
+        "evidence_excerpt": "Rule 17(c)(1): \"A subpoena may order the witness to produce any books, papers, documents, data, or other objects the subpoena designates.\" Rule 17(c)(2): \"On motion made promptly, the court may quash or modify the subpoena if compliance would be unreasonable or oppressive.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcrmp/rule_17"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "task.json.md",
+      "location": "rubric C-018 (ISSUE_005: Fifth Amendment issue for corporate representative)",
+      "authority_type": "other",
+      "authority": "Fifth Amendment (privilege against self-incrimination)",
+      "citation_as_written": "Fifth Amendment",
+      "pincite": "",
+      "cited_for": "A corporation cannot assert the Fifth Amendment privilege, but an individual designated as corporate representative faces tension between representative role and personal privilege rights.",
+      "quotes": [],
+      "context": "a corporation cannot assert the Fifth Amendment privilege but an individual designated as corporate representative faces tension between their representative role and personal privilege rights.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Under the collective-entity doctrine as applied by the Supreme Court (Hale v. Henkel; Bellis; Braswell v. United States, 487 U.S. 99 (1988)), a corporation has no Fifth Amendment privilege, and a custodian who produces corporate records acts in a representative capacity and cannot invoke a personal privilege for that act. The individual still keeps personal privilege rights (Braswell discusses Curcio and leaves some questions open). So the stated tension between the representative role and personal privilege is an accurate description of the doctrine.",
+        "evidence_excerpt": "Braswell: \"Any claim of Fifth Amendment privilege asserted by the agent would be tantamount to a claim of privilege by the corporation — which of course possesses no such privilege.\"; \"Hale settled that a corporation has no Fifth Amendment privilege\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112120/braswell-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "task.json.md",
+      "location": "rubric C-019 (ISSUE_005: Braswell or collective entity doctrine)",
+      "authority_type": "case",
+      "authority": "collective entity doctrine (Braswell line)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "A corporate custodian/designee acts in a representative capacity and the corporation cannot claim the Fifth Amendment privilege.",
+      "quotes": [],
+      "context": "references Braswell v. United States (487 U.S. 99 (1988)) or the collective entity doctrine in analyzing the Fifth Amendment issue for corporate representative testimony, explaining that a corporate custodian/designee acts in a representative capacity and the corporation cannot claim the privilege.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Braswell v. United States, 487 U.S. 99 (1988)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Braswell (Rehnquist, J.) restates that a corporation has no Fifth Amendment privilege (citing Hale v. Henkel). It holds that a corporate custodian acts in a representative capacity, so the custodian's act of producing records is the corporation's act and cannot be resisted on personal Fifth Amendment grounds. That supports the stated proposition. One caveat: the context applies this to corporate-representative testimony. Braswell (following Curcio) separates producing records from oral testimony, and a custodian cannot be compelled to give oral testimony that incriminates him personally. The proposition as written (representative capacity; no corporate privilege) is still accurate.",
+        "evidence_excerpt": "\"Although Hale settled that a corporation has no Fifth Amendment privilege...\"; \"a custodian's assumption of his representative capacity leads to certain obligations, including the duty to produce corporate records on proper demand by the Government. Under those circumstances, the custodian's act of production is not deemed a personal act, but rather an act of the corporation.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112120/braswell-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "task.json.md",
+      "location": "rubric C-027 (ISSUE_008: privacy or SCA issues)",
+      "authority_type": "other",
+      "authority": "Fourth Amendment",
+      "citation_as_written": "Fourth Amendment",
+      "pincite": "",
+      "cited_for": "Compelling production of employees' personal email and messaging communications raises Fourth Amendment privacy concerns.",
+      "quotes": [],
+      "context": "identifies potential Fourth Amendment, Stored Communications Act (18 U.S.C. § 2701 et seq.), or other privacy concerns raised by compelling the entity to produce personal email accounts and personal messaging app communications of its employees.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The Supreme Court has held that a subpoena duces tecum compelling production of papers can be an unreasonable search and seizure under the Fourth Amendment (Hale v. Henkel, 201 U.S. 43 (1906)). That makes it fair to identify Fourth Amendment privacy concerns raised by compelling production of employees' personal communications. The rubric frames this as a potential concern, not a holding.",
+        "evidence_excerpt": "Hale v. Henkel: \"We are also of opinion that an order for the production of books and papers may constitute an unreasonable search and seizure within the Fourth Amendment.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/96424/hale-v-henkel/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "task.json.md",
+      "location": "rubric C-031 (ISSUE_010: investor identification request)",
+      "authority_type": "other",
+      "authority": "First Amendment (associational rights)",
+      "citation_as_written": "First Amendment",
+      "pincite": "",
+      "cited_for": "Disclosure of fund investors' identities implicates First Amendment associational rights.",
+      "quotes": [],
+      "context": "disclosure implicates investor privacy, potential LP confidentiality provisions, and/or First Amendment associational rights.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The First Amendment associational-privacy doctrine (NAACP v. Alabama ex rel. Patterson, 357 U.S. 449 (1958)) protects against compelled disclosure of membership in groups engaged in advocacy. The rubric hedges ('and/or') and says only that disclosure 'implicates' these rights, which is a defensible issue-spotting point. Applying the doctrine to passive commercial investors in a private fund is a stretch, though, because the protection is tied to expressive association, so the proposition is weaker than stated.",
+        "evidence_excerpt": "NAACP v. Alabama: \"compelled disclosure of affiliation with groups engaged in advocacy may constitute as effective a restraint on freedom of association\"; \"Compelled disclosure of membership in an organization engaged in advocacy of particular beliefs is of the same order.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/105746/naacp-v-alabama-ex-rel-patterson/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "ic-memo-veridian.docx.md",
+      "location": "Catalysts section and Market Risk paragraph (PDUFA references)",
+      "authority_type": "statute",
+      "authority": "Prescription Drug User Fee Act (PDUFA)",
+      "citation_as_written": "Prescription Drug User Fee Act (PDUFA)",
+      "pincite": "",
+      "cited_for": "Veridicel is under FDA review with a PDUFA target action date expected in Q2 2024, a key catalyst and binary event.",
+      "quotes": [],
+      "context": "Veridicel is currently under FDA review, with a Prescription Drug User Fee Act (PDUFA) target action date expected in Q2 2024.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "PDUFA is a real statute (1992, reauthorized every five years; PDUFA VII covers FY2023-2027) that governs FDA's timely review of new drug and biologic license applications, which is where the 'PDUFA target action date' concept comes from. The factual claims about Veridicel belong to the fictional scenario and cannot be checked; the reference to the statute is accurate.",
+        "evidence_excerpt": "\"The Prescription Drug User Fee Act (PDUFA) was created by Congress in 1992\"; PDUFA VII \"will provide for the continued timely review of new drug and biologic license applications\"",
+        "source_urls": [
+          "https://www.fda.gov/industry/fda-user-fee-programs/prescription-drug-user-fee-amendments"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

@@ -1,0 +1,397 @@
+{
+  "task": "draft-answer-to-breach-of-contract-complaint",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "caldwell-force-majeure-notice.docx.md",
+    "caldwell-settlement-email.eml.md",
+    "caldwell-termination-notice.docx.md",
+    "complaint-meridian-v-caldwell.docx.md",
+    "master-supply-agreement.docx.md",
+    "meridian-demand-letter.docx.md",
+    "meridian-fm-rejection-letter.docx.md",
+    "po-147-butterfly-valves.docx.md",
+    "po-163-gate-valves.docx.md",
+    "task.json.md",
+    "tidewater-suspension-notice.docx.md",
+    "tranche1-rejection-email-chain.eml.md",
+    "tranche2-bill-of-lading.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "complaint-meridian-v-caldwell.docx.md",
+      "location": "Complaint ¶ 7 (Jurisdiction and Venue)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a) (diversity jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction based on complete diversity of citizenship and amount in controversy exceeding $75,000.",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332(a) because there is complete diversity of citizenship between the parties and the amount in controversy exceeds $75,000, exclusive of interest and costs.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1332(a)(1) does grant diversity jurisdiction where the amount in controversy exceeds $75,000 and the parties are citizens of different States. But § 1332(c)(1) makes a corporation a citizen of both its State of incorporation and the State of its principal place of business. The complaint itself pleads that Meridian is a Delaware corporation with its principal place of business in Savannah, Georgia, so Meridian is also a Georgia citizen. The complaint also pleads that all of Caldwell's LLC members are Georgia citizens. On the complaint's own facts, then, both sides include Georgia citizens and complete diversity is absent. Complaint ¶ 8 says Meridian is a citizen only of Delaware 'by virtue of its state of incorporation', which misstates the statute's citizenship rule. The statute is real and the amount-in-controversy statement is accurate, but it does not support jurisdiction as pleaded.",
+        "evidence_excerpt": "§ 1332(a): \"The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\" § 1332(c)(1): \"a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED",
+        "explanation": "The citation is accurate, and the statute supports the rule the complaint cites it for. LII text of 28 U.S.C. § 1332(a) reads: \"The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;\". That is exactly the proposition in Complaint ¶ 7: jurisdiction rests on complete diversity plus more than $75,000 in controversy, exclusive of interest and costs.\n\nThe first reviewer's underlying point is substantively correct. § 1332(c)(1) deems a corporation a citizen \"of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business.\" The complaint pleads that Meridian is a Delaware corporation with its principal place of business in Savannah, Georgia, and that all of Caldwell's LLC members are Georgia citizens. Complaint ¶ 8 says Meridian is a citizen only of Delaware \"by virtue of its state of incorporation,\" which is wrong. On the pleaded facts, complete diversity is lacking.\n\nThat is a factual and jurisdictional defect in the pleading, probably planted for the Answer to deny. It is not a citation error. The statute is not quoted, and it is not cited for a rule it lacks: it states the very rule invoked, and the complaint simply misapplies it to its own facts. The jurisdictional defect is a real substantive issue for the Answer, but MISCHARACTERIZED overstates the problem as a citation-accuracy finding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ]
+      }
+    },
+    {
+      "ref": 1,
+      "document": "complaint-meridian-v-caldwell.docx.md",
+      "location": "Complaint ¶ 9 (Jurisdiction and Venue)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1) and (b)(2) (venue)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1) and (b)(2)",
+      "pincite": "",
+      "cited_for": "Venue is proper in this District because Caldwell resides here and a substantial part of the events occurred here.",
+      "quotes": [],
+      "context": "Venue is proper in this District pursuant to 28 U.S.C. § 1391(b)(1) and (b)(2), as Caldwell resides in this judicial district and a substantial part of the events or omissions giving rise to the claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(1) puts venue in a district where any defendant resides, if all defendants reside in that State. Section 1391(b)(2) puts venue where a substantial part of the events or omissions occurred. The complaint's paraphrase tracks both provisions. Caldwell is pleaded as a Georgia LLC headquartered in Atlanta, and Tranche 2 was delivered to its Atlanta warehouse, which fits the Northern District of Georgia.",
+        "evidence_excerpt": "(b)(1) \"a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located\"; (b)(2) \"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "complaint-meridian-v-caldwell.docx.md",
+      "location": "Verification",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746 (unsworn declarations under penalty of perjury)",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Verification declared under penalty of perjury by Janet Huang.",
+      "quotes": [],
+      "context": "I, Janet Huang, Vice President of Sales of Meridian Supply Chain Solutions, Inc., declare under penalty of perjury pursuant to 28 U.S.C. § 1746 that I have read the foregoing Complaint",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1746 allows a verification to be made by unsworn declaration under penalty of perjury, in substantially the statutory form. The verification invokes it correctly. One small point: the declaration is qualified 'to the best of my knowledge, information, and belief' rather than stating that the content is simply 'true and correct', and it is also notarized. Neither point affects whether the cited authority supports the proposition.",
+        "evidence_excerpt": "\"such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated\"; form: \"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "complaint-meridian-v-caldwell.docx.md",
+      "location": "Certificate of Service",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure, Rule 4",
+      "citation_as_written": "Rule 4 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Service of the Complaint by personal service through a licensed process server was made in accordance with Rule 4.",
+      "quotes": [],
+      "context": "served upon Defendant Caldwell Industrial Technologies, LLC by personal service through a licensed process server at Caldwell's principal place of business ... in accordance with Rule 4 of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 4(h)(1); 4(c)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 4 governs service of the summons and complaint. Rule 4(h)(1) allows an unincorporated association such as an LLC to be served by delivering the papers to an officer, a managing or general agent, or an authorized agent, or by any method Rule 4(e)(1) permits under state law. Personal service by a process server at the principal place of business is consistent with that, assuming delivery was to a proper agent. The certificate does not name the person who received the papers.",
+        "evidence_excerpt": "Rule 4(h)(1)(B): \"by delivering a copy of the summons and of the complaint to an officer, a managing or general agent, or any other agent authorized by appointment or by law to receive service of process\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "master-supply-agreement.docx.md",
+      "location": "MSA § 4.3 (Warranty)",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Commercial Code, Title 11 of the Official Code of Georgia Annotated",
+      "citation_as_written": "Georgia Uniform Commercial Code, Title 11 of the Official Code of Georgia Annotated",
+      "pincite": "",
+      "cited_for": "Contractual warranties are cumulative with, and not in limitation of, warranties implied by law under the Georgia UCC.",
+      "quotes": [],
+      "context": "Supplier's warranties under this Section 4.3 are cumulative and in addition to, and not in limitation of, any warranties implied by law under the Georgia Uniform Commercial Code, Title 11 of the Official Code of Georgia Annotated, as amended from time to time.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Title 11 of the O.C.G.A. is Georgia's Commercial Code, its enactment of the UCC. O.C.G.A. § 11-2-317 says that express and implied warranties are construed as cumulative. That supports the clause's statement that the contract warranties add to, and do not limit, warranties implied by law.",
+        "evidence_excerpt": "O.C.G.A. § 11-2-317: \"Warranties whether express or implied shall be construed as consistent with each other and as cumulative, but if such construction is unreasonable the intention of the parties shall determine which warranty is dominant.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-11-commercial-code/ga-code-sect-11-2-317/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "master-supply-agreement.docx.md",
+      "location": "MSA § 15.3 (Governing Law)",
+      "authority_type": "statute",
+      "authority": "Georgia law (governing law clause)",
+      "citation_as_written": "laws of the State of Georgia",
+      "pincite": "",
+      "cited_for": "Agreement is governed by Georgia law without regard to conflict of laws principles.",
+      "quotes": [],
+      "context": "This Agreement shall be governed by and construed in accordance with the laws of the State of Georgia, without regard to its conflict of laws principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "This is a contractual choice-of-law clause, not a citation to a specific provision. Georgia law allows it: under O.C.G.A. § 11-1-301(a), parties may agree that Georgia law governs a transaction that bears a reasonable relation to Georgia. Both parties are based in Georgia, so the clause is consistent with Georgia law.",
+        "evidence_excerpt": "O.C.G.A. § 11-1-301(a): \"when a transaction bears a reasonable relation to this state and also to another state or nation the parties may agree that the law either of this state or of such other state or nation shall govern their rights and duties.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-11-commercial-code/ga-code-sect-11-1-301/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "master-supply-agreement.docx.md",
+      "location": "MSA § 15.3 (Governing Law)",
+      "authority_type": "other",
+      "authority": "United Nations Convention on Contracts for the International Sale of Goods (CISG)",
+      "citation_as_written": "United Nations Convention on Contracts for the International Sale of Goods (CISG)",
+      "pincite": "",
+      "cited_for": "CISG expressly excluded from application to the Agreement and Purchase Orders.",
+      "quotes": [],
+      "context": "The United Nations Convention on Contracts for the International Sale of Goods (CISG) shall not apply to this Agreement or to any Purchase Order issued hereunder.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The CISG is a real treaty, and Article 6 lets contracting parties exclude it. That supports the MSA's express exclusion of the CISG. Side note: both parties are U.S. entities, so the CISG would probably not apply anyway, but the exclusion is valid.",
+        "evidence_excerpt": "Article 6: \"The parties may exclude the application of this Convention or, subject to article 12, derogate from or vary the effect of any of its provisions.\"",
+        "source_urls": [
+          "https://uncitral.un.org/sites/uncitral.un.org/files/media-documents/uncitral/en/19-09951_e_ebook.pdf",
+          "https://uncitral.un.org/en/texts/salegoods/conventions/sale_of_goods/cisg"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "task.json.md",
+      "location": "rubric C-011",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 11-2-706 (Georgia UCC seller's resale)",
+      "citation_as_written": "O.C.G.A. § 11-2-706",
+      "pincite": "",
+      "cited_for": "Seller's duty/right to make reasonable efforts to resell goods, supporting the failure-to-mitigate defense.",
+      "quotes": [],
+      "context": "PASS if the Answer's failure-to-mitigate defense references the seller's duty to make reasonable efforts to resell goods, whether citing Georgia's UCC provisions (O.C.G.A. § 11-2-706 or UCC § 2-708), the common law duty to mitigate, or general mitigation principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 11-2-706",
+        "quote_check": "No attributed quotes.",
+        "explanation": "O.C.G.A. § 11-2-706 exists and covers the seller's resale remedy. It gives the seller a right to resell ('may resell'), and a good-faith, commercially reasonable resale lets the seller recover the gap between the resale price and the contract price. It does not itself create a 'duty' to resell. The duty to mitigate comes from general mitigation principles, not this section. The rubric describes it loosely as a duty, but citing it as resale/mitigation support for a failure-to-mitigate defense is a reasonable use.",
+        "evidence_excerpt": "\"(1) Under the conditions stated in Code Section 11-2-703 on seller's remedies, the seller may resell the goods concerned or the undelivered balance thereof.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-11-commercial-code/ga-code-sect-11-2-706/",
+          "https://www.law.cornell.edu/ucc/2/2-706"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "task.json.md",
+      "location": "rubric C-011",
+      "authority_type": "statute",
+      "authority": "UCC § 2-708 (seller's damages for non-acceptance or repudiation)",
+      "citation_as_written": "UCC § 2-708",
+      "pincite": "",
+      "cited_for": "Seller's damages measure/resale principles supporting the failure-to-mitigate defense.",
+      "quotes": [],
+      "context": "whether citing Georgia's UCC provisions (O.C.G.A. § 11-2-706 or UCC § 2-708), the common law duty to mitigate, or general mitigation principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "UCC § 2-708 (Georgia: O.C.G.A. § 11-2-708)",
+        "quote_check": "No attributed quotes.",
+        "explanation": "UCC § 2-708 sets the seller's damages when a buyer refuses to accept goods or repudiates: the market price versus the contract price, less expenses saved, or lost profit with due credit for resale proceeds. It is about the measure of damages and does not impose a resale duty, so it supports mitigation principles only loosely. The rubric also calls it one of 'Georgia's UCC provisions' but uses the model-code number. Georgia's counterpart is O.C.G.A. § 11-2-708, which has the same substance.",
+        "evidence_excerpt": "\"the measure of damages for non-acceptance or repudiation by the buyer is the difference between the market price at the time and place for tender and the unpaid contract price ... but less expenses saved in consequence of the buyer's breach\"; (2) \"... due credit for payments or proceeds of resale.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-708",
+          "https://codes.findlaw.com/ga/title-11-commercial-code/ga-code-sect-11-2-708/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "task.json.md",
+      "location": "rubric C-011",
+      "authority_type": "other",
+      "authority": "Common law duty to mitigate damages",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Common-law duty to mitigate as a basis for seller's duty to resell.",
+      "quotes": [],
+      "context": "the common law duty to mitigate, or general mitigation principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The common-law mitigation doctrine (also called avoidable consequences) is well established. A non-breaching party must make reasonable efforts to avoid further loss after a repudiation, and damages that reasonable efforts could have avoided are not recoverable. Reasonable resale efforts by a seller fit within that principle, so the reference supports a failure-to-mitigate defense. One nuance: under the UCC, resale (§ 2-706) is framed as a remedy the seller 'may' use, not a free-standing duty. The 'duty' to resell is therefore really the general mitigation limit on damages.",
+        "evidence_excerpt": "\"In a breach of contract case, upon receiving notice that one party to a contract does not intend to perform, the other party is required to mitigate damages, meaning that it must take reasonable efforts to avoid further losses from the breach.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/wex/mitigation_of_damages"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "case",
+      "authority": "Benton v. Benton",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Georgia case law (cited by name only, no reporter cite) for the principle that unjust enrichment is an equitable remedy unavailable where an express contract covers the subject matter.",
+      "quotes": [],
+      "context": "PASS if the Answer references Georgia law principles, Georgia case law (such as Benton v. Benton or similar), or the general legal principle under Georgia law that unjust enrichment is an equitable remedy unavailable where an express contract covers the subject matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric gives the case name only, with no reporter citation. CourtListener has three Georgia appellate opinions styled 'Benton v. Benton', and none deals with unjust enrichment or express contracts. 280 Ga. 468, 629 S.E.2d 204 (2006) is about federal judicial estoppel in a divorce. 52 Ga. App. 621 (1936) is about impounding livestock. 164 Ga. 541 (1927) is about appellate jurisdiction in an attachment and claim case. Keyword searches for 'unjust enrichment' and 'contract' in all three returned no matches; the opening sections I read are consistent with that. The underlying Georgia rule (no unjust-enrichment recovery where an express contract covers the subject) exists in other Georgia cases, such as CS-Lakeview at Gwinnett, but 'Benton v. Benton' is not authority for it. Confidence is medium only because a name-only citation could point to an unpublished case not in CourtListener.",
+        "evidence_excerpt": "Benton v. Benton, 280 Ga. 468 (2006): \"This Court granted estranged husband, Gary Benton, interlocutory appeal in this divorce action ... to consider whether Mr. Benton was entitled to partial summary judgment ... based upon the doctrine of federal judicial estoppel.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1301029/benton-v-benton/",
+          "https://law.justia.com/cases/georgia/supreme-court/2006/s06a0605-1.html"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. A CourtListener search restricted to Georgia courts (ga, gactapp) returns exactly three opinions named \"Benton v. Benton\": 280 Ga. 468, 629 S.E.2d 204 (2006); 52 Ga. App. 621, 184 S.E. 627 (1936); and 164 Ga. 541, 139 S.E. 68 (1927). A search_document check for \"contract\" and \"enrich\" found zero matches in all of them.\n\nThe 2006 opinion is about federal judicial estoppel in a divorce. It opens: \"to consider whether Mr. Benton was entitled to partial summary judgment on Ms. Benton's counterclaim for alimony and equitable property division based upon the doctrine of federal judicial estoppel.\"\n\nI also searched for opinions that cite \"Benton v. Benton\" alongside \"unjust enrichment\". This found Georgia cases including Stearns Bank v. Dozetos, 328 Ga. App. 106; Dudley v. Wachovia, 290 Ga. App. 220; and Nalley v. Langdale, 319 Ga. App. 354. They cite Benton, 280 Ga. at 470, only for the de novo summary-judgment standard of review (\"whether the undisputed facts, viewed in the light most favorable to the nonmoving party, warrant judgment as a matter of law\"), not for the rule that an express contract bars unjust enrichment.\n\nSo the Georgia case is real, but nothing I read supports the proposition the rubric attributes to it. The rubric's \"or similar\" hedge softens the impact but does not make Benton authority for the rule. Since the rubric gives no reporter cite, an unpublished trial-level case with this name cannot be fully excluded.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1301029/benton-v-benton/",
+          "https://www.courtlistener.com/opinion/7880149/stearns-bank-na-v-dozetos/",
+          "https://www.courtlistener.com/opinion/1335140/dudley-v-wachovia-bank-na/",
+          "https://www.courtlistener.com/opinion/7878248/nalley-v-langdale/"
+        ]
+      }
+    },
+    {
+      "ref": 11,
+      "document": "tranche2-bill-of-lading.docx.md",
+      "location": "Shipper Certification paragraph (line 60)",
+      "authority_type": "statute",
+      "authority": "49 U.S.C. § 14706 (Carmack Amendment)",
+      "citation_as_written": "49 U.S.C. § 14706",
+      "pincite": "",
+      "cited_for": "Carrier's liability is limited to the declared value, or if no value is declared, to the maximum liability permitted under this statute",
+      "quotes": [],
+      "context": "Carrier's liability is limited to the declared value stated herein or, if no value is declared, to the maximum liability permitted under 49 U.S.C. § 14706.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 14706 is the Carmack Amendment, which governs motor-carrier liability. Subsection (c)(1)(A) lets a carrier limit its liability to a value declared by the shipper. Where no value is limited, § 14706(a)(1) sets the measure as the actual loss or injury to the property. The bill-of-lading clause, read this way, is consistent with the statute. The phrase 'maximum liability permitted' is loose, though: the statute does not set a fixed dollar cap. It simply makes actual loss the ceiling.",
+        "evidence_excerpt": "(c)(1)(A): carrier may establish rates \"under which the liability of the carrier for such property is limited to a value established by written or electronic declaration of the shipper\"; (a)(1): \"The liability imposed under this paragraph is for the actual loss or injury to the property\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/49/14706"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "tranche2-bill-of-lading.docx.md",
+      "location": "Shipper Certification paragraph",
+      "authority_type": "regulation",
+      "authority": "Applicable regulations of the Department of Transportation",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Shipper certifies materials are properly classified, described, packaged, marked, labeled, and in proper condition for transportation according to applicable DOT regulations",
+      "quotes": [
+        "applicable regulations of the Department of Transportation"
+      ],
+      "context": "Shipper hereby certifies that the above-named materials are properly classified, described, packaged, marked, and labeled, and are in proper condition for transportation according to the applicable regulations of the Department of Transportation.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "49 C.F.R. § 172.204(a)(1)",
+        "quote_check": "\"applicable regulations of the Department of Transportation\" found verbatim in the 49 C.F.R. § 172.204(a)(1) shipper's certification language.",
+        "explanation": "The bill of lading's shipper certification copies, nearly word for word, the standard Department of Transportation certification in the hazardous-materials rules at 49 C.F.R. § 172.204(a)(1). Those regulations exist and contain this certification. Strictly, the certification is required for hazardous materials, which valves are not. Even so, the language is standard boilerplate on bill-of-lading forms, and the reference is accurate.",
+        "evidence_excerpt": "\"This is to certify that the above-named materials are properly classified, described, packaged, marked and labeled, and are in proper condition for transportation according to the applicable regulations of the Department of Transportation.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/49/172.204"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

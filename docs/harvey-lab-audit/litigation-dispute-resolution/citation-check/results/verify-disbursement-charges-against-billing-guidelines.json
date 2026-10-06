@@ -1,0 +1,415 @@
+{
+  "task": "verify-disbursement-charges-against-billing-guidelines",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "billing-guidelines.docx.md",
+    "hwk-engagement-letter.docx.md",
+    "hwk-invoice-may-2025.xlsx.md",
+    "pre-approval-log.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "hwk-engagement-letter.docx.md",
+      "location": "Section 2 Scope of Engagement, para. 2",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Statutory basis of the Morales plaintiffs' gender-based pay discrimination claims",
+      "quotes": [],
+      "context": "allege systemic gender-based pay discrimination in violation of Title VII of the Civil Rights Act of 1964, as amended, 42 U.S.C. § 2000e et seq., and the Equal Pay Act of 1963, 29 U.S.C. § 206(d).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is accurate: Title VII of the Civil Rights Act of 1964, as amended, is codified at 42 U.S.C. § 2000e et seq. (LII lists the subchapter as §§ 2000e through 2000e-17). It supports the proposition: § 2000e-2(a)(1) makes it unlawful for an employer to discriminate in compensation because of sex, which is the statutory basis for gender-based pay discrimination claims. Section 2000e-2(h) also cross-references 29 U.S.C. § 206(d), consistent with the letter pairing Title VII with the Equal Pay Act. CourtListener was not used because it does not host statutory text; the statute was read on LII and the EEOC's site.",
+        "evidence_excerpt": "Title VII is codified at 42 U.S.C. 2000e and in subsequent sections. ... It shall be an unlawful employment practice for an employer — (1) to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual’s race, color, religion, sex, or national origin",
+        "source_urls": [
+          "https://www.eeoc.gov/statutes/title-vii-civil-rights-act-1964",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/chapter-21/subchapter-VI"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "hwk-engagement-letter.docx.md",
+      "location": "Section 2 Scope of Engagement, para. 2",
+      "authority_type": "statute",
+      "authority": "Equal Pay Act of 1963",
+      "citation_as_written": "29 U.S.C. § 206(d)",
+      "pincite": "",
+      "cited_for": "Statutory basis of the Morales plaintiffs' gender-based pay discrimination claims",
+      "quotes": [],
+      "context": "allege systemic gender-based pay discrimination in violation of Title VII of the Civil Rights Act of 1964, as amended, 42 U.S.C. § 2000e et seq., and the Equal Pay Act of 1963, 29 U.S.C. § 206(d).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "29 U.S.C. § 206(d) is headed 'Prohibition of sex discrimination' and bars employers from paying employees of one sex less than the opposite sex for equal work. The short-title note confirms Pub. L. 88-38, which added subsection (d), is the 'Equal Pay Act of 1963'. Name, year and section are all correct, and the provision is the proper statutory basis for a gender-based pay discrimination claim.",
+        "evidence_excerpt": "(d) Prohibition of sex discrimination (1) No employer having employees subject to any provisions of this section shall discriminate, within any establishment in which such employees are employed, between employees on the basis of sex by paying wages to employees in such establishment at a rate less than the rate at which he pays wages to employees of the opposite sex in such establishment for equal work on jobs the performance of which requires equal skill, effort, and responsibility",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/206",
+          "https://www.law.cornell.edu/uscode/text/29/201"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "hwk-engagement-letter.docx.md",
+      "location": "Section 9 Conflicts of Interest, para. 1",
+      "authority_type": "court_rule",
+      "authority": "North Carolina Revised Rules of Professional Conduct",
+      "citation_as_written": "North Carolina Revised Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "No conflict of interest preventing HWK's representation of Pinnacle under the applicable professional conduct rules",
+      "quotes": [],
+      "context": "it is not aware of any conflict of interest that would prevent it from representing Pinnacle in the Morales Litigation under the North Carolina Revised Rules of Professional Conduct or any other applicable rules of professional conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The North Carolina State Bar's rules of professional conduct exist and govern conflicts of interest (Rule 1.7, Conflict of Interest: Current Clients, and following rules). 'Revised Rules of Professional Conduct' is a recognized formal designation: the State Bar's own definitions rule uses that name for the code effective July 24, 1997, as comprehensively revised in 2003. The Bar's current public-facing title is simply 'Rules of Professional Conduct' (and the letter puts 'North Carolina' in front), but that is a naming nuance rather than a citation defect. The sentence is the firm's factual representation that it knows of no conflict; the rules are the correct governing authority for that representation. No rule number or pin cite is given to check. CourtListener was not used because it does not host state bar rule text; the rules were read on the State Bar's website.",
+        "evidence_excerpt": "A formal ethics opinion adopted under the Revised Rules of Professional Conduct (effective July 24, 1997, and as comprehensively revised in 2003) shall be designated as a \"Formal Ethics Opinion\" ... [Rule 1.7] (a) Except as provided in paragraph (b), a lawyer shall not represent a client if the representation involves a concurrent conflict of interest.",
+        "source_urls": [
+          "https://www.ncbar.gov/for-lawyers/ethics-and-governing-rules/governing-rules/1d-rules-of-the-standing-committees-of-the-north-carolina-state-bar/0100-procedures-for-ruling-on-questions-of-legal-ethics/0101-definitions/",
+          "https://www.ncbar.gov/for-lawyers/ethics/rules-of-professional-conduct/rule-17-conflict-of-interest-current-clients/",
+          "https://www.ncbar.gov/for-lawyers/ethics/rules-of-professional-conduct/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "hwk-engagement-letter.docx.md",
+      "location": "Section 12 Governing Law and Dispute Resolution, para. 2",
+      "authority_type": "court_rule",
+      "authority": "American Arbitration Association commercial arbitration rules",
+      "citation_as_written": "commercial arbitration rules of the American Arbitration Association",
+      "pincite": "",
+      "cited_for": "Rules governing binding arbitration of engagement disputes",
+      "quotes": [],
+      "context": "either party may submit the dispute to binding arbitration in Charlotte, North Carolina, conducted in accordance with the commercial arbitration rules of the American Arbitration Association.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The American Arbitration Association publishes a current rule set titled 'Commercial Arbitration Rules and Mediation Procedures' (arbitration rules amended and effective September 1, 2022). Rule R-1(a) provides that the rules become part of the parties' arbitration agreement whenever they provide for AAA arbitration under its Commercial Arbitration Rules, which is exactly how the engagement letter's clause uses them. The letter's lower-case generic reference is an informal but accurate designation; no pin cite or version is given, and R-1(a) supplies the version in effect when the demand is filed.",
+        "evidence_excerpt": "R-1. Agreement of Parties* (a) The parties shall be deemed to have made these Rules a part of their arbitration agreement whenever they have provided for arbitration by the American Arbitration Association (\"AAA\") under its Commercial Arbitration Rules or for arbitration by the AAA of a domestic commercial dispute without specifying particular rules.",
+        "source_urls": [
+          "https://www.adr.org/media/ueonklrv/2026_commercial-arbitration-rules-mediation-procedures.pdf",
+          "https://www.adr.org/rules-forms-and-fees/commercial/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "hwk-engagement-letter.docx.md",
+      "location": "Re line and Section 1 (caption of the matter)",
+      "authority_type": "case",
+      "authority": "Morales v. Pinnacle Health Systems, Inc., Case No. 3:24-cv-01847-RJC (W.D.N.C.)",
+      "citation_as_written": "Case No. 3:24-cv-01847-RJC",
+      "pincite": "",
+      "cited_for": "The underlying litigation for which HWK is engaged (the matter itself, not cited as precedent)",
+      "quotes": [],
+      "context": "Engagement of Hargrove, Winslow & Keane LLP — Morales v. Pinnacle Health Systems, Inc., Case No. 3:24-cv-01847-RJC (U.S. District Court for the Western District of North Carolina)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption and docket number; the scenario's underlying case, not authority cited as law."
+    },
+    {
+      "ref": 5,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 11 (row 12), cell F12",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37",
+      "citation_as_written": "FRCP 37",
+      "pincite": "",
+      "cited_for": "Sanctions authority researched for motion to compel production of unredacted salary records",
+      "quotes": [],
+      "context": "Draft motion to compel production of unredacted salary records; research applicable sanctions authority under FRCP 37",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 37 exists, is titled 'Failure to Make Disclosures or to Cooperate in Discovery; Sanctions,' and governs both motions to compel production (37(a)(3)(B)) and sanctions (expense-shifting under 37(a)(5)(A); the sanctions list in 37(b)(2)(A)). It is the correct authority for a time entry describing a motion to compel production and research into 'sanctions authority under FRCP 37.' CourtListener was not used because it does not host rule text; the rule was read on LII.",
+        "evidence_excerpt": "A party seeking discovery may move for an order compelling an answer, designation, production, or inspection. ... If the motion is granted—or if the disclosure or requested discovery is provided after the motion was filed—the court must, after giving an opportunity to be heard, require the party or deponent whose conduct necessitated the motion, the party or attorney advising that conduct, or both to pay the movant's reasonable expenses",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 12 (row 13), cell F13",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 23(b)(2)",
+      "citation_as_written": "FRCP 23(b)(2)",
+      "pincite": "",
+      "cited_for": "Class certification standards researched by T. Nakamura",
+      "quotes": [],
+      "context": "Research class certification standards under FRCP 23(b)(2) and (b)(3); analyze recent Fourth Circuit precedent on commonality requirement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 23(b)(2)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 23(b)(2) exists and sets one of the class-certification standards (injunctive or declaratory relief classes); Rule 23(b)(3) is the predominance/superiority class, and the 'commonality requirement' mentioned in the same entry is Rule 23(a)(2). The time entry's description of researching class certification standards under these subdivisions is accurate.",
+        "evidence_excerpt": "(b) Types of Class Actions. A class action may be maintained if Rule 23(a) is satisfied and if: ... (2) the party opposing the class has acted or refused to act on grounds that apply generally to the class, so that final injunctive relief or corresponding declaratory relief is appropriate respecting the class as a whole",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 12 (row 13), cell F13",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 23(b)(3)",
+      "citation_as_written": "FRCP 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Class certification standards researched by T. Nakamura",
+      "quotes": [],
+      "context": "Research class certification standards under FRCP 23(b)(2) and (b)(3); analyze recent Fourth Circuit precedent on commonality requirement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 23(b)(3) exists and is a class-certification standard (predominance and superiority), as is 23(b)(2) (injunctive/declaratory classes), so the time entry's description of researching 'class certification standards under FRCP 23(b)(2) and (b)(3)' is accurate. Note only: the 'commonality requirement' mentioned in the same entry is found in Rule 23(a)(2), not (b)(3), but the entry treats that as a separate research item (Fourth Circuit precedent) and does not attribute it to (b)(3). CourtListener was not used because it does not host rule text; the rule was read on LII.",
+        "evidence_excerpt": "(3) the court finds that the questions of law or fact common to class members predominate over any questions affecting only individual members, and that a class action is superior to other available methods for fairly and efficiently adjudicating the controversy.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 28 (row 29), cell F29",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.), named only as 'Daubert'",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Analysis of plaintiff's expert reports for Daubert vulnerabilities (expert admissibility challenge)",
+      "quotes": [],
+      "context": "Continue research on class certification opposition; analyze plaintiff's expert reports for Daubert vulnerabilities",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The invoice entry uses 'Daubert' only as a shorthand label for an expert-admissibility challenge (no reporter cite or pin cite is given). Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), exists and holds that under Fed. R. Evid. 702 the trial judge must screen expert scientific testimony for relevance and reliability. Analyzing an opposing expert's reports for 'Daubert vulnerabilities' is a correct use of the name.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 35 (row 36), cell F36",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.), named only as 'Daubert'",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Telephone conference regarding Daubert analysis",
+      "quotes": [],
+      "context": "Telephone conference with T. Nakamura re Daubert analysis; review contract attorney work product on privilege review",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Time entry refers to a 'Daubert analysis' as a shorthand for expert-admissibility analysis; no cite, pin cite or legal proposition beyond the label. Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), exists and establishes the trial judge's gatekeeping role over expert testimony under Rule 702, so the usage is accurate.",
+        "evidence_excerpt": "We recognize that, in practice, a gatekeeping role for the judge, no matter how flexible, inevitably on occasion will prevent the jury from learning of authentic insights and innovations.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 37 (row 38), cell F38",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.), named only as 'Daubert'",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Daubert motion framework targeting plaintiff's statistical expert; admissibility of regression analyses in Fourth Circuit",
+      "quotes": [],
+      "context": "Prepare Daubert motion framework targeting plaintiff's statistical expert; research admissibility of regression analyses in Fourth Circuit",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Time entry describes preparing a 'Daubert motion framework' against plaintiff's statistical expert, i.e., a motion to exclude expert testimony. Daubert, 509 U.S. 579 (1993), exists and is the source of the Rule 702 relevance-and-reliability screening standard on which such motions rest. The second clause (admissibility of regression analyses in the Fourth Circuit) describes a research topic and attributes no holding to Daubert, so there is nothing further to check against the opinion.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable. The primary locus of this obligation is Rule 702, which clearly contemplates some degree of regulation of the subjects and theories about which an expert may testify.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "hwk-invoice-may-2025.xlsx.md",
+      "location": "Sheet Professional Fees, Line 44 (row 45), cell F45",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.), named only as 'Daubert'",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Daubert motion research memorandum finalized",
+      "quotes": [],
+      "context": "Finalize Daubert motion research memorandum; review Hartsfield methodology for potential vulnerabilities",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Time entry refers to a 'Daubert motion research memorandum' and review of an expert's methodology for vulnerabilities. Daubert, 509 U.S. 579 (1993), exists and requires the trial judge to ensure expert scientific testimony is relevant and reliable, which is the standard a Daubert motion invokes; a methodology review fits that inquiry. Name-only reference with no cite or pin cite to test.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "pre-approval-log.docx.md",
+      "location": "Entry 1 (Dr. Hartsfield pre-approval request), expert qualifications paragraph",
+      "authority_type": "statute",
+      "authority": "Title VII (of the Civil Rights Act of 1964)",
+      "citation_as_written": "Title VII",
+      "pincite": "",
+      "cited_for": "Dr. Hartsfield's experience conducting regression-based compensation analyses in Title VII matters",
+      "quotes": [],
+      "context": "Dr. Hartsfield holds a Ph.D. in Economics from Duke University and has extensive experience conducting regression-based compensation analyses in Title VII and Equal Pay Act matters.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Bare descriptive reference to Title VII of the Civil Rights Act of 1964, a real statute codified at 42 U.S.C. § 2000e and following sections. It is not cited for a legal proposition; the sentence describes a (fictional) expert's experience with compensation analyses in Title VII matters. That description is consistent with the statute, which prohibits discrimination in compensation because of sex (42 U.S.C. § 2000e-2(a)(1)). The expert's actual experience is a scenario fact that cannot be checked against any source. CourtListener was not used because it does not host statutory text; the statute was read on LII and the EEOC's site.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer — (1) to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual’s race, color, religion, sex, or national origin",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.eeoc.gov/statutes/title-vii-civil-rights-act-1964"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "pre-approval-log.docx.md",
+      "location": "Entry 1 (Dr. Hartsfield pre-approval request), expert qualifications paragraph",
+      "authority_type": "statute",
+      "authority": "Equal Pay Act",
+      "citation_as_written": "Equal Pay Act",
+      "pincite": "",
+      "cited_for": "Dr. Hartsfield's experience conducting regression-based compensation analyses in Equal Pay Act matters",
+      "quotes": [],
+      "context": "extensive experience conducting regression-based compensation analyses in Title VII and Equal Pay Act matters. She has been qualified as an expert in federal courts across multiple jurisdictions",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Equal Pay Act of 1963, Pub. L. 88-38, 77 Stat. 56, codified at 29 U.S.C. § 206(d)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Name-only reference to the Equal Pay Act as a category of matters (sex-based pay discrimination) in which the expert has done compensation analyses. The Equal Pay Act of 1963 exists (Pub. L. 88-38) and added 29 U.S.C. § 206(d), which prohibits sex-based wage differentials for equal work. The reference is accurate; no legal proposition beyond the statute's subject matter is asserted.",
+        "evidence_excerpt": "Short Title of 1963 Amendment Pub. L. 88-38, § 1, June 10, 1963, 77 Stat. 56, provided: \"That this Act [amending section 206 of this title and enacting provisions set out as notes under section 206 of this title] may be cited as the 'Equal Pay Act of 1963'.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/29/201",
+          "https://www.law.cornell.edu/uscode/text/29/206"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "pre-approval-log.docx.md",
+      "location": "Redmond Consulting Group pre-approval request, description of firm experience",
+      "authority_type": "statute",
+      "authority": "Title VII (of the Civil Rights Act of 1964)",
+      "citation_as_written": "Title VII",
+      "pincite": "",
+      "cited_for": "Redmond Consulting Group has been retained in similar roles in other Title VII class actions",
+      "quotes": [],
+      "context": "Redmond has deep experience advising companies in the healthcare sector on compensation equity matters and has been retained in similar roles in other Title VII class actions.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Bare descriptive reference to Title VII of the Civil Rights Act of 1964, a real statute codified at 42 U.S.C. § 2000e and following sections. It is not cited for a legal proposition; the sentence says a (fictional) consulting firm has been retained in other 'Title VII class actions.' That usage is consistent with the statute, which prohibits employment discrimination, including in compensation, because of sex. The firm's actual retention history is a scenario fact that cannot be checked against any source. CourtListener was not used because it does not host statutory text; the statute was read on the EEOC's site and LII.",
+        "evidence_excerpt": "EDITOR'S NOTE: The following is the text of Title VII of the Civil Rights Act of 1964 (Title VII) (Pub. L. 88-352), as amended. Title VII is codified at 42 U.S.C. 2000e and in subsequent sections.",
+        "source_urls": [
+          "https://www.eeoc.gov/statutes/title-vii-civil-rights-act-1964",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2114 @@
+{
+  "task": "draft-motion-for-summary-judgment",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "apex-proposal-and-capability-summary.docx.md",
+    "audit-memo.docx.md",
+    "breck-deposition-excerpts.docx.md",
+    "breck-termination-memo.docx.md",
+    "comparator-discipline-summary.xlsx.md",
+    "deitz-deposition-excerpts.docx.md",
+    "deposition-excerpts.docx.md",
+    "email-and-slack-compilation.docx.md",
+    "employee-handbook-excerpts.docx.md",
+    "expert-reports-summary.docx.md",
+    "flores-as9100d-memo.docx.md",
+    "huang-bias-email.eml.md",
+    "huang-deposition-excerpts.docx.md",
+    "master-services-agreement.docx.md",
+    "plaintiff-complaint.docx.md",
+    "plaintiff-interrogatory-responses.docx.md",
+    "statement-of-facts.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "huang-deposition-excerpts.docx.md",
+      "location": "Excerpt 9: Closing and Signature Reservation, Pages 195-197 (line 1259)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 30(e)",
+      "pincite": "",
+      "cited_for": "Deponent's counsel reserves the right to read and sign the transcript, with changes submitted on an errata sheet within thirty days",
+      "quotes": [],
+      "context": "MR. GARNER: We will reserve the right to read and sign under Federal Rule of Civil Procedure 30(e). Any changes will be submitted on an errata sheet within thirty days of receiving the transcript.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 30(e)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under Rule 30(e)(1), if review is requested before the deposition is completed, the deponent gets 30 days to review the transcript and to sign a statement listing any changes. Counsel reserved this right on the record at the close of the deposition. The rule's 30 days run from notice by the officer that the transcript is available, not literally from 'receiving the transcript'. That is a trivial paraphrase difference.",
+        "evidence_excerpt": "On request by the deponent or a party before the deposition is completed, the deponent must be allowed 30 days after being notified by the officer that the transcript or recording is available in which: (A) to review the transcript or recording; and (B) if there are changes in form or substance, to sign a statement listing the changes",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "huang-deposition-excerpts.docx.md",
+      "location": "Certification (line 1277)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 30(e)",
+      "pincite": "",
+      "cited_for": "Reporter certifies that reading and signing of the transcript was reserved by counsel pursuant to the rule",
+      "quotes": [],
+      "context": "That the reading and signing of this transcript has been reserved by counsel for the witness pursuant to Federal Rule of Civil Procedure 30(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 30(e)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(e) provides for reserving reading and signing of the transcript. Rule 30(e)(2) requires the officer to note in the certificate whether review was requested. The reporter's certification that reading and signing was reserved under Rule 30(e) matches the rule.",
+        "evidence_excerpt": "The officer must note in the certificate prescribed by Rule 30(f)(1) whether a review was requested and, if so, must attach any changes the deponent makes during the 30-day period.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "huang-deposition-excerpts.docx.md",
+      "location": "Excerpt 8, Pages 182-183 (line 1243)",
+      "authority_type": "statute",
+      "authority": "Title VII (Civil Rights Act of 1964)",
+      "citation_as_written": "Title VII",
+      "pincite": "",
+      "cited_for": "Plaintiff's Count I (race discrimination) and Count II (retaliation) are brought under Title VII",
+      "quotes": [],
+      "context": "Three claims. Race discrimination under Title VII — that's Count I. Retaliation under Title VII — Count II. And race discrimination under the Illinois Human Rights Act — Count III.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 2000e-2(a)(1) (Count I); 42 U.S.C. § 2000e-3(a) (Count II)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Title VII prohibits race discrimination in discharge (§ 2000e-2(a)(1)) and retaliation for opposing unlawful practices (§ 2000e-3(a)). This matches the deponent's description of Counts I and II.",
+        "evidence_excerpt": "§ 2000e-2(a)(1): \"to fail or refuse to hire or to discharge any individual ... because of such individual's race\"; § 2000e-3(a): \"because he has opposed any practice made an unlawful employment practice by this subchapter\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2",
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "huang-deposition-excerpts.docx.md",
+      "location": "Excerpt 8, Pages 182-183 (line 1243)",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "Illinois Human Rights Act",
+      "pincite": "",
+      "cited_for": "Plaintiff's Count III (race discrimination) is brought under the Illinois Human Rights Act",
+      "quotes": [],
+      "context": "And race discrimination under the Illinois Human Rights Act — Count III.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "775 ILCS 5/2-102(A)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Illinois Human Rights Act makes it a civil rights violation for an employer to act on the basis of 'unlawful discrimination' in discharge, discipline, or terms of employment. The Act defines 'unlawful discrimination' to include race, so a race discrimination count under the IHRA is proper.",
+        "evidence_excerpt": "It is a civil rights violation: (A) Employers. For any employer to refuse to hire ... discharge, discipline, tenure or terms, privileges or conditions of employment on the basis of unlawful discrimination ...; \"Unlawful discrimination\" means discrimination against a person ... because of his or her actual or perceived: race, color, ...",
+        "source_urls": [
+          "http://www.ilga.gov/legislation/ilcs/fulltext.asp?DocName=077500050K2-102",
+          "http://www.ilga.gov/legislation/ilcs/fulltext.asp?DocName=077500050K1-103"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "breck-deposition-excerpts.docx.md",
+      "location": "Stipulations (line 45)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure and Local Rules of the Northern District of Illinois",
+      "citation_as_written": "Federal Rules of Civil Procedure and the Local Rules of the Northern District of Illinois",
+      "pincite": "",
+      "cited_for": "All other stipulations required by the federal and local rules are deemed to apply to the deposition",
+      "quotes": [],
+      "context": "All other stipulations required by the Federal Rules of Civil Procedure and the Local Rules of the Northern District of Illinois are deemed to apply.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a generic stipulation that both the federal rules and the N.D. Ill. Local Rules apply. Both bodies of rules exist: FRCP 30 governs depositions, and the N.D. Ill. court publishes its Local Rules. No specific provision is cited for a substantive proposition.",
+        "evidence_excerpt": "A party who wants to depose a person by oral questions must give reasonable written notice to every other party. (FRCP 30(b)(1)); N.D. Ill. website navigation lists 'Local Rules'.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30",
+          "https://www.ilnd.uscourts.gov/LocalRules.aspx?rtab=localrule"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "deposition-excerpts.docx.md",
+      "location": "Section 1, Ostroff deposition caption (line 44); also Sections 2-4 captions (lines 412, 638, 922)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure",
+      "citation_as_written": "Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Depositions were taken pursuant to notice and the Federal Rules of Civil Procedure",
+      "quotes": [],
+      "context": "VIDEOTAPED DEPOSITION OF RYAN OSTROFF, taken on behalf of the Plaintiff, pursuant to notice and the Federal Rules of Civil Procedure, before Linda Garza, RPR, CRR",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a generic caption reference. The Federal Rules of Civil Procedure (Rule 30) govern oral depositions taken on notice, including how the testimony is recorded, such as by video.",
+        "evidence_excerpt": "A party who wants to depose a person by oral questions must give reasonable written notice to every other party. ... The party who notices the deposition must state in the notice the method for recording the testimony.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "master-services-agreement.docx.md",
+      "location": "Article 13, Section 13.1 Governing Law (line 255)",
+      "authority_type": "statute",
+      "authority": "Law of the Commonwealth of Pennsylvania (governing law clause)",
+      "citation_as_written": "laws of the Commonwealth of Pennsylvania",
+      "pincite": "§ 13.1",
+      "cited_for": "The Agreement is governed by and construed under Pennsylvania law, without regard to conflict-of-laws principles.",
+      "quotes": [
+        "governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania"
+      ],
+      "context": "This Agreement shall be governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania, without regard to its conflict-of-laws principles or any conflict-of-laws principles that would require or permit the application of the laws of any other jurisdiction.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "A generic reference to real Pennsylvania law in the contract's choice-of-law clause. It names no specific statute or case.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in the MSA, § 13.1 (line 255).",
+        "explanation": "This is a contractual choice-of-law clause, not a citation to a particular statute or case. It selects Pennsylvania law, which is a real body of law, and there is no specific external text to check beyond that. The quoted language appears word for word in the MSA.",
+        "evidence_excerpt": "§ 13.1 — Governing Law. This Agreement shall be governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania, without regard to its conflict-of-laws principles",
+        "source_urls": [
+          "master-services-agreement.docx.md"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "task.json.md",
+      "location": "instructions",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 56.1",
+      "citation_as_written": "Local Rule 56.1",
+      "pincite": "",
+      "cited_for": "Plaintiff must file an accompanying statement of undisputed facts with the summary judgment motion",
+      "quotes": [],
+      "context": "Draft a motion for summary judgment and accompanying Local Rule 56.1 statement for the plaintiff in the attached breach-of-contract and fraud case",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 56.B.1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is in the W.D. Pa. (rubric C-001; case no. 2:23-cv-01487-NMR). That court has no 'Local Rule 56.1'. Its summary judgment rule is LCvR 56, and LCvR 56.B.1 requires the motion to come with a separately filed Concise Statement of Material Facts. The substance of the proposition is fully supported; only the rule number is wrong. 'Local Rule 56.1' is the N.D. Ill. or M.D. Pa. numbering. The court's local-rules page lists the 11/01/2016 manual as current, and the string '56.1' does not appear anywhere in it.",
+        "evidence_excerpt": "LCvR 56 MOTION FOR SUMMARY JUDGMENT ... B. Motion Requirements. The motion for summary judgment ... must be accompanied by the following: 1. A Concise Statement of Material Facts. A separately filed concise statement setting forth the facts essential for the Court to decide the motion for summary judgment, which the moving party contends are undisputed and material",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/local-rules-and-orders"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. The case is Ridgeline Manufacturing Corp. v. Apex Digital Solutions, Inc., No. 2:23-cv-01487-NMR (W.D. Pa.), according to the expert-reports-summary document and rubric C-001. I downloaded the W.D. Pa. Local Rules manual, which the court's local-rules page lists as current (11/01/2016), and extracted its text. The string '56.1' does not appear anywhere in it. The summary judgment rule is 'LCvR 56 MOTION FOR SUMMARY JUDGMENT'. LCvR 56.B says the motion 'must be accompanied by ... 1. A Concise Statement of Material Facts. A separately filed concise statement setting forth the facts essential for the Court to decide the motion ... which the moving party contends are undisputed and material.' So the requirement in the proposition is real, but it is in LCvR 56.B.1; 'Local Rule 56.1' is the wrong rule number. The court's page also lists proposed amendments dated 9/11/2026, which have not taken effect. Because only the rule number is garbled and the requirement itself is right, WRONG_CITATION_REAL_CASE is the better label than MINOR_DEFECT, though it is close to the line.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/local-rules-and-orders"
+        ]
+      }
+    },
+    {
+      "ref": 8,
+      "document": "task.json.md",
+      "location": "rubric C-005",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Fed. R. Civ. P. 56",
+      "pincite": "",
+      "cited_for": "Summary judgment standard: no genuine dispute as to any material fact and movant entitled to judgment as a matter of law",
+      "quotes": [],
+      "context": "PASS if the motion articulates the summary judgment standard under Fed. R. Civ. P. 56 — that summary judgment is appropriate when there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 56(a)",
+        "quote_check": "No quotations attributed. The paraphrased standard matches Rule 56(a) nearly word for word.",
+        "explanation": "Rule 56(a) states that the court shall grant summary judgment if there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "evidence_excerpt": "The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "task.json.md",
+      "location": "rubric C-055",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 56.1",
+      "citation_as_written": "Local Rule 56.1",
+      "pincite": "",
+      "cited_for": "Statement of Undisputed Material Facts must be a separate document with numbered paragraphs",
+      "quotes": [],
+      "context": "PASS if a Statement of Undisputed Material Facts is provided as a separate document with numbered paragraphs as required by Local Rule 56.1.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Pa. LCvR 56.B.1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The requirement is real: W.D. Pa. LCvR 56.B.1 requires a separately filed concise statement with the facts set out in separately numbered paragraphs, which fully supports the rubric's proposition. But this W.D. Pa. case has no rule numbered 'Local Rule 56.1'. The current local rules manual (11/01/2016, the version the court's site lists as current) contains no rule 56.1. The rule number in the task rubric is wrong.",
+        "evidence_excerpt": "1. A Concise Statement of Material Facts. A separately filed concise statement ... The facts set forth in any party's Concise Statement shall be stated in separately numbered paragraphs.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/local-rules-and-orders"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. W.D. Pa. LCvR 56.B.1 fully supports the substance: 'A separately filed concise statement ... The facts set forth in any party's Concise Statement shall be stated in separately numbered paragraphs. A party must cite to a particular pleading, deposition, answer to interrogatory ...' However, the current W.D. Pa. local rules manual (11/01/2016) has no rule numbered 56.1; the string '56.1' does not occur in the extracted text. The correct cite is W.D. Pa. LCvR 56.B.1.",
+        "source_urls": [
+          "https://www.pawd.uscourts.gov/sites/pawd/files/lrmanual20181101.pdf",
+          "https://www.pawd.uscourts.gov/local-rules-and-orders"
+        ]
+      }
+    },
+    {
+      "ref": 10,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "case",
+      "authority": "Toy v. Metropolitan Life",
+      "citation_as_written": "Toy v. Metropolitan Life",
+      "pincite": "",
+      "cited_for": "Under Pennsylvania law, fraud claims based on pre-contractual misrepresentations inducing the contract can survive an integration clause (cited as example authority)",
+      "quotes": [],
+      "context": "references the gist of the action doctrine or cites Pennsylvania authority (e.g., Toy v. Metropolitan Life, eToll v. Elias/Savion Advertising, or similar cases)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Toy v. Metropolitan Life Ins. Co., 928 A.2d 186 (Pa. 2007)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Toy is a real Pennsylvania Supreme Court decision, but it holds roughly the opposite of the stated proposition. Restating Yocca, Toy says the parol evidence rule's fraud exception covers only fraud in the execution, not fraud in the inducement. Pre-contract representations that induced a party to sign are treated as superseded and disclaimed by a fully integrated agreement. Toy's claim survived only because it was characterized as fraud in the execution, meaning terms fraudulently left out of the writing. Toy therefore does not support the idea that inducement-type fraud survives an integration clause; under Toy and Yocca, such claims are generally barred.",
+        "evidence_excerpt": "this Court has determined that in Pennsylvania, only fraud in the execution ... is excepted from the parol evidence rule's operation ... when fraud in the execution is alleged, representations made prior to contract formation are not considered superseded and disclaimed by a fully integrated written agreement, as they are when fraud in the inducement is asserted.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1536518/toy-v-metropolitan-life-insurance/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Toy v. Metropolitan Life Ins. Co., 928 A.2d 186 (Pa. 2007), restates that Pennsylvania 'has restricted the exception to allegations of fraud in the execution of a contract, and has refused to apply the exception to allegations of fraud in the inducement' (at *205). It also says 'when fraud in the execution is alleged, representations made prior to contract formation are not considered superseded and disclaimed by a fully integrated written agreement, as they are when fraud in the inducement is asserted' (at *206-07). Toy's claim survived only because the Superior Court characterized it as fraud in the execution, a characterization the defendants did not challenge (n.23). Toy therefore cuts against the proposition that pre-contract misrepresentations which induced the contract survive an integration clause.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1536518/toy-v-metropolitan-life-insurance/"
+        ]
+      }
+    },
+    {
+      "ref": 11,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "case",
+      "authority": "eToll v. Elias/Savion Advertising",
+      "citation_as_written": "eToll v. Elias/Savion Advertising",
+      "pincite": "",
+      "cited_for": "Under Pennsylvania law, fraud claims based on pre-contractual misrepresentations inducing the contract can survive an integration clause / gist of the action (cited as example authority)",
+      "quotes": [],
+      "context": "cites Pennsylvania authority (e.g., Toy v. Metropolitan Life, eToll v. Elias/Savion Advertising, or similar cases)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "eToll, Inc. v. Elias/Savion Advertising, Inc., 811 A.2d 10, 17, 19-20 (Pa. Super. Ct. 2002)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is real: eToll, Inc. v. Elias/Savion Advertising, Inc., 811 A.2d 10 (Pa. Super. 2002). It holds that the gist-of-the-action doctrine bars fraud claims arising from the performance of a contract. In explaining why, it states that the test turns on whether the fraud concerned performance of contractual duties, and it describes fraud in the inducement as 'generally collateral' to the contract. It therefore reasonably supports the gist-of-the-action half of the rubric's principle, but only as dicta: the plaintiff's fraud-in-the-inducement claims were no longer in the case (n.2). eToll does not address integration clauses or the parol evidence rule. Its footnote 7 actually collects federal cases that barred inducement claims where the contract was fully integrated (Sunquest; Titelman). The 'survive an integration clause' part of the proposition therefore gets no support from eToll. The case name and citation are accurate.",
+        "evidence_excerpt": "\"the cases seem to turn on the question of whether the fraud concerned the performance of contractual duties. If so, then the alleged fraud is generally held to be merely collateral to a contract claim for breach of those duties. If not, then the gist of the action would be the fraud\" (811 A.2d at 19); n.2: \"Appellant's claims for fraud in the inducement of the contract, and for declaratory relief, are no longer part of the action.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/?q=cluster_id%3A2348604"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "case",
+      "authority": "Walton v. Johnson",
+      "citation_as_written": "Walton v. Johnson",
+      "pincite": "",
+      "cited_for": "Under Pennsylvania law, contractual limitations of liability are unenforceable as applied to fraud or intentional misconduct on public policy grounds (cited as example authority)",
+      "quotes": [],
+      "context": "cites Pennsylvania authority (e.g., Walton v. Johnson, Werwinski v. Ford Motor Co., or similar cases)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Walton v. Johnson, 66 A.3d 782 (Pa. Super. 2013)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The only Pennsylvania case by this name I found is Walton v. Johnson, 66 A.3d 782 (Pa. Super. 2013). It concerns whether a mother had agency authority to sign a hospital's arbitration agreement for her comatose adult daughter; the court held the arbitration agreement unenforceable. The word \"fraud\" does not appear anywhere in the opinion, and it says nothing about limitation-of-liability clauses or whether public policy prevents enforcing them against fraud or intentional misconduct. A web search turned up no other Walton v. Johnson on that point.",
+        "evidence_excerpt": "The question at issue here is whether the ADR Agreement is enforceable. The answer is dependent upon whether Nancy Walton was acting as Lakeysha Walton's agent when she signed the document.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5146538/walton-v-johnson/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The only Pennsylvania 'Walton v. Johnson' is 66 A.3d 782, 2013 Pa. Super. 108. The opinion opens by describing an appeal by Kindred 'overruling its preliminary objections, which sought to enforce an arbitration agreement between it and Lakeysha Walton', and the issue is whether her mother acted as her agent when signing. Searches of the full opinion text for 'fraud' and 'public policy' return zero matches; it does not address limitation-of-liability clauses. The other Walton v. Johnson decisions on CourtListener are Virginia and Fourth Circuit habeas matters, and a web search found no other Walton v. Johnson on limitation-of-liability clauses and fraud. Because the case is real but says nothing on the point, MISCHARACTERIZED is appropriate.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5146538/walton-v-johnson/"
+        ]
+      }
+    },
+    {
+      "ref": 13,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "case",
+      "authority": "Werwinski v. Ford Motor Co.",
+      "citation_as_written": "Werwinski v. Ford Motor Co.",
+      "pincite": "",
+      "cited_for": "Under Pennsylvania law, contractual limitations of liability are unenforceable as applied to fraud or intentional misconduct (cited as example authority)",
+      "quotes": [],
+      "context": "cites Pennsylvania authority (e.g., Walton v. Johnson, Werwinski v. Ford Motor Co., or similar cases)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Werwinski v. Ford Motor Co., 286 F.3d 661 (3d Cir. 2002)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Werwinski is a real Third Circuit decision, but it is about the economic loss doctrine, not contractual limitation-of-liability clauses. Applying Pennsylvania law, the court declined to recognize an intentional-fraud exception and held that the doctrine barred the plaintiffs' fraudulent concealment and UTPCPL claims. That is a liability-limiting holding, the opposite of the proposition that contract clauses cannot shield a party from fraud. The opinion never addresses whether limitation-of-liability clauses are enforceable against fraud claims.",
+        "evidence_excerpt": "we select the path that limits liability by rejecting appellants' request for an intentional fraud exception. ... we believe the district court correctly applied the economic loss doctrine to appellants' fraudulent concealment claims.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/777249/werwinski-v-ford-motor-company/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Werwinski v. Ford Motor Co., 286 F.3d 661 (3d Cir. 2002), is an economic loss doctrine case. The court says it would 'select the path that limits liability by rejecting appellants' request for an intentional fraud exception' and holds that 'the district court correctly applied the economic loss doctrine to appellants' fraudulent concealment claims', and likewise to the UTPCPL claims. A search for 'limitation' turns up only statutes of limitations and the 'Huron limitation'. Nothing in the opinion addresses whether contractual limitation-of-liability clauses are enforceable against fraud. Its result shields the defendant from fraud liability, which runs opposite to the cited proposition.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/777249/werwinski-v-ford-motor-company/"
+        ]
+      }
+    },
+    {
+      "ref": 14,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Restatement (Second) of Torts § 552",
+      "citation_as_written": "Restatement (Second) of Torts § 552",
+      "pincite": "§ 552",
+      "cited_for": "Pennsylvania negligent misrepresentation standard: information supplied in a business transaction by a party with a duty of care; reliance justifiable where information comes from party with superior knowledge",
+      "quotes": [],
+      "context": "PASS if the motion applies the negligent misrepresentation standard under Pennsylvania law, which follows the Restatement (Second) of Torts § 552 or equivalent",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 552 exists and Pennsylvania adopted it in Bilt-Rite Contractors, Inc. v. Architectural Studio, 866 A.2d 270 (Pa. 2005), for information negligently supplied by someone in the business of supplying information. The black-letter text covers information supplied for the guidance of others in business transactions and justifiable reliance. That supports the core proposition. The rubric's gloss, that reliance is justifiable when the information comes from a party with superior knowledge, does not appear in § 552 itself; it is a loose paraphrase. Pennsylvania's adoption is also narrower than a general standard and does not supplant common-law negligent misrepresentation.",
+        "evidence_excerpt": "\"(1) One who, in the course of his business, profession or employment, or in any other transaction in which he has a pecuniary interest, supplies false information for the guidance of others in their business transactions, is subject to liability for pecuniary loss caused to them by their justifiable reliance upon the information...\" (Bilt-Rite n.1); \"we hereby adopt Section 552 as the law in Pennsylvania in cases where information is negligently supplied by one in the business of supplying information\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1467371/bilt-rite-contractors-inc-v-architectural-studio/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "task.json.md",
+      "location": "rubric C-031",
+      "authority_type": "case",
+      "authority": "Daubert (reference to Daubert challenge/standard)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "No Daubert challenge was filed against Tran, so his expert testimony is uncontroverted",
+      "quotes": [],
+      "context": "argues that Tran's expert testimony on breach of professional standards is uncontroverted (no Daubert challenge was filed against Tran)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a shorthand reference to a Daubert challenge, meaning a motion to exclude expert testimony under Rule 702 and Daubert's gatekeeping reliability standard. Daubert exists and establishes that procedure. Whether a challenge was filed is a fact of the fictional record, not a proposition attributed to Daubert. The rubric's inference that Tran's testimony is 'uncontroverted' because no challenge was filed is an argument, not a holding of Daubert. A lack of a Daubert challenge goes to admissibility, not to whether the testimony is contradicted, but the reference itself is accurate.",
+        "evidence_excerpt": "\"under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/?q=cluster_id%3A112903"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "task.json.md",
+      "location": "rubric C-050",
+      "authority_type": "other",
+      "authority": "Order denying Apex's Daubert motion to exclude Dr. Varma (Judge Riegert, Apr. 3, 2025)",
+      "citation_as_written": "ruling dated April 3, 2025",
+      "pincite": "",
+      "cited_for": "Motion should note denial of Apex's Daubert motion, bolstering admissibility of Varma's damages analysis",
+      "quotes": [],
+      "context": "PASS if the motion notes that Judge Riegert denied Apex's Daubert motion to exclude Dr. Varma's testimony (ruling dated April 3, 2025)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe order in the fictional Ridgeline v. Apex docket"
+    },
+    {
+      "ref": 17,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Intro paragraph and Section I.A/I.G (Daubert ruling)",
+      "authority_type": "other",
+      "authority": "Order denying Apex's Daubert motion to exclude Dr. Varma (Judge Natalie M. Riegert, Apr. 3, 2025)",
+      "citation_as_written": "denied by Judge Natalie M. Riegert on April 3, 2025",
+      "pincite": "",
+      "cited_for": "Court found Varma's methodology reliable; criticisms go to weight not admissibility; Aerocore causal nexus challenges go to cross-examination",
+      "quotes": [],
+      "context": "Apex's Daubert motion to exclude Dr. Varma was denied by Judge Natalie M. Riegert on April 3, 2025. No Daubert challenge was filed against Marcus Tran.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe order in the fictional Ridgeline v. Apex matter"
+    },
+    {
+      "ref": 18,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Section I.G. Daubert Challenge and Ruling",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Basis for Apex's motion to exclude Dr. Varma's testimony as speculative (lost profits) and inadequately controlling for other variables",
+      "quotes": [],
+      "context": "filed a motion to exclude Dr. Varma's testimony under Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), arguing that her lost-profits analysis for the Aerocore contract was speculative",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993) (decided June 28, 1993) is correctly cited: the name, volume, page and year all match. It is the proper basis for a motion to exclude expert testimony as unreliable or speculative under Rule 702. The summary's description of the ruling — that the challenges went to weight, not admissibility — is consistent with Daubert's framework. Daubert itself notes that 'vigorous cross-examination' and contrary evidence are the traditional means of attacking shaky but admissible evidence.",
+        "evidence_excerpt": "\"To the contrary, under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/?q=cluster_id%3A112903"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Section II intro and II.A",
+      "authority_type": "case",
+      "authority": "Daubert (short reference)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Apex did not file a Daubert challenge to Tran's testimony",
+      "quotes": [],
+      "context": "Apex did not file a Daubert challenge to Mr. Tran's testimony.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a shorthand reference to a Daubert motion to exclude expert testimony. Daubert exists and establishes the trial judge's gatekeeping role over expert reliability under Rule 702. The statement that Apex filed no such challenge against Tran is a fictional record fact and is used correctly.",
+        "evidence_excerpt": "\"a gatekeeping role for the judge, no matter how flexible, inevitably on occasion will prevent the jury from learning of authentic insights and innovations\"",
+        "source_urls": [
+          "https://www.courtlistener.com/?q=cluster_id%3A112903"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Section IV.A Uncontroverted Expert Opinions",
+      "authority_type": "case",
+      "authority": "Daubert (short reference)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Varma's damages methodology survived Daubert challenge",
+      "quotes": [],
+      "context": "Varma's damages methodology: Survived Daubert challenge; Dr. Anand's competing figure of $400,000 lacks comparable methodological rigor",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a shorthand reference to the Daubert reliability challenge. Daubert exists and governs motions to exclude expert testimony as unreliable. 'Survived Daubert challenge' accurately describes the fictional April 3, 2025 ruling that denied Apex's motion, as recounted in Section I.G of the same document.",
+        "evidence_excerpt": "\"the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/?q=cluster_id%3A112903"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Section IV.A (final paragraph)",
+      "authority_type": "other",
+      "authority": "Pennsylvania law (uncited) on uncontroverted expert testimony supporting summary judgment",
+      "citation_as_written": "Under Pennsylvania law",
+      "pincite": "",
+      "cited_for": "Uncontroverted expert testimony on breach of a professional standard can support summary judgment on breach (no authority cited)",
+      "quotes": [],
+      "context": "Under Pennsylvania law, uncontroverted expert testimony on breach of a professional standard can support summary judgment on the question of breach.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "unclear",
+        "correct_citation": "No authority is cited. Contrary Pennsylvania authority: Borough of Nanty-Glo v. Am. Sur. Co., 309 Pa. 236, 163 A. 523 (1932); Penn Ctr. House, Inc. v. Hoffman, 520 Pa. 171, 553 A.2d 900 (1989); DeArmitt v. N.Y. Life Ins. Co., 73 A.3d 578 (Pa. Super. 2013)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Stated as a rule of Pennsylvania law, the proposition runs against Pennsylvania's Nanty-Glo rule. Under that rule, a movant's oral testimony, including its witnesses' testimony and even if uncontradicted, generally cannot establish the absence of a factual dispute, because credibility is for the factfinder. DeArmitt reversed a summary judgment because the trial court relied on the moving party's expert report. A summary judgment based on the movant's own expert's opinion on breach therefore is not supported 'under Pennsylvania law.' Any support would have to come from the federal Rule 56 standard that governs in the W.D. Pa. forum, which the statement does not invoke. I did not locate federal authority on that point.",
+        "evidence_excerpt": "DeArmitt: \"Oral testimony alone, either through testimonial affidavits or depositions, of the moving party or the moving party's witnesses, even if uncontradicted, is generally insufficient to establish the absence of a genuine issue of material fact. See Nanty-Glo\" ... \"The court erred when it ... relied on the moving party's expert report to decide a material issue of disputed fact ... The credibility and weight to be attributed to the experts' conclusions were not proper considerations at summary judgment.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5146938/dearmitt-v-new-york-life-insurance/",
+          "https://www.courtlistener.com/opinion/4480992/consolidated-rail-corp-v-ace-property-casualty/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds, with one caveat. The statement appears without authority in expert-reports-summary.docx.md line 209: 'Under Pennsylvania law, uncontroverted expert testimony on breach of a professional standard can support summary judgment on the question of breach.' Pennsylvania's Nanty-Glo rule runs against it. DeArmitt v. N.Y. Life Ins. Co., 73 A.3d 578 (Pa. Super. 2013), quotes: 'Oral testimony alone, either through testimonial affidavits or depositions, of the moving party or the moving party's witnesses, even if uncontradicted, is generally insufficient to establish the absence of a genuine issue of material fact', and the rule means 'the party moving for summary judgment may not rely solely upon its own testimonial affidavits or depositions, or those of its witnesses'. DeArmitt also faulted the trial court for relying 'on the moving party's expert report to decide a material issue'. The exception it recognizes is for admissions by the opposing party, not for the movant's own expert. The caveat: this case is in federal court (W.D. Pa.), where federal summary judgment procedure, not Nanty-Glo, would ordinarily govern. The statement might hold for that forum, but it is wrong as a statement of 'Pennsylvania law', and I located no authority, federal or state, supporting it as phrased. My keyword searches of Third Circuit opinions for 'Nanty-Glo' returned zero results, so the federal-forum point remains unverified.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5146938/dearmitt-v-new-york-life-insurance/"
+        ]
+      }
+    },
+    {
+      "ref": 22,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Section IV.C closing paragraph",
+      "authority_type": "other",
+      "authority": "Pennsylvania law (uncited) on limitation of liability for fraud",
+      "citation_as_written": "Pennsylvania law",
+      "pincite": "",
+      "cited_for": "Pennsylvania does not permit contractual limitation of liability for fraud; LOL cap inapplicable to fraud claims (no authority cited)",
+      "quotes": [],
+      "context": "exempt from the LOL cap under Pennsylvania law, which does not permit contractual limitation of liability for fraud.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No authority is cited. Support: Tayar v. Camelback Ski Corp., 47 A.3d 1190, 1199-1203 (Pa. 2012); Great N. Ins. Co. v. ADT Sec. Servs., Inc., 517 F. Supp. 2d 723 (W.D. Pa. 2007)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Pennsylvania authority supports the general proposition. The Pennsylvania Supreme Court in Tayar said releases for intentional tortious conduct are prohibited, extended that bar to recklessness, and relied on Restatement (Second) of Contracts § 195(1). The W.D. Pa. court in Great Northern v. ADT, applying Pennsylvania law, said limitation-of-liability provisions are enforced only where they do not involve fraud or mistake. I found no Pennsylvania Supreme Court decision squarely holding that a commercial LOL cap cannot cap fraud damages, so the statement is a fair synthesis rather than a quoted holding. Separately, Pennsylvania's parol-evidence and integration-clause doctrine can bar some fraudulent-inducement claims; that is a different issue and is not addressed here.",
+        "evidence_excerpt": "Tayar: \"releases for intentional tortious conduct are likewise prohibited. See ... Restatement (Second) of Contracts § 195(1) (a term exempting a party from liability for intentional conduct is against public policy)\". Great Northern: \"As long as the contract provision limiting liability is between private parties ... and does not involve fraud or mistake, the Pennsylvania courts have found such contracts to be valid and enforceable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5145348/tayar-v-camelback-ski-corp/",
+          "https://www.courtlistener.com/opinion/2386951/great-northern-insurance-v-adt-security-services-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "expert-reports-summary.docx.md",
+      "location": "Section II.C (Tran Opinion 2)",
+      "authority_type": "other",
+      "authority": "AS9100D standard §§ 8.7 and 10.2",
+      "citation_as_written": "AS9100D §§ 8.7 and 10.2",
+      "pincite": "§§ 8.7, 10.2",
+      "cited_for": "Industry quality standard mandating corrective-action, root-cause-analysis and effectiveness-verification chain for non-conformances (not legal authority)",
+      "quotes": [],
+      "context": "required corrective-action, root-cause-analysis, and effectiveness-verification chain mandated by AS9100D §§ 8.7 and 10.2",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "AS9100D (SAE aerospace QMS standard) clause 8.7 is 'Control of nonconforming outputs' (identification, segregation, disposition of nonconforming output) and clause 10.2 is 'Nonconformity and corrective action' (react, determine root cause incl. human factors, implement corrective action, review effectiveness). Together they cover the NCR -> corrective action -> root cause -> effectiveness-verification chain described. The root-cause and effectiveness elements sit in 10.2 rather than 8.7, but the paired cite fairly supports the expert's description. Official standard text is paywalled; verified via multiple secondary industry sources, so confidence is medium.",
+        "evidence_excerpt": "\"the organization must determine the root cause(s), including as applicable, those related to human factors\" ... \"Organizations are required to review the success of any corrective actions taken\" (as9100store, 10.2); \"8.7 Control of nonconforming outputs is the core clause\" (connect981)",
+        "source_urls": [
+          "https://as9100store.com/as9100d-requirements/improvement/nonconformity-and-corrective-action/",
+          "https://connect981.com/faqs/which-as9100-clauses-apply-to-non-conformance-control"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 4 (Introduction)",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-2",
+      "citation_as_written": "42 U.S.C. § 2000e-2",
+      "pincite": "",
+      "cited_for": "Count I: race discrimination (disparate treatment)",
+      "quotes": [],
+      "context": "(I) race discrimination in violation of Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-2 (disparate treatment)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "42 U.S.C. § 2000e-2 (Title VII § 703, 'Unlawful employment practices') prohibits discharge or other discrimination because of race; it is the proper basis for a disparate-treatment race discrimination claim.",
+        "evidence_excerpt": "42 U.S. Code § 2000e-2 - Unlawful employment practices ... to discharge any individual, or otherwise to discriminate ... because of such individual's race, color, religion, sex, or national origin",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 4 (Introduction)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e-3",
+      "citation_as_written": "42 U.S.C. § 2000e-3",
+      "pincite": "",
+      "cited_for": "Count II: retaliation",
+      "quotes": [],
+      "context": "(II) retaliation in violation of Title VII, 42 U.S.C. § 2000e-3",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 2000e-3 is Title VII § 704 and contains the anti-retaliation provision, so it properly supports a retaliation count.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 4 (Introduction)",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "775 ILCS 5/2-102",
+      "pincite": "",
+      "cited_for": "Count III: race discrimination under Illinois law",
+      "quotes": [],
+      "context": "(III) race discrimination in violation of the Illinois Human Rights Act, 775 ILCS 5/2-102",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "775 ILCS 5/2-102 is the IHRA's employment civil-rights-violation provision. Subsection (A) bars an employer from discharging or disciplining an employee on the basis of unlawful discrimination, which the Act defines in 1-103(Q) to include race. Citing (A) specifically would be more precise, but the section cite is correct.",
+        "evidence_excerpt": "Sec. 2-102. Civil rights violations; employment. It is a civil rights violation: (A) Employers. For any employer to refuse to hire, to segregate, ... discharge, discipline, tenure or terms, privileges or conditions of employment on the basis of unlawful discrimination",
+        "source_urls": [
+          "http://www.ilga.gov/legislation/ilcs/fulltext.asp?DocName=077500050K2-102"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 7",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e(b)",
+      "citation_as_written": "42 U.S.C. § 2000e(b)",
+      "pincite": "",
+      "cited_for": "Whitaker is an 'employer' (fifteen or more employees)",
+      "quotes": [],
+      "context": "Whitaker was an \"employer\" within the meaning of Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e(b)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; the quoted word \"employer\" is the defined term in the statute.",
+        "explanation": "42 U.S.C. § 2000e(b) defines \"employer\" for Title VII as a person in an industry affecting commerce with fifteen or more employees for each working day in twenty or more calendar weeks in the current or preceding year. The citation is accurate for the allegation that Whitaker is an employer.",
+        "evidence_excerpt": "The term 'employer' means a person engaged in an industry affecting commerce who has fifteen or more employees for each working day in each of twenty or more calendar weeks in the current or preceding calendar year",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 8",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "775 ILCS 5/2-101(B)",
+      "pincite": "",
+      "cited_for": "Whitaker is an 'employer' under the IHRA",
+      "quotes": [],
+      "context": "Whitaker was an \"employer\" within the meaning of the Illinois Human Rights Act, 775 ILCS 5/2-101(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "775 ILCS 5/2-101(B) defines 'Employer' for Article 2. The current text covers any person employing one or more employees in Illinois for 20 or more calendar weeks; the older text set the threshold at 15. The complaint correctly cites this subsection for Whitaker's status as an employer.",
+        "evidence_excerpt": "(B) Employer. (1) \"Employer\" includes: (a) Any person employing one or more employees within Illinois during 20 or more calendar weeks within the calendar year of or preceding the alleged violation;",
+        "source_urls": [
+          "http://www.ilga.gov/legislation/ilcs/fulltext.asp?DocName=077500050K2-101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 9",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331 and Title VII, 42 U.S.C. § 2000e et seq.",
+      "citation_as_written": "28 U.S.C. § 1331; 42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction over Counts I and II",
+      "quotes": [],
+      "context": "federal question jurisdiction over Counts I and II of this Complaint pursuant to 28 U.S.C. § 1331, as those counts arise under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1331 grants district courts original jurisdiction over civil actions arising under federal law; Title VII counts (42 U.S.C. § 2000e et seq.) arise under federal law, so the citation supports federal-question jurisdiction over Counts I and II.",
+        "evidence_excerpt": "\"The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 10",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1367(a)",
+      "pincite": "(a)",
+      "cited_for": "Supplemental jurisdiction over IHRA claim",
+      "quotes": [],
+      "context": "supplemental jurisdiction over Count III of this Complaint pursuant to 28 U.S.C. § 1367(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1367(a) confers supplemental jurisdiction over state claims forming part of the same case or controversy as claims within original jurisdiction; it supports supplemental jurisdiction over the IHRA count.",
+        "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 11",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1) and (b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1) and (b)(2)",
+      "pincite": "(b)(1), (b)(2)",
+      "cited_for": "Venue proper in N.D. Ill., Eastern Division",
+      "quotes": [],
+      "context": "Venue is proper in the Northern District of Illinois, Eastern Division, pursuant to 28 U.S.C. § 1391(b)(1) and (b)(2)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1391(b)(1) (district where a defendant resides, if all defendants reside in the state) and (b)(2) (district where a substantial part of events occurred) are the correct general venue provisions for the asserted proposition.",
+        "evidence_excerpt": "(b)(1) \"a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located\"; (b)(2) \"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 12",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 2000e-5(f)(1)",
+      "citation_as_written": "42 U.S.C. § 2000e-5(f)(1)",
+      "pincite": "(f)(1)",
+      "cited_for": "Ninety-day period to file suit after right-to-sue notice",
+      "quotes": [],
+      "context": "files this Complaint well within the ninety-day period prescribed by 42 U.S.C. § 2000e-5(f)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 2000e-5(f)(1) provides that a civil action may be brought within ninety days after notice of right to sue.",
+        "evidence_excerpt": "\"within ninety days after the giving of such notice a civil action may be brought against the respondent named in the charge\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 48-49",
+      "authority_type": "statute",
+      "authority": "Title VII anti-retaliation provision (uncited section)",
+      "citation_as_written": "Title VII of the Civil Rights Act of 1964",
+      "pincite": "",
+      "cited_for": "Feb. 10, 2023 email was protected activity; honest and reasonable belief suffices",
+      "quotes": [],
+      "context": "This email constituted protected activity under Title VII of the Civil Rights Act of 1964.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 2000e-3(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Title VII's anti-retaliation provision protects opposition to practices it makes unlawful. Seventh Circuit precedent (Hamner, 224 F.3d at 706-07, as applied in Magyar) holds that the plaintiff need not prove an actual violation, only a sincere and reasonable belief. That matches the complaint's 'honest and reasonable belief' paraphrase.",
+        "evidence_excerpt": "Magyar, 544 F.3d 766: \"to succeed on a retaliation claim, Houston need not prove that the underlying conduct she perceived as sexual harassment actually was serious enough to constitute a Title VII violation. Instead, she need only show that ... she had a 'sincere and reasonable belief' that she was opposing an unlawful practice.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
+          "https://www.courtlistener.com/opinion/1314119/magyar-v-saint-joseph-regional-medical-center/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 79 (Count I)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e-2(a)(1)",
+      "citation_as_written": "42 U.S.C. § 2000e-2(a)(1)",
+      "pincite": "(a)(1)",
+      "cited_for": "Unlawful to discharge or discriminate because of race",
+      "quotes": [
+        "to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's race."
+      ],
+      "context": "makes it unlawful for an employer \"to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's race.\" 42 U.S.C. § 2000e-2(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found with differences: the quote matches § 2000e-2(a)(1) verbatim through \"because of such individual's race\", but the statute continues \", color, religion, sex, or national origin\". The complaint ends the quote with \"race.\" and uses no ellipsis or bracket to show the omission. It also starts partway through the clause (leaving out \"to fail or refuse to hire or\"), which is acceptable.",
+        "explanation": "The provision does make it unlawful for an employer to discharge or otherwise discriminate because of race, so the proposition is supported. The only defect is that the quote is cut short without marking the omitted protected classes.",
+        "evidence_excerpt": "to fail or refuse to hire or to discharge any individual, or otherwise to discriminate against any individual with respect to his compensation, terms, conditions, or privileges of employment, because of such individual's race, color, religion, sex, or national origin",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 86 (Count I)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e-2(a)(1)",
+      "citation_as_written": "42 U.S.C. § 2000e-2(a)(1)",
+      "pincite": "(a)(1)",
+      "cited_for": "Defendant violated Title VII by terminating Plaintiff because of race",
+      "quotes": [],
+      "context": "Defendant violated Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-2(a)(1), by terminating Plaintiff's employment because of her race.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 2000e-2(a)(1) prohibits an employer from discharging an individual because of race, so it supports the claim that firing the plaintiff because of race violates Title VII.",
+        "evidence_excerpt": "to fail or refuse to hire or to discharge any individual ... because of such individual's race",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 89 (Count II)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e-3(a)",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Anti-retaliation provision",
+      "quotes": [
+        "discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter."
+      ],
+      "context": "unlawful for an employer to \"discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter...\" 42 U.S.C. § 2000e-3(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in § 2000e-3(a), with an ellipsis correctly standing in for the omitted clauses about employment agencies, joint labor-management committees and labor organizations. The rest matches word for word through \"proceeding, or hearing under this subchapter.\"",
+        "explanation": "§ 2000e-3(a) is Title VII's anti-retaliation provision covering both opposition and participation activity, as the complaint says.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees or applicants for employment, ... because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 90 (Count II)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e-3(a)",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Feb. 10, 2023 email was opposition to an unlawful employment practice",
+      "quotes": [],
+      "context": "This communication constituted opposition to an unlawful employment practice within the meaning of 42 U.S.C. § 2000e-3(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 U.S.C. § 2000e-3(a) is Title VII's anti-retaliation provision. Its opposition clause makes it unlawful to discriminate against an employee because the employee opposed a practice made unlawful by the subchapter. The complaint cites it accurately for the allegation that the email was opposition activity. Whether the email actually qualifies as opposition is a factual question, not a citation defect.",
+        "evidence_excerpt": "It shall be an unlawful employment practice for an employer to discriminate against any of his employees ... because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 98 (Count III)",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "775 ILCS 5/2-102(A)",
+      "pincite": "(A)",
+      "cited_for": "Civil rights violation for employer to discriminate in discharge, discipline, etc.",
+      "quotes": [],
+      "context": "The Illinois Human Rights Act (\"IHRA\"), 775 ILCS 5/2-102(A), makes it a civil rights violation for any employer to refuse to hire, to segregate, or to act with respect to recruitment, hiring, promotion...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The complaint's ¶ 98 paraphrase tracks the statute closely; it leaves out the harassment clause and says 'and conditions' where the statute says 'or conditions'.",
+        "explanation": "Section 2-102(A) of the IHRA makes it a civil rights violation for an employer to act on the basis of unlawful discrimination with respect to hiring, discharge, discipline, and similar matters. That matches the proposition.",
+        "evidence_excerpt": "(A) Employers. For any employer to refuse to hire, to segregate, to engage in harassment as defined in subsection (E-1) of Section 2-101, or to act with respect to recruitment, hiring, promotion, renewal of employment, selection for training or apprenticeship, discharge, discipline, tenure or terms, privileges or conditions of employment on the basis of unlawful discrimination",
+        "source_urls": [
+          "https://www.ilga.gov/legislation/ilcs/fulltext?DocName=077500050K2-102"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 100 (Count III)",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "775 ILCS 5/2-101(B)",
+      "pincite": "(B)",
+      "cited_for": "Defendant is an 'employer' under the IHRA",
+      "quotes": [],
+      "context": "Defendant is an \"employer\" within the meaning of the IHRA, 775 ILCS 5/2-101(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed other than the defined term 'employer', which appears in 2-101(B).",
+        "explanation": "Section 2-101(B) is the IHRA's definition of 'Employer', so the cite is correct for alleging that the defendant is an employer under the Act.",
+        "evidence_excerpt": "(B) Employer. (1) \"Employer\" includes: (a) Any person employing one or more employees within Illinois during 20 or more calendar weeks within the calendar year of or preceding the alleged violation",
+        "source_urls": [
+          "https://www.ilga.gov/legislation/ilcs/fulltext?DocName=077500050K2-101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 104 (Count III)",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "775 ILCS 5/2-102(A)",
+      "pincite": "(A)",
+      "cited_for": "Defendant violated IHRA by terminating Plaintiff because of race",
+      "quotes": [],
+      "context": "Defendant violated 775 ILCS 5/2-102(A) by terminating Plaintiff's employment because of her race.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 2-102(A) prohibits discharge on the basis of 'unlawful discrimination', and § 1-103(Q) defines that term to include race. A claim that a termination was race-based is therefore properly brought under 2-102(A).",
+        "evidence_excerpt": "2-102(A): '...discharge, discipline, tenure or terms, privileges or conditions of employment on the basis of unlawful discrimination'; 1-103(Q): '\"Unlawful discrimination\" means discrimination against a person because of his or her actual or perceived: race, color, religion...'",
+        "source_urls": [
+          "https://www.ilga.gov/legislation/ilcs/fulltext?DocName=077500050K2-102",
+          "https://www.ilga.gov/legislation/ilcs/fulltext?DocName=077500050K1-103"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "Prayer for Relief (a)",
+      "authority_type": "statute",
+      "authority": "Title VII and IHRA",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.; 775 ILCS 5/2-102",
+      "pincite": "",
+      "cited_for": "Declaratory judgment of violation",
+      "quotes": [],
+      "context": "violated Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and the Illinois Human Rights Act, 775 ILCS 5/2-102",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 U.S.C. § 2000e et seq. is Title VII (Subchapter VI, Equal Employment Opportunities). 775 ILCS 5/2-102 is the IHRA employment civil-rights-violation provision, which bars discharge on the basis of unlawful discrimination. Count III is IHRA race discrimination only, so § 2-102 is the right section for the declaratory-judgment request. IHRA retaliation would fall under § 6-101, but no IHRA retaliation claim is pleaded.",
+        "evidence_excerpt": "775 ILCS 5/2-102(A): \"For any employer to refuse to hire, to segregate, or to act with respect to recruitment, hiring, promotion, renewal of employment, selection for training or apprenticeship, discharge, discipline, tenure or terms, privileges or conditions of employment on the basis of unlawful discrimination or citizenship status.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
+          "https://law.onecle.com/illinois/775ilcs5/2-102.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "Prayer for Relief (g)",
+      "authority_type": "statute",
+      "authority": "42 U.S.C. § 2000e-5(k) and 775 ILCS 5/10-102",
+      "citation_as_written": "42 U.S.C. § 2000e-5(k) and 775 ILCS 5/10-102",
+      "pincite": "",
+      "cited_for": "Attorneys' fees and costs",
+      "quotes": [],
+      "context": "An award of reasonable attorneys' fees, costs, and expenses incurred in prosecuting this action, pursuant to 42 U.S.C. § 2000e-5(k) and 775 ILCS 5/10-102",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 2000e-5(k); 775 ILCS 5/8-111(A)(4) and 5/8A-104(G)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Title VII half is correct: § 2000e-5(k) authorizes a reasonable attorney's fee to the prevailing party. The IHRA half is wrong. 775 ILCS 5/10-102(C)(2) does allow attorney fees, but § 10-101 limits Article 10 to civil actions arising under Article 3 (real estate transactions). Count III is an employment claim under § 2-102, so § 10-102 does not apply to it. Fees in an employment civil action come through § 8-111(A)(4), which lets the circuit court or jury award the remedies in § 8A-104, including (G) attorneys' fees.",
+        "evidence_excerpt": "Sec. 10-101: \"With the exception of Sections 10-104 and 10-105, this Article shall apply solely to civil actions arising under Article 3 of this Act.\" Sec. 8-111(A)(4): \"Upon the finding of a civil rights violation, the circuit court or jury may award any of the remedies set forth in Section 8A-104 or 8B-104.\" Sec. 8A-104(G): \"Attorneys Fees; Costs. Pay to the complainant all or a portion of the costs of maintaining the action, including reasonable attorney fees\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5",
+          "https://www.ilga.gov/legislation/ILCS/details?MajorTopic=&Chapter=&ActName=Illinois+Human+Rights+Act.&ActID=2266&ChapterID=64&ChapAct=775+ILCS+5/&SeqStart=10500000&SeqEnd=&Print=True",
+          "https://www.ilga.gov/legislation/ILCS/details?MajorTopic=&Chapter=&ActName=Illinois+Human+Rights+Act.&ActID=2266&ChapterID=64&SeqStart=&ChapAct=FullText"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. I read the current IHRA text in the ILGA public file repository. 775 ILCS 5/10-101 says: \"With the exception of Sections 10-104 and 10-105, this Article shall apply solely to civil actions arising under Article 3 of this Act.\" Article 3 covers real estate transactions; § 3-101 defines \"Real property\". Section 10-102(C)(2) does provide that \"the court, in its discretion, may allow the prevailing party ... reasonable attorneys fees and costs.\" But that applies only to Article 3 actions. Count III is an employment claim under § 2-102. For employment actions brought in court, the fee route runs through § 8-111(A)(4): \"Upon the finding of a civil rights violation, the circuit court or jury may award any of the remedies set forth in Section 8A-104 or 8B-104.\" Section 8A-104(G) covers \"Attorneys Fees; Costs\". The Title VII half of the citation, 42 U.S.C. § 2000e-5(k), is correct. The statute exists, but it is cited for fee authority it does not give to this claim, so MISCHARACTERIZED stands. One could argue for WRONG_CITATION_REAL_CASE instead, since the error is a wrong section number and the IHRA does authorize fees.",
+        "source_urls": [
+          "https://ftp.ilga.gov/ILCS/Ch%200775/Act%200005/077500050K10-101.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200775/Act%200005/077500050K10-102.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200775/Act%200005/077500050K8-111.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200775/Act%200005/077500050K8A-104.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200775/Act%200005/077500050K3-101.html"
+        ]
+      }
+    },
+    {
+      "ref": 43,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "IX. Jury Demand",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 38(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 38(b)",
+      "pincite": "(b)",
+      "cited_for": "Jury demand",
+      "quotes": [],
+      "context": "demands a trial by jury on all issues so triable in this action, pursuant to Federal Rule of Civil Procedure 38(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 38(b) is the provision under which a party demands a jury trial on issues triable of right by a jury. Including the demand in a pleading, as this complaint does, is expressly allowed.",
+        "evidence_excerpt": "On any issue triable of right by a jury, a party may demand a jury trial by: (1) serving the other parties with a written demand—which may be included in a pleading—no later than 14 days after the last pleading directed to the issue is served",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_38"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "X. Verification",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Verification under penalty of perjury",
+      "quotes": [],
+      "context": "state under penalties of perjury, pursuant to 28 U.S.C. § 1746, that the factual allegations set forth in the foregoing Complaint are true and correct",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1746 permits an unsworn declaration subscribed as true under penalty of perjury to substitute for a sworn verification; it supports verifying the complaint under penalty of perjury.",
+        "evidence_excerpt": "\"such matter may, with like force and effect, be supported ... by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Preliminary Statement and General Objections, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "(b)(1)",
+      "cited_for": "Relevance and proportionality objection to interrogatories",
+      "quotes": [],
+      "context": "not relevant to any party's claim or defense and not proportional to the needs of the case, considering the factors set forth in Federal Rule of Civil Procedure 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The paraphrase ('relevant to any party's claim or defense ... proportional to the needs of the case') tracks the rule's text.",
+        "explanation": "Rule 26(b)(1) limits discovery to nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, and it lists the proportionality factors. The relevance and proportionality objection is grounded in this rule.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, considering the importance of the issues at stake in the action",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Preliminary Statement, para. 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "(e)",
+      "cited_for": "Right to supplement or correct responses",
+      "quotes": [],
+      "context": "Plaintiff reserves the right to supplement, amend, or correct these responses pursuant to Federal Rule of Civil Procedure 26(e)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(e)(1) provides for supplementing or correcting discovery responses, including interrogatory answers. Reserving the right to supplement, amend, or correct responses under it is accurate. It is framed as a right, but the rule states it as a duty.",
+        "evidence_excerpt": "must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 7 (question)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e et seq.",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Interrogatory seeks facts supporting race discrimination claim",
+      "quotes": [],
+      "context": "race discrimination in violation of Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "42 U.S.C. § 2000e et seq. (Subchapter VI, 'Equal Employment Opportunities', starting with § 2000e Definitions) is the standard codification of Title VII and covers race discrimination claims.",
+        "evidence_excerpt": "Subchapter VI: EQUAL EMPLOYMENT OPPORTUNITIES ... § 2000e – Definitions ... § 2000e–2 – Unlawful employment practices",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/chapter-21/subchapter-VI"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 7 (response)",
+      "authority_type": "court_rule",
+      "authority": "Rule 33(a)(2)",
+      "citation_as_written": "Rule 33(a)(2)",
+      "pincite": "(a)(2)",
+      "cited_for": "Objection that contention interrogatory seeks legal theories and mental impressions",
+      "quotes": [],
+      "context": "further objecting to the extent that this interrogatory is a contention interrogatory that seeks disclosure of Plaintiff's legal theories and mental impressions in a manner inconsistent with Rule 33(a)(2)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 33(a)(2); work-product protection for mental impressions is Fed. R. Civ. P. 26(b)(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The objection cites Rule 33(a)(2) as if it limits contention interrogatories. The rule says the opposite: an interrogatory is not objectionable merely because it asks for a contention relating to fact or the application of law to fact. Its only relief is timing, since the court may defer the answer. The 1970 advisory committee note bars only questions of 'pure law' unrelated to the facts. This interrogatory asks for the facts supporting the race-discrimination claim, which the rule expressly permits. 'Mental impressions' protection comes from Rule 26(b)(3), not Rule 33(a)(2).",
+        "evidence_excerpt": "\"An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact, but the court may order that the interrogatory need not be answered until designated discovery is complete, or until a pretrial conference or some other time.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding mostly holds, though it slightly overstates the problem. Rule 33(a)(2) (LII) says: \"An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact.\" The 1970 advisory committee note bars only questions of \"pure law\", meaning \"legal issues unrelated to the facts of the case.\" The objection is hedged \"to the extent\" and could be read as invoking that pure-law limit, which partly blunts the finding. Even so, Interrogatory No. 7 asks only to \"State with specificity all facts supporting your claim\", which is a fact-based contention the rule expressly permits. Rule 33(a)(2) also says nothing about protecting \"mental impressions\"; that protection is work product under Rule 26(b)(3). Citing the rule that authorizes contention interrogatories as the basis for objecting to one, and as the source of mental-impressions protection, misstates what it does.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ]
+      }
+    },
+    {
+      "ref": 49,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 9 (question)",
+      "authority_type": "statute",
+      "authority": "Title VII, 42 U.S.C. § 2000e-3(a)",
+      "citation_as_written": "42 U.S.C. § 2000e-3(a)",
+      "pincite": "(a)",
+      "cited_for": "Retaliation claim for protected activity",
+      "quotes": [],
+      "context": "in retaliation for protected activity in violation of Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-3(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 U.S.C. § 2000e-3(a) is the provision that prohibits retaliation for protected activity under Title VII of the Civil Rights Act of 1964 (opposition and participation clauses). The interrogatory cites it correctly.",
+        "evidence_excerpt": "because he has opposed any practice made an unlawful employment practice by this subchapter, or because he has made a charge, testified, assisted, or participated in any manner in an investigation, proceeding, or hearing under this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 9 (response)",
+      "authority_type": "statute",
+      "authority": "Title VII (opposition clause, uncited section)",
+      "citation_as_written": "Title VII",
+      "pincite": "",
+      "cited_for": "Feb. 10, 2023 email was protected opposition activity based on reasonable belief of race discrimination",
+      "quotes": [],
+      "context": "This email constituted protected opposition activity under Title VII because Plaintiff was complaining about conduct she reasonably believed to constitute race discrimination.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 2000e-3(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Title VII's opposition clause protects employees who oppose practices made unlawful by Title VII. Seventh Circuit law protects an employee who had a sincere and reasonable belief that she was opposing an unlawful practice, even if no violation actually occurred. Whether the email qualifies is a factual application, but the legal framing is accurate.",
+        "evidence_excerpt": "§ 2000e-3(a): \"because he has opposed any practice made an unlawful employment practice by this subchapter\"; Magyar, 544 F.3d 766: \"she need only show that ... she had a 'sincere and reasonable belief' that she was opposing an unlawful practice\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
+          "https://www.courtlistener.com/opinion/1314119/magyar-v-saint-joseph-regional-medical-center/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 22 (closing paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Fed. R. Civ. P. 26(e)",
+      "pincite": "(e)",
+      "cited_for": "Right to supplement witness identification",
+      "quotes": [],
+      "context": "Plaintiff reserves the right to supplement this response pursuant to Fed. R. Civ. P. 26(e) as additional witnesses are identified",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(e)(1) requires a party who has answered an interrogatory to supplement or correct the response if it learns the response is incomplete or incorrect. Reserving the right to supplement as more witnesses are identified fits that rule. Strictly, 26(e) imposes a duty rather than granting a right, but this is standard discovery boilerplate and is a fair reading.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Verification",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Verification under penalty of perjury",
+      "quotes": [],
+      "context": "I, Denise Huang, hereby verify under penalties of perjury pursuant to 28 U.S.C. § 1746 that the foregoing answers ... are true and correct",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1746 authorizes unsworn verification under penalty of perjury, supporting verification of the interrogatory answers.",
+        "evidence_excerpt": "\"I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "other",
+      "authority": "Gist of the action doctrine (Pennsylvania)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Pennsylvania doctrine distinguishing tort from contract claims; fraud claims based on pre-contractual misrepresentations may survive an integration clause",
+      "quotes": [],
+      "context": "argues under Pennsylvania law that fraud claims based on pre-contractual misrepresentations that induced the contract can survive an integration clause, and references the gist of the action doctrine or cites Pennsylvania authority",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The gist-of-the-action doctrine is real Pennsylvania law. eToll, 811 A.2d 10 (Pa. Super. 2002), suggests fraud in the inducement is often collateral to the contract and so may escape the doctrine. But the rubric's main proposition is that fraud claims based on pre-contract statements that induced the contract survive an integration clause, and that is wrong. Toy v. Metropolitan Life, 928 A.2d 186 (Pa. 2007), one of the cases the rubric names, together with Yocca, holds the reverse. Under the parol evidence rule, a fully integrated agreement supersedes earlier representations when fraud in the inducement is alleged. Only fraud in the execution (a term fraudulently left out of the writing) is excepted. The gist-of-the-action point is supportable; the integration-clause point contradicts controlling Pennsylvania Supreme Court authority.",
+        "evidence_excerpt": "Toy: \"this Court has determined that in Pennsylvania, only fraud in the execution ... is excepted from the parol evidence rule's operation\"; \"when fraud in the execution is alleged, representations made prior to contract formation are not considered superseded and disclaimed by a fully integrated written agreement, as they are when fraud in the inducement is asserted.\" eToll: \"fraud in the inducement of a contract would not necessarily be covered by doctrine because fraud to induce a person to enter into a contract is generally collateral to ... the terms of the contract itself.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1536518/toy-v-metropolitan-life-insurance/",
+          "https://www.courtlistener.com/opinion/2348604/etoll-inc-v-eliassavion-advertising-inc/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. I read Toy v. Metropolitan Life, 928 A.2d 186 (Pa. 2007), on CourtListener. Restating Yocca, Toy says that \"while parol evidence may be introduced based on a party's claim that there was fraud in the execution of a contract, i.e., that a term was fraudulently omitted from the contract, parol evidence may not be admitted based on a claim that there was fraud in the inducement of the contract, i.e., that an opposing party made false representations that induced the complaining party to agree to the contract.\" It also says that in Pennsylvania \"only fraud in the execution ... is excepted from the parol evidence rule's operation.\" Toy's claim survived only because it was fraud in the execution, so prior representations were \"not considered superseded and disclaimed by a fully integrated written agreement, as they are when fraud in the inducement is asserted.\" The rubric cites Toy for the claim that fraud claims based on pre-contract misrepresentations that induced the contract can survive an integration clause. That is the reverse of Toy's statement of the rule. The MSA here has a fully integrated entire-agreement clause with a non-reliance clause (§ 14.1). A narrow argument remains that representations outside the contract's subject matter escape the rule, but Toy does not stand for the general proposition. eToll's gist-of-the-action point is a separate doctrine and does not cure the integration-clause misstatement.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1536518/toy-v-metropolitan-life-insurance/",
+          "https://www.courtlistener.com/opinion/2348604/etoll-inc-v-eliassavion-advertising-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 54,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "other",
+      "authority": "Pennsylvania law on unenforceability of limitation-of-liability clauses as to fraud/intentional misconduct",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Under Pennsylvania law contractual limitations of liability are unenforceable as applied to fraud or intentional misconduct on public policy grounds",
+      "quotes": [],
+      "context": "PASS if the motion argues that under Pennsylvania law contractual limitations of liability are unenforceable as applied to claims of fraud or intentional misconduct on public policy grounds, and cites Pennsylvania authority (e.g., Walton v. Johnson, Werwinski v. Ford Motor Co., or similar cases).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Tayar v. Camelback Ski Corp., 616 Pa. 385, 47 A.3d 1190 (2012); Great N. Ins. Co. v. ADT Sec. Servs., Inc., 517 F. Supp. 2d 723 (W.D. Pa. 2007)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The general principle is supported. Tayar says exculpatory terms covering intentional (and reckless) conduct violate public policy, and Great Northern says LOL provisions are enforced where they do not involve fraud. However, the two example authorities the rubric names do not support it. Walton v. Johnson, 66 A.3d 782 (Pa. Super. 2013), decides whether a mother acted as her daughter's agent in signing a hospital arbitration agreement; its text does not mention fraud or limitation of liability. Werwinski v. Ford Motor Co., 286 F.3d 661 (3d Cir. 2002), holds that the economic loss doctrine bars intentional fraud claims, which cuts against the plaintiff. The proposition is sound, but the named example authorities are off point or adverse.",
+        "evidence_excerpt": "Tayar: \"releases for intentional tortious conduct are likewise prohibited\". Walton: \"The question at issue here is whether the ADR Agreement is enforceable. The answer is dependent upon whether Nancy Walton was acting as Lakeysha Walton's agent\". Werwinski: \"these opinions ... undeniably recognize that the economic loss doctrine bars tort recovery for intentional fraud claims.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5145348/tayar-v-camelback-ski-corp/",
+          "https://www.courtlistener.com/opinion/2386951/great-northern-insurance-v-adt-security-services-inc/",
+          "https://www.courtlistener.com/opinion/5146538/walton-v-johnson/",
+          "https://www.courtlistener.com/opinion/777249/werwinski-v-ford-motor-company/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "task.json.md",
+      "location": "rubric C-032",
+      "authority_type": "other",
+      "authority": "Pennsylvania law on punitive damages for fraud",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Pennsylvania law permits punitive damages for outrageous conduct, reckless indifference to the rights of others, or intentional/wanton conduct",
+      "quotes": [],
+      "context": "stating that Pennsylvania law permits punitive damages for outrageous conduct, reckless indifference to the rights of others, or intentional/wanton conduct, and argues that the evidence of Apex's knowing misrepresentations",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Hutchison ex rel. Hutchison v. Luddy, 582 Pa. 114, 870 A.2d 766, 770-72 (2005) (quoting Feld v. Merriam, 506 Pa. 383, 485 A.2d 742 (1984))",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Pennsylvania Supreme Court in Hutchison states the settled standard: punitive damages may be awarded for conduct that is outrageous because of the defendant's evil motive or reckless indifference to the rights of others. The court adds that the act must be intentional, reckless or malicious. This matches the rubric's statement.",
+        "evidence_excerpt": "\"The standard governing the award of punitive damages in Pennsylvania is settled. 'Punitive damages may be awarded for conduct that is outrageous, because of the defendant's evil motive or his reckless indifference to the rights of others.' Feld v. Merriam\" ... \"The act, or the failure to act, must be intentional, reckless or malicious.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2156340/hutchison-ex-rel-hutchison-v-luddy/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "task.json.md",
+      "location": "rubric C-044",
+      "authority_type": "other",
+      "authority": "Pennsylvania law elements of fraudulent inducement",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Elements of fraudulent inducement under Pennsylvania law (false representation, knowledge of falsity or recklessness, intent to induce reliance, justifiable reliance, damages)",
+      "quotes": [],
+      "context": "identifying the elements under Pennsylvania law (false representation, knowledge of falsity or reckless disregard, intent to induce reliance, justifiable reliance, resulting damages) and applying the facts.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Gibbs v. Ernst, 538 Pa. 193, 647 A.2d 882, 889 (1994)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Pennsylvania Supreme Court in Gibbs v. Ernst sets out six elements of intentional misrepresentation or fraud. The rubric lists five, which match Gibbs except that it leaves out materiality to the transaction. In substance the list is accurate, but it is incomplete.",
+        "evidence_excerpt": "\"(1) a representation; (2) which is material to the transaction at hand; (3) made falsely, with knowledge of its falsity or recklessness as to whether it is true or false; (4) with the intent of misleading another into relying on it; (5) justifiable reliance on the misrepresentation; and (6) the resulting injury was proximately caused by the reliance.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1970391/gibbs-v-ernst/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "task.json.md",
+      "location": "rubric C-025",
+      "authority_type": "other",
+      "authority": "Pennsylvania negligent misrepresentation standard",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Pennsylvania negligent misrepresentation standard following Restatement (Second) of Torts § 552",
+      "quotes": [],
+      "context": "applies the negligent misrepresentation standard under Pennsylvania law, which follows the Restatement (Second) of Torts § 552 or equivalent",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Bilt-Rite Contractors, Inc. v. The Architectural Studio, 581 Pa. 454, 866 A.2d 270 (2005); Bortz v. Noon, 729 A.2d 555 (Pa. 1999)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Pennsylvania Supreme Court in Bilt-Rite formally adopted Restatement (Second) of Torts § 552. But it adopted § 552 for those in the business of supplying information, and it expressly said § 552 does not supplant the general common-law tort, whose elements are set out in Bortz and Gibbs. Saying Pennsylvania 'follows § 552' is broadly accurate. It slightly overstates the case for a defendant like an ERP implementer, which may not be in the business of supplying information. The rubric's 'or equivalent' hedge reduces the problem.",
+        "evidence_excerpt": "\"we hereby adopt Section 552 as the law in Pennsylvania in cases where information is negligently supplied by one in the business of supplying information ... we do not view Section 552 as supplanting the common law tort of negligent misrepresentation, but rather, as clarifying the contours of the tort as it applies to those in the business of providing information to others.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1467371/bilt-rite-contractors-inc-v-architectural-studio/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "V. Count I heading",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-2",
+      "citation_as_written": "42 U.S.C. § 2000e-2",
+      "pincite": "",
+      "cited_for": "Heading of Count I: race discrimination in violation of Title VII",
+      "quotes": [],
+      "context": "V. COUNT I — RACE DISCRIMINATION IN VIOLATION OF TITLE VII OF THE CIVIL RIGHTS ACT OF 1964 (42 U.S.C. § 2000e-2)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Count I heading correctly cites § 2000e-2, Title VII's unlawful employment practices provision that bars race discrimination.",
+        "evidence_excerpt": "42 U.S. Code § 2000e-2 - Unlawful employment practices",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "VI. Count II heading",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e-3",
+      "citation_as_written": "42 U.S.C. § 2000e-3",
+      "pincite": "",
+      "cited_for": "Heading of Count II: retaliation in violation of Title VII",
+      "quotes": [],
+      "context": "VI. COUNT II — RETALIATION IN VIOLATION OF TITLE VII OF THE CIVIL RIGHTS ACT OF 1964 (42 U.S.C. § 2000e-3)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 2000e-3 (Title VII § 704, 'Other unlawful employment practices') contains Title VII's anti-retaliation provision in subsection (a), so it is the proper basis for Count II.",
+        "evidence_excerpt": "Pub. L. 88–352, title VII, §704, July 2, 1964, 78 Stat. 257 ... because he has opposed any practice made an unlawful employment practice by this subchapter",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-3",
+          "https://www.govinfo.gov/content/pkg/USCODE-2023-title42/html/USCODE-2023-title42-chap21-subchapVI-sec2000e-3.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "VII. Count III heading",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act, 775 ILCS 5/2-102",
+      "citation_as_written": "775 ILCS 5/2-102",
+      "pincite": "",
+      "cited_for": "Heading of Count III: race discrimination in violation of the IHRA",
+      "quotes": [],
+      "context": "VII. COUNT III — RACE DISCRIMINATION IN VIOLATION OF THE ILLINOIS HUMAN RIGHTS ACT (775 ILCS 5/2-102)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "775 ILCS 5/2-102 is the IHRA section titled 'Civil rights violations; employment'. It is the correct statute for a count heading alleging race discrimination in employment.",
+        "evidence_excerpt": "(775 ILCS 5/2-102) ... Sec. 2-102. Civil rights violations; employment. It is a civil rights violation: (A) Employers. ...",
+        "source_urls": [
+          "https://www.ilga.gov/legislation/ilcs/fulltext?DocName=077500050K2-102"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "¶ 12 (exhaustion)",
+      "authority_type": "other",
+      "authority": "EEOC charge and right-to-sue exhaustion requirement under Title VII",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Plaintiff timely filed EEOC charge and received right-to-sue notice before filing",
+      "quotes": [],
+      "context": "Plaintiff timely filed a Charge of Discrimination with the United States Equal Employment Opportunity Commission (\"EEOC\"), designated EEOC Charge No. 440-2023-02187. The EEOC issued a Notice of Right to Sue on August 11, 2023.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 2000e-5(e)(1), (f)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Title VII requires a timely EEOC charge (180 days, or 300 days in a deferral state) and suit within 90 days after the EEOC gives notice of the right to sue. Complaint ¶ 12 cites § 2000e-5(f)(1) for the 90-day period, which is correct. On the fictional dates, the charge was filed April 28, 2023, 42 days after the March 17, 2023 termination, so it was timely under either deadline. The exhaustion allegation is consistent with the statute.",
+        "evidence_excerpt": "\"within ninety days after the giving of such notice a civil action may be brought against the respondent named in the charge\" (§ 2000e-5(f)(1)); \"A charge under this section shall be filed within one hundred and eighty days after the alleged unlawful employment practice occurred\" (§ 2000e-5(e)(1))",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e-5"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Preliminary Statement and General Objections, para. 1",
+      "authority_type": "other",
+      "authority": "Attorney-client privilege and work product doctrine",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "General objection to interrogatories seeking privileged or work-product information",
+      "quotes": [],
+      "context": "Plaintiff further objects to each interrogatory to the extent it seeks information protected by the attorney-client privilege, the work product doctrine, or any other applicable privilege or protection.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic boilerplate objection based on attorney-client privilege and the work-product doctrine, with no specific citation. Both doctrines exist and are recognized in federal discovery: Rule 26(b)(1) limits discovery to nonprivileged matter, Rule 26(b)(3) protects trial-preparation materials, and Rule 26(b)(5) governs how such claims are asserted. One note: a general objection of this kind does not satisfy Rule 26(b)(5)(A)'s requirement to expressly make the claim and describe what is withheld, but that is a matter of practice, not a citation defect.",
+        "evidence_excerpt": "\"Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense\" (Rule 26(b)(1)); \"Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial\" (Rule 26(b)(3)(A))",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 9 (response)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(2)",
+      "citation_as_written": "Rule 33(a)(2)",
+      "pincite": "",
+      "cited_for": "Objection that contention interrogatory seeks legal theories inconsistent with Rule 33(a)(2)",
+      "quotes": [],
+      "context": "further objecting to the extent that this interrogatory is a contention interrogatory that seeks disclosure of Plaintiff's legal theories and mental impressions in a manner inconsistent with Rule 33(a)(2)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(2) allows interrogatories asking for an opinion or contention that relates to fact or to applying law to fact. By implication, it does not reach pure legal theories. The court may also defer contention answers. The objection is qualified ('to the extent' the interrogatory seeks legal theories and mental impressions inconsistent with the rule), which is a defensible advocacy reading. Note one tension: the rule expressly says contention interrogatories are not objectionable merely because they are contention interrogatories, so the objection is only valid as far as it targets pure legal conclusions. The 'mental impressions' language sounds in work product (Rule 26(b)(3)), not Rule 33.",
+        "evidence_excerpt": "An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact, but the court may order that the interrogatory need not be answered until designated discovery is complete",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory No. 9 response, causation (First)",
+      "authority_type": "other",
+      "authority": "Temporal proximity as evidence of retaliatory causation (Title VII)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Close temporal proximity alone suffices to support an inference of causation",
+      "quotes": [
+        "This close temporal proximity is, standing alone, sufficient to support an inference of causation."
+      ],
+      "context": "Plaintiff's actual termination followed on March 17, 2023, only thirty-five (35) days after the protected activity. This close temporal proximity is, standing alone, sufficient to support an inference of causation.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the plaintiff's own assertion and is not attributed to any authority, so there is nothing to match.",
+        "explanation": "No authority is cited. The categorical rule stated, that close timing alone suffices, overstates controlling law. This case is in the N.D. Ill., where Seventh Circuit law governs. That court holds that suspicious timing alone rarely suffices and usually needs other supporting evidence. Only in 'egregious cases' does timing alone create a triable issue. Breeden (U.S. 2001) accepts timing alone only where it is 'very close.' The 12-day gap to the termination recommendation might qualify as egregious, but the blanket statement that timing 'standing alone' is sufficient contradicts the general rule.",
+        "evidence_excerpt": "Milligan v. Bd. of Trs. of S. Ill. Univ., 686 F.3d 378 (7th Cir. 2012): \"In egregious cases, suspicious timing alone might create a triable issue on causation\" ... \"[c]lose temporal proximity provides evidence of causation and may permit a plaintiff to survive summary judgment provided that there is other evidence that supports the inference of a causal link.\"; Breeden: temporal proximity \"must be 'very close'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/803947/milligan-v-board-of-trustees-of-southern-illinois-university/",
+          "https://www.courtlistener.com/opinion/1463476/bivens-v-trent/",
+          "https://www.courtlistener.com/opinion/2620700/clark-county-school-district-v-breeden/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds and the evidence for it is stronger than the first check showed. The case is in the N.D. Ill., so Seventh Circuit law governs. Sweet v. Town of Bargersville, 18 F.4th 273 (7th Cir. 2021), quotes Kidwell v. Eisenhauer, 679 F.3d 957, 966 (7th Cir. 2012): \"suspicious timing will rarely be sufficient in and of itself to create a triable issue.\" It also says \"we typically allow no more than a few days to elapse between the protected activity and the adverse action,\" and adds: \"In Kidwell we held that a two-month gap and a five-week gap were not close enough to establish probative suspicious timing.\" The 35-day gap to termination here is the same five-week gap Kidwell rejected. The response's flat statement that this proximity is \"standing alone, sufficient to support an inference of causation\" misstates the governing rule. The 12-day gap to the termination recommendation is a stronger fact, but the response's categorical sentence covers both gaps. No authority is cited; the defect is in the legal proposition itself.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5126909/beth-sweet-v-town-of-bargersville/",
+          "https://www.courtlistener.com/opinion/800664/kidwell-v-eisenhauer/",
+          "https://www.courtlistener.com/opinion/803947/milligan-v-board-of-trustees-of-southern-illinois-university/"
+        ]
+      }
+    },
+    {
+      "ref": 65,
+      "document": "plaintiff-interrogatory-responses.docx.md",
+      "location": "Interrogatory response on emotional distress (around line 165)",
+      "authority_type": "other",
+      "authority": "Psychotherapist-patient privilege",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Objection to extent interrogatory seeks information protected by psychotherapist-patient privilege",
+      "quotes": [],
+      "context": "further objecting to the extent that this interrogatory seeks information protected by the psychotherapist-patient privilege, Plaintiff responds as follows:",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Jaffee v. Redmond, 518 U.S. 1, 15 (1996); Fed. R. Evid. 501",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is a federal-question employment case in N.D. Ill., so federal privilege law under FRE 501 governs. Jaffee recognizes a federal psychotherapist-patient privilege covering confidential communications with licensed psychotherapists, which supports a privilege objection. The objection is limited 'to the extent' the interrogatory seeks privileged material. The plaintiff's own emotional-distress claim may raise waiver questions, but that does not make the objection baseless.",
+        "evidence_excerpt": "\"we hold that confidential communications between a licensed psychotherapist and her patients in the course of diagnosis or treatment are protected from compelled disclosure under Rule 501 of the Federal Rules of Evidence.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/118042/jaffee-v-redmond/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "statement-of-facts.docx.md",
+      "location": "Preamble (para. before Section I)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 56",
+      "citation_as_written": "Federal Rule of Civil Procedure 56",
+      "pincite": "",
+      "cited_for": "Statement of undisputed facts submitted in support of summary judgment motion pursuant to Rule 56",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 56 and Local Rule 56.1(a)(3) of the United States District Court for the Northern District of Illinois, Defendant Whitaker Industrial Supply Co. (\"Whitaker\" or \"Defendant\"), by and through its attorneys, Bridgewell & Locke LLP, respectfully submits this Statement of Undisputed Material Facts",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 56 governs summary judgment. Rule 56(c)(1) requires a party asserting that a fact is undisputed to support the assertion. That is the basis for submitting a statement of undisputed facts alongside N.D. Ill. LR 56.1.",
+        "evidence_excerpt": "A party may move for summary judgment, identifying each claim or defense ... The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact ... A party asserting that a fact cannot be or is genuinely disputed must support the assertion by:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "statement-of-facts.docx.md",
+      "location": "Title and Preamble",
+      "authority_type": "court_rule",
+      "authority": "N.D. Ill. Local Rule 56.1(a)(3)",
+      "citation_as_written": "Local Rule 56.1(a)(3)",
+      "pincite": "",
+      "cited_for": "Governs the form of defendant's statement of undisputed material facts: concise numbered paragraphs supported by citations to the record",
+      "quotes": [],
+      "context": "DEFENDANT WHITAKER INDUSTRIAL SUPPLY CO.'S LOCAL RULE 56.1(a)(3) STATEMENT OF UNDISPUTED MATERIAL FACTS ... Pursuant to Federal Rule of Civil Procedure 56 and Local Rule 56.1(a)(3) of the United States District Court for the Northern District of Illinois",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "N.D. Ill. L.R. 56.1(a)(2), (d) (as amended Feb. 18, 2021 and Sept. 29, 2023)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.D. Ill. LR 56.1 exists and does require the movant's statement of material facts to be concise numbered paragraphs with record citations. But the subsection number is out of date. Under the pre-2021 rule (adopted 2006), subsection (a)(3) was the movant's statement of material facts. In the current rule, the statement is in (a)(2), and its form and citation requirements are in (d)(1)-(2). Current (a)(3) says only that failure to comply with (a)(1) or (a)(2) may be grounds for denying the motion. The document is dated October 4, 2024, so the current rule applies. The substance is right, but '56.1(a)(3) Statement' uses the superseded numbering.",
+        "evidence_excerpt": "Current rule: \"(2) a statement of material facts that complies with LR 56.1(d) ... (3) Failure to comply with LR 56.1(a)(1) or (a)(2) may be grounds for denial of the motion.\" ... \"(d)(1) Form. Each LR 56.1(a)(2) statement of material facts ... must consist of concise numbered paragraphs. (2) Citations. Each asserted fact must be supported by citation to the specific evidentiary material, including the specific page number\". Old (2006) rule: \"(3) a statement of material facts ... shall consist of short numbered paragraphs\".",
+        "source_urls": [
+          "https://www.ilnd.uscourts.gov/_assets/_documents/_rules/LRRULES.pdf",
+          "https://www.ilnd.uscourts.gov/_assets/_documents/_forms/_legal/NewRules/New00045.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "statement-of-facts.docx.md",
+      "location": "Section I, para. 6",
+      "authority_type": "statute",
+      "authority": "Title VII of the Civil Rights Act of 1964",
+      "citation_as_written": "42 U.S.C. § 2000e et seq.",
+      "pincite": "",
+      "cited_for": "Basis of plaintiff's race discrimination and retaliation claims",
+      "quotes": [],
+      "context": "She filed the present action on October 5, 2023, asserting claims of race discrimination and retaliation under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and the Illinois Human Rights Act, 775 ILCS 5/1-101 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "42 U.S.C. § 2000e et seq. is Title VII, which covers race discrimination (§ 2000e-2) and retaliation (§ 2000e-3). 775 ILCS 5/1-101 is the IHRA's short-title section, so '5/1-101 et seq.' correctly cites the Act as a whole.",
+        "evidence_excerpt": "775 ILCS 5/1-101: \"This Act shall be known and may be cited as the Illinois Human Rights Act.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/2000e",
+          "https://law.onecle.com/illinois/775ilcs5/1-101.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "statement-of-facts.docx.md",
+      "location": "Section I, para. 6",
+      "authority_type": "statute",
+      "authority": "Illinois Human Rights Act",
+      "citation_as_written": "775 ILCS 5/1-101 et seq.",
+      "pincite": "",
+      "cited_for": "Basis of plaintiff's state-law race discrimination and retaliation claims",
+      "quotes": [],
+      "context": "asserting claims of race discrimination and retaliation under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq., and the Illinois Human Rights Act, 775 ILCS 5/1-101 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "775 ILCS 5/1-101 is the short-title section of the Illinois Human Rights Act, so '775 ILCS 5/1-101 et seq.' correctly cites the whole Act. The Act prohibits race discrimination in employment (2-102(A) and 1-103(Q)) and also contains retaliation provisions.",
+        "evidence_excerpt": "(775 ILCS 5/1-101) Sec. 1-101. Short Title. This Act shall be known and may be cited as the Illinois Human Rights Act.",
+        "source_urls": [
+          "https://www.ilga.gov/legislation/ilcs/fulltext?DocName=077500050K1-101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "deitz-deposition-excerpts.docx.md",
+      "location": "Witness Acknowledgment (end of transcript)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 30(e)",
+      "pincite": "",
+      "cited_for": "Witness has not waived the right to read and sign the transcript; changes will be appended as an errata sheet",
+      "quotes": [],
+      "context": "Signature reserved. The witness has not waived the right to read and sign the transcript pursuant to Federal Rule of Civil Procedure 30(e). Any changes submitted by the witness will be appended as an errata sheet to the certified transcript.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 30(e)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(e)(1) lets the deponent review the transcript and sign a statement of changes. Rule 30(e)(2) requires the officer to attach any changes. That supports both the reserved signature and the statement that changes will be appended as an errata sheet.",
+        "evidence_excerpt": "(B) if there are changes in form or substance, to sign a statement listing the changes and the reasons for making them ... must attach any changes the deponent makes during the 30-day period.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "deitz-deposition-excerpts.docx.md",
+      "location": "Caption and Court Reporter's Certification",
+      "authority_type": "case",
+      "authority": "Huang v. Whitaker Industrial Supply Co.",
+      "citation_as_written": "Huang v. Whitaker Industrial Supply Co., Case No. 1:23-cv-08341 (N.D. Ill.)",
+      "pincite": "",
+      "cited_for": "The matter in which the deposition was taken (the fictional matter at hand)",
+      "quotes": [],
+      "context": "the deposition of CAROLYN DEITZ, taken on April 18, 2024, in the matter of Huang v. Whitaker Industrial Supply Co., Case No. 1:23-cv-08341, United States District Court for the Northern District of Illinois, Eastern Division.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket number in the fictional scenario."
+    },
+    {
+      "ref": 72,
+      "document": "employee-handbook-excerpts.docx.md",
+      "location": "Cover page and introductory paragraph",
+      "authority_type": "case",
+      "authority": "Huang v. Whitaker Industrial Supply Co.",
+      "citation_as_written": "Huang v. Whitaker Industrial Supply Co., Case No. 1:23-cv-08341 (N.D. Ill.)",
+      "pincite": "",
+      "cited_for": "The litigation in which the handbook excerpts were produced (the fictional matter at hand)",
+      "quotes": [],
+      "context": "The following excerpts from the Whitaker Industrial Supply Co. Employee Handbook (revised effective January 1, 2021) are produced in connection with Huang v. Whitaker Industrial Supply Co., Case No. 1:23-cv-08341 (N.D. Ill.).",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket number in the fictional scenario."
+    },
+    {
+      "ref": 73,
+      "document": "apex-proposal-and-capability-summary.docx.md",
+      "location": "Exhibit 47 heading",
+      "authority_type": "case",
+      "authority": "Ridgeline Manufacturing Corp. v. Apex Digital Solutions, Inc.",
+      "citation_as_written": "Ridgeline Manufacturing Corp. v. Apex Digital Solutions, Inc., Case No. 2:23-cv-01487-NMR (W.D. Pa.)",
+      "pincite": "",
+      "cited_for": "The litigation in which Exhibit 47 was produced (a different fictional matter, appearing in the same document set)",
+      "quotes": [],
+      "context": "Ridgeline Manufacturing Corp. v. Apex Digital Solutions, Inc. Case No. 2:23-cv-01487-NMR United States District Court for the Western District of Pennsylvania",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket number in a fictional scenario."
+    },
+    {
+      "ref": 74,
+      "document": "flores-as9100d-memo.docx.md",
+      "location": "Flores memo, numbered findings 1-7 (e.g., item 1)",
+      "authority_type": "other",
+      "authority": "AS9100D quality management standard",
+      "citation_as_written": "AS9100D § 8.5.2",
+      "pincite": "§ 8.5.2 (also §§ 8.7, 8.5.1.1, 8.4, 7.1.5, 8.5.6, 8.2.3)",
+      "cited_for": "Aerospace quality-management traceability requirements that the Stratos ERP quality module allegedly fails to meet",
+      "quotes": [],
+      "context": "Lot Tracking and Serialization (AS9100D § 8.5.2 — Identification and Traceability). The lot-tracking module is fundamentally misconfigured.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "AS9100D § 8.5.2 (Identification and Traceability); FAI item should cite § 8.5.1.3 (Production Process Verification), not § 8.5.1.1",
+        "quote_check": "No quotes attributed.",
+        "explanation": "AS9100D (SAE/IAQG) is a real standard. Its official text is paywalled, so I relied on secondary industry sources. Those sources confirm the clause titles given for § 8.5.2 (identification and traceability), § 8.7 (control of nonconforming outputs), § 8.4 (control of externally provided processes) and the § 8 structure. The memo also cites § 7.1.5 (monitoring and measuring resources), § 8.5.6 (control of changes) and § 8.2.3 (review of requirements); those titles are consistent with the ISO 9001:2015 numbering AS9100D follows, but I did not individually confirm them from a source I read. One defect: item 3 cites § 8.5.1.1 for First Article Inspection records. In AS9100D, § 8.5.1.1 covers control of equipment, tools and software programs; FAI falls under § 8.5.1.3, production process verification.",
+        "evidence_excerpt": "\"AS9100D Clause 8.5.2 requires organizations to use suitable means to identify outputs ... and to control the unique identification of outputs where traceability is a requirement\"; \"AS9100 Clause 8.5.1.3 – Production Process Verification ... focuses on the first article inspection (FAI) process\"; \"AS9100 Clause 8.5.1.1 - Control of Production Equipment, Tools, and Software\"",
+        "source_urls": [
+          "https://as9100store.com/as9100d-requirements/operation/",
+          "https://aqms.space/2023/06/as9100-clause-8-5-1-3-production-process-verification",
+          "https://aqms.space/2023/06/as9100-clause-8-5-1-1-control-of-production-equipment-tools-and-software-equipment",
+          "https://thestandardsnavigator.com/2026/08/01/as9100-traceability-requirements/"
+        ],
+        "confidence": "medium"
+      }
+    }
+  ]
+}

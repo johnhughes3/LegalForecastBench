@@ -1,0 +1,725 @@
+{
+  "task": "extract-key-terms-from-counterparty-complaint",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "apex-v-greenfield-complaint.docx.md",
+    "client-initial-email.eml.md",
+    "service-confirmation.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section I, ¶1",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-760 et seq.",
+      "pincite": "",
+      "cited_for": "Basis for Apex's claim of misappropriation of trade secrets",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq., and the federal Defend Trade Secrets Act, 18 U.S.C. § 1836, and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "O.C.G.A. § 10-1-760 is the short-title section of the Georgia Trade Secrets Act of 1990 (Article 27, §§ 10-1-760 to -767). The article supplies the cause of action and remedies for trade secret misappropriation (injunctive relief § 10-1-762, damages § 10-1-763), so it is a proper basis for the claim. 18 U.S.C. § 1836(b)(1), cited alongside it in the same sentence, is the DTSA private civil action.",
+        "evidence_excerpt": "This article shall be known as the 'Georgia Trade Secrets Act of 1990.' ... § 10-1-762 - Injunctive Relief; § 10-1-763 - Recovery of Damages",
+        "source_urls": [
+          "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section I, ¶1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal basis for the trade secret misappropriation claim",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq., and the federal Defend Trade Secrets Act, 18 U.S.C. § 1836, and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836 (\"Civil proceedings\") is the DTSA provision creating a private civil action for trade-secret misappropriation. It is the correct federal basis for the claim.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section III, ¶13",
+      "authority_type": "statute",
+      "authority": "N.C. Gen. Stat. § 7A-240 et seq.",
+      "citation_as_written": "N.C. Gen. Stat. § 7A-240 et seq.",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction of the NC Superior Court over claims with amount in controversy exceeding $25,000",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over the claims asserted herein pursuant to N.C. Gen. Stat. § 7A-240 et seq., as this action involves claims for breach of contract, tortious interference, misappropriation of trade secrets, and unjust enrichment in which the amount in controversy exceeds $25,000",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. Gen. Stat. § 7A-240 gives the trial divisions original general civil jurisdiction. § 7A-243, which falls within the cited 'et seq.', makes superior court the proper division when the amount in controversy exceeds $25,000. Together they support the proposition.",
+        "evidence_excerpt": "§ 7A-240: 'original general jurisdiction of all justiciable matters of a civil nature' ... § 7A-243: superior court proper where 'the amount in controversy exceeds twenty-five thousand dollars ($25,000)'",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_7A/GS_7A-240.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_7A/GS_7A-243.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section III, ¶15",
+      "authority_type": "statute",
+      "authority": "N.C. Gen. Stat. § 1-82",
+      "citation_as_written": "N.C. Gen. Stat. § 1-82",
+      "pincite": "",
+      "cited_for": "Venue proper in Mecklenburg County because defendant's principal place of business is there",
+      "quotes": [],
+      "context": "Venue is also proper in this County pursuant to N.C. Gen. Stat. § 1-82 because the Defendant maintains its principal place of business in Mecklenburg County.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Under N.C. Gen. Stat. § 1-82, venue lies in the county where the plaintiffs or defendants reside. Under § 1-79, a domestic corporation resides where its registered or principal office is located or where it maintains a place of business. Read together, venue is proper in the county of the defendant's principal place of business. Citing § 1-82 alone is a reasonable shorthand.",
+        "evidence_excerpt": "In all other cases the action must be tried in the county in which the plaintiffs or the defendants, or any of them, reside at its commencement",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_1/GS_1-82.html",
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_1/GS_1-79.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section III, ¶16",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-760 et seq.",
+      "pincite": "",
+      "cited_for": "Georgia substantive law, including the GTSA, governs contract and trade secret claims per Section 16.1",
+      "quotes": [],
+      "context": "Apex's contract claims (Count I) and trade secrets claims (Count III) are governed by the substantive laws of the State of Georgia, including the Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The GTSA is codified at O.C.G.A. § 10-1-760 et seq. and is Georgia substantive trade secret law, so citing it as part of the Georgia law selected by the contract's choice-of-law clause is accurate. The applicability of the contract's Section 16.1 is a fact of the scenario and is not something the statute addresses.",
+        "evidence_excerpt": "This article shall be known as the 'Georgia Trade Secrets Act of 1990.'",
+        "source_urls": [
+          "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section IV.D, ¶62",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-761(4)",
+      "citation_as_written": "O.C.G.A. § 10-1-761(4)",
+      "pincite": "(4)",
+      "cited_for": "Definition of 'trade secrets' for the Confidential Sales Information",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "The Confidential Sales Information constitutes \"trade secrets\" as defined by the Georgia Trade Secrets Act, O.C.G.A. § 10-1-761(4), and the federal Defend Trade Secrets Act, 18 U.S.C. § 1839(3)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\": the defined term \"Trade secret\" is found in § 10-1-761(4) (singular in the statute; the plural is an ordinary variation).",
+        "explanation": "Section 10-1-761(4) defines a trade secret as information, including compilations, financial data, and lists of actual or potential customers, that derives economic value from not being generally known and is the subject of reasonable secrecy efforts. That supports the complaint's characterization of customer and pricing compilations. The companion cite, 18 U.S.C. § 1839(3), is the parallel DTSA definition.",
+        "evidence_excerpt": "(4) \"Trade secret\" means information, without regard to form, including ... a compilation ... financial data ... or a list of actual or potential customers or suppliers which is not commonly known by or available to the public ...",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section IV.D, ¶62",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(3)",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "(3)",
+      "cited_for": "Federal definition of 'trade secret'",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "as defined by the Georgia Trade Secrets Act, O.C.G.A. § 10-1-761(4), and the federal Defend Trade Secrets Act, 18 U.S.C. § 1839(3), in that it consists of business information, including compilations, customer lists, and financial data",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\" found in singular form: § 1839(3) defines \"the term 'trade secret'\". The plural is the complaint's own grammatical usage, not a misquote.",
+        "explanation": "18 U.S.C. § 1839(3) is the DTSA definition of \"trade secret.\" It expressly covers business and financial information, including compilations, which matches the complaint's description (customer lists, compilations, financial data). The citation supports the proposition.",
+        "evidence_excerpt": "the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section IV.D, ¶69",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-761(2)",
+      "citation_as_written": "O.C.G.A. § 10-1-761(2)",
+      "pincite": "(2)",
+      "cited_for": "Definition of misappropriation under GTSA",
+      "quotes": [],
+      "context": "Greenfield's acquisition and use of the Confidential Sales Information constitutes misappropriation within the meaning of O.C.G.A. § 10-1-761(2) and 18 U.S.C. § 1839(5)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "O.C.G.A. § 10-1-761(2) defines 'misappropriation' as acquisition of another's trade secret by one who knows or has reason to know it was acquired by improper means, or disclosure/use without consent by one who used improper means or knew of a duty to maintain secrecy. That matches the complaint's theory. The companion cite, 18 U.S.C. § 1839(5), has a parallel definition.",
+        "evidence_excerpt": "(2) \"Misappropriation\" means: (A) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) Disclosure or use of a trade secret of another without express or implied consent by a person who ...",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section IV.D, ¶69",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(5)",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "(5)",
+      "cited_for": "Federal definition of misappropriation under DTSA",
+      "quotes": [],
+      "context": "constitutes misappropriation within the meaning of O.C.G.A. § 10-1-761(2) and 18 U.S.C. § 1839(5), in that Greenfield acquired the Confidential Sales Information through improper means",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1839(5) defines \"misappropriation\" under the DTSA. It covers acquisition by improper means and disclosure or use without consent, which matches the complaint's characterization.",
+        "evidence_excerpt": "the term 'misappropriation' means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section VII (Third Cause of Action), ¶99",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq., and Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "O.C.G.A. § 10-1-760 et seq.; 18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Statutory bases for Count III",
+      "quotes": [],
+      "context": "This claim is brought pursuant to the Georgia Trade Secrets Act, O.C.G.A. § 10-1-760 et seq., and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Both statutory bases exist and support a misappropriation count. The GTSA is at O.C.G.A. § 10-1-760 et seq. Under 18 U.S.C. § 1836(b)(1), the DTSA lets an owner of a misappropriated trade secret bring a civil action. A more precise cite would be § 1836(b), but citing the section as a whole is acceptable.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section VII, ¶100",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-761(4) and 18 U.S.C. § 1839(3)",
+      "citation_as_written": "O.C.G.A. § 10-1-761(4) and 18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "Confidential Sales Information qualifies as trade secrets",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "constitutes \"trade secrets\" as defined by O.C.G.A. § 10-1-761(4) and 18 U.S.C. § 1839(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\": the defined term appears in both O.C.G.A. § 10-1-761(4) (\"Trade secret\") and 18 U.S.C. § 1839(3) (\"the term 'trade secret'\").",
+        "explanation": "Both provisions define 'trade secret' to cover business and financial information, compilations, and customer lists that derive economic value from secrecy and are subject to reasonable secrecy measures. Both are correctly cited for this proposition.",
+        "evidence_excerpt": "18 U.S.C. § 1839(3): \"all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations ...\"; O.C.G.A. § 10-1-761(4): \"... financial data, financial plans, product plans, or a list of actual or potential customers or suppliers ...\"",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section VII, ¶107",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-763 (and § 10-1-762)",
+      "citation_as_written": "O.C.G.A. § 10-1-763; O.C.G.A. § 10-1-762",
+      "pincite": "",
+      "cited_for": "Exemplary damages where misappropriation is willful and malicious, in an amount not exceeding double the actual damages awarded under § 10-1-762 (rubric flags this as an imprecise characterization of the statute)",
+      "quotes": [],
+      "context": "Pursuant to O.C.G.A. § 10-1-763, where misappropriation is willful and malicious, the court may award exemplary damages in an amount not exceeding double the actual damages awarded under O.C.G.A. § 10-1-762.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-763(b) (exemplary damages capped at twice the damages award under § 10-1-763(a))",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The complaint is right that § 10-1-763(b) allows exemplary damages for willful and malicious misappropriation of up to 'twice' the compensatory award, so 'double' is accurate. There are two small defects. First, the complaint says the base is damages 'awarded under O.C.G.A. § 10-1-762', but § 10-1-762 governs injunctive relief; the base is the award under § 10-1-763(a). Second, that base covers actual loss, unjust enrichment, or a reasonable royalty, not only 'actual damages.' The rubric's claim that this is a misleading description, with a cap equal to actual damages, is itself wrong (see ref 20).",
+        "evidence_excerpt": "(b) If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a) of this Code section.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-763/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section VII, ¶108",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-762 and 18 U.S.C. § 1836(b)(3)(A)",
+      "citation_as_written": "O.C.G.A. § 10-1-762 and 18 U.S.C. § 1836(b)(3)(A)",
+      "pincite": "(b)(3)(A)",
+      "cited_for": "Injunctive relief against further misappropriation, use, or disclosure",
+      "quotes": [],
+      "context": "Apex is also entitled to injunctive relief pursuant to O.C.G.A. § 10-1-762 and 18 U.S.C. § 1836(b)(3)(A) to prohibit Greenfield from any further misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "O.C.G.A. § 10-1-762(a) provides that actual or threatened misappropriation may be enjoined, and (c) permits court-ordered affirmative acts to protect a trade secret. 18 U.S.C. § 1836(b)(3)(A) authorizes an injunction to prevent actual or threatened misappropriation and to require affirmative actions to protect the trade secret. Both support the requested injunction, including return or destruction of materials.",
+        "evidence_excerpt": "§ 10-1-762(a): \"Actual or threatened misappropriation may be enjoined.\" § 1836(b)(3)(A): \"grant an injunction— (i) to prevent any actual or threatened misappropriation ... (ii) ... requiring affirmative actions to be taken to protect the trade secret\"",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section VII, ¶109",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-764",
+      "citation_as_written": "O.C.G.A. § 10-1-764",
+      "pincite": "",
+      "cited_for": "Attorneys' fees where misappropriation is willful and malicious",
+      "quotes": [],
+      "context": "Apex is entitled to recover its reasonable attorneys' fees incurred in prosecuting this claim pursuant to O.C.G.A. § 10-1-764, which provides for an award of attorneys' fees where the misappropriation is willful and malicious.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 10-1-764 lets the court award reasonable attorneys' fees to the prevailing party when willful and malicious misappropriation exists, and also for bad-faith claims or motions. The complaint's description is accurate, though incomplete. The award is discretionary ('may'), so 'entitled' is advocacy phrasing.",
+        "evidence_excerpt": "If a claim of misappropriation is made in bad faith, a motion to terminate an injunction is made or resisted in bad faith, or willful and malicious misappropriation exists, the court may award reasonable attorneys' fees to the prevailing party.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section IX, ¶125",
+      "authority_type": "court_rule",
+      "authority": "N.C. Gen. Stat. § 1A-1, Rule 65 (N.C. R. Civ. P. 65)",
+      "citation_as_written": "N.C. Gen. Stat. § 1A-1, Rule 65",
+      "pincite": "",
+      "cited_for": "Authority for TRO and preliminary injunction application",
+      "quotes": [],
+      "context": "Apex moves this Court, pursuant to N.C. Gen. Stat. § 1A-1, Rule 65, and the inherent equitable powers of this Court, for the entry of a temporary restraining order",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. R. Civ. P. 65 (N.C. Gen. Stat. § 1A-1, Rule 65), titled 'Injunctions', governs preliminary injunctions and temporary restraining orders. It is the correct authority for the motion.",
+        "evidence_excerpt": "Rule 65. Injunctions ... A temporary restraining order may be granted without written or oral notice to the adverse party ... only if",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_1A/GS_1A-1,_Rule_65.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section X (Prayer for Relief), item 3",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-764",
+      "citation_as_written": "O.C.G.A. § 10-1-764",
+      "pincite": "",
+      "cited_for": "Attorneys' fees on Count III",
+      "quotes": [],
+      "context": "plus attorneys' fees under O.C.G.A. § 10-1-764;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 10-1-764 authorizes attorneys' fees on a Georgia Trade Secrets Act claim (Count III) when misappropriation is willful and malicious, which is what Count III alleges.",
+        "evidence_excerpt": "... or willful and malicious misappropriation exists, the court may award reasonable attorneys' fees to the prevailing party.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section X (Prayer for Relief), item 7",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-764",
+      "citation_as_written": "O.C.G.A. § 10-1-764",
+      "pincite": "",
+      "cited_for": "Attorneys' fees (together with Agreement Section 14.2)",
+      "quotes": [],
+      "context": "Reasonable attorneys' fees and costs pursuant to Section 14.2 of the Agreement and O.C.G.A. § 10-1-764;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "O.C.G.A. § 10-1-764 (Georgia Trade Secrets Act, 'Award of attorneys' fees') lets the court award reasonable attorneys' fees to the prevailing party when misappropriation is willful and malicious, among other grounds. The complaint pleads willful and malicious misappropriation under the GTSA (Count III, ¶¶ 105, 109), so citing the statute together with Agreement § 14.2 as a basis for fees is accurate. Two caveats: the award is discretionary ('may'), and it reaches only the trade-secret claim, not every count named in the general fee prayer.",
+        "evidence_excerpt": "§ 10-1-764 Award of attorneys' fees. If a claim of misappropriation is made in bad faith, a motion to terminate an injunction is made or resisted in bad faith, or willful and malicious misappropriation exists, the court may award reasonable attorneys' fees to the prevailing party.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://law.justia.com/codes/georgia/2024/title-10/chapter-1/article-27/section-10-1-764/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "apex-v-greenfield-complaint.docx.md",
+      "location": "Section XI (Jury Trial Demand)",
+      "authority_type": "court_rule",
+      "authority": "N.C. Gen. Stat. § 1A-1, Rule 38 (N.C. R. Civ. P. 38)",
+      "citation_as_written": "N.C. Gen. Stat. § 1A-1, Rule 38",
+      "pincite": "",
+      "cited_for": "Jury trial demand",
+      "quotes": [],
+      "context": "demands a trial by jury on all claims and issues so triable as of right pursuant to N.C. Gen. Stat. § 1A-1, Rule 38.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. R. Civ. P. 38 (N.C. Gen. Stat. § 1A-1, Rule 38) preserves the right to a jury trial and allows any party to demand a jury on any issue triable of right. It is the correct authority for a jury demand.",
+        "evidence_excerpt": "Any party may demand a trial by jury of any issue triable of right by a jury by serving upon the other parties a demand therefor in writing",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_1A/GS_1A-1,_Rule_38.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "service-confirmation.docx.md",
+      "location": "Affidavit of Service, ¶3",
+      "authority_type": "court_rule",
+      "authority": "North Carolina Rule of Civil Procedure 4(j)(6)(a)",
+      "citation_as_written": "North Carolina Rule of Civil Procedure 4(j)(6)(a)",
+      "pincite": "4(j)(6)(a)",
+      "cited_for": "Service on a domestic or foreign corporation by delivering a copy of the summons and complaint to a registered agent",
+      "quotes": [],
+      "context": "Service was made in accordance with North Carolina Rule of Civil Procedure 4(j)(6)(a), by delivering a copy of the summons and complaint to a registered agent of a domestic or foreign corporation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "N.C. Gen. Stat. § 1A-1, Rule 4(j)(6)(b)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "N.C. R. Civ. P. 4(j)(6)(a) covers service on a corporation by delivery to an officer, director, or managing agent, or by leaving copies in that person's office. Delivery to an agent authorized by appointment or by law, such as a registered agent, falls under sub-subdivision (b). The rule is real, but the cited sub-subdivision does not describe the method of service the affidavit relies on. This is arguably only a wrong-subsection defect, but in an affidavit of service the subsection identifies the method used, so it matters.",
+        "evidence_excerpt": "a. By delivering a copy of the summons and of the complaint to an officer, director, or managing agent of the corporation ... b. By delivering a copy of the summons and of the complaint to an agent authorized by appointment or by law to be served or to accept service of process",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_1A/GS_1A-1,_Rule_4.html"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. I read the official N.C.G.S. § 1A-1, Rule 4 text on ncleg.gov. Rule 4(j)(6)a covers \"delivering a copy of the summons and of the complaint to an officer, director, or managing agent of the corporation or by leaving copies thereof in the office of such officer...\" Delivery to a registered agent is in sub-subdivision b: \"delivering a copy ... to an agent authorized by appointment or by law to be served or to accept service of process.\" The affidavit ties 4(j)(6)(a) to \"delivering a copy ... to a registered agent,\" a method that subdivision does not contain. One point softens the defect. The affidavit says Ms. Whitfield is also the \"Corporate Secretary,\" an officer, so service on her could probably be sustained under (a) on a different theory than the one the affidavit states. Even so, the citation is attached to a method it does not describe, so it is mischaracterized. It is essentially a wrong-sub-subdivision error, and the correct cite for the stated method is Rule 4(j)(6)b.",
+        "source_urls": [
+          "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_1A/GS_1A-1,_Rule_4.html"
+        ]
+      }
+    },
+    {
+      "ref": 19,
+      "document": "task.json.md",
+      "location": "rubric C-019",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act and Defend Trade Secrets Act",
+      "citation_as_written": "O.C.G.A. § 10-1-760 et seq.; 18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Legal basis of Count III the memo must identify",
+      "quotes": [],
+      "context": "misappropriation of trade secrets claim under the Georgia Trade Secrets Act (O.C.G.A. § 10-1-760 et seq.) and/or the federal Defend Trade Secrets Act (18 U.S.C. § 1836)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "O.C.G.A. § 10-1-760 et seq. is the Georgia Trade Secrets Act of 1990, and 18 U.S.C. § 1836 is the DTSA civil-action provision. Complaint ¶99 pleads Count III under both, so the rubric correctly identifies the legal basis.",
+        "evidence_excerpt": "This article shall be known as the 'Georgia Trade Secrets Act of 1990.' / An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-760/",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "task.json.md",
+      "location": "rubric C-056",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-763",
+      "citation_as_written": "O.C.G.A. § 10-1-763",
+      "pincite": "",
+      "cited_for": "Rubric says it caps exemplary damages at the amount of actual damages, not a 'double damages' multiplier",
+      "quotes": [
+        "double damages",
+        "double the actual damages"
+      ],
+      "context": "flags that this is an imprecise or misleading characterization of O.C.G.A. § 10-1-763, which caps exemplary damages at the amount of actual damages (not a 'double damages' multiplier)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-763(b)",
+        "quote_check": "\"double damages\" and \"double the actual damages\" are not in the statute, which uses \"twice any award made under subsection (a)\". \"double the actual damages\" is found verbatim in complaint ¶107. \"double damages\" does not appear verbatim in the complaint.",
+        "explanation": "The rubric says § 10-1-763 caps exemplary damages at the amount of actual damages, not a double multiplier. The statute says the opposite: under § 10-1-763(b), exemplary damages may not exceed twice the compensatory award under subsection (a). The rubric therefore misstates the cap. The complaint's 'double' wording is substantively right, and its $3.4M exemplary claim is within the statutory limit.",
+        "evidence_excerpt": "(b) If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a) of this Code section.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-763/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The citing source is the task rubric (task.json ISSUE_004). It says O.C.G.A. § 10-1-763 \"caps exemplary damages at the amount of actual damages (not a 'double damages' multiplier).\" The statute says the opposite. § 10-1-763(b) reads: \"If willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any award made under subsection (a) of this Code section.\" The cap is twice the compensatory award, not equal to it. The complaint's paragraph 107 says \"not exceeding double the actual damages,\" which is substantively right, apart from cross-referencing § 10-1-762 (injunctive relief) where it should reference § 10-1-763(a). The $3.4M exemplary claim is within the cap. The rubric's 'double damages' quotes do appear in the complaint, but the rubric's statement of the statute's rule is wrong.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-763/"
+        ]
+      }
+    },
+    {
+      "ref": 21,
+      "document": "task.json.md",
+      "location": "rubric C-046",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Attorneys' fees sought under the Georgia Trade Secrets Act",
+      "quotes": [],
+      "context": "PASS if the memorandum notes that Apex seeks attorneys' fees under the Georgia Trade Secrets Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-764",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Georgia Trade Secrets Act of 1990 (O.C.G.A. § 10-1-760 et seq.) authorizes attorneys' fees in § 10-1-764 for willful and malicious misappropriation. The complaint seeks fees under § 10-1-764 (¶109 and prayer items 3 and 7), so the rubric proposition is accurate.",
+        "evidence_excerpt": "If a claim of misappropriation is made in bad faith, a motion to terminate an injunction is made or resisted in bad faith, or willful and malicious misappropriation exists, the court may award reasonable attorneys' fees to the prevailing party.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-764/",
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-760/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "task.json.md",
+      "location": "rubric C-064",
+      "authority_type": "statute",
+      "authority": "Georgia Restrictive Covenants Act, O.C.G.A. § 13-8-53",
+      "citation_as_written": "O.C.G.A. § 13-8-53",
+      "pincite": "",
+      "cited_for": "Reasonableness standard for enforceability of the 24-month non-competes",
+      "quotes": [],
+      "context": "flags that their enforceability depends on reasonableness under applicable law (Georgia Restrictive Covenants Act, O.C.G.A. § 13-8-53, or applicable state law)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "O.C.G.A. § 13-8-53 is the core enforceability provision of the Georgia Restrictive Covenants Act. It permits enforcement of restrictive covenants that are reasonable in time, geographic area, and scope of prohibited activities. Post-employment non-competes are further limited to certain categories of employees, such as sales employees and key employees. That supports a reasonableness-based enforceability analysis of the 24-month non-competes. The rubric's alternative \"or applicable state law\" also allows for the possibility of North Carolina law.",
+        "evidence_excerpt": "enforcement of contracts that restrict competition during the term of a restrictive covenant, so long as such restrictions are reasonable in time, geographic area, and scope of prohibited activities, shall be permitted.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-13-contracts/ga-code-sect-13-8-53/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "client-initial-email.eml.md",
+      "location": "email body, paragraph on damages (line 42)",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Count III is a trade secret misappropriation claim under the Georgia Trade Secrets Act",
+      "quotes": [],
+      "context": "The complaint claims total damages in excess of $22 million across four counts: breach of contract, tortious interference with business relationships, trade secret misappropriation under the Georgia Trade Secrets Act, and unjust enrichment.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Georgia Trade Secrets Act of 1990 exists (O.C.G.A. § 10-1-760). Count III of the complaint is pleaded under the GTSA (¶99), so the email's description is accurate. The email does leave out that Count III also invokes the federal DTSA, 18 U.S.C. § 1836, but that omission does not make its statement wrong.",
+        "evidence_excerpt": "This article shall be known as the 'Georgia Trade Secrets Act of 1990.'",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-760/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "task.json.md",
+      "location": "rubric C-046 match_criteria",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Apex seeks attorneys' fees under the Georgia Trade Secrets Act",
+      "quotes": [],
+      "context": "PASS if the memorandum notes that Apex seeks attorneys' fees under the Georgia Trade Secrets Act. FAIL if this basis for attorneys' fees is not mentioned.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-764",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same as ref 21. GTSA § 10-1-764 provides for attorneys' fees where willful and malicious misappropriation exists, and the complaint ¶109 seeks fees under that section.",
+        "evidence_excerpt": "or willful and malicious misappropriation exists, the court may award reasonable attorneys' fees to the prevailing party.",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-764/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

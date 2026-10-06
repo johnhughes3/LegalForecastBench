@@ -1,0 +1,581 @@
+{
+  "task": "extract-key-admissions-from-deposition-transcript",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "cms-cease-desist-letter.docx.md",
+    "forensic-report.docx.md",
+    "separation-acknowledgment.docx.md",
+    "task.json.md",
+    "yoon-deposition-vol1.docx.md",
+    "yoon-deposition-vol2.docx.md",
+    "yoon-employment-agreement.docx.md",
+    "yoon-interrogatory-answers.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "yoon-deposition-vol1.docx.md",
+      "location": "Stipulations and Preliminary Matters, Page 2 (Ms. Birchfield)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (general reference)",
+      "citation_as_written": "Michigan Court Rules",
+      "pincite": "",
+      "cited_for": "Counsel reserves all rights under the Michigan Court Rules in stipulating to deposition procedures",
+      "quotes": [
+        "we reserve all rights under the Michigan Court Rules"
+      ],
+      "context": "I would note for the record that we reserve all rights under the Michigan Court Rules.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is counsel's own statement on the record, not a quotation from the authority.",
+        "explanation": "This is a general reservation of rights under the Michigan Court Rules in a Kent County Circuit Court case. The rules exist and govern depositions there (MCR 2.306), so a generic reservation is accurate.",
+        "evidence_excerpt": "Rule 2.306 Depositions on Oral Examination of a party ... (D) ... Objections; Suspending Deposition",
+        "source_urls": [
+          "https://www.courts.michigan.gov/48ec32/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "yoon-deposition-vol1.docx.md",
+      "location": "Errata Sheet / Read-and-Sign Notice (end of transcript)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.306(D)(4)",
+      "citation_as_written": "MCR 2.306(D)(4)",
+      "pincite": "2.306(D)(4)",
+      "cited_for": "Witness has thirty days from receipt of transcript to review it and submit changes on an errata sheet with reasons; if none returned, transcript may be used as if signed",
+      "quotes": [],
+      "context": "Pursuant to MCR 2.306(D)(4), the witness, Derek Yoon, has thirty (30) days from the date of receipt of this transcript to review the same and, if there are any changes in form or substance the witness desires to make, to submit such changes on the Errata Sheet below",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "MCR 2.306(D)(4) is titled \"Raising Privilege before Deposition.\" It requires a party who will assert privilege to move before the deposition. It does not give the witness 30 days to review the transcript, does not provide for an errata sheet, and does not let an unsigned transcript be used as if signed. Nothing in MCR 2.306 creates a review-and-sign procedure. To the contrary, MCR 2.306(F)(1) says a certified transcript need not be submitted to the witness for examination and signature. The 30-day review-and-errata procedure described matches FRCP 30(e), not the Michigan rule.",
+        "evidence_excerpt": "(4) Raising Privilege before Deposition. If a party knows before the time scheduled for the taking of a deposition that he or she will assert that the matter to be inquired about is privileged, the party must move to prevent the taking of the deposition before its occurrence ... (F)(1) ... A deposition transcribed and certified in accordance with subrule (F) need not be submitted to the witness for examination and signature.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a25bb/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I confirmed this against the current Michigan Court Rules PDF (Chapter 2, updated September 2026). MCR 2.306(D)(4) reads, verbatim: \"(4) Raising Privilege before Deposition. If a party knows before the time scheduled for the taking of a deposition that he or she will assert that the matter to be inquired about is privileged, the party must move to prevent the taking of the deposition before its occurrence or be subject to costs under subrule (G).\" It says nothing about a 30-day review period, an errata sheet, a statement of reasons, or using an unsigned transcript \"as if signed.\" MCR 2.306(F)(1) points the other way: \"A deposition transcribed and certified in accordance with subrule (F) need not be submitted to the witness for examination and signature.\" I searched the full rules text for \"errata\", \"read and sign\", \"as if signed\" and \"examination and signature\". The only hit was that (F)(1) sentence. The procedure the notice describes resembles Fed. R. Civ. P. 30(e), not any Michigan rule. The rule is real but is cited for content it does not contain, so MISCHARACTERIZED stands.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a25bb/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 2,
+      "document": "yoon-deposition-vol2.docx.md",
+      "location": "Caption/cover paragraph (deposition notice recital)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (general reference)",
+      "citation_as_written": "Michigan Court Rules",
+      "pincite": "",
+      "cited_for": "Deposition taken pursuant to notice and the Michigan Court Rules",
+      "quotes": [
+        "taken pursuant to notice and the Michigan Court Rules"
+      ],
+      "context": "Videotaped deposition of DEREK YOON, called as a witness by the Plaintiff, taken pursuant to notice and the Michigan Court Rules, before Meredith Cahill, CSR, RPR",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the transcript's own recital, not a quotation from the authority.",
+        "explanation": "A party deposition in Michigan circuit court is taken on written notice under MCR 2.306(B). The recital that the deposition was 'taken pursuant to notice and the Michigan Court Rules' is accurate.",
+        "evidence_excerpt": "(B) Notice of Examination; Production of Documents and Things. (1) A party desiring to take the deposition of a party on oral examination must give reasonable notice in writing to every other party to the action.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/48ec32/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "yoon-deposition-vol2.docx.md",
+      "location": "Page 344, lines 11-15 (colloquy on read-and-sign)",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rules (read-and-sign, unspecified rule)",
+      "citation_as_written": "the court rules",
+      "pincite": "",
+      "cited_for": "Witness will read and sign the transcript within thirty days pursuant to the court rules",
+      "quotes": [
+        "pursuant to the court rules"
+      ],
+      "context": "Mr. Yoon will read and sign the transcript within thirty days pursuant to the court rules?",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'pursuant to the court rules' is counsel's colloquy, not a quotation from any rule.",
+        "explanation": "The case is in Kent County Circuit Court, so the Michigan Court Rules apply. Those rules contain no right to read and sign within 30 days; that is a feature of Fed. R. Civ. P. 30(e). MCR 2.306(F)(1) says the opposite: a certified, transcribed deposition need not be submitted to the witness for signature. A search of the current rules found no 30-day read-and-sign provision in MCR 2.306 or 2.315. The witness's read-and-sign right here rests on the parties' Volume I stipulation, not on 'the court rules.' Confidence is medium because the reference is vague and the stipulation independently supports reading and signing.",
+        "evidence_excerpt": "A deposition transcribed and certified in accordance with subrule (F) need not be submitted to the witness for examination and signature. (MCR 2.306(F)(1))",
+        "source_urls": [
+          "https://www.courts.michigan.gov/48ec32/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The case is in Kent County Circuit Court (Case No. 24-CV-10583, per the Volume II transcript), so the Michigan Court Rules govern. The deposition rule, MCR 2.306, gives no right to read and sign within thirty days. MCR 2.306(F)(1) states: \"A deposition transcribed and certified in accordance with subrule (F) need not be submitted to the witness for examination and signature.\" A search of the full current rules text (updated September 2026) found no read-and-sign provision, no errata procedure, and no 30-day signing period anywhere. The only signature-related hit was the (F)(1) sentence. On a fair reading, the read-and-sign right comes from the parties' stipulation. The Volume II transcript says \"The same stipulations that were placed on the record at the beginning of Volume I apply today, including ... that the witness will read and sign the transcript.\" It does not come from \"the court rules.\" The reference is vague and the stipulation does support the read-and-sign arrangement, but attributing a 30-day read-and-sign right to the court rules misstates Michigan law. The finding holds.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a25bb/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 4,
+      "document": "yoon-interrogatory-answers.docx.md",
+      "location": "General Objections, No. 2",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.309 (interrogatories)",
+      "citation_as_written": "MCR 2.309",
+      "pincite": "",
+      "cited_for": "Objection to interrogatory definitions/instructions imposing obligations beyond those required by the Michigan Court Rules",
+      "quotes": [
+        "beyond those required by the Michigan Court Rules, including MCR 2.309"
+      ],
+      "context": "purports to impose obligations on Defendant beyond those required by the Michigan Court Rules, including MCR 2.309.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the objecting party's own wording, not language attributed to the rule. MCR 2.309 does not need to contain it.",
+        "explanation": "MCR 2.309 governs interrogatories to parties and sets out the duties to answer and object, including separate answers under oath, stated reasons for objections, a 28-day deadline, and the 20-interrogatory limit. Citing it as the baseline that improper definitions or instructions cannot expand is apt.",
+        "evidence_excerpt": "Rule 2.309 Interrogatories to Parties ... (B) Answers and Objections. (1) Each interrogatory must be answered separately and fully in writing under oath.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/4a25bb/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "yoon-interrogatory-answers.docx.md",
+      "location": "Preliminary Statement, para. 2",
+      "authority_type": "other",
+      "authority": "Michigan law / federal common law (privilege and work product)",
+      "citation_as_written": "Michigan law or federal common law",
+      "pincite": "",
+      "cited_for": "Attorney-client privilege and work product protections recognized under Michigan law or federal common law",
+      "quotes": [
+        "any other applicable privilege or protection recognized under Michigan law or federal common law"
+      ],
+      "context": "protected by the attorney-client privilege, the work product doctrine, or any other applicable privilege or protection recognized under Michigan law or federal common law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the document's own boilerplate objection, not a quotation from an authority.",
+        "explanation": "This is a generic privilege and work-product objection. Michigan law recognizes both protections in discovery: MCR 2.302(B)(1) limits discovery to non-privileged matter, and MCR 2.302(B)(3) protects trial-preparation materials. The reference to 'federal common law' does little in a state-court case, but as a catch-all reservation it is not inaccurate.",
+        "evidence_excerpt": "(1) In General. Parties may obtain discovery regarding any non-privileged matter ... (3) Trial Preparation; Materials. (a) ... a party may obtain discovery of documents and tangible things ... prepared in anticipation of litigation or for trial ... only on a showing that the party seeking",
+        "source_urls": [
+          "https://www.courts.michigan.gov/48ec32/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "yoon-interrogatory-answers.docx.md",
+      "location": "Answer to Interrogatory No. 8",
+      "authority_type": "statute",
+      "authority": "Michigan Uniform Trade Secrets Act",
+      "citation_as_written": "Michigan Uniform Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Defendant does not concede that all information he accessed constitutes trade secrets or protectable confidential information under the Act",
+      "quotes": [
+        "under the Michigan Uniform Trade Secrets Act or any other applicable law"
+      ],
+      "context": "Defendant does not concede that all information to which he had access constitutes trade secrets or protectable confidential information under the Michigan Uniform Trade Secrets Act or any other applicable law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the answer's own language, not a quotation from the Act.",
+        "explanation": "The Michigan Uniform Trade Secrets Act (Act 448 of 1998, MCL 445.1901 et seq.) exists. It defines a trade secret by independent economic value and reasonable secrecy efforts, so declining to concede that all accessed information qualifies is consistent with the statute.",
+        "evidence_excerpt": "This act shall be known and may be cited as the 'uniform trade secrets act'. ... (i) Derives independent economic value ... (ii) Is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1901",
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1902"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "yoon-interrogatory-answers.docx.md",
+      "location": "Answer to Interrogatory No. 15",
+      "authority_type": "court_rule",
+      "authority": "Michigan Court Rule 2.310 (requests for production)",
+      "citation_as_written": "MCR 2.310",
+      "pincite": "",
+      "cited_for": "Interrogatory is duplicative of the parties' document production obligations under the Michigan Court Rules",
+      "quotes": [
+        "the Michigan Court Rules, including MCR 2.310"
+      ],
+      "context": "duplicative of Interrogatory No. 7, as well as of the parties' respective document production obligations under the Michigan Court Rules, including MCR 2.310.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'the Michigan Court Rules, including MCR 2.310' is the document's own language, not a quotation from the rule; the rule number and subject match.",
+        "explanation": "MCR 2.310 is the Michigan rule on requests for production of documents. Citing it to object that an interrogatory duplicates the parties' document-production obligations is accurate.",
+        "evidence_excerpt": "Rule 2.310 Requests for Production of Documents and Other Things; Entry on Land for Inspection and Other Purposes ... (1) \"Documents\" includes writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations stored in any medium, including ESI.",
+        "source_urls": [
+          "https://www.courts.michigan.gov/48ec32/siteassets/rules-instructions-administrative-orders/michigan-court-rules/michigan-court-rules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "cms-cease-desist-letter.docx.md",
+      "location": "Section II, final paragraph",
+      "authority_type": "statute",
+      "authority": "Michigan Uniform Trade Secrets Act (MUTSA)",
+      "citation_as_written": "Mich. Comp. Laws § 445.1901 et seq.",
+      "pincite": "",
+      "cited_for": "CMS's proprietary information (OptiMill, HarmonicPath, AdaptGrip, Blue Book, R&D roadmaps) constitutes trade secrets under Michigan law",
+      "quotes": [],
+      "context": "This information constitutes trade secrets within the meaning of both the Michigan Uniform Trade Secrets Act (\"MUTSA\"), Mich. Comp. Laws § 445.1901 et seq., and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Mich. Comp. Laws § 445.1901 et seq. is correctly cited as Michigan's Uniform Trade Secrets Act; § 445.1901 is its short-title section. Section 445.1902 defines a trade secret to include formulas, patterns, compilations, programs, methods, techniques, and processes with independent economic value that are kept reasonably secret. A demand letter asserting that proprietary software, process data, and roadmaps qualify is a fair advocacy use of the definition. The parallel DTSA cite, 18 U.S.C. § 1836 et seq., was not separately fetched.",
+        "evidence_excerpt": "Information, including a formula, pattern, compilation, program, device, method, technique, or process, that is both of the following: (i) Derives independent economic value, actual or potential, from not being generally known to ... other persons",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1901",
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1902"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "cms-cease-desist-letter.docx.md",
+      "location": "Section II, final paragraph",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA)",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "CMS's proprietary information constitutes trade secrets under federal law",
+      "quotes": [],
+      "context": "This information constitutes trade secrets within the meaning of both the Michigan Uniform Trade Secrets Act (\"MUTSA\"), Mich. Comp. Laws § 445.1901 et seq., and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "18 U.S.C. § 1836 begins the DTSA civil-action provisions, and the \"et seq.\" range includes the § 1839 definition of trade secret. Citing the DTSA as § 1836 et seq. for the claim that the information is a trade secret under federal law is a standard, accurate citation form.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "cms-cease-desist-letter.docx.md",
+      "location": "Section VI, first paragraph",
+      "authority_type": "statute",
+      "authority": "MUTSA and DTSA (referenced by name only)",
+      "citation_as_written": "MUTSA and the DTSA",
+      "pincite": "",
+      "cited_for": "Potential claims for misappropriation of trade secrets under MUTSA and the DTSA, supporting that litigation is reasonably anticipated",
+      "quotes": [],
+      "context": "including but not limited to claims for breach of contract, misappropriation of trade secrets under MUTSA and the DTSA, breach of fiduciary duty, and tortious interference with business relationships. Litigation is reasonably anticipated.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "In context, 'MUTSA' is defined earlier in the same letter as the Michigan Uniform Trade Secrets Act, Mich. Comp. Laws § 445.1901 et seq., and 'DTSA' as the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq. Both statutes exist. Both create civil claims for trade secret misappropriation: MCL 445.1904 provides damages, and 18 U.S.C. § 1836(b)(1) gives the trade secret owner a civil action. Citing them as possible bases for misappropriation claims is accurate. The 'reasonably anticipated' litigation statement is the letter's own assertion; it is not a legal proposition attributed to the statutes.",
+        "evidence_excerpt": "MCL 445.1901: \"This act shall be known and may be cited as the 'uniform trade secrets act'.\" MCL 445.1904: \"a complainant is entitled to recover damages for misappropriation.\" 18 U.S.C. 1836(b)(1): \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\"",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1901",
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-1904",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "forensic-report.docx.md",
+      "location": "Cover page, Case Reference",
+      "authority_type": "case",
+      "authority": "Corbin Machining Solutions, Inc. v. Yoon et al.",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Case reference for the anticipated litigation (the matter's own caption)",
+      "quotes": [],
+      "context": "Case Reference: Corbin Machining Solutions, Inc. v. Yoon et al. Anticipated Litigation",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The caption of the fictional matter at hand."
+    },
+    {
+      "ref": 12,
+      "document": "forensic-report.docx.md",
+      "location": "Section 3, Qualifications of Examiner (para. 4)",
+      "authority_type": "other",
+      "authority": "NIST Special Publication 800-86",
+      "citation_as_written": "National Institute of Standards and Technology (NIST) Special Publication 800-86",
+      "pincite": "",
+      "cited_for": "Ridgepoint's forensic protocols are consistent with SWGDE and NIST SP 800-86 standards (technical standard, not legal authority)",
+      "quotes": [],
+      "context": "adheres to forensic examination protocols consistent with the standards established by the Scientific Working Group on Digital Evidence (SWGDE) and the National Institute of Standards and Technology (NIST) Special Publication 800-86.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "NIST Special Publication 800-86 exists. Its title is 'Guide to Integrating Forensic Techniques into Incident Response' (August 2006), and it gives practical guidance on computer and network forensic processes. This makes it a fitting technical reference for the claim that the firm's forensic protocols are consistent with recognized standards. Whether the fictional firm actually complies is a factual claim that cannot be checked. Strictly, SP 800-86 is a guide rather than a binding standard, but describing it as a standard is normal usage.",
+        "evidence_excerpt": "Title: \"Guide to Integrating Forensic Techniques into Incident Response\"; Date Published: August 2006; the guide gives organizations practical computer and network forensics guidance and describes forensic processes (from the NIST abstract as returned by the fetch tool).",
+        "source_urls": [
+          "https://csrc.nist.gov/pubs/sp/800/86/final"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "yoon-employment-agreement.docx.md",
+      "location": "Section 8(c), Permitted Disclosures, clause (iii)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016, whistleblower immunity",
+      "citation_as_written": "18 U.S.C. § 1833(b)",
+      "pincite": "§ 1833(b)",
+      "cited_for": "Employee may make disclosures protected under whistleblower provisions of federal law, including the DTSA",
+      "quotes": [],
+      "context": "making disclosures that are protected under the whistleblower provisions of applicable federal or state law, including the Defend Trade Secrets Act of 2016, 18 U.S.C. § 1833(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "Section 1833(b) is the DTSA's whistleblower immunity provision, enacted by the Defend Trade Secrets Act of 2016. It protects confidential disclosures to government officials or attorneys and disclosures in sealed filings. Calling it a whistleblower provision of federal law is a fair description.",
+        "evidence_excerpt": "Immunity From Liability for Confidential Disclosure of a Trade Secret to the Government or in a Court Filing",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1833"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "yoon-employment-agreement.docx.md",
+      "location": "Section 8(c), second paragraph",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act immunity notice",
+      "citation_as_written": "18 U.S.C. § 1833(b)",
+      "pincite": "§ 1833(b)",
+      "cited_for": "Statutory notice of immunity for confidential disclosure to government officials or attorneys, or in sealed filings",
+      "quotes": [],
+      "context": "Pursuant to 18 U.S.C. § 1833(b), Employee is hereby notified that an individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that is made (A) in confidence to a Federal, State, or local government official...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks are used, but the notice closely tracks the text of § 1833(b)(1)",
+        "explanation": "Section 1833(b)(1) grants immunity for disclosures made in confidence to government officials or attorneys to report a suspected violation of law, or made in a sealed court filing. Section 1833(b)(3)(A) requires employers to give this notice in employee agreements. The notice in the contract matches the statute.",
+        "evidence_excerpt": "An individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that— (A) is made— (i) in confidence to a Federal, State, or local government official, either directly or indirectly, or to an attorney",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1833"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "yoon-employment-agreement.docx.md",
+      "location": "Section 9(a), Assignment of Inventions",
+      "authority_type": "statute",
+      "authority": "Copyright Act, definition of work made for hire",
+      "citation_as_written": "17 U.S.C. § 101",
+      "pincite": "§ 101",
+      "cited_for": "Copyrightable Work Product deemed a 'work made for hire' as defined in the Copyright Act",
+      "quotes": [
+        "work made for hire"
+      ],
+      "context": "Employee agrees that such work shall be deemed a \"work made for hire\" as defined in 17 U.S.C. § 101, and to the extent that any such work is not a \"work made for hire,\" Employee hereby assigns to the Company all right, title, and interest in the copyright therein.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"work made for hire\": found verbatim as the defined term in 17 U.S.C. § 101",
+        "explanation": "Section 101 defines \"work made for hire\", including a work prepared by an employee within the scope of employment. The contract clause properly refers to that definition.",
+        "evidence_excerpt": "A \"work made for hire\" is— (1) a work prepared by an employee within the scope of his or her employment",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/17/101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "yoon-employment-agreement.docx.md",
+      "location": "Section 11, Governing Law",
+      "authority_type": "statute",
+      "authority": "Michigan Antitrust Reform Act",
+      "citation_as_written": "MCL 445.771 et seq.",
+      "pincite": "",
+      "cited_for": "Section 7 restrictive covenants are subject to and interpreted in accordance with the Michigan Antitrust Reform Act",
+      "quotes": [],
+      "context": "the restrictive covenants contained in Section 7 of this Agreement are subject to and shall be interpreted in accordance with the Michigan Antitrust Reform Act, MCL 445.771 et seq., including without limitation MCL 445.774a, which governs the enforceability of covenants not to compete in the employment context.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "MCL 445.771 is the first section (definitions) of the Michigan Antitrust Reform Act, Act 274 of 1984, so \"MCL 445.771 et seq.\" correctly cites the Act. The Act contains § 445.774a on employment non-competes, so a contract choosing it to govern its restrictive covenants refers to a relevant statute.",
+        "evidence_excerpt": "Michigan Antitrust Reform Act ... 445.771 ... As used in this act: (a) 'Person' means an individual, corporation, business trust, partnership, association, or any other legal entity.",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-771"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "yoon-employment-agreement.docx.md",
+      "location": "Section 11, Governing Law",
+      "authority_type": "statute",
+      "authority": "Michigan Antitrust Reform Act, non-compete provision",
+      "citation_as_written": "MCL 445.774a",
+      "pincite": "",
+      "cited_for": "Governs the enforceability of covenants not to compete in the employment context",
+      "quotes": [],
+      "context": "including without limitation MCL 445.774a, which governs the enforceability of covenants not to compete in the employment context.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed",
+        "explanation": "MCL 445.774a, part of the Michigan Antitrust Reform Act, allows an employer to obtain a reasonable non-compete agreement from an employee. It is the statute that governs whether employment non-competes are enforceable.",
+        "evidence_excerpt": "An employer may obtain from an employee an agreement or covenant which protects an employer's reasonable competitive business interests...",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-774a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "task.json.md",
+      "location": "rubric C-028",
+      "authority_type": "statute",
+      "authority": "Michigan non-compete statute (Michigan Antitrust Reform Act)",
+      "citation_as_written": "MCL 445.774a",
+      "pincite": "",
+      "cited_for": "Memo should reference Michigan's approach to non-compete enforceability, such as the reasonableness standard and courts' authority to reform (blue-pencil) overbroad covenants",
+      "quotes": [],
+      "context": "PASS if the memo references Michigan's approach to non-compete enforceability, such as MCL 445.774a, the reasonableness standard, and/or Michigan courts' authority to reform (blue-pencil) overbroad restrictive covenants.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "MCL 445.774a, part of the Michigan Antitrust Reform Act (Act 274 of 1984), is Michigan's non-compete statute. It allows covenants that are reasonable as to duration, geographic area, and type of employment. It also lets a court limit (reform) an unreasonable covenant and enforce it as limited, which matches the rubric's reasonableness and blue-pencil description.",
+        "evidence_excerpt": "if the agreement or covenant is reasonable as to its duration, geographical area, and the type of employment or line of business. To the extent any such agreement or covenant is found to be unreasonable in any respect, a court may limit the agreement to render it reasonable",
+        "source_urls": [
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-774a",
+          "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-445-771"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "forensic-report.docx.md",
+      "location": "Section 3, Qualifications of Examiner (firm description paragraph)",
+      "authority_type": "other",
+      "authority": "Scientific Working Group on Digital Evidence (SWGDE) standards",
+      "citation_as_written": "standards established by the Scientific Working Group on Digital Evidence (SWGDE)",
+      "pincite": "",
+      "cited_for": "Ridgepoint adheres to forensic examination protocols consistent with SWGDE standards",
+      "quotes": [],
+      "context": "Ridgepoint maintains a fully equipped forensic laboratory and adheres to forensic examination protocols consistent with the standards established by the Scientific Working Group on Digital Evidence (SWGDE) and the National Institute of Standards and Technology (NIST) Special Publication 800-86.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Scientific Working Group on Digital Evidence (SWGDE) exists and publishes consensus-based best-practice and standards documents for digital and multimedia forensics. These include documents from its Forensics, Imaging, and Quality & Standards committees. Citing SWGDE standards as a benchmark for forensic examination protocols is accurate. The firm's own adherence is a fictional factual claim that cannot be checked.",
+        "evidence_excerpt": "\"The Scientific Working Group on Digital Evidence (SWGDE) brings together organizations actively engaged in digital and multimedia evidence\" ... objective to \"foster communication, cooperation, consistency, and quality within the forensic community through consensus-based documents.\"",
+        "source_urls": [
+          "https://www.swgde.org/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

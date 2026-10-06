@@ -1,0 +1,1557 @@
+{
+  "task": "draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "ayers-expert-report.docx.md",
+    "bellingham-deluca-emails.eml.md",
+    "counterclaim-strategy-memo.docx.md",
+    "joint-development-agreement.docx.md",
+    "langford-damages-report.docx.md",
+    "lumenara-complaint.docx.md",
+    "mutual-nda.docx.md",
+    "portal-access-logs.xlsx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Intro ¶1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Basis for Lumenara's misappropriation of trade secrets claim against Vantage",
+      "quotes": [],
+      "context": "Lumenara brings this action against Vantage for misappropriation of trade secrets in violation of the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq. (\"DTSA\"), and for breach of the Mutual Non-Disclosure Agreement dated February 14, 2022",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836 et seq. is the DTSA civil remedy. § 1836(b)(1) authorizes a trade-secret owner's civil action for misappropriation, which is the basis the complaint asserts.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Jurisdiction ¶10",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331 (federal question jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction because action arises under the DTSA",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over Plaintiff's claims under 28 U.S.C. § 1331 because this action arises, in part, under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., which is a federal statute.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1331 gives district courts original jurisdiction over civil actions arising under federal law. A DTSA claim arises under federal law, and 18 U.S.C. § 1836(c) also separately grants district courts original jurisdiction over DTSA civil actions.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Jurisdiction ¶10",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "DTSA is a federal statute giving rise to federal question jurisdiction over Count I",
+      "quotes": [],
+      "context": "arises, in part, under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., which is a federal statute. Count I of this Complaint asserts a claim for misappropriation of trade secrets under the DTSA",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The DTSA, codified at 18 U.S.C. § 1836, is a federal statute that creates a federal civil cause of action, so a claim under it arises under federal law. The proposition is accurate.",
+        "evidence_excerpt": "18 U.S. Code § 1836 - Civil proceedings ... An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Jurisdiction ¶11",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367 (supplemental jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state-law MNDA breach claim (Count II)",
+      "quotes": [],
+      "context": "This Court has supplemental jurisdiction under 28 U.S.C. § 1367 over Plaintiff's state-law claim for breach of the Mutual Non-Disclosure Agreement (Count II) because that claim is so related to the DTSA claim as to form part of the same case or controversy under Article III",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The complaint's paraphrase (\"so related ... as to form part of the same case or controversy under Article III\") closely tracks the text of § 1367(a).",
+        "explanation": "§ 1367(a) grants supplemental jurisdiction over claims so related to claims within the court's original jurisdiction that they form part of the same Article III case or controversy. That supports jurisdiction over the state-law MNDA claim alongside the DTSA claim. The more precise cite would be § 1367(a).",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Jurisdiction ¶11",
+      "authority_type": "other",
+      "authority": "Article III of the United States Constitution",
+      "citation_as_written": "Article III of the United States Constitution",
+      "pincite": "",
+      "cited_for": "Same case or controversy standard for supplemental jurisdiction",
+      "quotes": [],
+      "context": "form part of the same case or controversy under Article III of the United States Constitution.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The phrase 'same case or controversy under Article III of the United States Constitution' appears verbatim in 28 U.S.C. § 1367(a), which the complaint cites in the same paragraph.",
+        "explanation": "Article III, § 2 extends the judicial power to 'cases' and 'controversies'. Section 1367(a) grants supplemental jurisdiction over claims that 'form part of the same case or controversy under Article III'. The complaint invokes Article III correctly as the constitutional measure for supplemental jurisdiction.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367",
+          "https://www.law.cornell.edu/constitution/articleiii"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Jurisdiction ¶12",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a) (diversity jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Alternative basis for subject matter jurisdiction: complete diversity and amount in controversy over $75,000",
+      "quotes": [],
+      "context": "Alternatively, this Court has subject matter jurisdiction over this action under 28 U.S.C. § 1332(a) because complete diversity of citizenship exists between the parties and the amount in controversy exceeds $75,000",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1332(a) gives district courts jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000, exclusive of interest and costs. The \"complete diversity\" requirement is a long-standing judicial reading of this provision, and the complaint describes it accurately.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Venue ¶14",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1) and (b)(2) (venue)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1) and (b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper in the Western District of Texas",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. § 1391(b)(1) and (b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(1) lays venue where any defendant resides if all defendants reside in the forum state. Section 1391(b)(2) lays venue where a substantial part of the events or omissions occurred. The complaint names a single defendant, Vantage, with its principal place of business in Austin, and alleges that the key events happened in the District. Both subsections support venue as pleaded.",
+        "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Venue ¶14",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(c) (residency of entity defendant)",
+      "citation_as_written": "28 U.S.C. § 1391(c)",
+      "pincite": "",
+      "cited_for": "Vantage resides in the District for venue purposes",
+      "quotes": [],
+      "context": "Vantage resides in this District within the meaning of 28 U.S.C. § 1391(c), as it is subject to this Court's personal jurisdiction and its principal place of business is located herein.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1391(c)(2) (more precise pin)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under § 1391(c)(2), an entity defendant is deemed to reside in any district where it is subject to the court's personal jurisdiction, which is the test the complaint invokes. The complaint also mentions Vantage's principal place of business. Under (c)(2) that criterion applies only to plaintiffs, but here it is surplus factual support and does no harm. The more precise pin cite is (c)(2).",
+        "evidence_excerpt": "an entity ... shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Jurisdiction ¶15",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(1) (DTSA civil action; interstate commerce nexus)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(1)",
+      "pincite": "",
+      "cited_for": "Trade secrets relate to products used in interstate and foreign commerce",
+      "quotes": [],
+      "context": "the trade secrets at issue relate to products and services used in, and intended for use in, interstate and foreign commerce, within the meaning of 18 U.S.C. § 1836(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(1) authorizes a trade secret owner's civil action if the trade secret relates to a product or service used in, or intended for use in, interstate or foreign commerce. The complaint's jurisdictional allegation tracks this language.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I heading",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Count I: Misappropriation of trade secrets under the DTSA",
+      "quotes": [],
+      "context": "COUNT I: MISAPPROPRIATION OF TRADE SECRETS UNDER THE DEFEND TRADE SECRETS ACT, 18 U.S.C. § 1836",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836, titled 'Civil proceedings', is the DTSA provision that creates the civil action for misappropriation of trade secrets. It is the correct cite for a DTSA misappropriation count.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶80",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(3) (definition of trade secret)",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "NanoShield technology constitutes a trade secret",
+      "quotes": [
+        "trade secret"
+      ],
+      "context": "Lumenara's NanoShield anti-reflective multi-layer coating technology constitutes a \"trade secret\" as that term is defined by 18 U.S.C. § 1839(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secret\" found verbatim; it is the term defined in § 1839(3).",
+        "explanation": "§ 1839(3) defines \"trade secret\" to cover scientific, technical, and engineering information, including formulas, processes, and techniques, provided the reasonable-measures and independent-economic-value requirements are met. The complaint correctly cites it as the governing definition.",
+        "evidence_excerpt": "all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶82",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(3)(B) (reasonable measures to maintain secrecy)",
+      "citation_as_written": "18 U.S.C. § 1839(3)(B)",
+      "pincite": "",
+      "cited_for": "NanoShield subject of reasonable secrecy efforts",
+      "quotes": [],
+      "context": "The NanoShield technology is the subject of efforts that are reasonable under the circumstances to maintain its secrecy, as required by 18 U.S.C. § 1839(3)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1839(3)(A)",
+        "quote_check": "No quotes attributed. The complaint's wording (\"efforts that are reasonable under the circumstances to maintain its secrecy\") tracks the Uniform Trade Secrets Act rather than the DTSA, whose text reads \"reasonable measures to keep such information secret.\"",
+        "explanation": "The secrecy-measures requirement is real, but it sits in § 1839(3)(A), not (3)(B). Subparagraph (B) is the independent-economic-value requirement. The subparagraph pin is wrong, though the proposition (that the DTSA requires reasonable secrecy measures) is correct under (3)(A).",
+        "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶83",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(5) (definition of misappropriation)",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "",
+      "cited_for": "Vantage misappropriated the NanoShield trade secret",
+      "quotes": [
+        "misappropriated"
+      ],
+      "context": "Vantage \"misappropriated\" the NanoShield trade secret within the meaning of 18 U.S.C. § 1839(5).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"misappropriated\": the statute defines the term \"misappropriation\" in § 1839(5). The complaint uses the verb form of the defined term, which is acceptable.",
+        "explanation": "§ 1839(5) defines \"misappropriation\" (acquisition by improper means, or disclosure or use without consent). It is the correct definitional provision for alleging that Vantage misappropriated the trade secret.",
+        "evidence_excerpt": "the term 'misappropriation' means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶86",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(1) (interstate commerce requirement)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(1)",
+      "pincite": "",
+      "cited_for": "Trade secret relates to product or service used in interstate or foreign commerce",
+      "quotes": [],
+      "context": "The NanoShield trade secret relates to a product or service used in, or intended for use in, interstate or foreign commerce, as required by 18 U.S.C. § 1836(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(1) contains the requirement that the trade secret relate to a product or service used in, or intended for use in, interstate or foreign commerce. The complaint's paraphrase is nearly verbatim.",
+        "evidence_excerpt": "if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶92",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(B) (DTSA damages)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(B)",
+      "pincite": "",
+      "cited_for": "Entitlement to actual loss, unjust enrichment, or reasonable royalty damages",
+      "quotes": [],
+      "context": "Lumenara is entitled to damages under 18 U.S.C. § 1836(b)(3)(B), including: (i) damages for actual loss caused by the misappropriation; (ii) damages for unjust enrichment ...; or (iii) ... a reasonable royalty",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The complaint's paraphrase of items (i) through (iii) matches the statutory structure.",
+        "explanation": "Section 1836(b)(3)(B) provides for damages for actual loss and for unjust enrichment not counted in actual loss, or, in lieu of those, a reasonable royalty. This matches the complaint's list of damages.",
+        "evidence_excerpt": "(B) award— (i)(I) damages for actual loss caused by the misappropriation of the trade secret; and (II) damages for any unjust enrichment ... not addressed in computing damages for actual loss; or (ii) in lieu of damages measured by any other methods, ... a reasonable royalty",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶93",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C) (exemplary damages)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Exemplary damages up to 2x for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Lumenara is entitled to an award of exemplary damages in an amount not more than two (2) times the amount of compensatory damages awarded, pursuant to 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The complaint's wording ('not more than two (2) times the amount of compensatory damages awarded') closely tracks the statute.",
+        "explanation": "Section 1836(b)(3)(C) provides for exemplary damages of not more than 2 times the (B) damages for willful and malicious misappropriation.",
+        "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶94",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D) (attorney's fees)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Attorney's fees and costs for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Lumenara is entitled to recover its reasonable attorney's fees and costs incurred in this action, pursuant to 18 U.S.C. § 1836(b)(3)(D), because Vantage's misappropriation was willful and malicious.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1836(b)(3)(D) permits an award of reasonable attorney's fees to the prevailing party when the trade secret was willfully and maliciously misappropriated, which supports the complaint's fee demand. The provision says \"attorney's fees\" and does not mention costs; costs come from general law (e.g., FRCP 54(d)). That gap is too small to change the status.",
+        "evidence_excerpt": "or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count I ¶95",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(A) (injunctive relief)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(A)",
+      "pincite": "",
+      "cited_for": "Injunction against actual or threatened misappropriation",
+      "quotes": [],
+      "context": "Lumenara is entitled to injunctive relief under 18 U.S.C. § 1836(b)(3)(A) to prevent any actual or threatened misappropriation of the NanoShield trade secret.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(A)(i) lets the court grant an injunction to prevent any actual or threatened misappropriation, subject to limits on restraining employment. That supports the proposition.",
+        "evidence_excerpt": "(A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Count II ¶107",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 38.001",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 38.001",
+      "pincite": "",
+      "cited_for": "Attorney's fees for breach of contract claim on MNDA governed by Texas law",
+      "quotes": [],
+      "context": "Lumenara is entitled to recover its reasonable and necessary attorney's fees incurred in prosecuting this breach of contract claim, pursuant to Texas Civil Practice & Remedies Code § 38.001, as the MNDA is governed by Texas law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 38.001(b) allows recovery of reasonable attorney's fees, in addition to the claim amount and costs, when the claim is for an oral or written contract. Since 2021 it applies to organizations as well as individuals, and the parties here are corporations. It supports a fee claim on a Texas-law contract claim such as the MNDA claim.",
+        "evidence_excerpt": "Section (b) ... A person may recover reasonable attorney's fees ... when the claim involves: ... (8) An oral or written contract (paraphrased by the source page; amended by Acts 2021, 87th Leg., R.S., Ch. 665 (H.B. 1578))",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_38.001"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Prayer for Relief ¶B",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Exemplary damages up to two times compensatory damages",
+      "quotes": [],
+      "context": "Exemplary damages in an amount of up to two (2) times the compensatory damages awarded, for Vantage's willful and malicious misappropriation of trade secrets, pursuant to 18 U.S.C. § 1836(b)(3)(C);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under subparagraph (B) when misappropriation is willful and malicious. That matches the prayer for relief.",
+        "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Prayer for Relief ¶D",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Reasonable attorney's fees and costs of suit",
+      "quotes": [],
+      "context": "Reasonable attorney's fees and costs of suit, pursuant to 18 U.S.C. § 1836(b)(3)(D) and Texas Civil Practice & Remedies Code § 38.001;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(3)(D) (attorney's fees); costs ordinarily under Fed. R. Civ. P. 54(d)(1) / 28 U.S.C. § 1920",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(D) authorizes reasonable attorney's fees for the prevailing party in three cases: a bad-faith claim, a bad-faith motion over an injunction, or willful and malicious misappropriation. Since the complaint alleges willful and malicious misappropriation, the fee request is supported. However, (D) says nothing about 'costs of suit,' so the citation only partly covers what it is cited for. Costs come from other sources, and the separate Texas cite (Tex. Civ. Prac. & Rem. Code § 38.001) was not checked here.",
+        "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Prayer for Relief ¶D",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 38.001",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 38.001",
+      "pincite": "",
+      "cited_for": "Attorney's fees on contract claim",
+      "quotes": [],
+      "context": "Reasonable attorney's fees and costs of suit, pursuant to 18 U.S.C. § 1836(b)(3)(D) and Texas Civil Practice & Remedies Code § 38.001;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 38.001(b)(8) authorizes attorney's fees on claims for an oral or written contract. That supports the prayer for fees on the contract claim. (The DTSA cite in the same clause is outside this ref.)",
+        "evidence_excerpt": "A person may recover reasonable attorney's fees ... when the claim involves: ... (8) An oral or written contract",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_38.001"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "lumenara-complaint.docx.md",
+      "location": "Rule 11 Certification",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 11",
+      "citation_as_written": "Rule 11 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Counsel's certification regarding proper purpose, legal warrant, and evidentiary support of the Complaint",
+      "quotes": [],
+      "context": "By signing this Complaint, undersigned counsel certifies, pursuant to Rule 11 of the Federal Rules of Civil Procedure, that to the best of counsel's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 11(b)",
+        "quote_check": "The certification language is not marked as a quotation, but it tracks Rule 11(b) almost verbatim ('to the best of the person's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances').",
+        "explanation": "Under Rule 11(b), signing a pleading certifies that it has a proper purpose, that its legal contentions are warranted, and that its factual contentions have evidentiary support. That is exactly what the complaint's certification says.",
+        "evidence_excerpt": "an attorney or unrepresented party certifies that to the best of the person's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances: (1) it is not being presented for any improper purpose...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "langford-damages-report.docx.md",
+      "location": "Section VI, Methodology",
+      "authority_type": "case",
+      "authority": "Georgia-Pacific factors (Georgia-Pacific Corp. v. U.S. Plywood Corp.)",
+      "citation_as_written": "Georgia-Pacific",
+      "pincite": "",
+      "cited_for": "Reasonable royalty hypothetical negotiation framework, adapted for trade secret and patent contexts (case named only as 'Georgia-Pacific factors'; no full cite given)",
+      "quotes": [],
+      "context": "This approach is consistent with the Georgia-Pacific factors as adapted for trade secret and patent contexts and determines the royalty rate that a willing licensor and willing licensee would have agreed upon",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Georgia-Pacific Corp. v. United States Plywood Corp., 318 F. Supp. 1116 (S.D.N.Y. 1970)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Georgia-Pacific is a real S.D.N.Y. patent decision. It sets out the reasonable-royalty factors and the willing licensor / willing licensee hypothetical negotiation. The expert report names it only informally ('Georgia-Pacific factors'), which is ordinary usage in damages reports. Saying the factors have been 'adapted for trade secret' contexts refers to later case law, not to Georgia-Pacific itself, and is a fair characterization.",
+        "evidence_excerpt": "It requires consideration not only of the amount that a willing licensee would have paid for the patent license but also of the amount that a willing licensor would have accepted.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1480989/georgia-pacific-corp-v-united-states-plywood-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "langford-damages-report.docx.md",
+      "location": "Section VIII, Willfulness bullet 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Enhanced damages up to two times compensatory damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Enhanced damages of up to two times the amount of compensatory damages under the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C), for willful and malicious misappropriation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under (b)(3)(B) when misappropriation is willful and malicious. Calling the (b)(3)(B) damages 'compensatory damages' is a fair paraphrase.",
+        "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "langford-damages-report.docx.md",
+      "location": "Section VIII, Willfulness bullet 2",
+      "authority_type": "statute",
+      "authority": "Texas law on exemplary damages (no statute cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Exemplary damages for fraud and willful tortious conduct",
+      "quotes": [],
+      "context": "Exemplary damages under Texas law for fraud and willful tortious conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 41.003(a); see also § 134A.004(b)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No specific provision is cited; the report refers generally to Texas law. Texas law does allow exemplary damages for fraud and malice under § 41.003(a). Malice means specific intent to cause substantial injury (§ 41.001(7)), which approximates 'willful tortious conduct.' TUTSA § 134A.004(b) separately allows exemplary damages for willful and malicious misappropriation. The general proposition is accurate.",
+        "evidence_excerpt": "results from: (1) fraud; (2) malice; or (3) gross negligence. ... \"Malice\" means a specific intent by the defendant to cause substantial injury or harm to the claimant.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.41.htm",
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.134A.htm"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "langford-damages-report.docx.md",
+      "location": "Section II item 15; Section III; Section VI",
+      "authority_type": "other",
+      "authority": "U.S. Patent No. 11,234,567 (SensorCore architecture)",
+      "citation_as_written": "U.S. Patent No. 11,234,567",
+      "pincite": "",
+      "cited_for": "Patent covering Vantage's SensorCore architecture, issued January 10, 2023, a fictional in-scenario patent",
+      "quotes": [],
+      "context": "U.S. Patent No. 11,234,567, titled \"Miniaturized Optical Sensor Module with Multi-Layer Copper-Pillar Micro-Bump Interconnect Architecture\" (SensorCore™ architecture), issued January 10, 2023",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Patent number is part of the fictional scenario's facts (the parties' own patent)."
+    },
+    {
+      "ref": 27,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction for the counterclaim",
+      "quotes": [],
+      "context": "federal question under DTSA 18 U.S.C. § 1836, patent infringement under 35 U.S.C. § 271, and/or diversity jurisdiction",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1836(c) gives the federal district courts original jurisdiction over DTSA civil actions, and the claim also arises under federal law for purposes of 28 U.S.C. § 1331. That supports federal jurisdiction over a DTSA counterclaim.",
+        "evidence_excerpt": "The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "statute",
+      "authority": "35 U.S.C. § 271",
+      "citation_as_written": "35 U.S.C. § 271",
+      "pincite": "",
+      "cited_for": "Patent infringement as basis for subject matter jurisdiction",
+      "quotes": [],
+      "context": "patent infringement under 35 U.S.C. § 271, and/or diversity jurisdiction",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 271 defines patent infringement, so an infringement claim under it arises under federal patent law. The rubric cites it as one possible basis for jurisdiction, alongside the DTSA and diversity. The jurisdictional grant itself is 28 U.S.C. §§ 1331/1338, but citing the substantive statute the claim arises under is a reasonable reading. The citation is accurate.",
+        "evidence_excerpt": "whoever without authority makes, uses, offers to sell, or sells any patented invention, within the United States ... during the term of the patent therefor, infringes the patent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/35/271"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "task.json.md",
+      "location": "rubric C-010",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 13(a)",
+      "citation_as_written": "Fed. R. Civ. P. 13(a)",
+      "pincite": "",
+      "cited_for": "Compulsory counterclaim designation",
+      "quotes": [],
+      "context": "PASS if the counterclaim identifies itself as a compulsory counterclaim under Fed. R. Civ. P. 13(a)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Fed. R. Civ. P. 13(a) is titled 'Compulsory Counterclaim.' It governs counterclaims that arise out of the same transaction or occurrence as the opposing party's claim, which is the right rule for designating a counterclaim as compulsory.",
+        "evidence_excerpt": "(a) Compulsory Counterclaim. (1) In General. A pleading must state as a counterclaim any claim that—at the time of its service—the pleader has against an opposing party if the claim: (A) arises out of the transaction or occurrence that is the subject matter of the opposing party's claim",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_13"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "task.json.md",
+      "location": "rubric C-035",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Separate DTSA misappropriation counterclaim count",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Defend Trade Secrets Act (18 U.S.C. § 1836) ... The count must cite the DTSA or 18 U.S.C. § 1836.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the statute. The rubric's description 'Defend Trade Secrets Act (18 U.S.C. § 1836)' is accurate.",
+        "explanation": "Section 1836(b)(1) gives a trade secret owner a civil action for misappropriation. That makes it the correct authority for a separate DTSA misappropriation counterclaim count.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "task.json.md",
+      "location": "rubric C-041 to C-043, C-069 to C-072 headings",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 9(b)",
+      "citation_as_written": "Rule 9(b)",
+      "pincite": "",
+      "cited_for": "Particularity requirement for fraudulent inducement pleading (who, what, when, harm)",
+      "quotes": [],
+      "context": "Fraudulent Inducement: Rule 9(b) Specificity — Who",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 9(b) requires fraud to be pleaded with particularity. The 'who/what/when' breakdown is the standard way courts apply that requirement, so the rule supports a particularity requirement for a fraudulent-inducement claim.",
+        "evidence_excerpt": "In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "task.json.md",
+      "location": "rubric C-045",
+      "authority_type": "statute",
+      "authority": "35 U.S.C. § 271",
+      "citation_as_written": "35 U.S.C. § 271",
+      "pincite": "",
+      "cited_for": "Patent infringement count against LumiSense 400",
+      "quotes": [],
+      "context": "PASS if the counterclaim includes a separate count for patent infringement under 35 U.S.C. § 271",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "35 U.S.C. § 271, titled 'Infringement of patent', is the substantive basis for a patent infringement count. It is the correct statute for a counterclaim count alleging that the LumiSense 400 infringes.",
+        "evidence_excerpt": "35 U.S. Code § 271 - Infringement of patent ... whoever without authority makes, uses, offers to sell, or sells any patented invention ... infringes the patent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/35/271"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "task.json.md",
+      "location": "rubric C-048",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 8(d)(2) and 8(d)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 8(d)(2) or 8(d)(3)",
+      "pincite": "",
+      "cited_for": "Alternative/inconsistent pleading of unjust enrichment",
+      "quotes": [],
+      "context": "language invoking Fed. R. Civ. P. 8(d)(2) or 8(d)(3) permitting alternative/inconsistent pleading",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 8(d)(2) allows claims to be pleaded alternatively or hypothetically. Rule 8(d)(3) allows separate claims to be stated regardless of consistency. Together they support pleading unjust enrichment in the alternative.",
+        "evidence_excerpt": "A party may set out 2 or more statements of a claim or defense alternatively or hypothetically... A party may state as many separate claims or defenses as it has, regardless of consistency.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_8"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "task.json.md",
+      "location": "rubric C-050",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act (TUTSA)",
+      "citation_as_written": "TUTSA",
+      "pincite": "",
+      "cited_for": "Preemption of common-law claims such as conversion and unjust enrichment",
+      "quotes": [],
+      "context": "PASS if the counterclaim addresses potential TUTSA (Texas Uniform Trade Secrets Act) preemption of common-law claims (e.g., conversion, unjust enrichment)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 134A.007",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 134A.007(a) displaces conflicting tort, restitutionary, and other Texas law that provides civil remedies for misappropriation of a trade secret. Conversion is a tort claim and unjust enrichment is a restitutionary claim, so both can be preempted when based on trade-secret misappropriation. Contractual remedies are carved out by § 134A.007(b)(1). The proposition is supported.",
+        "evidence_excerpt": "this chapter displaces conflicting tort, restitutionary, and other law of this state providing civil remedies for misappropriation of a trade secret. (b) This chapter does not affect: (1) contractual remedies",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.134A.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "task.json.md",
+      "location": "rubric C-057",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 41.003",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 41.003",
+      "pincite": "",
+      "cited_for": "Exemplary damages for willful/fraudulent conduct",
+      "quotes": [],
+      "context": "citing either Texas law (Texas Civil Practice & Remedies Code § 41.003) or the willful/malicious nature of the conduct",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 41.003(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 41.003(a) allows exemplary damages only when clear and convincing evidence shows the harm resulted from fraud, malice, or gross negligence. 'Fraudulent' conduct matches fraud. 'Willful' conduct roughly matches malice, which § 41.001(7) defines as a specific intent to cause substantial injury. The rubric also offers the willful/malicious nature of the conduct as an alternative ground, which fits TUTSA § 134A.004(b). This is a fair reading of the statute.",
+        "evidence_excerpt": "exemplary damages may be awarded only if the claimant proves by clear and convincing evidence that the harm ... results from: (1) fraud; (2) malice; or (3) gross negligence.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.41.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "task.json.md",
+      "location": "rubric C-058",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Enhanced DTSA damages up to 2x for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "requests enhanced damages (up to 2x actual damages) for willful and malicious misappropriation under 18 U.S.C. § 1836(b)(3)(C)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to 2x for willful and malicious misappropriation. One small looseness: the statute measures the multiple against all damages awarded under (B), which includes unjust enrichment or a reasonable royalty, not just 'actual damages.' The rubric's colloquial phrasing does not change the substance.",
+        "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "task.json.md",
+      "location": "rubric C-059",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "DTSA fee-shifting for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "citing or invoking the DTSA fee-shifting provision (18 U.S.C. § 1836(b)(3)(D)) for willful and malicious misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836(b)(3)(D) authorizes a court to award reasonable attorney's fees to the prevailing party where, among other things, the trade secret was willfully and maliciously misappropriated. That matches the rubric's description of the DTSA fee-shifting provision.",
+        "evidence_excerpt": "if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "task.json.md",
+      "location": "rubric C-060",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 38.001",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 38.001",
+      "pincite": "",
+      "cited_for": "Attorney's fees for breach of contract claims",
+      "quotes": [],
+      "context": "requests attorney's fees under Texas Civil Practice & Remedies Code § 38.001 (for breach of contract claims)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric item cites Section 38.001 for attorney's fees on breach-of-contract claims. That is correct: subsection (b)(8) covers claims for an oral or written contract.",
+        "evidence_excerpt": "A person may recover reasonable attorney's fees ... when the claim involves: ... (8) An oral or written contract",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_38.001"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "joint-development-agreement.docx.md",
+      "location": "Section 13.1 Governing Law",
+      "authority_type": "other",
+      "authority": "United Nations Convention on Contracts for the International Sale of Goods",
+      "citation_as_written": "United Nations Convention on Contracts for the International Sale of Goods",
+      "pincite": "",
+      "cited_for": "Parties agree the CISG does not apply to the JDA",
+      "quotes": [],
+      "context": "The Parties agree that the United Nations Convention on Contracts for the International Sale of Goods shall not apply to this Agreement.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United Nations Convention on Contracts for the International Sale of Goods (Vienna, 1980), art. 6",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The CISG is a real treaty, adopted April 11, 1980. Article 6 lets contracting parties exclude its application, so the JDA's express opt-out clause is valid. The excerpt of Article 6 comes from CISG Advisory Council Opinion No. 16, not from the official UNCITRAL text, which could not be retrieved. Whether the CISG would apply to a joint development agreement at all is a separate question; the clause simply excludes it.",
+        "evidence_excerpt": "Article 6 CISG: The parties may exclude the application of this Convention [...].",
+        "source_urls": [
+          "https://uncitral.un.org/en/texts/salegoods/conventions/sale_of_goods/cisg",
+          "https://cisg-online.org/files/ac_op/CISG_Advisory_Council_Opinion_No_16.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "Header RE line",
+      "authority_type": "case",
+      "authority": "Lumenara Optics Corp. v. Vantage Micro Systems, Inc.",
+      "citation_as_written": "Case No. 1:24-cv-00583-DAE (W.D. Tex., Austin Division)",
+      "pincite": "",
+      "cited_for": "Caption of the pending action in which the counterclaim is to be filed",
+      "quotes": [],
+      "context": "RE: Counterclaim Strategy — Lumenara Optics Corp. v. Vantage Micro Systems, Inc., Case No. 1:24-cv-00583-DAE (W.D. Tex., Austin Division)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket number in the fictional scenario."
+    },
+    {
+      "ref": 41,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "I. Executive Summary, para. 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Lumenara's complaint asserts misappropriation of its NanoShield formulation under the DTSA",
+      "quotes": [],
+      "context": "misappropriation of its \"NanoShield\" optical coating formulation under the Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836, and (2) breach of the Mutual Non-Disclosure Agreement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836 is the DTSA civil-proceedings section. Subsection (b)(1) creates the private cause of action a trade-secret owner uses for misappropriation, so it is the right cite for describing the complaint's DTSA claim.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "I. Executive Summary, para. 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 13(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 13(a)",
+      "pincite": "",
+      "cited_for": "Counterclaims arising from the same transaction or occurrence are compulsory and are waived if not asserted in the responsive pleading",
+      "quotes": [],
+      "context": "these counterclaims are compulsory under Federal Rule of Civil Procedure 13(a) because they arise out of the same transaction or occurrence as Lumenara's affirmative claims",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 13(a) requires a pleading to state as a counterclaim any claim arising out of the same transaction or occurrence. The rule text does not use the word 'waived.' However, the 1937 Advisory Committee Note says an omitted compulsory counterclaim is barred. The proposition is therefore a fair reading of the rule.",
+        "evidence_excerpt": "A pleading must state as a counterclaim any claim that... arises out of the transaction or occurrence that is the subject matter of the opposing party's claim ... [1937 Note 7:] If the action proceeds to judgment without the interposition of a counterclaim as required by subdivision (a) of this rule, the counterclaim is barred.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_13"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.A Count I, Damages for Count I",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 38.001",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 38.001",
+      "pincite": "",
+      "cited_for": "Attorney's fees recoverable for breach of contract claim",
+      "quotes": [],
+      "context": "Attorney's fees are also recoverable for this breach of contract claim under Texas Civil Practice & Remedies Code § 38.001, and I recommend including a fee demand in the prayer for relief.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 38.001(b)(8) allows a party with a contract claim to recover fees from an individual or organization. The 2021 amendment extended this beyond corporations, and the counter-defendant here is a corporation. This supports a fee demand on the breach-of-JDA counterclaim.",
+        "evidence_excerpt": "Section (a): In this section, 'organization' has the meaning assigned by Section 1.002 ... Business Organizations Code ... (8) An oral or written contract",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_38.001"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.B Count II, intro",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal trade secret misappropriation counterclaim; elements (existence of trade secret, reasonable measures, misappropriation, interstate commerce)",
+      "quotes": [],
+      "context": "I recommend asserting a federal trade secret misappropriation counterclaim under the Defend Trade Secrets Act, 18 U.S.C. § 1836. The elements are readily satisfied:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1836(b)(1) creates the cause of action and supplies the interstate-commerce requirement. The other listed elements (existence of a trade secret, reasonable measures to keep it secret, misappropriation) come from the definitions in 18 U.S.C. § 1839(3) and (5), which apply to § 1836. Citing § 1836 for a DTSA counterclaim and summarizing its elements this way is a reasonable paraphrase. A more complete cite would add § 1839.",
+        "evidence_excerpt": "§1836(b)(1): \"if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce\"; §1839(3)(A): \"the owner thereof has taken reasonable measures to keep such information secret\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.B Count II, Enhanced Damages and Willfulness",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Enhanced (exemplary) damages up to two times actual damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "The DTSA provides for enhanced damages of up to two times the actual damages award for willful and malicious misappropriation under 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1836(b)(3)(C) allows exemplary damages up to 2 times the (b)(3)(B) damages for willful and malicious misappropriation. Calling the base 'actual damages' is a loose paraphrase: the (b)(3)(B) base also covers unjust enrichment or a reasonable royalty. The substance is still correct.",
+        "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.B Count II, Enhanced Damages and Willfulness",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "(b)(3)(D)",
+      "cited_for": "Attorney's fees for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "the DTSA permits an award of attorney's fees for willful and malicious misappropriation under 18 U.S.C. § 1836(b)(3)(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1836(b)(3)(D) allows reasonable attorney's fees to the prevailing party on any of three grounds. One of them is that the trade secret was willfully and maliciously misappropriated, which is the ground the memo relies on.",
+        "evidence_excerpt": "if a claim of the misappropriation is made in bad faith, ... a motion to terminate an injunction is made or opposed in bad faith, or the trade secret was willfully and maliciously misappropriated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.C Count III",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 13(a)",
+      "citation_as_written": "Rule 13(a)",
+      "pincite": "",
+      "cited_for": "Mirror MNDA breach counterclaim is compulsory because Lumenara asserted an MNDA claim",
+      "quotes": [],
+      "context": "so Vantage's mirror counterclaim is both strategically appropriate and compulsory under Rule 13(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 13(a) makes a counterclaim compulsory when it arises out of the transaction or occurrence that is the subject of the opposing party's claim. A mirror-image breach claim under the same MNDA that Lumenara sued on fits that test.",
+        "evidence_excerpt": "A pleading must state as a counterclaim any claim that... (A) arises out of the transaction or occurrence that is the subject matter of the opposing party's claim",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_13"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.D.2 Unjust Enrichment",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 8(d)(2)–(3)",
+      "citation_as_written": "Federal Rule of Civil Procedure 8(d)(2)–(3)",
+      "pincite": "8(d)(2)–(3)",
+      "cited_for": "Under Texas law and Rule 8(d), unjust enrichment may be pleaded in the alternative even where a valid contract exists",
+      "quotes": [],
+      "context": "Under Texas law and Federal Rule of Civil Procedure 8(d)(2)–(3), unjust enrichment may be pleaded in the alternative even where a valid contract exists.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rules 8(d)(2) and 8(d)(3) allow a party to plead claims in the alternative and regardless of consistency, so pleading unjust enrichment as an alternative to contract claims is supported procedurally. The rule says nothing about Texas law. The memo's phrase 'even where a valid contract exists' is a substantive Texas-law point the rule does not address. As a substantive matter it is loosely stated: alternative pleading is allowed, but recovery generally requires that the contract fail or not cover the dispute. The citation is accurate for the pleading proposition it supports.",
+        "evidence_excerpt": "A party may set out 2 or more statements of a claim or defense alternatively or hypothetically... A party may state as many separate claims or defenses as it has, regardless of consistency.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_8"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.D.3 TUTSA Preemption Concern",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act, Tex. Civ. Prac. & Rem. Code § 134A",
+      "citation_as_written": "Tex. Civ. Prac. & Rem. Code § 134A",
+      "pincite": "",
+      "cited_for": "TUTSA as a statute governing trade secret misappropriation claims",
+      "quotes": [],
+      "context": "The Texas Uniform Trade Secrets Act (\"TUTSA\"), Tex. Civ. Prac. & Rem. Code § 134A, contains a preemption provision at § 134A.007",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code ch. 134A (preemption at § 134A.007)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "TUTSA is Chapter 134A of the Civil Practice and Remedies Code (§ 134A.001 gives the short title), and it governs trade-secret misappropriation claims (e.g., § 134A.004 on damages). The preemption provision is at § 134A.007, as the memo says. The minor defect is that the memo cites '§ 134A' as if it were a section; it is a chapter, so the cite should read 'ch. 134A'. Subsection 134A.007(c) was repealed effective December 4, 2025, but the memo does not rely on it.",
+        "evidence_excerpt": "Sec. 134A.001. SHORT TITLE. This chapter may be cited as the Texas Uniform Trade Secrets Act. ... Sec. 134A.007. EFFECT ON OTHER LAW.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.134A.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.D.3 TUTSA Preemption Concern",
+      "authority_type": "statute",
+      "authority": "Tex. Civ. Prac. & Rem. Code § 134A.007",
+      "citation_as_written": "§ 134A.007",
+      "pincite": "",
+      "cited_for": "TUTSA preemption provision may displace common-law claims based on the same conduct as a trade secret misappropriation claim; breach of contract claims not preempted",
+      "quotes": [],
+      "context": "contains a preemption provision at § 134A.007 that may displace certain common-law claims based on the same conduct underlying a trade secret misappropriation claim.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 134A.007(a) displaces conflicting tort, restitutionary, and other Texas law that provides civil remedies for trade secret misappropriation. Section 134A.007(b)(1) preserves contractual remedies, whether or not they are based on misappropriation. This matches the memo's description: certain common-law claims may be displaced, but breach-of-contract claims are not.",
+        "evidence_excerpt": "Except as provided by Subsection (b), this chapter displaces conflicting tort, restitutionary, and other law of this state providing civil remedies for misappropriation of a trade secret... (b) This chapter does not affect: (1) contractual remedies, whether or not based upon misappropriation of a trade secret",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.007"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "IV. Damages Overview, para. 4",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 41.003",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 41.003",
+      "pincite": "",
+      "cited_for": "Exemplary damages available for fraud claims",
+      "quotes": [],
+      "context": "Under Texas Civil Practice & Remedies Code § 41.003, exemplary damages are available for fraud claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 41.003(a)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 41.003(a)(1) lists fraud as a basis for exemplary damages, so the proposition is supported. The memo leaves out the limits: fraud must be proved by clear and convincing evidence (§ 41.003(a)-(b)), and the jury must be unanimous (§ 41.003(d)).",
+        "evidence_excerpt": "exemplary damages may be awarded only if the claimant proves by clear and convincing evidence that the harm ... results from: (1) fraud",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.41.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "IV. Damages Overview, para. 4",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Enhanced damages up to two times actual damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Under the DTSA, enhanced damages of up to two times actual damages are available for willful and malicious misappropriation per 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Same provision as ref 45. § 1836(b)(3)(C) caps exemplary damages at 2 times the (b)(3)(B) damages when misappropriation is willful and malicious. 'Actual damages' is a loose but acceptable paraphrase of the (b)(3)(B) award.",
+        "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "IV. Damages Overview, para. 5",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "(b)(3)(D)",
+      "cited_for": "Attorney's fees under the DTSA for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "attorney's fees should be demanded under both the DTSA (18 U.S.C. § 1836(b)(3)(D), available for willful and malicious misappropriation)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836(b)(3)(D) authorizes a court to award reasonable attorney's fees to the prevailing party where, among other grounds, the trade secret was willfully and maliciously misappropriated. That matches the memo's statement.",
+        "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "IV. Damages Overview, para. 5",
+      "authority_type": "statute",
+      "authority": "Texas Civil Practice & Remedies Code § 38.001",
+      "citation_as_written": "Texas Civil Practice & Remedies Code § 38.001",
+      "pincite": "",
+      "cited_for": "Attorney's fees available for breach of contract claims",
+      "quotes": [],
+      "context": "and Texas Civil Practice & Remedies Code § 38.001 (available for breach of contract claims).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 38.001(b)(8)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 38.001(b)(8) allows a person to recover reasonable attorney's fees from an individual or organization, in addition to the claim amount and costs, when the claim is for an oral or written contract. That supports the proposition that fees are available for breach-of-contract claims. Under § 38.002, recovery also requires presentment of the claim and no tender of payment within 30 days.",
+        "evidence_excerpt": "A person may recover reasonable attorney's fees from an individual or organization ... in addition to the amount of a valid claim and costs, if the claim is for: ... (8) an oral or written contract.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/htm/CP.38.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "V. Recommended Next Steps, item 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 13(a)",
+      "citation_as_written": "Rule 13(a)",
+      "pincite": "",
+      "cited_for": "All compulsory counterclaims must be included to avoid waiver",
+      "quotes": [],
+      "context": "It is imperative that all compulsory counterclaims be included to avoid waiver under Rule 13(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 13(a)(1) requires a pleading to state as a counterclaim any claim against an opposing party that arises out of the same transaction or occurrence, subject to the exceptions in 13(a)(2). The rule's text says 'must state' and does not use the word 'waiver.' The consequence of omitting such a claim (it is barred) comes from case law, but calling it 'waiver' is ordinary shorthand. The memo's statement fairly reflects the rule.",
+        "evidence_excerpt": "A pleading must state as a counterclaim any claim that—at the time of its service—the pleader has against an opposing party if the claim: (A) arises out of the transaction or occurrence that is the subject matter of the opposing party's claim",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_13"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "counterclaim-strategy-memo.docx.md",
+      "location": "III.B Count II, (1) Existence of a Trade Secret",
+      "authority_type": "other",
+      "authority": "U.S. Patent No. 11,234,567",
+      "citation_as_written": "U.S. Patent No. 11,234,567",
+      "pincite": "",
+      "cited_for": "Patent covers SensorCore architecture at a conceptual level and does not publish detailed manufacturing specifications, so trade secret material goes beyond the patent disclosure",
+      "quotes": [],
+      "context": "The designs are not fully disclosed in U.S. Patent No. 11,234,567, which covers the SensorCore™ architecture at a broad, conceptual level but does not publish the detailed manufacturing specifications, process parameters, or proprietary design files that were shared via the portal.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe patent belonging to the fictional party Vantage Micro Systems."
+    },
+    {
+      "ref": 57,
+      "document": "mutual-nda.docx.md",
+      "location": "Section 11.9 Export Controls",
+      "authority_type": "regulation",
+      "authority": "Export Administration Regulations (EAR) and International Traffic in Arms Regulations (ITAR)",
+      "citation_as_written": "Export Administration Regulations (EAR); International Traffic in Arms Regulations (ITAR)",
+      "pincite": "",
+      "cited_for": "Parties must comply with U.S. export control laws and regulations when disclosing Confidential Information",
+      "quotes": [],
+      "context": "Each Party shall comply with all applicable U.S. export control laws and regulations, including the Export Administration Regulations (EAR) and the International Traffic in Arms Regulations (ITAR), in connection with any disclosure of Confidential Information hereunder.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Export Administration Regulations, 15 C.F.R. pts. 730-774; International Traffic in Arms Regulations, 22 C.F.R. pts. 120-130",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Both regulatory regimes exist. The eCFR lists the EAR as Title 15, Chapter VII, Subchapter C, and the ITAR as Title 22, Chapter I, Subchapter M. The contract clause names them generally as applicable U.S. export-control laws for disclosures of confidential information. That general reference is accurate, and it needs no pin cite.",
+        "evidence_excerpt": "Subchapter C—Export Administration Regulations (15 CFR); Subchapter M—International Traffic in Arms Regulations (22 CFR)",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-15.json",
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-22.json"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

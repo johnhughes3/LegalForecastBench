@@ -1,0 +1,2456 @@
+{
+  "task": "analyze-counterparty-motion-to-dismiss",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "datacore-motion-to-dismiss.docx.md",
+    "msa-pinnacle-datacore.docx.md",
+    "pinnacle-complaint.docx.md",
+    "sousa-nance-email-chain.eml.md",
+    "subramanian-email-jan2023.eml.md",
+    "task.json.md",
+    "whitford-declaration.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "Table of Authorities, Cases",
+      "authority_type": "case",
+      "authority": "Italian Colors Restaurant v. Harris",
+      "citation_as_written": "99 F. Supp. 3d 1199 (N.D. Cal. 2015)",
+      "pincite": "",
+      "cited_for": "Listed in TOA (page 16) but never cited in the body text of the memorandum; no stated proposition",
+      "quotes": [],
+      "context": "*Italian Colors Restaurant v. Harris*, 99 F. Supp. 3d 1199 (N.D. Cal. 2015)                | 16               |",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Italian Colors Restaurant v. Harris, 99 F. Supp. 3d 1199 (E.D. Cal. 2015)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The reporter cite resolves to Italian Colors Restaurant v. Harris, decided by Chief Judge England in the Eastern District of California (No. 2:14-cv-00604-MCE-DAD), not N.D. Cal. as cited. The case is a First Amendment and vagueness challenge to California's credit-card surcharge statute, Cal. Civ. Code § 1748.1. It has no bearing on forum selection, choice of law, or the GUDTPA. The memorandum lists it in the Table of Authorities but never cites it in the body.",
+        "evidence_excerpt": "This action challenges the constitutionality of section 1748.1 of the California Civil Code ... MORRISON C. ENGLAND, JR., Chief Judge. [docket court_id: caed]",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7313092/italian-colors-restaurant-v-harris/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. On CourtListener, 99 F. Supp. 3d 1199 is Italian Colors Restaurant v. Harris, No. 2:14-cv-00604-MCE-DAD, decided in the E.D. Cal. on 2015-03-26, not the N.D. Cal. The opinion is by Chief Judge Morrison C. England, Jr. Excerpt: \"This action challenges the constitutionality of section 1748.1 of the California Civil Code\". It is a First Amendment challenge to the credit-card surcharge statute. In the memorandum the case appears only in the Table of Authorities (line 58, 'page 16'); a grep of the body finds no citation of it. So the court designation is wrong, and the case supports no stated proposition in the brief. Correct cite: 99 F. Supp. 3d 1199 (E.D. Cal. 2015).",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7313092/italian-colors-restaurant-v-harris/"
+        ]
+      }
+    },
+    {
+      "ref": 1,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "Table of Authorities, Statutes",
+      "authority_type": "statute",
+      "authority": "Tex. Bus. & Com. Code § 2.725",
+      "citation_as_written": "Tex. Bus. & Com. Code § 2.725",
+      "pincite": "",
+      "cited_for": "Listed in TOA (page 16) but never cited in the body text (Texas UCC limitations provision; no stated proposition)",
+      "quotes": [],
+      "context": "| Tex. Bus. & Com. Code § 2.725 | 16          |",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Tex. Bus. & Com. Code § 2.725 exists. It is Texas's UCC four-year limitations period for breach of a contract for sale, and it lets parties shorten the period to no less than one year by original agreement. The citation is accurate, but it appears only in the Table of Authorities (page 16); the body never cites it. The body only says shorter contractual periods are 'routinely enforced under Texas law' without citing anything. Had it been cited for the one-year period, it would fit only if the MSA is a contract for the sale of goods. For other contracts, Tex. Civ. Prac. & Rem. Code § 16.070 voids contractual limitations periods shorter than two years (with one exception, for some sales of a business entity).",
+        "evidence_excerpt": "\"An action for breach of any contract for sale must be commenced within four years after the cause of action has accrued. By the original agreement the parties may reduce the period of limitation to not less than one year but may not extend it.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/tx/business-and-commerce-code/bus-com-sect-2-725/",
+          "https://codes.findlaw.com/tx/civil-practice-and-remedies-code/civ-prac-rem-sect-16-070/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "Table of Authorities (all entries listed for completeness: Iqbal, Twombly, Burger King, Daimler, Goodyear, Int'l Shoe, Bremen, Perkins, Scherk, Stewart, Walker; 28 U.S.C. 1332, 1391; O.C.G.A. 10-1-370; FRCP 9(b), 12(b)(1),(2),(3),(6))",
+      "authority_type": "other",
+      "authority": "Table of Authorities listing (cross-reference to body cites)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "TOA duplicates the body citations recorded separately below; note Ishler v. Internal Revenue is cited in body but omitted from TOA",
+      "quotes": [],
+      "context": "*Ashcroft v. Iqbal*, 556 U.S. 662 (2009) | 8, 9, 15, 20, 21 ... *Walker v. BuildDirect.com Techs., Inc.*, 733 F.3d 1001 (11th Cir. 2013) | 11",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This ref is a cross-reference to the motion's Table of Authorities, not a single authority, so there is nothing to verify here; each authority is checked under its own ref. The document-level observation holds: the motion cites Ishler v. Internal Revenue, 237 F. App'x 394, 395 (11th Cir. 2007) in the body (Rule 12(b)(1) standard), but the Table of Authorities omits it. The Table also lists Italian Colors Restaurant v. Harris, 99 F. Supp. 3d 1199 (N.D. Cal. 2015) at page 16, which is not in the ref's summary list. That entry should be checked separately.",
+        "evidence_excerpt": "Motion body: \"*See Ishler v. Internal Revenue*, 237 F. App'x 394, 395 (11th Cir. 2007).\" TOA Cases list runs Iqbal through Walker v. BuildDirect.com, with no Ishler entry.",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(1)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 12(b)(1)",
+      "pincite": "",
+      "cited_for": "Permits dismissal for lack of subject matter jurisdiction; court may consider matters outside pleadings on factual challenge",
+      "quotes": [],
+      "context": "Federal Rule of Civil Procedure 12(b)(1) permits dismissal of a complaint for lack of subject matter jurisdiction.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 12(b)(1)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(1) lets a party raise 'lack of subject-matter jurisdiction' by motion. The rule text does not say a court may look outside the pleadings on a factual challenge; that comes from Eleventh Circuit case law (Lawrence v. Dunbar). It is also consistent with Rule 12(d), whose conversion to summary judgment applies only to 12(b)(6) and 12(c) motions. The brief's description of the 12(b)(1) standard is accurate.",
+        "evidence_excerpt": "Rule 12(b): \"a party may assert the following defenses by motion: (1) lack of subject-matter jurisdiction\". Lawrence v. Dunbar, 919 F.2d 1525: \"'Factual attacks,' on the other hand, challenge 'the existence of subject matter jurisdiction in fact, irrespective of the pleadings, and matters outside the pleadings, such as testimony and affidavits, are considered.'\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12",
+          "https://www.courtlistener.com/opinion/552261/lawrence-v-dunbar/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(1)",
+      "authority_type": "case",
+      "authority": "Ishler v. Internal Revenue",
+      "citation_as_written": "237 F. App'x 394, 395 (11th Cir. 2007)",
+      "pincite": "395",
+      "cited_for": "Plaintiff bears the burden of establishing subject matter jurisdiction",
+      "quotes": [],
+      "context": "The plaintiff bears the burden of establishing the existence of subject matter jurisdiction. *See Ishler v. Internal Revenue*, 237 F. App'x 394, 395 (11th Cir. 2007).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Ishler v. Internal Revenue, 237 F. App'x 394 (11th Cir. 2007) (per curiam) exists. At page 395 it states that the plaintiff bears the burden of establishing subject-matter jurisdiction (citing Sweet Pea Marine), and the opinion repeats the point at 398. The opinion's own text came back from CourtListener's citation search with no hit, but it was found through district court opinions citing it and then read in full by opinion ID.",
+        "evidence_excerpt": "\"Federal courts are courts of limited jurisdiction. ... Ultimately, the plaintiff bears the burden of establishing subject matter jurisdiction. Sweet Pea Marine, Ltd. v. APJ Marine, Inc., 411 F.3d 1242, 1248 n. 2 (11th Cir.2005).\" (*395)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/52034/domer-l-ishler-v-internal-revenue/",
+          "https://www.courtlistener.com/opinion/2147183/lazarre-v-jpmorgan-chase-bank-na/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(2)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(2)",
+      "citation_as_written": "Rule 12(b)(2)",
+      "pincite": "",
+      "cited_for": "Motion challenges court's exercise of personal jurisdiction over defendant",
+      "quotes": [],
+      "context": "A motion to dismiss under Rule 12(b)(2) challenges the court's exercise of personal jurisdiction over the defendant.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(2) allows a party to raise the defense of lack of personal jurisdiction by motion. The brief's description of the rule is accurate.",
+        "evidence_excerpt": "'But a party may assert the following defenses by motion: ... (2) lack of personal jurisdiction'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(2)",
+      "authority_type": "case",
+      "authority": "Walker v. BuildDirect.com Techs., Inc.",
+      "citation_as_written": "733 F.3d 1001, 1005 (11th Cir. 2013)",
+      "pincite": "1005",
+      "cited_for": "Once defendant raises jurisdictional challenge supported by affidavits, burden shifts to plaintiff to establish prima facie case of personal jurisdiction",
+      "quotes": [],
+      "context": "the burden shifts to the plaintiff to establish a prima facie case of personal jurisdiction. *See Walker v. BuildDirect.com Techs., Inc.*, 733 F.3d 1001, 1005 (11th Cir. 2013).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Walker v. BuildDirect.com Techs., Inc., 733 F.3d 1001 (10th Cir. 2013)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is real and the reporter cite is correct, but the court is wrong: it is a Tenth Circuit decision, not an Eleventh Circuit one. More importantly, it is a certification order asking the Oklahoma Supreme Court whether a consumer sales contract that is 'subject to' the seller's 'Terms of Sale' incorporates an online document containing an arbitration clause. It says nothing about personal jurisdiction, Rule 12(b)(2), affidavits, or a shifting burden to make a prima facie showing. The word 'jurisdiction' appears once, only to note that diversity jurisdiction was invoked. Page 1005 discusses FAA preemption and the reasons for certification. The case does not support the proposition.",
+        "evidence_excerpt": "Does a written consumer contract for the sale of goods incorporate by reference a separate document entitled \"Terms of Sale\" available on the seller's website, when the contract states that it is \"subject to\" the seller's \"'Terms of Sale'\" but does not specifically reference the website?",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1037677/walker-v-builddirectcom-technologies-inc/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. On CourtListener, 733 F.3d 1001 is Walker v. BuildDirect.com Technologies, Inc., decided by the Tenth Circuit (not the Eleventh) on 2013-08-15. It is an order certifying a contract-incorporation and arbitration question to the Oklahoma Supreme Court. Excerpt: \"Before addressing the question that we certify to the Supreme Court of Oklahoma...\"; and at *1006: \"We certify this question to the Supreme Court of Oklahoma.\" The word 'burden' does not appear anywhere in the opinion. 'Jurisdiction' appears once, only to say the plaintiffs sued \"invoking diversity jurisdiction.\" Nothing in the opinion supports the Rule 12(b)(2) burden-shifting or prima facie proposition. The circuit designation is also wrong.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1037677/walker-v-builddirectcom-technologies-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 7,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(2)",
+      "authority_type": "case",
+      "authority": "International Shoe Co. v. Washington",
+      "citation_as_written": "326 U.S. 310, 316 (1945)",
+      "pincite": "316",
+      "cited_for": "Federal court in diversity may exercise personal jurisdiction only as permitted by long-arm statute and Due Process; minimum contacts",
+      "quotes": [],
+      "context": "*International Shoe Co. v. Washington*, 326 U.S. 310, 316 (1945); *Burger King Corp. v. Rudzewicz*, 471 U.S. 462, 471–72 (1985).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes; the motion's paraphrase 'traditional notions of fair play and substantial justice' appears at 316.",
+        "explanation": "International Shoe Co. v. Washington, 326 U.S. 310 (1945) is correctly cited. Page 316 holds that due process requires a defendant not present in the forum to have minimum contacts such that the suit does not offend traditional notions of fair play and substantial justice. The long-arm-statute part of the proposition comes from later diversity case law, not International Shoe, but in the motion it is supported jointly with Burger King, and the minimum-contacts and due-process core is accurate at the pin cite.",
+        "evidence_excerpt": "\"due process requires only that in order to subject a defendant to a judgment in personam, if he be not present within the territory of the forum, he have certain minimum contacts with it such that the maintenance of the suit does not offend 'traditional notions of fair play and substantial justice.'\" (*316)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/104200/international-shoe-co-v-washington/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(2)",
+      "authority_type": "case",
+      "authority": "Burger King Corp. v. Rudzewicz",
+      "citation_as_written": "471 U.S. 462, 471–72 (1985)",
+      "pincite": "471–72",
+      "cited_for": "Personal jurisdiction over nonresident requires minimum contacts and Due Process compliance",
+      "quotes": [],
+      "context": "*Burger King Corp. v. Rudzewicz*, 471 U.S. 462, 471–72 (1985). The court must determine whether the defendant has sufficient minimum contacts with the forum state",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "At 471-72, Burger King says the Due Process Clause protects a defendant from binding judgments of a forum with which he has no meaningful 'contacts, ties, or relations,' citing International Shoe. It goes on to discuss fair warning and predictability. The minimum-contacts touchstone appears a few pages later, at 474. The pin cite reasonably supports the due-process limit on jurisdiction over nonresidents.",
+        "evidence_excerpt": "The Due Process Clause protects an individual's liberty interest in not being subject to the binding judgments of a *472 forum with which he has established no meaningful \"contacts, ties, or relations.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/111429/burger-king-corp-v-rudzewicz/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(2)",
+      "authority_type": "other",
+      "authority": "Due Process Clause of the Fourteenth Amendment",
+      "citation_as_written": "Due Process Clause of the Fourteenth Amendment",
+      "pincite": "",
+      "cited_for": "Limits exercise of personal jurisdiction over nonresident defendant",
+      "quotes": [],
+      "context": "only to the extent permitted by the forum state's long-arm statute and the Due Process Clause of the Fourteenth Amendment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.S. Const. amend. XIV, § 1",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Due Process Clause of the Fourteenth Amendment limits a state court's (and, through Rule 4(k)(1)(A), a federal diversity court's) personal jurisdiction over nonresident defendants, alongside the state long-arm statute. Daimler frames the question in exactly those terms and says federal courts follow state law on the bounds of personal jurisdiction.",
+        "evidence_excerpt": "The question presented is whether the Due Process Clause of the Fourteenth Amendment precludes the District Court from exercising jurisdiction over Daimler ... Federal courts ordinarily follow state law in determining the bounds of their jurisdiction over persons. See Fed. Rule Civ. Proc. 4(k)(1)(A)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(3)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(3)",
+      "citation_as_written": "Rule 12(b)(3)",
+      "pincite": "",
+      "cited_for": "Challenges venue as improper under § 1391 or as inconsistent with forum selection clause",
+      "quotes": [],
+      "context": "A motion under Rule 12(b)(3) challenges venue as improper under 28 U.S.C. § 1391 or as inconsistent with a contractual forum selection clause.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(3) does allow a challenge to venue as improper under federal venue law such as § 1391. But the claim that Rule 12(b)(3) also covers venue 'inconsistent with a contractual forum selection clause' contradicts Atlantic Marine, 571 U.S. 49. That case held that whether venue is improper depends only on the federal venue statutes, which say nothing about forum-selection clauses. It also held that Rule 12(b)(3) is not a proper mechanism to enforce such a clause.",
+        "evidence_excerpt": "Atlantic Marine: 'Section 1406(a) and Rule 12(b)(3) allow dismissal only when venue is \"wrong\" or \"improper.\" Whether venue is \"wrong\" or \"improper\" depends exclusively on whether the court in which the case was brought satisfies the requirements of federal venue laws, and those provisions say nothing about a forum-selection clause.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/",
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The brief (line 172) says Rule 12(b)(3) challenges venue \"as inconsistent with a contractual forum selection clause.\" Atlantic Marine squarely rejects that: \"Section 1406(a) and Rule 12(b)(3) allow dismissal only when venue is 'wrong' or 'improper.' Whether venue is 'wrong' or 'improper' depends exclusively on whether the court in which the case was brought satisfies the requirements of federal venue laws, and those provisions say nothing about a forum-selection clause.\" The opinion also says: \"Although a forum-selection clause does not render venue in a court 'wrong' or 'improper' within the meaning of § 1406(a) or Rule 12(b)(3), the clause may be enforced through a motion to transfer under § 1404(a).\" The § 1391 half of the brief's statement is accurate. The forum-selection half contradicts controlling law.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/",
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ]
+      }
+    },
+    {
+      "ref": 11,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(3)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391",
+      "citation_as_written": "28 U.S.C. § 1391",
+      "pincite": "",
+      "cited_for": "General venue statute; improper venue under 12(b)(3)",
+      "quotes": [],
+      "context": "challenges venue as improper under 28 U.S.C. § 1391",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1391 is the general federal venue statute. It governs venue for civil actions in district courts, so it supports the description of a Rule 12(b)(3) challenge as one to venue that is improper under § 1391.",
+        "evidence_excerpt": "this section shall govern the venue of all civil actions brought in district courts of the United States",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(6)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Rule 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Complaint must be dismissed if it fails to state a claim upon which relief can be granted",
+      "quotes": [],
+      "context": "Under Rule 12(b)(6), a complaint must be dismissed if it fails to state a claim upon which relief can be granted.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(6) provides the defense of 'failure to state a claim upon which relief can be granted', which can be raised by motion. The motion describes the rule accurately.",
+        "evidence_excerpt": "(6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(6)",
+      "authority_type": "case",
+      "authority": "Bell Atlantic Corp. v. Twombly",
+      "citation_as_written": "550 U.S. 544, 570 (2007)",
+      "pincite": "570",
+      "cited_for": "Plausibility pleading standard",
+      "quotes": [
+        "enough facts to state a claim to relief that is plausible on its face"
+      ],
+      "context": "a complaint must contain \"enough facts to state a claim to relief that is plausible on its face.\" *Bell Atlantic Corp. v. Twombly*, 550 U.S. 544, 570 (2007).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"enough facts to state a claim to relief that is plausible on its face\" found verbatim at 550 U.S. 570 (after the *570 page marker).",
+        "explanation": "Twombly at 570 states the plausibility pleading standard exactly as quoted.",
+        "evidence_excerpt": "Here, in contrast, we do not require heightened fact pleading of specifics, but only enough facts to state a claim to relief that is plausible on its face.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145730/bell-atlantic-corp-v-twombly/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(6)",
+      "authority_type": "case",
+      "authority": "Ashcroft v. Iqbal",
+      "citation_as_written": "556 U.S. 662, 678 (2009)",
+      "pincite": "678",
+      "cited_for": "Facial plausibility defined",
+      "quotes": [
+        "when the plaintiff pleads factual content that allows the court to draw the reasonable inference that the defendant is liable for the misconduct alleged"
+      ],
+      "context": "A claim has facial plausibility \"when the plaintiff pleads factual content that allows the court to draw the reasonable inference that the defendant is liable for the misconduct alleged.\" *Ashcroft v. Iqbal*, 556 U.S. 662, 678 (2009).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in Iqbal, 556 U.S. at 678. The passage falls between the *678 marker and the *679 marker.",
+        "explanation": "Iqbal defines facial plausibility at 678 in exactly the quoted words.",
+        "evidence_excerpt": "A claim has facial plausibility when the plaintiff pleads factual content that allows the court to draw the reasonable inference that the defendant is liable for the misconduct alleged.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145875/ashcroft-v-iqbal/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(6)",
+      "authority_type": "case",
+      "authority": "Ashcroft v. Iqbal (Id.)",
+      "citation_as_written": "Id. at 678",
+      "pincite": "678",
+      "cited_for": "Court need not accept legal conclusions couched as factual allegations; threadbare recitals insufficient",
+      "quotes": [
+        "legal conclusions",
+        "Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice."
+      ],
+      "context": "the court need not accept \"legal conclusions\" couched as factual allegations. *Id.* at 678. \"Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice.\" *Id.*",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'legal conclusions': found at 678 ('inapplicable to legal conclusions'). 'Threadbare recitals...do not suffice.': found verbatim at 678.",
+        "explanation": "At 678, Iqbal holds that the court's duty to accept a complaint's allegations as true does not apply to legal conclusions. It quotes Twombly that courts are 'not bound to accept as true a legal conclusion couched as a factual allegation,' and says threadbare recitals do not suffice. Both propositions are supported at the pin cite.",
+        "evidence_excerpt": "the tenet that a court must accept as true all of the allegations contained in a complaint is inapplicable to legal conclusions. Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145875/ashcroft-v-iqbal/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.A (Rule 12(b)(1) argument) and II.D",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332 / § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332; 28 U.S.C. § 1332(a)",
+      "pincite": "(a)",
+      "cited_for": "Diversity jurisdiction and $75,000 amount-in-controversy threshold; DataCore concedes threshold likely exceeded and does not move on this ground",
+      "quotes": [],
+      "context": "the amount in controversy likely exceeds the $75,000 threshold required by 28 U.S.C. § 1332(a). Accordingly, DataCore does not formally move to dismiss on this ground",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332(a) sets the amount-in-controversy requirement: the amount must exceed $75,000, exclusive of interest and costs. DataCore's concession and its choice not to move on this ground are its own litigation position, not a claim about what the statute says. The statutory proposition is accurate.",
+        "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "II.D This Litigation (and Preliminary Statement/Count list)",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-370 et seq.",
+      "pincite": "",
+      "cited_for": "Statute under which Count IV is brought",
+      "quotes": [],
+      "context": "Count IV (Violation of the Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 *et seq.*).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "O.C.G.A. § 10-1-370 is the short-title section of Georgia's Uniform Deceptive Trade Practices Act (§§ 10-1-370 to 10-1-375). Courts routinely cite the Act as 'OCGA § 10-1-370 et seq.', so citing it as the statute behind Count IV is accurate.",
+        "evidence_excerpt": "Plaintiffs argue that the trial court erred in dismissing their claims under the Georgia Uniform Deceptive Trade Practices Act (\"the UDTPA\"), OCGA § 10-1-370 et seq.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7478517/collins-v-athens-orthopedic-clinic/",
+          "https://www.courtlistener.com/opinion/4683800/georgia-lottery-corporation-v-sonalben-patel/",
+          "https://law.justia.com/codes/georgia/2021/title-10/chapter-1/article-15/part-1/section-10-1-370/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "II.D This Litigation",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Complaint asserts diversity jurisdiction",
+      "quotes": [],
+      "context": "asserting diversity jurisdiction under 28 U.S.C. § 1332.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1332 is the federal diversity-jurisdiction statute; the motion cites it only to describe the Complaint's asserted basis for jurisdiction, which matches Complaint ¶ 13, invoking § 1332(a).",
+        "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 2",
+      "authority_type": "case",
+      "authority": "International Shoe Co. v. Washington",
+      "citation_as_written": "326 U.S. 310, 316 (1945)",
+      "pincite": "316",
+      "cited_for": "Out-of-state defendant subject to personal jurisdiction only with sufficient minimum contacts",
+      "quotes": [],
+      "context": "*International Shoe Co. v. Washington*, 326 U.S. 310, 316 (1945). For purposes of general jurisdiction, the Supreme Court has held",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "International Shoe, 326 U.S. at 316, directly supports the proposition that an out-of-state defendant may be subjected to personal jurisdiction only if it has sufficient minimum contacts with the forum.",
+        "evidence_excerpt": "\"if he be not present within the territory of the forum, he have certain minimum contacts with it such that the maintenance of the suit does not offend 'traditional notions of fair play and substantial justice.'\" (*316)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/104200/international-shoe-co-v-washington/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 2",
+      "authority_type": "case",
+      "authority": "Daimler AG v. Bauman",
+      "citation_as_written": "571 U.S. 117, 127 (2014) (quoting Goodyear Dunlop Tires Operations, S.A. v. Brown, 564 U.S. 915, 919 (2011))",
+      "pincite": "127",
+      "cited_for": "General jurisdiction exists only where corporation's contacts render it essentially at home",
+      "quotes": [
+        "so continuous and systematic as to render [it] essentially at home in the forum State"
+      ],
+      "context": "a corporation is subject to suit in a forum only where its contacts are \"so continuous and systematic as to render [it] essentially at home in the forum State.\" *Daimler AG v. Bauman*, 571 U.S. 117, 127 (2014) (quoting *Goodyear Dunlop Tires Operations, S.A. v. Brown*, 564 U.S. 915, 919 (2011)).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Daimler AG v. Bauman, 571 U.S. 117, 127 (2014) (quoting Goodyear Dunlop Tires Operations, S.A. v. Brown, 564 U.S. 915, 919 (2011)) (internal quotation marks omitted)",
+        "quote_check": "Found with differences at 571 U.S. 127. The original reads: affiliations with the State are so 'continuous and systematic' as to render them essentially at home in the forum State. The brief drops the internal quotation marks around 'continuous and systematic' without saying so, and changes 'them' to '[it]', which is a proper bracketed alteration.",
+        "explanation": "At page 127, Daimler quotes Goodyear for the rule that general jurisdiction exists only where a corporation's affiliations make it essentially at home in the forum. The proposition and the Goodyear parenthetical are accurate. The only defect is that internal quotation marks were removed without an 'internal quotation marks omitted' signal.",
+        "evidence_excerpt": "\"[a] court may assert general jurisdiction over foreign (sister-state or foreign-country) corporations to hear any and all claims against them when their affiliations with the State are so 'continuous and systematic' as to render them essentially at home in the forum State.\" Goodyear, 564 U.S., at ----",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 2 (quoted parenthetical)",
+      "authority_type": "case",
+      "authority": "Goodyear Dunlop Tires Operations, S.A. v. Brown",
+      "citation_as_written": "564 U.S. 915, 919 (2011)",
+      "pincite": "919",
+      "cited_for": "Source of the 'essentially at home' general jurisdiction quotation",
+      "quotes": [],
+      "context": "(quoting *Goodyear Dunlop Tires Operations, S.A. v. Brown*, 564 U.S. 915, 919 (2011))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quotation inside Daimler's parenthetical, 'so continuous and systematic as to render [it] essentially at home in the forum State,' matches Goodyear at 919 with brackets; Goodyear's original reads 'so \"continuous and systematic\" as to render them essentially at home in the forum State.'",
+        "explanation": "Goodyear Dunlop Tires Operations, S.A. v. Brown, 564 U.S. 915 (2011) is correctly cited. The 'essentially at home' language appears on page 919 according to the star pagination, so it is the source of the general-jurisdiction quotation as cited.",
+        "evidence_excerpt": "\"A court may assert general jurisdiction over foreign (sister-state or foreign-country) corporations to hear any and all claims against them when their affiliations with the State are so 'continuous and systematic' as to render them essentially at home in the forum State.\" (*919)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/219732/goodyear-dunlop-tires-operations-s-a-v-brown/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 3",
+      "authority_type": "case",
+      "authority": "Daimler AG v. Bauman (Id.)",
+      "citation_as_written": "Id. at 137",
+      "pincite": "137",
+      "cited_for": "Paradigmatic bases for general jurisdiction over a corporation are place of incorporation and principal place of business",
+      "quotes": [],
+      "context": "the paradigmatic bases for general jurisdiction are the state of incorporation and the state where the corporation maintains its principal place of business. *Id.* at 137.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "At page 137, Daimler says that for a corporation, the place of incorporation and the principal place of business are the paradigm bases for general jurisdiction.",
+        "evidence_excerpt": "*137 ... With respect to a corporation, the place of incorporation and principal place of business are \"paradig[m] ... bases for general jurisdiction.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 3",
+      "authority_type": "case",
+      "authority": "Daimler AG v. Bauman (Id.)",
+      "citation_as_written": "Id. at 139 n.19",
+      "pincite": "139 n.19",
+      "cited_for": "Only in an exceptional case will contacts elsewhere render corporation at home",
+      "quotes": [
+        "exceptional case"
+      ],
+      "context": "Only in an \"exceptional case\" will a corporation's contacts with a forum other than its place of incorporation or principal place of business be so substantial as to render it \"at home\" there. *Id.* at 139 n.19.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"exceptional case\" found verbatim in Daimler footnote 19, which is anchored on page 139.",
+        "explanation": "Footnote 19 leaves open that in an exceptional case, a corporation's operations in a forum other than its place of incorporation or principal place of business may be so substantial as to render it at home there. The brief's paraphrase is accurate.",
+        "evidence_excerpt": "We do not foreclose the possibility that in an exceptional case, see, e.g., Perkins ... a corporation's operations in a forum other than its formal place of incorporation or principal place of business may be so substantial and of such a nature as to render the corporation at home in that State.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 3",
+      "authority_type": "case",
+      "authority": "Daimler AG v. Bauman (Id.)",
+      "citation_as_written": "Id. at 138–39",
+      "pincite": "138–39",
+      "cited_for": "General jurisdiction inquiry is not whether defendant merely conducts business in forum",
+      "quotes": [
+        "affiliations with the State are so 'continuous and systematic' as to render [it] essentially at home"
+      ],
+      "context": "whether the defendant's \"affiliations with the State are so 'continuous and systematic' as to render [it] essentially at home.\" *Id.* at 138–39.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim, including the bracketed '[it]', at 571 U.S. 138–39 (the sentence runs across the *139 page break).",
+        "explanation": "Daimler holds that the general-jurisdiction inquiry is not whether the in-forum contacts are in some sense 'continuous and systematic,' but whether the corporation's affiliations make it essentially at home. That matches the proposition, and the pin cite 138–39 is correct.",
+        "evidence_excerpt": "Accordingly, the inquiry under Goodyear is *139 not whether a foreign corporation's in-forum contacts can be said to be in some sense \"continuous and systematic,\" it is whether that corporation's \"affiliations with the State are so 'continuous and systematic' as to render [it] essentially at home in the forum State.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 4",
+      "authority_type": "case",
+      "authority": "Daimler AG v. Bauman",
+      "citation_as_written": "571 U.S. at 138",
+      "pincite": "138",
+      "cited_for": "Rejects proposition that corporation is subject to general jurisdiction in every state where it does business",
+      "quotes": [],
+      "context": "*See Daimler*, 571 U.S. at 138 (rejecting the proposition that a corporation is subject to general jurisdiction in every state where it conducts business).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "At page 138, Daimler rejects plaintiffs' proposal to allow general jurisdiction in every State where a corporation engages in a substantial, continuous, and systematic course of business, calling that formulation 'unacceptably grasping.' The parenthetical is accurate.",
+        "evidence_excerpt": "*138 and approve the exercise of general jurisdiction in every State in which a corporation \"engages in a substantial, continuous, and systematic course of business.\" ... That formulation, we hold, is unacceptably grasping.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 4",
+      "authority_type": "case",
+      "authority": "Daimler AG v. Bauman (Id.); Perkins v. Benguet Consol. Mining Co.",
+      "citation_as_written": "Id. at 138 n.18 (citing Perkins v. Benguet Consol. Mining Co., 342 U.S. 437 (1952))",
+      "pincite": "138 n.18",
+      "cited_for": "Substantial, continuous, systematic business in forum does not alone support general jurisdiction; Perkins is the exceptional case",
+      "quotes": [
+        "engage[ment] in a substantial, continuous, and systematic course of business"
+      ],
+      "context": "A corporation's \"engage[ment] in a substantial, continuous, and systematic course of business\" in a forum does not, without more, make it amenable to general jurisdiction there. *Id.* at 138 n.18 (citing *Perkins v. Benguet Consol. Mining Co.*, 342 U.S. 437 (1952), as the exceptional case).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Daimler AG v. Bauman, 571 U.S. 117, 138 (2014); see id. at 139 n.19 (Perkins as the 'exceptional case')",
+        "quote_check": "Found with an alteration. The opinion's main text at 138 reads 'engages in a substantial, continuous, and systematic course of business'; the brief changes this to 'engage[ment] ...'. The language is in the main text, not in footnote 18, and it is the Court quoting the respondents' brief formulation, which the Court rejects as 'unacceptably grasping'.",
+        "explanation": "The proposition is supported: at 138 the Court rejects general jurisdiction wherever a corporation 'engages in a substantial, continuous, and systematic course of business.' The parenthetical is wrong, though. Footnote 18 does cite Perkins, but only to note that Perkins cited the older Barrow and Tauza 'doing business' cases, which 'should not attract heavy reliance today.' The Court calls Perkins the 'exceptional case' in footnote 19, at 139. So the pin cite and parenthetical are loose.",
+        "evidence_excerpt": "and approve the exercise of general jurisdiction in every State in which a corporation \"engages in a substantial, continuous, and systematic course of business.\" ... That formulation, we hold, is unacceptably grasping. [n.19:] We do not foreclose the possibility that in an exceptional case, see, e.g., Perkins ...",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B Rule 12(b)(2) argument, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 12(b)(2)",
+      "pincite": "",
+      "cited_for": "Basis for dismissal for lack of personal jurisdiction",
+      "quotes": [],
+      "context": "The Complaint should be dismissed under Federal Rule of Civil Procedure 12(b)(2) because DataCore has insufficient contacts with the State of Georgia",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(2) is the correct rule for a motion to dismiss for lack of personal jurisdiction. Whether DataCore's Georgia contacts are actually insufficient is a merits question, not a problem with the citation.",
+        "evidence_excerpt": "'(2) lack of personal jurisdiction'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B, para. 4 (Whitford Declaration reference)",
+      "authority_type": "other",
+      "authority": "Declaration of Thomas Whitford, ¶¶ 3–5 (record evidence, not legal authority)",
+      "citation_as_written": "Declaration of Thomas Whitford, ¶¶ 3–5",
+      "pincite": "¶¶ 3–5",
+      "cited_for": "Authenticates Delaware incorporation and Texas principal place of business",
+      "quotes": [],
+      "context": "The Declaration of Thomas Whitford, submitted herewith, authenticates DataCore's corporate records confirming its Delaware incorporation and Texas principal place of business. *See* Declaration of Thomas Whitford, ¶¶ 3–5.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe record evidence filed in the fictional matter, not legal authority"
+    },
+    {
+      "ref": 29,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.C Rule 12(b)(3) argument, para. 3",
+      "authority_type": "case",
+      "authority": "M/S Bremen v. Zapata Off-Shore Co.",
+      "citation_as_written": "407 U.S. 1, 10 (1972)",
+      "pincite": "10",
+      "cited_for": "Forum selection clauses are prima facie valid and enforced unless unreasonable",
+      "quotes": [
+        "forum-selection clauses are prima facie valid and should be enforced unless enforcement is shown by the resisting party to be 'unreasonable' under the circumstances"
+      ],
+      "context": "\"forum-selection clauses are prima facie valid and should be enforced unless enforcement is shown by the resisting party to be 'unreasonable' under the circumstances.\" *M/S Bremen v. Zapata Off-Shore Co.*, 407 U.S. 1, 10 (1972).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "The Bremen v. Zapata Off-Shore Co., 407 U.S. 1, 10 (1972)",
+        "quote_check": "Found with differences at 407 U.S. 10. The original reads 'such clauses are prima facie valid and should be enforced unless enforcement is shown by the resisting party to be \"unreasonable\" under the circumstances.' The brief puts 'forum-selection clauses' in place of 'such clauses' without brackets.",
+        "explanation": "The citation is correct and page 10 holds what the brief says: forum-selection clauses are prima facie valid and enforced unless shown to be unreasonable. The only defect is the unbracketed change to the quoted text. The case is usually styled 'The Bremen', though 'M/S Bremen' is a common variant.",
+        "evidence_excerpt": "This view ... is that such clauses are prima facie valid and should be enforced unless enforcement is shown by the resisting party to be \"unreasonable\" under the circumstances. We believe this is the correct doctrine",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/108566/the-bremen-v-zapata-off-shore-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.C Rule 12(b)(3) argument, para. 3",
+      "authority_type": "case",
+      "authority": "M/S Bremen v. Zapata Off-Shore Co. (Id.); Scherk v. Alberto-Culver Co.; Stewart Org., Inc. v. Ricoh Corp.",
+      "citation_as_written": "Id. at 12–15; see also Scherk v. Alberto-Culver Co., 417 U.S. 506, 519 (1974); Stewart Org., Inc. v. Ricoh Corp., 487 U.S. 22, 29 (1988)",
+      "pincite": "12–15; 519; 29",
+      "cited_for": "Bremen three-part test: clause not enforced if procured by fraud/undue influence/overweening bargaining power, forum gravely inconvenient, or enforcement contravenes strong public policy of forum",
+      "quotes": [],
+      "context": "*Id.* at 12–15; *see also Scherk v. Alberto-Culver Co.*, 417 U.S. 506, 519 (1974); *Stewart Org., Inc. v. Ricoh Corp.*, 487 U.S. 22, 29 (1988).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "The Bremen, 407 U.S. at 12-13, 15, 18; Scherk v. Alberto-Culver Co., 417 U.S. 506, 519 & n.14 (1974); Stewart Org., Inc. v. Ricoh Corp., 487 U.S. 22, 28-29 (1988) (holding that § 1404(a), not Bremen, governs in diversity)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "All three cases are real and the cites are accurate. Bremen supports the three-part test, but only partly at the cited pages. The fraud, undue influence, and overweening bargaining power element is at pages 12-13, and the strong-public-policy element is at page 15. The 'gravely difficult and inconvenient ... deprived of his day in court' element is at page 18, outside the cited 12-15 range. Scherk at 519 extends Bremen to arbitration clauses, and its note 14 discusses the fraud qualification, so the 'see also' is fair. Stewart at page 29 cuts against the brief: it disagrees with treating the Bremen enforceability standard as the relevant inquiry in a diversity case and holds that § 1404(a) controls. This is a diversity case, so citing Stewart for applying the Bremen test misstates it. The Bremen and Scherk parts would rate as a minor defect; the Stewart part is a mischaracterization.",
+        "evidence_excerpt": "Stewart, 487 U.S. at 28-29: \"we disagree with the court's articulation of the relevant inquiry as 'whether the forum selection clause in this case is unenforceable under the standards set forth in The Bremen.' ... Rather, the first question for consideration should have been whether § 1404(a) itself controls\"; Bremen at 18: \"so gravely difficult and inconvenient that he will for all practical purposes be deprived of his day in court\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/108566/the-bremen-v-zapata-off-shore-co/",
+          "https://www.courtlistener.com/opinion/109066/scherk-v-alberto-culver-co/",
+          "https://www.courtlistener.com/opinion/112115/stewart-organization-inc-v-ricoh-corp/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "Overstated. The sentence describes what Bremen held, and Bremen does contain all three elements. At 12-13: \"a freely negotiated private international agreement, unaffected by fraud, undue influence, or overweening bargaining power ... should be given full effect.\" The public-policy element is at 15. The grave-inconvenience element is at *18: \"so gravely difficult and inconvenient that he will for all practical purposes be deprived of his day in court.\" So the 12-15 pin omits page 18; that is a minor defect. Scherk at 518-19 restates Bremen's 'strong showing' rule, and n.14 discusses the fraud qualification at 407 U.S. 12-13, so the 'see also' fits. Stewart is the weak link. At 28 n.7 it restates Bremen's holding: forum clauses enforced absent a showing that enforcement \"would be unreasonable and unjust, or that the clause was invalid for such reasons as fraud or overreaching.\" At 29 it says Bremen \"may prove 'instructive'\" but \"we disagree with the court's articulation of the relevant inquiry as 'whether the forum selection clause in this case is unenforceable under the standards set forth in The Bremen'\" and holds that § 1404(a) controls. The brief cites Stewart only with 'see also', after a sentence about what Bremen held. It does not claim Stewart applied the Bremen test in diversity, and Stewart does acknowledge Bremen's holding. Leaving out Stewart's § 1404(a) qualification makes the signal loose and unhelpful, but on a fair reading that is a minor defect in the parenthetical or pin (28 n.7 would fit better), not a holding attributed to Stewart that it lacks. Overall status: VERIFIED_MINOR_DEFECT, with Stewart's support noted as weak.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/108566/the-bremen-v-zapata-off-shore-co/",
+          "https://www.courtlistener.com/opinion/109066/scherk-v-alberto-culver-co/",
+          "https://www.courtlistener.com/opinion/112115/stewart-organization-inc-v-ricoh-corp/"
+        ]
+      }
+    },
+    {
+      "ref": 31,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.C Rule 12(b)(3) argument, final para.",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(3)",
+      "citation_as_written": "Rule 12(b)(3)",
+      "pincite": "",
+      "cited_for": "Dismissal for improper venue based on forum selection clause (no citation to 28 U.S.C. § 1404(a) or Atlantic Marine)",
+      "quotes": [],
+      "context": "this action should be dismissed under Rule 12(b)(3) for improper venue.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1404(a); Atlantic Marine Constr. Co. v. U.S. Dist. Ct., 571 U.S. 49 (2013)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The brief asks for Rule 12(b)(3) dismissal for improper venue based only on the forum-selection clause. It does not argue that venue fails § 1391. Atlantic Marine rejected exactly this use of Rule 12(b)(3): a case filed in a district that satisfies § 1391 cannot be dismissed under § 1406(a) or Rule 12(b)(3) because of a forum-selection clause. The proper tool is a § 1404(a) transfer, or forum non conveniens for a non-federal forum.",
+        "evidence_excerpt": "Atlantic Marine: 'a case filed in a district that falls within § 1391 may not be dismissed under § 1406(a) or Rule 12(b)(3)' ... '§ 1406(a) and Rule 12(b)(3) are not proper mechanisms to enforce a forum-selection clause'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Section C of the brief (lines 206-226) argues that venue is improper solely because of MSA § 14.2. It never argues that N.D. Ga. fails § 1391, and it closes: \"Because the forum selection clause is mandatory, enforceable, and encompasses all of Pinnacle's claims, this action should be dismissed under Rule 12(b)(3) for improper venue.\" Atlantic Marine rejects this: \"a case filed in a district that falls within § 1391 may not be dismissed under § 1406(a) or Rule 12(b)(3).\" It also holds that \"§ 1406(a) and Rule 12(b)(3) are not proper mechanisms to enforce a forum-selection clause and that § 1404(a) and the forum non conveniens doctrine provide appropriate enforcement mechanisms.\" Atlantic Marine further rejected the view that Rule 12(b)(3) works even when the clause points to a nonfederal forum: \"If venue is proper under federal venue rules, it does not matter for the purpose of Rule 12(b)(3) whether the forum-selection clause points to a federal or a nonfederal forum.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/"
+        ]
+      }
+    },
+    {
+      "ref": 32,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D intro",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Federal Rule of Civil Procedure 12(b)(6)",
+      "pincite": "",
+      "cited_for": "All four counts fail to state a claim",
+      "quotes": [],
+      "context": "should be dismissed under Federal Rule of Civil Procedure 12(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(6) is the correct procedural basis for seeking dismissal of counts that fail to state a claim. Whether the four counts actually fail is the party's argument, not something the rule decides.",
+        "evidence_excerpt": "(6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D.2.a, Count II",
+      "authority_type": "case",
+      "authority": "Twombly/Iqbal framework",
+      "citation_as_written": "Twombly/Iqbal",
+      "pincite": "",
+      "cited_for": "Fraudulent inducement must allege facts plausibly establishing each element; fraud elements under Texas law (no case cited)",
+      "quotes": [],
+      "context": "Under the *Twombly/Iqbal* framework, a claim for fraudulent inducement must allege facts that, accepted as true, plausibly establish each element of fraud.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Twombly (550 U.S. 544, 570) and Iqbal (556 U.S. 662, 678) set the general Rule 8 plausibility standard: the complaint must plead enough factual matter, accepted as true, to state a plausible claim. Saying this standard requires facts that plausibly establish each element of fraudulent inducement is a fair application of it. The Texas elements are stated without authority, and Twombly/Iqbal are not cited for them. One caveat goes to the advocacy, not the citation: fraud claims are also subject to Rule 9(b)'s particularity requirement, which Iqbal itself acknowledges at 686-87. The motion mentions Rule 9(b) only in a footnote.",
+        "evidence_excerpt": "To survive a motion to dismiss, a complaint must contain sufficient factual matter, accepted as true, to \"state a claim to relief that is plausible on its face.\" (Iqbal, 556 U.S. at 678, quoting Twombly at 570)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145875/ashcroft-v-iqbal/",
+          "https://www.courtlistener.com/opinion/145730/bell-atlantic-corp-v-twombly/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D.2.a, closing sentence",
+      "authority_type": "case",
+      "authority": "Bell Atlantic Corp. v. Twombly; Ashcroft v. Iqbal",
+      "citation_as_written": "Twombly and Iqbal",
+      "pincite": "",
+      "cited_for": "Fraud claim does not meet plausibility threshold",
+      "quotes": [],
+      "context": "The fraudulent inducement claim does not meet the plausibility threshold of *Twombly* and *Iqbal* and should be dismissed.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Bell Atlantic Corp. v. Twombly, 550 U.S. 544 (2007); Ashcroft v. Iqbal, 556 U.S. 662 (2009)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a short-form reference to two real Supreme Court cases; full citations appear earlier in the brief and in its table of authorities. Twombly sets the plausibility standard, and Iqbal confirms it governs 'all civil actions,' so it reaches a fraudulent inducement claim. The cite applies the general standard to the brief's own facts, which is an appropriate use. The brief does not invoke Rule 9(b) at this point, but that is an advocacy choice, not a mischaracterization.",
+        "evidence_excerpt": "Our decision in Twombly expounded the pleading standard for \"all civil actions,\" ibid., and it applies to antitrust and discrimination suits alike",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145875/ashcroft-v-iqbal/",
+          "https://www.courtlistener.com/opinion/145730/bell-atlantic-corp-v-twombly/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D.2.a, footnote 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 9(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 9(b)",
+      "pincite": "",
+      "cited_for": "Fraud allegations lack specificity required; fail to identify particular false statements (footnote only)",
+      "quotes": [],
+      "context": "Moreover, Pinnacle's fraud allegations lack the specificity required under Federal Rule of Civil Procedure 9(b), as they fail to identify the particular statements alleged to be false with the requisite precision.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 9(b) requires a party alleging fraud to state the circumstances 'with particularity', so it is correctly cited for the specificity requirement. Whether Pinnacle's complaint meets that requirement is the movant's argument.",
+        "evidence_excerpt": "In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D.4, Count IV (and fn 6)",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-370 et seq.",
+      "pincite": "",
+      "cited_for": "GUDTPA claim argued duplicative, barred by economic loss rule, displaced by Texas choice of law, and inadequately pleaded (no case law cited)",
+      "quotes": [],
+      "context": "under the Georgia Uniform Deceptive Trade Practices Act (\"GUDTPA\"), O.C.G.A. § 10-1-370 *et seq.*, should be dismissed for three independent reasons.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation correctly identifies the Georgia UDTPA as O.C.G.A. § 10-1-370 et seq. The motion cites the statute only to identify the claim it attacks. Its arguments that the claim is duplicative, barred by the economic loss rule, displaced by Texas law, and inadequately pleaded are not attributed to the statute's text and cite no case law, so there is nothing further to check in the citation itself. Georgia courts do dismiss UDTPA claims on other grounds, for example Collins v. Athens Orthopedic Clinic, which affirmed a UDTPA dismissal.",
+        "evidence_excerpt": "Georgia's Uniform Deceptive Trade Practices Act (\"UDTPA\"), OCGA § 10-1-370 et seq.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4683800/georgia-lottery-corporation-v-sonalben-patel/",
+          "https://www.courtlistener.com/opinion/7478517/collins-v-athens-orthopedic-clinic/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "V. Conclusion",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(2), 12(b)(3)",
+      "citation_as_written": "Rule 12(b)(2); Rule 12(b)(3)",
+      "pincite": "",
+      "cited_for": "Requested dismissal grounds; alternative transfer request cites no statute",
+      "quotes": [],
+      "context": "the Complaint should be dismissed under Rule 12(b)(2); ... the Complaint should be dismissed under Rule 12(b)(3)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1404(a) (transfer to enforce a forum-selection clause naming a federal forum); see Atlantic Marine Constr. Co. v. U.S. Dist. Ct., 571 U.S. 49 (2013)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Rule 12(b)(2) half of this citation is fine. The Rule 12(b)(3) half asks for dismissal only because of the MSA forum-selection clause. Atlantic Marine held that a forum-selection clause does not make venue 'wrong' or 'improper' under Rule 12(b)(3); whether venue is improper turns only on federal venue statutes such as § 1391. The clause can be enforced only by a § 1404(a) transfer, or by forum non conveniens if it names a state or foreign forum. This clause names 'state or federal courts' in Travis County. The brief's alternative transfer request also cites no statute, when § 1404(a) is the correct vehicle.",
+        "evidence_excerpt": "Atlantic Marine: 'Although a forum-selection clause does not render venue in a court \"wrong\" or \"improper\" within the meaning of § 1406(a) or Rule 12(b)(3), the clause may be enforced through a motion to transfer under § 1404(a).'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12",
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds as to the Rule 12(b)(3) component. The Rule 12(b)(2) request is unproblematic. The conclusion asks for Rule 12(b)(3) dismissal because \"Venue in the Northern District of Georgia is improper under the MSA's mandatory forum selection clause.\" Atlantic Marine holds that a forum-selection clause \"does not render venue in a court 'wrong' or 'improper' within the meaning of § 1406(a) or Rule 12(b)(3), [but] the clause may be enforced through a motion to transfer under § 1404(a).\" MSA § 14.2 names the \"state or federal courts located in Travis County, Texas\", so a § 1404(a) transfer to the W.D. Tex. (Austin) is available. Yet the brief's alternative transfer request (line 366) rests only on \"the mandatory forum selection clause\" and cites no statute.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/",
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ]
+      }
+    },
+    {
+      "ref": 38,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 5, Introduction",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-370 et seq.",
+      "pincite": "",
+      "cited_for": "Statutory basis of fourth claim",
+      "quotes": [],
+      "context": "(iv) violation of the Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 *et seq*.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The complaint correctly identifies the Georgia Uniform Deceptive Trade Practices Act as O.C.G.A. § 10-1-370 et seq. Section 10-1-370 is the Act's short-title section, and courts use this standard citation form.",
+        "evidence_excerpt": "a putative class action alleging violation of the Georgia Uniform Deceptive Trade Practices Act ( OCGA § 10-1-370, et seq. )",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7478517/collins-v-athens-orthopedic-clinic/",
+          "https://law.justia.com/codes/georgia/2021/title-10/chapter-1/article-15/part-1/section-10-1-370/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶¶ 13–14, Subject Matter Jurisdiction",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "(a)",
+      "cited_for": "Diversity jurisdiction; amount in controversy exceeds $75,000",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332(a) (diversity of citizenship).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332(a)(1) gives federal courts diversity jurisdiction between citizens of different States when the amount exceeds $75,000. The Complaint correctly pleads Georgia against Delaware/Texas citizenship and more than $75,000 exclusive of interest and costs.",
+        "evidence_excerpt": "exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 15, Personal Jurisdiction",
+      "authority_type": "statute",
+      "authority": "Georgia Long-Arm Statute, O.C.G.A. § 9-10-91",
+      "citation_as_written": "O.C.G.A. § 9-10-91",
+      "pincite": "",
+      "cited_for": "Basis for personal jurisdiction over DataCore",
+      "quotes": [],
+      "context": "This Court has personal jurisdiction over DataCore pursuant to the Georgia Long-Arm Statute, O.C.G.A. § 9-10-91, and consistent with the Due Process Clause",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "O.C.G.A. § 9-10-91 is Georgia's Long Arm Statute. It authorizes Georgia courts to exercise personal jurisdiction over nonresidents on enumerated grounds, such as transacting business in the state or committing tortious acts there. Citing it as the basis for personal jurisdiction over a nonresident defendant, together with due process, is accurate. The statutory text was read as quoted in Georgia Court of Appeals opinions on CourtListener; direct fetches of Justia and elaws returned 403/503 errors.",
+        "evidence_excerpt": "Georgia's Long Arm Statute, OCGA § 9-10-91, provides, in relevant part, that [a] court of this state may exercise personal jurisdiction over any nonresident . . . , as to a cause of action arising from any of the acts, omissions, ownership, use, or possession enumerated in this Code section",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4783917/colby-stanton-v-timberly-autumn-harris/",
+          "https://www.courtlistener.com/opinion/10335427/cascade-aircraft-management-llc-v-geoffrey-antenor-velazco/",
+          "https://law.justia.com/codes/georgia/title-9/chapter-10/article-4/section-9-10-91/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 15, Personal Jurisdiction",
+      "authority_type": "other",
+      "authority": "Due Process Clause of the Fourteenth Amendment",
+      "citation_as_written": "Due Process Clause of the Fourteenth Amendment to the United States Constitution",
+      "pincite": "",
+      "cited_for": "Personal jurisdiction consistent with due process",
+      "quotes": [],
+      "context": "consistent with the Due Process Clause of the Fourteenth Amendment to the United States Constitution.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.S. Const. amend. XIV, § 1",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a correct general reference: personal jurisdiction must be consistent with the Due Process Clause of the Fourteenth Amendment. Whether the facts alleged actually meet that standard is a merits question, not a citation defect.",
+        "evidence_excerpt": "We granted certiorari to decide whether, consistent with the Due Process Clause of the Fourteenth Amendment, Daimler is amenable to suit in California courts",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 18, Venue",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "(b)(2)",
+      "cited_for": "Venue proper where substantial part of events occurred",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. § 1391(b)(2) because a substantial part of the events or omissions giving rise to the claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1391(b)(2) puts venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. The Complaint paraphrases this accurately.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 19, Venue",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1), (c)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1); 28 U.S.C. § 1391(c)(2)",
+      "pincite": "(b)(1), (c)(2)",
+      "cited_for": "Alternative venue: DataCore resides in district via permanent office and employees",
+      "quotes": [],
+      "context": "venue is proper in this District under 28 U.S.C. § 1391(b)(1) because DataCore resides in this District within the meaning of 28 U.S.C. § 1391(c)(2)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1391(b)(1) puts venue in a district where any defendant resides. Under § 1391(c)(2), an entity defendant resides in any district where it is subject to personal jurisdiction for the action. The Complaint pleads both the permanent office and employees and that DataCore is subject to this Court's personal jurisdiction, which is a fair application of (c)(2). One nuance: Georgia has more than one district, and for a corporation in a multi-district State, § 1391(d) more precisely governs district-level residence. That provision is not cited, but the omission does not make the cited provisions inaccurate.",
+        "evidence_excerpt": "(2) an entity with the capacity to sue and be sued in its common name under applicable law, whether or not incorporated, shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 97, Count II",
+      "authority_type": "other",
+      "authority": "Unspecified 'applicable law' on integration clauses and fraudulent inducement",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Integration/merger clause cannot bar claim that party was fraudulently induced to enter the contract (no authority cited)",
+      "quotes": [
+        "It is well established under applicable law that an integration or merger clause cannot bar a claim that a party was fraudulently induced to enter into the very contract containing the merger clause."
+      ],
+      "context": "The MSA's integration clause (Section 14.7) does not bar this fraudulent inducement claim. It is well established under applicable law that an integration or merger clause cannot bar a claim",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is the complaint's own prose (para. 97). It is not attributed to any authority, so there is no source to check it against.",
+        "explanation": "No authority is cited, only unspecified 'applicable law', so there is no citation to verify. As a statement of Texas law, which the MSA selects, the proposition is broadly supported. Italian Cowboy Partners v. Prudential, 341 S.W.3d 323 (Tex. 2011), holds that a pure merger clause does not bar a fraudulent-inducement claim. Italian Cowboy also recognizes an exception: a clear and unequivocal disclaimer-of-reliance clause may bar the claim (Schlumberger v. Swanson). The complaint's categorical phrasing therefore overstates the rule slightly. Georgia law was not checked; it may treat merger clauses differently when the plaintiff affirms the contract rather than rescinding it.",
+        "evidence_excerpt": "Italian Cowboy, 341 S.W.3d at 334: \"Pure merger clauses, without an expressed clear and unequivocal intent to disclaim reliance or waive claims for fraudulent inducement, have never had the effect of precluding claims for fraudulent inducement.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/895311/italian-cowboy-partners-ltd-v-prudential-insurance-co-of-america/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 113, Count IV",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-370 et seq.",
+      "pincite": "",
+      "cited_for": "Prohibits deceptive trade practices; remedial statute construed liberally",
+      "quotes": [],
+      "context": "The GUDTPA is a remedial statute and is to be construed liberally to effectuate its purpose of protecting persons engaged in trade and commerce from unfair and deceptive practices.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The GUDTPA (O.C.G.A. §§ 10-1-370 to 10-1-375) exists and does prohibit enumerated deceptive trade practices (§ 10-1-372(a)), so the first half of the proposition holds. The 'remedial statute ... construed liberally' to protect persons in 'trade and commerce' language does not come from the GUDTPA. GUDTPA's own construction provision, § 10-1-375, directs that it be construed 'to effectuate its general purpose to make uniform the law of those states which enact it.' The liberal-construction mandate quoted in case law belongs to the separate Fair Business Practices Act, § 10-1-391(a). The GUDTPA's coverage is also framed as conduct 'in the course of his business, vocation, or occupation,' not 'any trade or commerce.' A search of Georgia case law found nothing calling the GUDTPA a remedial statute to be liberally construed. Statute pages on Justia returned 403, so the statutory text was read through quoting opinions.",
+        "evidence_excerpt": "Collins v. Athens Orthopedic Clinic (Ga. Ct. App. 2020): \"See also OCGA § 10-1-375 (the Act 'shall be construed to effectuate its general purpose to make uniform the law of those states which enact it')\"; Catrett v. Landmark Dodge (Ga. Ct. App. 2002): \"OCGA § 10-1-391 (a) (FBPA should be liberally construed 'to protect consumers and legitimate business enterprises from unfair or deceptive practices in the conduct of any trade or commerce...')\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/11192515/christine-collins-v-athens-orthopedic-clinic/",
+          "https://www.courtlistener.com/opinion/1962211/johnston-industries-alabama-inc-v-national-contract-associates-inc/",
+          "https://www.courtlistener.com/opinion/1262163/catrett-v-landmark-dodge-inc/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The GUDTPA is real and does prohibit enumerated deceptive trade practices (Collins: 'The Act defines \"deceptive trade practice\" by enumerating several particular examples followed by a general term of enlargement. OCGA § 10-1-372 (a)'). Its own construction clause is about uniformity, not liberal remedial construction. Two opinions quote § 10-1-375: the Act 'shall be construed to effectuate its general purpose to make uniform the law of those states which enact it' (In re Johnston Industries, Bankr. M.D. Ga. 2003; Collins v. Athens Orthopedic, Ga. Ct. App. 2020). The liberal-construction language and the 'any trade or commerce' purpose language come from the separate Fair Business Practices Act. Regional Finance v. Pearson (Ga. Ct. App. 2024) reads: 'The GFBPA was enacted to protect consumers from unfair or deceptive practices in the conduct of any trade or commerce in this state. OCGA § 10-1-391 (a). As the GFBPA sets forth, the Act \"shall be liberally construed and applied to promote\" this underlying purpose.' Johnson v. GAPVT Motors (Ga. Ct. App. 2008) quotes the same clause. A CourtListener search found no Georgia opinion calling the GUDTPA a remedial statute to be construed liberally. The complaint has imported FBPA construction language into its GUDTPA count.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1962211/johnston-industries-alabama-inc-v-national-contract-associates-inc/",
+          "https://www.courtlistener.com/opinion/11192515/christine-collins-v-athens-orthopedic-clinic/",
+          "https://www.courtlistener.com/opinion/10629510/regional-finance-company-of-georgia-llc-v-nicholas-pearson/",
+          "https://www.courtlistener.com/opinion/1217917/johnson-v-gapvt-motors-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 46,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 115(a), Count IV",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-372(a)(5)",
+      "citation_as_written": "O.C.G.A. § 10-1-372(a)(5)",
+      "pincite": "(a)(5)",
+      "cited_for": "Representing goods/services have characteristics, uses, benefits they do not have",
+      "quotes": [],
+      "context": "in violation of O.C.G.A. § 10-1-372(a)(5);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The complaint's paraphrase tracks the statutory text.",
+        "explanation": "Section 10-1-372(a)(5) covers representing that goods or services have characteristics, uses, or benefits they do not have. That matches the alleged misstatement of the platform's ADP integration and concurrency capabilities.",
+        "evidence_excerpt": "(5) Represents that goods or services have sponsorship, approval, characteristics, ingredients, uses, benefits, or quantities that they do not have",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-372/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 115(b), Count IV",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-372(a)(7)",
+      "citation_as_written": "O.C.G.A. § 10-1-372(a)(7)",
+      "pincite": "(a)(7)",
+      "cited_for": "Representing goods are of particular standard, quality, or grade when of another (misleading staging-environment demos)",
+      "quotes": [],
+      "context": "in violation of O.C.G.A. § 10-1-372(a)(7);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The complaint's paraphrase tracks the statutory text.",
+        "explanation": "Section 10-1-372(a)(7) covers representing that goods or services are of a particular standard, quality, or grade when they are of another. That matches the alleged staging-environment demonstrations.",
+        "evidence_excerpt": "(7) Represents that goods or services are of a particular standard, quality, or grade or that goods are of a particular style or model, if they are of another",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-372/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 115(c), Count IV",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-372(a)(9)",
+      "citation_as_written": "O.C.G.A. § 10-1-372(a)(9)",
+      "pincite": "(a)(9)",
+      "cited_for": "Advertising goods with intent not to sell as advertised",
+      "quotes": [],
+      "context": "in violation of O.C.G.A. § 10-1-372(a)(9).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "O.C.G.A. § 10-1-372(a)(9) lists as a deceptive trade practice advertising goods or services with intent not to sell them as advertised, exactly the proposition the complaint cites it for. The neighboring cites, (a)(5) for characteristics and benefits and (a)(7) for standard, quality or grade, also match the statute.",
+        "evidence_excerpt": "\"A person engages in a deceptive trade practice when, in the course of his business, vocation, or occupation, he: ... (9) Advertises goods or services with intent not to sell them as advertised\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-372/",
+          "https://law.justia.com/codes/georgia/2020/title-10/chapter-1/article-15/part-1/section-10-1-372/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 119, Count IV",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-373",
+      "citation_as_written": "O.C.G.A. § 10-1-373",
+      "pincite": "",
+      "cited_for": "Injunctive relief and attorneys' fees under GUDTPA",
+      "quotes": [],
+      "context": "The GUDTPA provides for injunctive relief under O.C.G.A. § 10-1-373 and, in certain circumstances, the recovery of damages and attorneys' fees.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 10-1-373(a) provides for an injunction and § 10-1-373(b) allows discretionary attorney's fees, so the cite supports what it is offered for (injunctive relief and fees). The defect: ¶ 119 adds that the GUDTPA allows recovery of damages 'in certain circumstances.' The section has no damages remedy. Subsection (a) says monetary damage need not be proven for an injunction, and subsection (c) only preserves remedies available under other law. Fees are also limited: discretionary, and only where the defendant willfully engaged in a practice knowing it was deceptive.",
+        "evidence_excerpt": "\"(a) A person likely to be damaged by a deceptive trade practice of another may be granted an injunction against it ... (b) ... The court, in its discretion, may award attorney's fees to the prevailing party if: ... (2) The party charged with a deceptive trade practice has willfully engaged in the trade practice knowing it to be deceptive. (c) The relief provided in this Code section is in addition to remedies otherwise available ...\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-373/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 121, Count IV",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-373",
+      "citation_as_written": "O.C.G.A. § 10-1-373",
+      "pincite": "",
+      "cited_for": "Entitlement to attorneys' fees",
+      "quotes": [],
+      "context": "Pinnacle is entitled to recover reasonable attorneys' fees incurred in prosecuting this action pursuant to O.C.G.A. § 10-1-373.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 10-1-373(b) is the correct basis for attorney's fees under the GUDTPA. Saying Pinnacle 'is entitled' to fees overstates it: the award is discretionary and depends on a finding that the defendant willfully engaged in the practice knowing it was deceptive. As pleading advocacy this is a small overstatement, and the cite is otherwise correct.",
+        "evidence_excerpt": "\"The court, in its discretion, may award attorney's fees to the prevailing party if: ... (2) The party charged with a deceptive trade practice has willfully engaged in the trade practice knowing it to be deceptive.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-373/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "Prayer for Relief ¶ 125(d)",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-373",
+      "citation_as_written": "O.C.G.A. § 10-1-373",
+      "pincite": "",
+      "cited_for": "Attorneys' fees on Count IV",
+      "quotes": [],
+      "context": "reasonable attorneys' fees pursuant to O.C.G.A. § 10-1-373;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The prayer cites § 10-1-373 only for reasonable attorneys' fees on Count IV, which § 10-1-373(b) authorizes at the court's discretion. The 'actual damages' requested in the same prayer item are not attributed to § 10-1-373; that section provides no damages remedy.",
+        "evidence_excerpt": "\"(b) Costs shall be allowed to the prevailing party unless the court otherwise directs. The court, in its discretion, may award attorney's fees to the prevailing party if: ...\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-373/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "Demand for Jury Trial",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 38 and Seventh Amendment",
+      "citation_as_written": "Seventh Amendment to the United States Constitution and Rule 38 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Right to jury trial",
+      "quotes": [],
+      "context": "pursuant to the Seventh Amendment to the United States Constitution and Rule 38 of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Seventh Amendment preserves the right to a jury trial in suits at common law above twenty dollars. Rule 38(a) preserves that right, and Rule 38(b) lets a party demand a jury, including in a pleading. Both are proper bases for the complaint's jury demand.",
+        "evidence_excerpt": "Rule 38(a): 'The right of trial by jury as declared by the Seventh Amendment to the Constitution—or as provided by a federal statute—is preserved to the parties inviolate.' Rule 38(b): 'serving the other parties with a written demand—which may be included in a pleading'.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_38",
+          "https://www.law.cornell.edu/constitution/seventh_amendment"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "Verification",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration under penalty of perjury",
+      "quotes": [],
+      "context": "I, Margaret \"Meg\" Holliday, hereby declare under penalty of perjury pursuant to 28 U.S.C. § 1746",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1746 lets an unsworn declaration made under penalty of perjury substitute for a sworn verification or affidavit. That fits a complaint verification made under the statute.",
+        "evidence_excerpt": "any matter is required or permitted to be supported, evidenced, established, or proved by the sworn declaration, verification, certificate, statement, oath, or affidavit... I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "task.json.md",
+      "location": "rubric C-001 (and instructions/tags)",
+      "authority_type": "case",
+      "authority": "Twombly/Iqbal plausibility standard",
+      "citation_as_written": "Twombly/Iqbal",
+      "pincite": "",
+      "cited_for": "Inconsistent application of plausibility standard versus Rule 9(b) to fraud claim",
+      "quotes": [],
+      "context": "DataCore's motion inconsistently applies the general Twombly/Iqbal plausibility standard to the fraudulent inducement claim (Count II) while also invoking Rule 9(b) in a footnote",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric calls Twombly/Iqbal the 'general' plausibility standard, as distinct from Rule 9(b)'s heightened particularity requirement for fraud. That description is accurate. Twombly expressly does not require 'heightened fact pleading of specifics.' Iqbal recognizes that Rule 9(b) requires particularity when pleading fraud, in contrast to Rule 8's general strictures. So the premise of the rubric's 'inconsistent application' point correctly describes these authorities.",
+        "evidence_excerpt": "Twombly, 550 U.S. at 570: \"we do not require heightened fact pleading of specifics, but only enough facts to state a claim to relief that is plausible on its face.\" Iqbal, 556 U.S. at 686: \"It is true that Rule 9(b) requires particularity when pleading 'fraud or mistake'...\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145730/bell-atlantic-corp-v-twombly/",
+          "https://www.courtlistener.com/opinion/145875/ashcroft-v-iqbal/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "task.json.md",
+      "location": "rubric C-001, C-002",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 9(b)",
+      "citation_as_written": "Rule 9(b)",
+      "pincite": "",
+      "cited_for": "Particularity requirement ('who, what, when, where, and how'); Complaint satisfies it",
+      "quotes": [
+        "who, what, when, where, and how"
+      ],
+      "context": "without rigorously applying the 9(b) 'who, what, when, where, and how' framework.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 9(b); see Mizzaro v. Home Depot, Inc., 544 F.3d 1230 (11th Cir. 2008) (for the 'who, what, when, where, and how' gloss)",
+        "quote_check": "'who, what, when, where, and how': not found in the text of Rule 9(b). Found verbatim in Mizzaro v. Home Depot, Inc., 544 F.3d 1230 (11th Cir. 2008), describing what Rule 9(b) requires.",
+        "explanation": "Rule 9(b) requires fraud to be pleaded with particularity. The 'who, what, when, where, and how' framework is a judicial gloss on the rule, not words in the rule itself. The rubric calls it 'the 9(b) ... framework' rather than quoting the rule, so the attribution is only slightly loose. Whether this complaint satisfies the standard is a fact-specific judgment and was not assessed here.",
+        "evidence_excerpt": "Mizzaro: 'Thus, under Rule 9(b), it is sufficient to plead the who, what, when, where, and how of the allegedly false statements and then allege generally that those statements were made with the requisite intent.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9",
+          "https://www.courtlistener.com/opinion/78173/mizzaro-v-home-depot-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "task.json.md",
+      "location": "rubric C-005",
+      "authority_type": "case",
+      "authority": "Atlantic Marine Construction Co. v. U.S. District Court",
+      "citation_as_written": "Atlantic Marine Construction Co. v. U.S. District Court (2013)",
+      "pincite": "",
+      "cited_for": "Forum selection clauses enforced via § 1404(a) transfer, not Rule 12(b)(3) dismissal",
+      "quotes": [],
+      "context": "under Atlantic Marine Construction Co. v. U.S. District Court (2013), forum selection clauses should be enforced through a 28 U.S.C. § 1404(a) motion to transfer rather than a Rule 12(b)(3) motion to dismiss.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Atlantic Marine Constr. Co. v. U.S. Dist. Court for W. Dist. of Tex., 571 U.S. 49 (2013)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Atlantic Marine (decided December 3, 2013) rejects enforcing a forum-selection clause through § 1406(a) or Rule 12(b)(3) and holds that it may be enforced by a § 1404(a) motion to transfer. It adds that forum non conveniens is the route for clauses pointing to a state or foreign forum. The rubric gives the case name and year with no reporter cite, which is acceptable for a rubric.",
+        "evidence_excerpt": "We reject petitioner's argument that such a clause may be enforced by a motion to dismiss under 28 U.S.C. § 1406(a) or Rule 12(b)(3) of the Federal Rules of Civil Procedure. Instead, a forum-selection clause may be enforced by a motion to transfer under § 1404(a)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "task.json.md",
+      "location": "rubric C-005",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1404(a)",
+      "citation_as_written": "28 U.S.C. § 1404(a)",
+      "pincite": "(a)",
+      "cited_for": "Transfer mechanism for enforcing forum selection clause",
+      "quotes": [],
+      "context": "enforced through a 28 U.S.C. § 1404(a) motion to transfer rather than a Rule 12(b)(3) motion to dismiss",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1404(a) authorizes transfer of a civil action to another district for convenience and in the interest of justice, including to a district to which all parties have consented. Atlantic Marine holds that this is the mechanism for enforcing a forum-selection clause that points to a federal forum.",
+        "evidence_excerpt": "For the convenience of parties and witnesses, in the interest of justice, a district court may transfer any civil action to any other district or division where it might have been brought or to any district or division to which all parties have consented.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "task.json.md",
+      "location": "rubric C-006",
+      "authority_type": "case",
+      "authority": "Atlantic Marine Construction Co. v. U.S. District Court for the Western District of Texas",
+      "citation_as_written": "571 U.S. 49 (2013)",
+      "pincite": "",
+      "cited_for": "Controlling authority on enforcing forum selection clauses",
+      "quotes": [],
+      "context": "Atlantic Marine Construction Co. v. U.S. District Court for the Western District of Texas, 571 U.S. 49 (2013)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Atlantic Marine Constr. Co. v. U.S. Dist. Court for W. Dist. of Tex., 571 U.S. 49 (2013) (decided Dec. 3, 2013) is the Supreme Court's leading decision on the procedure and standards for enforcing a forum-selection clause. It holds that a § 1404(a) transfer motion, or forum non conveniens for a nonfederal forum, is the proper mechanism. It does not allow dismissal under § 1406(a) or Rule 12(b)(3). It fits the rubric's description as controlling authority on enforcing forum-selection clauses.",
+        "evidence_excerpt": "The question in this case concerns the procedure that is available for a defendant in a civil case who seeks to enforce a forum-selection clause. ... Instead, a forum-selection clause may be enforced by a motion to transfer under § 1404(a)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "task.json.md",
+      "location": "rubric C-005, C-009, C-026 (12(b)(2), 12(b)(3), 12(b)(6), 12(b)(1))",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(1), 12(b)(2), 12(b)(3), 12(b)(6)",
+      "citation_as_written": "12(b)(1), 12(b)(2), 12(b)(3), 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Organizing framework of the motion and memo",
+      "quotes": [],
+      "context": "specifically addressing 12(b)(2) personal jurisdiction, 12(b)(3) venue/forum selection, and 12(b)(6) failure to state a claim",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 12(b)(1), (2), (3), (6)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "These rule subsections are the defenses of lack of subject-matter jurisdiction, lack of personal jurisdiction, improper venue, and failure to state a claim. That matches how the rubric uses them to organize the motion.",
+        "evidence_excerpt": "(1) lack of subject-matter jurisdiction; (2) lack of personal jurisdiction; (3) improper venue; ... (6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 9-3-24",
+      "citation_as_written": "O.C.G.A. § 9-3-24",
+      "pincite": "",
+      "cited_for": "Six-year Georgia statute of limitations for contract claims (compared to MSA's one-year period); Texas four-year period also referenced without citation",
+      "quotes": [],
+      "context": "significantly shorter than the applicable statute of limitations (6 years under Georgia law, O.C.G.A. § 9-3-24, or 4 years under Texas law)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "O.C.G.A. § 9-3-24 sets a six-year limitations period for actions on simple written contracts, which supports the rubric's comparison with the MSA's one-year period. One caveat: the section excludes contracts for the sale of goods under UCC Article 2. The statute text does not address whether a shorter contractual period is reasonable or unconscionable.",
+        "evidence_excerpt": "\"All actions upon simple contracts in writing shall be brought within six years after the same become due and payable. However, this Code section shall not apply to actions for the breach of contracts for the sale of goods under Article 2 of Title 11 ...\"",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-9-civil-practice/ga-code-sect-9-3-24/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "task.json.md",
+      "location": "rubric C-017",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-370 et seq.",
+      "pincite": "",
+      "cited_for": "GUDTPA claim independently viable alongside contract claims; distinguish economic loss rule",
+      "quotes": [],
+      "context": "to dismiss the Georgia UDTPA claim (Count IV, O.C.G.A. § 10-1-370 et seq.) as duplicative of the contract claim is flawed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The citation is accurate: the GUDTPA is O.C.G.A. §§ 10-1-370 through 10-1-375. Here the statute is cited mainly to identify Count IV; the rubric's point that the claim can proceed alongside contract claims is an argument. That argument is reasonably consistent with the statute. § 10-1-373(c) makes GUDTPA relief cumulative with remedies 'otherwise available against the same conduct under the common law or other statutes,' and the listed practices, such as misrepresenting the characteristics or quality of goods or services (§ 10-1-372(a)(5), (7), (9)), are statutory duties independent of any contract. The statute does not itself address the economic loss rule. GUDTPA relief is injunctive (§ 10-1-373(a) requires a person 'likely to be damaged'), which limits the claim's practical value but does not contradict the proposition.",
+        "evidence_excerpt": "ITT Corp. v. Xylem Group (N.D. Ga. 2013) n.17: \"O.C.G.A. § 10-1-373(c) provides only that '[t]he relief provided in this Code section is in addition to remedies otherwise available against the same conduct under the common law or other statutes of this state.'\"; Collins: \"Uniform Deceptive Trade Practices Act, OCGA §§ 10-1-370 through 10-1-375\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8710607/itt-corp-v-xylem-group-llc/",
+          "https://www.courtlistener.com/opinion/11192515/christine-collins-v-athens-orthopedic-clinic/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "III. Legal Standard, Rule 12(b)(6), second \"Id.\" after the 'Threadbare recitals' quotation",
+      "authority_type": "case",
+      "authority": "Ashcroft v. Iqbal (Id., no pincite)",
+      "citation_as_written": "Id.",
+      "pincite": "",
+      "cited_for": "\"Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice.\"",
+      "quotes": [
+        "Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice."
+      ],
+      "context": "However, the court need not accept \"legal conclusions\" couched as factual allegations. Id. at 678. \"Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice.\" Id.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real Supreme Court case cited as real law.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim in Iqbal, 556 U.S. at 678, the same page as the preceding 'Id. at 678', so the bare 'Id.' is correct.",
+        "explanation": "Iqbal's first working principle states this sentence word for word on page 678.",
+        "evidence_excerpt": "First, the tenet that a court must accept as true all of the allegations contained in a complaint is inapplicable to legal conclusions. Threadbare recitals of the elements of a cause of action, supported by mere conclusory statements, do not suffice.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145875/ashcroft-v-iqbal/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "I. Preliminary Statement, final paragraph, and caption/title and Certificate of Service",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(1), 12(b)(2), 12(b)(3), 12(b)(6)",
+      "citation_as_written": "Federal Rules of Civil Procedure 12(b)(1), 12(b)(2), 12(b)(3), and 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Rules under which DataCore moves to dismiss the Complaint in its entirety",
+      "quotes": [],
+      "context": "For all of these reasons, DataCore moves to dismiss the Complaint in its entirety under Federal Rules of Civil Procedure 12(b)(1), 12(b)(2), 12(b)(3), and 12(b)(6).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real federal rules.",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b) lists the four motion defenses cited: (1) lack of subject-matter jurisdiction, (2) lack of personal jurisdiction, (3) improper venue, (6) failure to state a claim. So the citation is accurate as a list of rules. Two defects. First, the brief cites 12(b)(1) but then says in Section IV.A that DataCore 'does not formally move to dismiss on this ground.' Second, the 12(b)(3) ground rests only on a forum-selection clause. Atlantic Marine, 571 U.S. 49 (2013), held that Rule 12(b)(3) is not a proper way to enforce such a clause.",
+        "evidence_excerpt": "Rule 12(b): 'a party may assert the following defenses by motion: (1) lack of subject-matter jurisdiction; (2) lack of personal jurisdiction; (3) improper venue; ... (6) failure to state a claim upon which relief can be granted'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12",
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist-of-tex/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.A, closing paragraph (after footnote 1)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Rule 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Inflated damages allegations said to be relevant to adequacy of the pleadings under Rule 12(b)(6)",
+      "quotes": [],
+      "context": "Nevertheless, the inflated and speculative nature of Pinnacle's damages allegations is relevant context for this Court's consideration of the adequacy of the pleadings under Rule 12(b)(6), as discussed in Section IV.D below.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real federal rule.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(6) governs whether a pleading is sufficient to state a claim. The reference is only a general pointer to that standard. The claim that inflated damages allegations are 'relevant context' is the party's own argument, and the rule neither supports nor contradicts it.",
+        "evidence_excerpt": "(6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.A, para. 3 (amount in controversy)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "$75,000 amount-in-controversy threshold likely exceeded",
+      "quotes": [],
+      "context": "the amount in controversy likely exceeds the $75,000 threshold required by 28 U.S.C. § 1332(a).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real statute.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332(a) sets the threshold: the amount in controversy must exceed $75,000. The citation is accurate.",
+        "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.B, final paragraph (para. 5)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(2)",
+      "citation_as_written": "Rule 12(b)(2)",
+      "pincite": "",
+      "cited_for": "Complaint should be dismissed for lack of personal jurisdiction",
+      "quotes": [],
+      "context": "Accordingly, this Court lacks personal jurisdiction over DataCore, and the Complaint should be dismissed under Rule 12(b)(2).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real federal rule.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(2) is the correct rule for dismissal for lack of personal jurisdiction. The citation is accurate. The paragraph's reasoning, which relies on Daimler general jurisdiction, is a merits question outside this check.",
+        "evidence_excerpt": "'(2) lack of personal jurisdiction'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.C, heading and intro paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(3)",
+      "citation_as_written": "Rule 12(b)(3)",
+      "pincite": "",
+      "cited_for": "Dismissal for improper venue based on the forum selection clause",
+      "quotes": [],
+      "context": "The Complaint Should Be Dismissed Under Rule 12(b)(3) for Improper Venue Based on the Forum Selection Clause",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real federal rule.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(3) does list 'improper venue' as a defense. But under Atlantic Marine Constr. Co. v. U.S. Dist. Court, 571 U.S. 49 (2013), a forum selection clause does not make venue 'wrong' or 'improper' under Rule 12(b)(3). Whether venue is improper depends only on the federal venue statutes (28 U.S.C. § 1391). A clause naming a federal forum is enforced by a § 1404(a) transfer, and a clause naming a state forum by forum non conveniens. The motion argues venue is improper only because of the Travis County clause, not under § 1391, so it relies on Rule 12(b)(3) for something the Supreme Court has rejected. The motion's legal-standard paragraph repeats the same mistake. Its alternative request to transfer to the Western District of Texas is the correct mechanism.",
+        "evidence_excerpt": "Rule 12(b)(1)-(7) includes '(3) improper venue'. Atlantic Marine: 'Section 1406(a) and Rule 12(b)(3) allow dismissal only when venue is \"wrong\" or \"improper.\" Whether venue is \"wrong\" or \"improper\" depends exclusively on whether the court in which the case was brought satisfies the requirements of federal venue laws, and those provisions say nothing about a forum-selection clause.' Also: '§ 1406(a) and Rule 12(b)(3) are not proper mechanisms to enforce a forum-selection clause.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12",
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Rule 12(b)(3) does provide an improper-venue defense, but the Supreme Court has held that it cannot be used to enforce a forum-selection clause. Atlantic Marine, 571 U.S. 49 (2013): 'Atlantic Marine contends that a party may enforce a forum-selection clause by seeking dismissal of the suit under § 1406(a) and Rule 12(b)(3). We disagree. Section 1406(a) and Rule 12(b)(3) allow dismissal only when venue is \"wrong\" or \"improper.\" Whether venue is \"wrong\" or \"improper\" depends exclusively on whether the court in which the case was brought satisfies the requirements of federal venue laws, and those provisions say nothing about a forum-selection clause.' The motion's legal-standard paragraph says a Rule 12(b)(3) motion challenges venue 'as inconsistent with a contractual forum selection clause.' Its Section C asks for dismissal 'under Rule 12(b)(3) for improper venue' only because of the Travis County clause. Both rest on the theory Atlantic Marine rejected. The clause names both state and federal courts in Travis County, so the proper vehicle is a § 1404(a) transfer, which the motion requests only in the alternative.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2644673/atlantic-marine-constr-co-v-united-states-dist-court-for-western-dist/"
+        ]
+      }
+    },
+    {
+      "ref": 68,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D.2.c and IV.D.1 (Rule 12(b)(6) references in Argument D, subsections 1-4)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Rule 12(b)(6)",
+      "pincite": "",
+      "cited_for": "All four counts fail to state a claim",
+      "quotes": [],
+      "context": "all four counts of the Complaint fail to state a claim upon which relief can be granted and should be dismissed under Federal Rule of Civil Procedure 12(b)(6)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real federal rule.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(6) is cited correctly as the vehicle for dismissing counts that fail to state a claim upon which relief can be granted.",
+        "evidence_excerpt": "(6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "V. Conclusion, item 1 and Certificate of Service",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(2)",
+      "citation_as_written": "Rule 12(b)(2)",
+      "pincite": "",
+      "cited_for": "Lack of personal jurisdiction (conclusion item 1)",
+      "quotes": [],
+      "context": "1. This Court lacks personal jurisdiction over DataCore, and the Complaint should be dismissed under Rule 12(b)(2);",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real federal rule.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(2) is the correct rule for dismissal for lack of personal jurisdiction.",
+        "evidence_excerpt": "'(2) lack of personal jurisdiction'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "datacore-motion-to-dismiss.docx.md",
+      "location": "IV.D (Count I) and IV.D.4 / IV.D.3, economic loss rule and Texas law references",
+      "authority_type": "other",
+      "authority": "Economic loss rule (Texas and Georgia law)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Economic loss rule bars negligent misrepresentation and GUDTPA claims for purely economic losses arising from a contract",
+      "quotes": [],
+      "context": "Under Texas law, the economic loss rule prevents a party from recovering in tort for purely economic losses that are the subject of a contract between the parties.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real common-law doctrine, cited without authority.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The doctrine is real, and the motion states the Texas rule fairly for the negligent misrepresentation count. Sharyland describes the rule as covering defective products and failure to perform a contract, and LAN/STV applied it to bar a negligent-misrepresentation claim in a contractual setting. Sharyland also warns that the rule is often 'overstate[d] and oversimplifie[d]', but the motion's Texas framing is acceptable. The defect is in the Georgia part. The motion says the rule also bars the statutory GUDTPA claim, and that Georgia law recognizes no 'independent tort or statutory claim' for economic losses. Every Georgia formulation I read confines the rule to tort ('seek his remedy in contract and not in tort'), with an independent-duty exception. I found nothing extending it to statutory claims. That means the motion overstates the rule's reach; I did not find a Georgia case that expressly rejects the extension either. The task's own rubric item C-017 flags the same tort-versus-statute distinction.",
+        "evidence_excerpt": "Texas (Sharyland, 354 S.W.3d at 418): \"we have applied the economic loss rule only in cases involving defective products or failure to perform a contract.\" Georgia (GE v. Lowe's): \"a contracting party who suffers purely economic losses must seek his remedy in contract and not in tort.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5281308/sharyland-water-supply-corp-v-city-of-alton/",
+          "https://www.courtlistener.com/opinion/2831386/lanstv-v-martin-k-eby-construction-co/",
+          "https://www.courtlistener.com/opinion/1253339/general-electric-co-v-lowes-home-centers-inc/",
+          "https://www.courtlistener.com/opinion/7252386/in-re-equifax-inc/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds, though only for the Georgia half. The Texas statement as applied to negligent misrepresentation (Count III) is a fair general statement. The defect is the motion's claim that 'Georgia law does not recognize an independent tort or statutory claim for economic losses where a contract governs,' which it uses to bar the GUDTPA count. Every Georgia formulation I found confines the rule to tort. In re Equifax (N.D. Ga. 2019) states it this way: 'a contracting party who suffers purely economic losses must seek his remedy in contract and not in tort,' i.e., 'a plaintiff may not recover in tort for purely economic damages arising from a breach of contract,' subject to an independent-duty exception. Keyword searches of CourtListener's Georgia state and federal courts for 'economic loss rule' with the GUDTPA, the FBPA, or 'statutory claim' turned up no decision extending the rule to a statutory deceptive-practices claim. A web search found none either. I also found no Georgia case expressly rejecting the extension, so the defect is an overstatement of the rule's reach, not a contradiction of settled law. The task's own rubric item C-017 draws the same line between common-law tort claims and statutory GUDTPA claims.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7252386/in-re-equifax-inc/",
+          "https://www.courtlistener.com/opinion/5281308/sharyland-water-supply-corp-v-city-of-alton/"
+        ]
+      }
+    },
+    {
+      "ref": 71,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 115, Count IV (lead-in)",
+      "authority_type": "statute",
+      "authority": "O.C.G.A. § 10-1-372",
+      "citation_as_written": "O.C.G.A. § 10-1-372",
+      "pincite": "",
+      "cited_for": "DataCore engaged in deceptive trade practices in violation of this section",
+      "quotes": [],
+      "context": "115. DataCore engaged in deceptive trade practices in violation of O.C.G.A. § 10-1-372 by, inter alia:",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real Georgia statute.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "O.C.G.A. § 10-1-372 is the section of Georgia's Uniform Deceptive Trade Practices Act that defines deceptive trade practices. The complaint's sub-paragraphs cite (a)(5), (a)(7) and (a)(9), and each matches the conduct described.",
+        "evidence_excerpt": "A person engages in a deceptive trade practice when, in the course of his business, vocation, or occupation, he: ... (9) Advertises goods or services with intent not to sell them as advertised",
+        "source_urls": [
+          "https://codes.findlaw.com/ga/title-10-commerce-and-trade/ga-code-sect-10-1-372/",
+          "http://ga.elaws.us/law/section10-1-372"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 14, Subject Matter Jurisdiction",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Damages exceed the jurisdictional threshold",
+      "quotes": [],
+      "context": "well in excess of the jurisdictional threshold required under 28 U.S.C. § 1332(a).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real statute (second mention in ¶ 14 may duplicate item 39).",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332(a) sets the jurisdictional threshold the Complaint refers to: more than $75,000, exclusive of interest and costs. Pleaded damages of more than $2.3 million exceed it.",
+        "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "pinnacle-complaint.docx.md",
+      "location": "¶ 122, Count IV (choice of law)",
+      "authority_type": "restatement_or_treatise",
+      "authority": "Most significant relationship test (conflict of laws)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Georgia law governs the statutory claim because Georgia has the most significant relationship to the conduct",
+      "quotes": [
+        "Georgia has the most significant relationship to the tortious and deceptive conduct at issue"
+      ],
+      "context": "Georgia has the most significant relationship to the tortious and deceptive conduct at issue, and Georgia's regulatory interest in prohibiting deceptive trade practices within its borders cannot be contracted away by a choice-of-law clause",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real conflict-of-laws doctrine, no source cited.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Georgia applies lex loci delicti to torts, not the Restatement (Second) 'most significant relationship' test. See Dowis v. Mud Slingers, Inc., 279 Ga. 808, 621 S.E.2d 413 (2005)",
+        "quote_check": "The quoted language is the complaint's own wording, not attributed to any authority, so there is nothing to match.",
+        "explanation": "The 'most significant relationship' test is real; it is the Restatement (Second) of Conflict of Laws § 145 approach. But it is not Georgia's choice-of-law rule for torts. The suit is in the N.D. Ga. under diversity, so Georgia choice-of-law rules apply. In Dowis, the Georgia Supreme Court expressly refused to adopt the test and kept lex loci delicti. The complaint's conclusion that Georgia law governs the GUDTPA claim may still be right under lex loci delicti, since the conduct and injury were in Georgia, but the test it invokes is not the governing standard.",
+        "evidence_excerpt": "The appellants Dowis urge that Georgia join this group of states and adopt the \"most significant relationship\" test of the Restatement (Second) of Conflict of Laws ... The inescapable conclusion is that the approach of the Restatement (Second) of Conflict of Laws is not superior to the traditional rule of lex loci delicti currently used in Georgia.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1202951/dowis-v-mud-slingers-inc/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The 'most significant relationship' test is the Restatement (Second) of Conflict of Laws approach, and Georgia expressly declined to adopt it for torts. Dowis v. Mud Slingers, Inc., 279 Ga. 808, 621 S.E.2d 413 (2005): 'The appellants Dowis urge that Georgia join this group of states and adopt the \"most significant relationship\" test of the Restatement (Second) of Conflict of Laws ... But it is well-settled that Georgia will continue to adhere to a traditional conflict of laws rule'; 'The inescapable conclusion is that the approach of the Restatement (Second) of Conflict of Laws is not superior to the traditional rule of lex loci delicti currently used in Georgia'; 'The rule of lex loci delicti remains the law of Georgia.' A federal court sitting in diversity in the N.D. Ga. applies Georgia choice-of-law rules, so the complaint invokes the wrong test. Its conclusion that Georgia law governs may still be reachable under lex loci delicti, because the conduct and injury were in Georgia. The quoted phrase is the complaint's own argument, not a quotation from any authority.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1202951/dowis-v-mud-slingers-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 74,
+      "document": "msa-pinnacle-datacore.docx.md",
+      "location": "Section 14.5 — Dispute Resolution",
+      "authority_type": "other",
+      "authority": "American Arbitration Association Commercial Arbitration Rules",
+      "citation_as_written": "American Arbitration Association in accordance with its then-current Commercial Arbitration Rules",
+      "pincite": "",
+      "cited_for": "Disputes of $50,000 or less go to binding AAA arbitration under its Commercial Arbitration Rules",
+      "quotes": [],
+      "context": "shall be resolved through binding arbitration administered by the American Arbitration Association in accordance with its then-current Commercial Arbitration Rules.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real AAA rules incorporated in a contract term.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a contract clause naming the AAA's Commercial Arbitration Rules, not a citation for a legal proposition. The AAA's website confirms that it publishes and administers Commercial Arbitration Rules. I did not retrieve the text of the rules themselves, but the clause relies only on their existence and incorporates whichever version is current.",
+        "evidence_excerpt": "AAA Commercial Arbitration Rules, Forms, and Fee Schedule ... These rules outline the procedures for business and commercial arbitrations administered by the AAA",
+        "source_urls": [
+          "https://www.adr.org/rules",
+          "https://www.adr.org/sites/default/files/Commercial-Rules_Web.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "task.json.md",
+      "location": "rubric C-020",
+      "authority_type": "other",
+      "authority": "Lex loci delicti (Georgia conflict-of-laws principle)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Under Georgia conflict-of-laws principles the tort claims may be governed by Georgia law",
+      "quotes": [],
+      "context": "under Georgia conflict-of-laws principles (lex loci delicti or similar), the tort claims may be governed by Georgia law.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real doctrine.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "See Dowis v. Mud Slingers, Inc., 279 Ga. 808, 621 S.E.2d 413 (2005)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Georgia keeps lex loci delicti for tort choice of law: a tort action is governed by the substantive law of the state where the tort was committed. Dowis expressly declined to adopt the Restatement (Second) approach. The rubric says only that the tort claims 'may be governed by Georgia law' if the torts occurred in Georgia, which matches this rule.",
+        "evidence_excerpt": "Under this traditional rule, a tort action is governed by the substantive law of the state where the tort was committed. ... The rule of lex loci delicti remains the law of Georgia",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1202951/dowis-v-mud-slingers-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "other",
+      "authority": "Texas four-year statute of limitations for contract",
+      "citation_as_written": "4 years under Texas law",
+      "pincite": "",
+      "cited_for": "Contractual one-year period is shorter than statutory period (6 yrs Georgia, 4 yrs Texas) and may be unconscionable",
+      "quotes": [],
+      "context": "significantly shorter than the applicable statute of limitations (6 years under Georgia law, O.C.G.A. § 9-3-24, or 4 years under Texas law)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real limitations law referenced without section.",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code §§ 16.004(a)(3), 16.051; see also Tex. Bus. & Com. Code § 2.725(a) (sale of goods); Tex. Civ. Prac. & Rem. Code § 16.070",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rubric correctly gives a four-year Texas period: § 16.004(a) covers debt and fraud, § 16.051 is the four-year residual period, and § 2.725 is four years for sale-of-goods contracts. But it gives no citation, and it understates the Texas rule. Under § 16.070(a), a contractual limitations period shorter than two years is void in Texas (subject to the subsection (b) exception for some sales of a business entity). So under Texas law the one-year clause is statutorily void, not merely possibly unconscionable.",
+        "evidence_excerpt": "§ 16.051: \"Every action for which there is no express limitations period, except an action for the recovery of real property, must be brought not later than four years after the day the cause of action accrues.\" § 16.070(a): \"A stipulation, contract, or agreement that establishes a limitations period that is shorter than two years is void in this state.\"",
+        "source_urls": [
+          "https://codes.findlaw.com/tx/civil-practice-and-remedies-code/civ-prac-rem-sect-16-051/",
+          "https://codes.findlaw.com/tx/civil-practice-and-remedies-code/civ-prac-rem-sect-16-004/",
+          "https://codes.findlaw.com/tx/civil-practice-and-remedies-code/civ-prac-rem-sect-16-070/",
+          "https://codes.findlaw.com/tx/business-and-commerce-code/bus-com-sect-2-725/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "task.json.md",
+      "location": "rubric C-012",
+      "authority_type": "other",
+      "authority": "Georgia/Texas law that integration clause cannot bar fraudulent inducement",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Under well-established Georgia and/or Texas law, an integration clause cannot bar a fraudulent inducement claim",
+      "quotes": [],
+      "context": "under well-established law (Georgia and/or Texas), an integration clause cannot bar a claim for fraudulent inducement",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real doctrine, no citation.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "unclear",
+        "correct_citation": "Texas: Italian Cowboy Partners, Ltd. v. Prudential Ins. Co. of Am., 341 S.W.3d 323, 334-37 (Tex. 2011) (a pure merger clause alone does not bar fraudulent inducement). Georgia: contrast First Data POS, Inc. v. Willis, 273 Ga. 792, 795-96 (2001).",
+        "quote_check": "No attributed quotes; no specific authority is cited.",
+        "explanation": "The rule as stated ('an integration clause cannot bar a fraudulent inducement claim') overstates the law of both states. Texas supports it only for a pure merger clause. Italian Cowboy holds that a merger clause alone does not bar fraudulent inducement, but that a clear and unequivocal disclaimer of reliance can (Schlumberger; Forest Oil). Georgia law points the other way: First Data POS v. Willis holds that a valid merger clause in an arm's-length transaction precludes deceit claims based on pre-contractual representations. Raysoni v. Payless (Ga. 2014) confirms that reliance on such representations is generally unreasonable as a matter of law under a comprehensive merger clause. The scenario's actual MSA § 14.7, but not the version quoted in the motion, adds a non-reliance acknowledgment ('Each party acknowledges that it has not relied upon any statement, representation, warranty, or agreement of the other party except for those expressly set forth in this Agreement'). That sentence makes the rubric's absolute rule weaker still under Texas law.",
+        "evidence_excerpt": "First Data, 273 Ga. at 796: \"As a matter of law, a valid merger clause executed by two or more parties in an arm's length transaction precludes any subsequent claim of deceit based upon pre-contractual representations.\" Italian Cowboy, 341 S.W.3d 323: \"Pure merger clauses, without an expressed clear and unequivocal intent to disclaim reliance or waive claims for fraudulent inducement, have never had the effect of precluding claims for fraudulent inducement.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1311907/first-data-pos-inc-v-willis/",
+          "https://www.courtlistener.com/opinion/2752086/raysoni-v-payless-auto-deals-llc/",
+          "https://www.courtlistener.com/opinion/895311/italian-cowboy-partners-ltd-v-prudential-insurance-co-of-america/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds, though it is softened somewhat by the 'and/or' framing. Texas supports the rule only for a pure merger clause. Italian Cowboy (Tex. 2011) says 'Pure merger clauses, without an expressed clear and unequivocal intent to disclaim reliance or waive claims for fraudulent inducement, have never had the effect of precluding claims for fraudulent inducement' and 'a merger clause ... may not, by itself, bar an action to set aside a contract based on fraudulent inducement.' The same opinion affirms that clear and unequivocal disclaimer-of-reliance language can bar the claim (Schlumberger; Forest Oil). The actual MSA § 14.7 in the record includes 'Each party acknowledges that it has not relied upon any statement, representation, warranty, or agreement of the other party except for those expressly set forth in this Agreement,' so the absolute rule is doubtful even under Texas law. Georgia law points the other way. First Data POS v. Willis, 273 Ga. 792, 796 (2001): 'As a matter of law, a valid merger clause executed by two or more parties in an arm's length transaction precludes any subsequent claim of deceit based upon pre-contractual representations.' Raysoni (Ga. 2014): 'when one has entered a contract with a binding and comprehensive merger clause, any reliance upon precontractual representations is, generally speaking, unreasonable as a matter of law.' Georgia does have a rescission path: Novare Group v. Sarif (Ga. 2011) says a defrauded party may 'affirm the contract and sue for damages ... or ... promptly rescind the contract and sue in tort for fraud.' But Pinnacle seeks damages and did not rescind. Calling the rule 'well-established' and absolute misstates both states' law.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/895311/italian-cowboy-partners-ltd-v-prudential-insurance-co-of-america/",
+          "https://www.courtlistener.com/opinion/1311907/first-data-pos-inc-v-willis/",
+          "https://www.courtlistener.com/opinion/2752086/raysoni-v-payless-auto-deals-llc/",
+          "https://www.courtlistener.com/opinion/2509145/novare-group-inc-v-sarif/"
+        ]
+      }
+    },
+    {
+      "ref": 78,
+      "document": "task.json.md",
+      "location": "rubric C-017",
+      "authority_type": "other",
+      "authority": "Economic loss rule",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Distinguish economic loss rule (common-law tort) from statutory GUDTPA claims",
+      "quotes": [],
+      "context": "The memo should distinguish between the economic loss rule (barring common-law tort claims for purely economic losses) and statutory GUDTPA claims.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real doctrine.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rubric correctly describes the economic loss rule as a common-law tort doctrine. Georgia's Supreme Court states that a contracting party with purely economic losses must seek its remedy in contract, not tort. Federal courts applying Georgia law likewise frame the rule as barring tort recovery, subject to an independent-duty exception. Read fairly, that supports distinguishing the rule from statutory GUDTPA claims.",
+        "evidence_excerpt": "The \"economic loss rule\" generally provides that a contracting party who suffers purely economic losses must seek his remedy in contract and not in tort. (General Elec. Co. v. Lowe's Home Ctrs., 279 Ga. 77 (2005))",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1253339/general-electric-co-v-lowes-home-centers-inc/",
+          "https://www.courtlistener.com/opinion/7252386/in-re-equifax-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "whitford-declaration.docx.md",
+      "location": "Paragraph 1, line 18",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746 (unsworn declarations under penalty of perjury)",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declarant declares under penalty of perjury pursuant to this statute",
+      "quotes": [],
+      "context": "I, Thomas Whitford, declare as follows under penalty of perjury pursuant to 28 U.S.C. § 1746. I am a partner at the law firm of Braxton Cole LLP",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1746 governs unsworn declarations under penalty of perjury. The Whitford declaration invokes it, and its paragraph 16 closes with the statutory language ('I declare under penalty of perjury under the laws of the United States of America that the foregoing is true and correct').",
+        "evidence_excerpt": "I declare (or certify, verify, or state) under penalty of perjury that the foregoing is true and correct. Executed on (date). (Signature)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "whitford-declaration.docx.md",
+      "location": "Paragraph 2, line 20",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(1)",
+      "citation_as_written": "Federal Rules of Civil Procedure 12(b)(1)",
+      "pincite": "12(b)(1)",
+      "cited_for": "Motion to dismiss for lack of subject matter jurisdiction",
+      "quotes": [],
+      "context": "filed pursuant to Federal Rules of Civil Procedure 12(b)(1) (lack of subject matter jurisdiction), 12(b)(2) (lack of personal jurisdiction), 12(b)(3) (improper venue), and 12(b)(6)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRCP 12(b)(1) lists the defense of lack of subject-matter jurisdiction as one a party may assert by motion. The citation and its parenthetical are accurate. Writing 'Federal Rules of Civil Procedure 12(b)(1)' instead of 'Rule 12(b)(1)' is a harmless style variant.",
+        "evidence_excerpt": "a party may assert the following defenses by motion: (1) lack of subject-matter jurisdiction",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 81,
+      "document": "whitford-declaration.docx.md",
+      "location": "Paragraph 2, line 20",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(2)",
+      "citation_as_written": "12(b)(2)",
+      "pincite": "12(b)(2)",
+      "cited_for": "Motion to dismiss for lack of personal jurisdiction",
+      "quotes": [],
+      "context": "12(b)(2) (lack of personal jurisdiction), 12(b)(3) (improper venue)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRCP 12(b)(2) lists the defense of lack of personal jurisdiction as one that may be raised by motion. The parenthetical is accurate.",
+        "evidence_excerpt": "(2) lack of personal jurisdiction",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 82,
+      "document": "whitford-declaration.docx.md",
+      "location": "Paragraph 2, line 20",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(3)",
+      "citation_as_written": "12(b)(3)",
+      "pincite": "12(b)(3)",
+      "cited_for": "Motion to dismiss for improper venue",
+      "quotes": [],
+      "context": "12(b)(3) (improper venue), and 12(b)(6) (failure to state a claim upon which relief can be granted)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRCP 12(b)(3) lists the defense of improper venue as one that may be raised by motion. The parenthetical is accurate.",
+        "evidence_excerpt": "(3) improper venue",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 83,
+      "document": "whitford-declaration.docx.md",
+      "location": "Paragraph 2, line 20",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(6)",
+      "citation_as_written": "12(b)(6)",
+      "pincite": "12(b)(6)",
+      "cited_for": "Motion to dismiss for failure to state a claim upon which relief can be granted",
+      "quotes": [],
+      "context": "and 12(b)(6) (failure to state a claim upon which relief can be granted). The purpose of this declaration is twofold",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The parenthetical 'failure to state a claim upon which relief can be granted' matches the rule's text verbatim.",
+        "explanation": "FRCP 12(b)(6) lists the defense of failure to state a claim upon which relief can be granted as one that may be raised by motion.",
+        "evidence_excerpt": "(6) failure to state a claim upon which relief can be granted",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 84,
+      "document": "whitford-declaration.docx.md",
+      "location": "Paragraph 15, line 46",
+      "authority_type": "statute",
+      "authority": "Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq.",
+      "citation_as_written": "O.C.G.A. § 10-1-370 et seq.",
+      "pincite": "",
+      "cited_for": "Statute underlying Count IV of the Complaint (Violation of the Georgia Uniform Deceptive Trade Practices Act)",
+      "quotes": [],
+      "context": "Fraudulent Inducement (Count II), Negligent Misrepresentation (Count III), and Violation of the Georgia Uniform Deceptive Trade Practices Act, O.C.G.A. § 10-1-370 et seq. (Count IV).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "O.C.G.A. § 10-1-370 et seq. is the correct citation for the Georgia Uniform Deceptive Trade Practices Act (§§ 10-1-370 to 10-1-375). Here it is cited only to identify the statute underlying Count IV, which is accurate.",
+        "evidence_excerpt": "Collins v. Athens Orthopedic Clinic: \"Uniform Deceptive Trade Practices Act, OCGA §§ 10-1-370 through 10-1-375\"; In re Johnston Industries: \"Georgia's Uniform Deceptive Trade Practices Act ('UDTPA'). O.C.G.A. §§ 10-1-370 to 10-1-375 (2000).\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/11192515/christine-collins-v-athens-orthopedic-clinic/",
+          "https://www.courtlistener.com/opinion/1962211/johnston-industries-alabama-inc-v-national-contract-associates-inc/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

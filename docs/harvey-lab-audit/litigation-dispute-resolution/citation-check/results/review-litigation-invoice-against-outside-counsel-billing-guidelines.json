@@ -1,0 +1,465 @@
+{
+  "task": "review-litigation-invoice-against-outside-counsel-billing-guidelines",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "blackwell-stanhope-engagement-letter.docx.md",
+    "bs-invoice-transmittal-email.eml.md",
+    "bs-vih-invoice-october-2024.xlsx.md",
+    "task.json.md",
+    "vih-outside-counsel-billing-guidelines-v4.2.docx.md",
+    "vih-prior-approval-log.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "blackwell-stanhope-engagement-letter.docx.md",
+      "location": "Section 1, Introduction and Scope of Engagement, para 2",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Clearwater asserts claims against VIH under the Defend Trade Secrets Act in the underlying trade secret action",
+      "quotes": [],
+      "context": "Clearwater Technologies, Inc. (\"Clearwater\") asserts claims against VIH under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and the Illinois Trade Secrets Act, 765 ILCS 1065/1 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "18 U.S.C. § 1836 ('Civil proceedings') exists and, as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153, § 2(a), 130 Stat. 376), provides the private civil action for trade secret misappropriation at § 1836(b). Section 1836 itself was originally added in 1996 by Pub. L. 104-294 (Economic Espionage Act); the DTSA added subsections (b)-(d). Citing the DTSA as '18 U.S.C. § 1836 et seq.' is the standard form; the Seventh Circuit in Motorola Solutions v. Hytera, 108 F.4th 458 (7th Cir. 2024), likewise describes a N.D. Ill. suit under 'the federal Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836(b), and the Illinois Trade Secrets Act (ITSA), 765 ILCS 1065/1 et seq.' The statute supports the proposition that a party may assert civil trade secret claims under it.",
+        "evidence_excerpt": "(b) Private Civil Actions.— (1) In general.— An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce. [govinfo, Pub. L. 114-153:] SECTION 1. SHORT TITLE. This Act may be cited as the ``Defend Trade Secrets Act of 2016''.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
+          "https://www.courtlistener.com/opinion/9987798/motorola-solutions-inc-v-hytera-communications-corporation-ltd/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "blackwell-stanhope-engagement-letter.docx.md",
+      "location": "Section 1, Introduction and Scope of Engagement, para 2",
+      "authority_type": "statute",
+      "authority": "Illinois Trade Secrets Act",
+      "citation_as_written": "765 ILCS 1065/1 et seq.",
+      "pincite": "",
+      "cited_for": "Clearwater asserts claims against VIH under the Illinois Trade Secrets Act in the underlying trade secret action",
+      "quotes": [],
+      "context": "Clearwater Technologies, Inc. (\"Clearwater\") asserts claims against VIH under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and the Illinois Trade Secrets Act, 765 ILCS 1065/1 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "The Illinois Trade Secrets Act exists and is codified at 765 ILCS 1065/1 et seq.; section 1065/1 is the short-title section. A published Seventh Circuit opinion (Motorola Solutions v. Hytera, 108 F.4th 458 (7th Cir. 2024)) cites it in exactly this form for trade secret misappropriation claims brought in the Northern District of Illinois alongside the DTSA, matching the engagement letter's use. Source note: the official ilga.gov site failed on an SSL certificate error and Justia returned HTTP 403, so the section text was read on FindLaw (via a fetch summary) and corroborated by the Seventh Circuit opinion text read directly on CourtListener.",
+        "evidence_excerpt": "[7th Cir., Motorola v. Hytera:] alleging that Hytera had misappropriated its trade secrets in violation of the federal Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836(b), and the Illinois Trade Secrets Act (ITSA), 765 ILCS 1065/1 et seq. [FindLaw § 1065/1. Short title:] This Act shall be known as and may be cited as the 'Illinois Trade Secrets Act'.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/9987798/motorola-solutions-inc-v-hytera-communications-corporation-ltd/",
+          "https://codes.findlaw.com/il/chapter-765-property/il-st-sect-765-1065-1/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "blackwell-stanhope-engagement-letter.docx.md",
+      "location": "Re line, Section 1, and Exhibits A and B headings",
+      "authority_type": "case",
+      "authority": "Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc.",
+      "citation_as_written": "Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "pincite": "",
+      "cited_for": "The matter in which Blackwell Stanhope is engaged to defend VIH (the fictional underlying litigation)",
+      "quotes": [],
+      "context": "Re: Engagement of Blackwell Stanhope LLP — Defense of Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc., Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario"
+    },
+    {
+      "ref": 3,
+      "document": "bs-invoice-transmittal-email.eml.md",
+      "location": "Opening paragraph and subject line",
+      "authority_type": "case",
+      "authority": "Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc.",
+      "citation_as_written": "Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "pincite": "",
+      "cited_for": "The matter for which the October 2024 invoice was rendered (the fictional underlying litigation)",
+      "quotes": [],
+      "context": "in connection with *Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc.*, Case No. 1:23-cv-00847 (N.D. Ill.), for the billing period of October 1–31, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario"
+    },
+    {
+      "ref": 4,
+      "document": "vih-prior-approval-log.docx.md",
+      "location": "Header, matter line",
+      "authority_type": "case",
+      "authority": "Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc.",
+      "citation_as_written": "Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "pincite": "",
+      "cited_for": "The matter to which the prior approval log relates (the fictional underlying litigation)",
+      "quotes": [],
+      "context": "Matter: Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc., Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario"
+    },
+    {
+      "ref": 5,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Summary sheet B11-B12; Matter Status sheet B2",
+      "authority_type": "case",
+      "authority": "Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc.",
+      "citation_as_written": "Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "pincite": "",
+      "cited_for": "The matter to which the invoice relates (the fictional underlying litigation)",
+      "quotes": [],
+      "context": "Clearwater Technologies, Inc. v. Saxonbrook Industrial Holdings, Inc., Case No. 1:23-cv-00847 (N.D. Ill.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario"
+    },
+    {
+      "ref": 6,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 004 (10/01/2024, M. DeVries), cell G5; LEDES line P5",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "Defend Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Time entry for researching Seventh Circuit case law on scope of trade secret identification requirements under the DTSA",
+      "quotes": [],
+      "context": "Research case law in Seventh Circuit regarding scope of trade secret identification requirements under the Defend Trade Secrets Act; prepare research memorandum summarizing key holdings.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "The billing narrative (cell G5, md line 87; LEDES P5) names the Defend Trade Secrets Act without a code cite. The Act exists: Pub. L. 114-153 (2016), codified principally at 18 U.S.C. § 1836(b). The entry describes research on Seventh Circuit trade-secret-identification case law; it asserts no holding. Such Seventh Circuit case law exists (e.g., REXA, Inc. v. Chester, 42 F.4th 652 (7th Cir. 2022), applying IDX Systems v. Epic Systems, 285 F.3d 581 (7th Cir. 2002)), though I note the leading Seventh Circuit identification decisions I read arise under state UTSA-based statutes (ITSA / Wisconsin) rather than the DTSA itself; that nuance does not make the time-entry reference inaccurate.",
+        "evidence_excerpt": "This Act may be cited as the ``Defend Trade Secrets Act of 2016''. [REXA v. Chester:] Our court has emphasized that \"a plaintiff must do more than just identify a kind of technology and then invite ... REXA has failed to identify a concrete trade secret, as it must, to defeat summary judgment.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.courtlistener.com/opinion/7454057/rexa-inc-v-mark-chester/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 008 (10/02/2024, J. Pryor-Hall), cell G9",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure, Rule 26(b)(5)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)",
+      "pincite": "26(b)(5)",
+      "cited_for": "Privilege log entries allegedly lacking sufficient detail under the rule, subject of a challenge letter to opposing counsel",
+      "quotes": [],
+      "context": "draft challenge letter to opposing counsel regarding entries 912, 978, 1,034, and 1,101 which appear to lack sufficient detail under Fed. R. Civ. P. 26(b)(5).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "Fed. R. Civ. P. 26(b)(5) ('Claiming Privilege or Protecting Trial-Preparation Materials') exists, and subparagraph (A)(ii) requires a party withholding information as privileged to describe the withheld items in a manner that enables other parties to assess the claim. That is exactly the standard against which privilege log entries are challenged for insufficient detail, so the rule supports the time entry's reference.",
+        "evidence_excerpt": "(5) Claiming Privilege or Protecting Trial-Preparation Materials. (A) Information Withheld. When a party withholds information otherwise discoverable by claiming that the information is privileged or subject to protection as trial-preparation material, the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed—and do so in a manner that, without revealing information itself privileged or protected, will enable other parties to assess the claim.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 017 (10/03/2024, M. DeVries), cell G18; LEDES line P18",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure, Rule 45",
+      "citation_as_written": "Fed. R. Civ. P. 45",
+      "pincite": "",
+      "cited_for": "Research on standards for third-party subpoena compliance and potential objections from Nexon Semiconductor",
+      "quotes": [],
+      "context": "Research standards for third-party subpoena compliance under Fed. R. Civ. P. 45; analyze potential objections from Nexon Semiconductor.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "Fed. R. Civ. P. 45 ('Subpoena') exists and governs subpoenas to non-parties, including the issuing party's duty to avoid undue burden on the subpoenaed person (45(d)(1)), the subpoenaed person's written objections (45(d)(2)(B)), and motions to quash or modify (45(d)(3)). It is the correct rule for research on third-party subpoena compliance and a non-party's potential objections.",
+        "evidence_excerpt": "(d) Protecting a Person Subject to a Subpoena; Enforcement. (1) Avoiding Undue Burden or Expense; Sanctions. A party or attorney responsible for issuing and serving a subpoena must take reasonable steps to avoid imposing undue burden or expense on a person subject to the subpoena. ... (B) Objections. A person commanded to produce documents or tangible things or to permit inspection may serve on the party or attorney designated in the subpoena a written objection",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 010 (10/02/2024, M. DeVries), cell G11",
+      "authority_type": "other",
+      "authority": "Seventh Circuit precedent on trade secret reasonable measures requirement (no case named)",
+      "citation_as_written": "Seventh Circuit precedent",
+      "pincite": "",
+      "cited_for": "Time entry reviewing Seventh Circuit precedent on the reasonable measures requirement for trade secrets",
+      "quotes": [],
+      "context": "review Seventh Circuit precedent on reasonable measures requirement; update research memorandum.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing narrative, not a citation: 'Seventh Circuit precedent on reasonable measures requirement' names no case and asserts no holding, so there is nothing that could be mis-cited. The referenced body of law exists. The Seventh Circuit has addressed the reasonable-measures element of trade secret protection in DM Trans, LLC v. Scott, 38 F.4th 608 (7th Cir. 2022), which cites Tax Track Systems Corp. v. New Investor World, Inc., 478 F.3d 783, 787 (7th Cir. 2007) and Rockwell Graphic Systems, Inc. v. DEV Industries, Inc., 925 F.2d 174, 179-80 (7th Cir. 1991), and in Life Spine, Inc. v. Aegis Spine, Inc., 8 F.4th 531 (7th Cir. 2021).",
+        "evidence_excerpt": "DM Trans, LLC v. Scott, 38 F.4th 608 n.5 (7th Cir. 2022): \"to succeed on a claim for misappropriation of trade secrets, a company must take reasonable measures to protect the secrecy of its information. This requirement is codified within the Defend Trade Secrets Act as part of the definition of the term 'trade secret.' 18 U.S.C. § 1839(3)(A). Courts evaluate the question of whether efforts to keep information confidential were sufficient 'on a case-by-case basis, considering the efforts taken and the costs, benefits, and practicalities of the circumstances.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/6619701/dm-trans-llc-v-lindsey-scott/",
+          "https://www.courtlistener.com/opinion/4906243/life-spine-inc-v-aegis-spine-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 041 (10/09/2024, M. DeVries), cell G42",
+      "authority_type": "other",
+      "authority": "Seventh Circuit standards for spoliation sanctions (no case named)",
+      "citation_as_written": "Seventh Circuit standards for spoliation sanctions",
+      "pincite": "",
+      "cited_for": "Research memorandum on potential motion regarding Clearwater's document preservation practices",
+      "quotes": [],
+      "context": "Research Seventh Circuit standards for spoliation sanctions; prepare research memorandum addressing potential motion regarding Clearwater's document preservation practices.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing narrative, not a citation: 'Seventh Circuit standards for spoliation sanctions' names no case and asserts no holding, so there is nothing that could be mis-cited. The referenced body of law exists. The Seventh Circuit has an established standard for spoliation-based adverse inferences, requiring intentional destruction in bad faith: Downing v. Abbott Laboratories, 48 F.4th 793 (7th Cir. 2022), citing Perez v. Staples Contract & Commercial LLC, 31 F.4th 560, 569 (7th Cir. 2022) and Norman-Nunnery v. Madison Area Technical College, 625 F.3d 422, 428 (7th Cir. 2010).",
+        "evidence_excerpt": "Downing v. Abbott Laboratories, 48 F.4th 793 (7th Cir. 2022): \"To obtain an adverse inference related to spoliation, a plaintiff must demonstrate that a defendant intentionally destroyed documents in bad faith. ... 'The crucial element in a spoliation claim is not the fact that the documents were destroyed but that they were destroyed for the purpose of hiding adverse information.' Norman-Nunnery, 625 F.3d at 428.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8240575/jacinta-downing-v-abbott-laboratories/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 129 (10/30/2024, M. DeVries), cell G1337",
+      "authority_type": "case",
+      "authority": "Daubert (standards for expert testimony admissibility; Daubert v. Merrell Dow Pharmaceuticals, Inc. implied, not named in full)",
+      "citation_as_written": "Daubert standards",
+      "pincite": "",
+      "cited_for": "Research on Daubert standards for expert testimony admissibility in trade secret cases and potential challenges to Clearwater's experts",
+      "quotes": [],
+      "context": "Research Daubert standards for expert testimony admissibility in trade secret cases; prepare memorandum on potential challenges to Clearwater's experts.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "The time entry refers generically to 'Daubert standards for expert testimony admissibility' (no reporter cite, which is normal for a billing narrative). Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), exists and sets the standard for admitting expert scientific testimony in federal trials: the trial judge acts as gatekeeper under Fed. R. Evid. 702, ensuring testimony is relevant and reliable, with non-exclusive factors (testability, peer review, error rate, general acceptance) at 592-95. 'In trade secret cases' is the scope of the associate's research, not a claim that Daubert is trade-secret-specific. Supports the use made of it. (Census location note: the entry is at cell G130 / md line 1337 and LEDES P130, not 'cell G1337'.)",
+        "evidence_excerpt": "In this case we are called upon to determine the standard for admitting expert scientific testimony in a federal trial. ... under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 004 (10/01/2024, M. DeVries), cell G5; LEDES line P5",
+      "authority_type": "case",
+      "authority": "Seventh Circuit case law on trade secret identification requirements (no case named)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Time entry describes researching Seventh Circuit case law on the scope of trade secret identification requirements under the DTSA",
+      "quotes": [],
+      "context": "Research case law in Seventh Circuit regarding scope of trade secret identification requirements under the Defend Trade Secrets Act; prepare research memorandum summarizing key holdings.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing narrative, not a citation: it names no case or pin cite and asserts no holding, so there is nothing that could be mis-cited. The referenced body of law exists. Seventh Circuit decisions address how specifically a trade secret must be identified: REXA, Inc. v. Chester (7th Cir. 2022), and Life Spine, Inc. v. Aegis Spine, Inc., 8 F.4th 531 (7th Cir. 2021), which applies the DTSA definition in 18 U.S.C. § 1839(3). Nuance: the REXA discussion I read applies the Illinois Trade Secrets Act, and IDX applied Wisconsin law; among decisions predating the October 2024 entry, Life Spine is the one I confirmed as invoking the DTSA itself. A 2026 Seventh Circuit decision (NEXT Payment Solutions v. CLEAResult) applies the same specificity cases directly to a DTSA claim but postdates the invoice.",
+        "evidence_excerpt": "REXA (7th Cir. 2022): \"Our court has emphasized that 'a plaintiff must do more than just identify a kind of technology and then invite the court to hunt through the details in search of items meeting the statutory definition.' Id. at 584 (citing Composite Marine, 962 F.2d at 1266).\" Life Spine (7th Cir. 2021): \"We focus on the precise information that the plaintiff seeks to protect and ask if it qualifies as a trade secret under the relevant statutory definition.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7454057/rexa-inc-v-mark-chester/",
+          "https://www.courtlistener.com/opinion/4906243/life-spine-inc-v-aegis-spine-inc/",
+          "https://www.courtlistener.com/opinion/10774585/next-payment-solutions-inc-v-clearesult-consulting-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 070 (10/16/2024, T. Kwan), cell G71",
+      "authority_type": "case",
+      "authority": "Seventh Circuit authorities on trade secret identification standards (no case named)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Time entry describes supplementing a research memorandum with additional Seventh Circuit authorities on trade secret identification standards",
+      "quotes": [],
+      "context": "Continue research on trade secret identification standards; supplement research memorandum with additional Seventh Circuit authorities.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing narrative, not a citation: it refers generically to 'additional Seventh Circuit authorities' on trade secret identification, names no case and asserts no proposition, so there is nothing that could be mis-cited. The referenced body of law exists. The Seventh Circuit has a line of decisions requiring specific identification of the claimed trade secret: REXA, Inc. v. Chester (7th Cir. 2022), relying on IDX Systems Corp. v. Epic Systems Corp., 285 F.3d 581, 584 (7th Cir. 2002), Composite Marine Propellers, Inc. v. Van Der Woude, 962 F.2d 1263, 1266 (7th Cir. 1992), and Life Spine, Inc. v. Aegis Spine, Inc., 8 F.4th 531, 540 (7th Cir. 2021).",
+        "evidence_excerpt": "REXA, Inc. v. Chester (7th Cir. July 28, 2022): \"There is also a specificity requirement inherent in a claim for misappropriation of trade secrets; a plaintiff must show 'concrete secrets' rather than 'broad areas of technology.' Life Spine, Inc. v. Aegis Spine, Inc., 8 F.4th 531, 540 (7th Cir. 2021) (quoting Composite Marine Propellers, Inc. v. Van Der Woude, 962 F.2d 1263, 1266 (7th Cir. 1992)).\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7454057/rexa-inc-v-mark-chester/",
+          "https://www.courtlistener.com/opinion/4906243/life-spine-inc-v-aegis-spine-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 059, cell G59; LEDES line P59",
+      "authority_type": "other",
+      "authority": "Northern District of Illinois trade secret identification standards (no authority named)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Time entry describes researching trade secret identification standards in the Northern District of Illinois",
+      "quotes": [],
+      "context": "Research trade secret identification standards in Northern District of Illinois; prepare research memorandum.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing narrative, not a citation: it names no authority or pin cite and asserts no legal proposition, so there is nothing that could be mis-cited. The referenced body of law exists. N.D. Ill. decisions address how specifically a plaintiff must identify its trade secrets, e.g. AutoMed Technologies, Inc. v. Eller, 160 F. Supp. 2d 915 (N.D. Ill. 2001) (reasonable particularity before discovery of the adversary's secrets) and Mission Measurement Corp. v. Blackbaud, Inc., 216 F. Supp. 3d 915 (N.D. Ill. 2016) (pleading-stage standard under the DTSA).",
+        "evidence_excerpt": "AutoMed (N.D. Ill. 2001): \"plaintiff will normally be required first to identify with reasonable particularity the matter which it claims constitutes a trade secret, before it will be allowed (given a proper showing of need) to compel discovery of its adversary's trade secrets.\" Mission Measurement (N.D. Ill. 2016): \"Courts in this district, however, have concluded trade secret 'allegations to be adequate in instances where the information and the efforts to maintain its confidentiality are described in general terms.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2578410/automed-technologies-inc-v-eller/",
+          "https://www.courtlistener.com/opinion/7322546/mission-measurement-corp-v-blackbaud-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 083 (10/21/2024, M. DeVries), cell G84",
+      "authority_type": "other",
+      "authority": "Northern District of Illinois standards for protective orders in expert discovery disputes (no authority named)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Time entry describes researching protective order standards in expert discovery disputes in N.D. Ill.",
+      "quotes": [],
+      "context": "Research standards for protective orders in expert discovery disputes in the Northern District of Illinois; prepare research memorandum for J. Pryce-Hall.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing narrative, not a citation: it names no case, rule or pin cite and asserts no legal proposition, so there is nothing that could be mis-cited. The only checkable point is whether the referenced body of law exists, and it does. N.D. Ill. decisions state the Rule 26(c) good-cause standard for protective orders, e.g. Global Material Technologies, Inc. v. Dazheng Metal Fibre Co., 133 F. Supp. 3d 1079 (N.D. Ill. 2015) and Culinary Foods, Inc. v. Raychem Corp., 151 F.R.D. 297 (N.D. Ill. 1993). Both concern protective orders whose terms cover disclosure to retained experts. Caveat: I confirmed the general N.D. Ill. protective-order standard, not a decision specifically resolving an expert-discovery dispute.",
+        "evidence_excerpt": "Global Material Technologies (N.D. Ill. 2015): \"the party seeking a protective order must show specific facts showing good cause to justify the protective order.\" Culinary Foods (N.D. Ill. 1993): \"the party seeking protection bears the burden of establishing: (1) that the information is in fact a trade secret or confidential commercial information and (2) that there is good cause to protect the information.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7315917/global-material-technologies-inc-v-dazheng-metal-fibre-co/",
+          "https://www.courtlistener.com/opinion/9043989/culinary-foods-inc-v-raychem-corp/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "bs-vih-invoice-october-2024.xlsx.md",
+      "location": "Professional Fees Detail, Entry 008 (10/02/2024, J. Pryor-Hall), cell G9 (second occurrence of DTSA reference in Matter Status/Work Summary and LEDES P5 aside)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (Matter Status narrative)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Matter Status narrative references Seventh Circuit case law on trade secret identification under the Defend Trade Secrets Act",
+      "quotes": [],
+      "context": "Circuit regarding scope of trade secret identification requirements under the Defend Trade Secrets Act.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "Same reference as ref 6, second occurrence. The census location label is off: cell G9 is the privilege-log entry (ref 7), and the 'Matter Status' sheet (md lines 1669-1683) contains no DTSA reference. The context fragment matches the LEDES Export Data line P5 (md line 1760): 'Research case law in Seventh Circuit regarding scope of trade secret identification requirements under the Defend Trade Secrets Act.' The Defend Trade Secrets Act of 2016 (Pub. L. 114-153; 18 U.S.C. § 1836(b)) exists, and Seventh Circuit trade-secret-identification case law exists (REXA v. Chester; IDX Systems v. Epic), albeit chiefly under state UTSA-based statutes. A bare statute name in a billing narrative with no holding attributed; nothing inaccurate.",
+        "evidence_excerpt": "This Act may be cited as the ``Defend Trade Secrets Act of 2016''. ... An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.courtlistener.com/opinion/7454057/rexa-inc-v-mark-chester/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "vih-outside-counsel-billing-guidelines-v4.2.docx.md",
+      "location": "Section 12.4, Governing Law",
+      "authority_type": "statute",
+      "authority": "Laws of the State of Illinois (governing law clause)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Guidelines are governed by and construed under Illinois law without regard to conflicts principles",
+      "quotes": [],
+      "context": "These Guidelines shall be governed by and construed in accordance with the laws of the State of Illinois, without regard to its conflicts of law principles.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "This is a boilerplate contractual choice-of-law clause (Guidelines § 12.4), not a citation to any specific authority. It names no statute, case, or rule and asserts no legal proposition beyond the parties' selection of Illinois law, so there is no pin cite or holding to check. Illinois is a real jurisdiction with a body of statutory law (e.g., the Illinois Compiled Statutes, read for ref 1). Nothing inaccurate; flagged only as a non-citation entry in the census.",
+        "evidence_excerpt": "These Guidelines shall be governed by and construed in accordance with the laws of the State of Illinois, without regard to its conflicts of law principles.",
+        "source_urls": [
+          "https://codes.findlaw.com/il/chapter-765-property/il-st-sect-765-1065-1/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

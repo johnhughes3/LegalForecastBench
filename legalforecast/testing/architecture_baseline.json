@@ -1842,6 +1842,23 @@
         "nonblank_line_count": 217,
         "top_level_definition_count": 9
       },
+      "scripts/harvey_citation_check.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "publish",
+        "largest_symbol_lines": 111,
+        "layer": "entrypoint",
+        "line_count": 339,
+        "nonblank_line_count": 303,
+        "top_level_definition_count": 11
+      },
       "scripts/probe_openai_compatible_provider.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",

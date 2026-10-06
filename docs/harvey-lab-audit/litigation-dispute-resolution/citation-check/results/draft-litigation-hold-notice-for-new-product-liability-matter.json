@@ -1,0 +1,1898 @@
+{
+  "task": "draft-litigation-hold-notice-for-new-product-liability-matter",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "class-action-complaint.docx.md",
+    "custodian-data-inventory.xlsx.md",
+    "it-migration-memo.eml.md",
+    "it-systems-summary.docx.md",
+    "outside-counsel-case-assessment.docx.md",
+    "petrosian-resignation-notice.eml.md",
+    "retention-policy-vnt-pol-007.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "Header RE line and Section I",
+      "authority_type": "other",
+      "authority": "Kessler et al. v. Vantage Medical Devices, Inc.",
+      "citation_as_written": "Case No. 1:25-cv-04387-RLM (S.D. Ind.)",
+      "pincite": "",
+      "cited_for": "The matter at hand (putative class action over the ProFlex KR-3000 knee implant)",
+      "quotes": [],
+      "context": "Preliminary Case Assessment and Preservation Recommendations — Kessler et al. v. Vantage Medical Devices, Inc., Case No. 1:25-cv-04387-RLM (S.D. Ind.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption and docket number."
+    },
+    {
+      "ref": 1,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "IV.B, Priya Chandrasekaran bullets (clawback)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Court-ordered clawback protection against privilege waiver is effective against all persons, whether or not parties to the litigation",
+      "quotes": [],
+      "context": "we recommend seeking an order pursuant to Federal Rule of Evidence 502(d), which provides that court-ordered protections against privilege waiver are effective against all persons, regardless of whether they were parties to the litigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 502(d) lets a federal court order that disclosure connected with the litigation is not a waiver, and that holds in any other federal or state proceeding. The explanatory note says such an order's terms are enforceable against non-parties. Rule 502(e) contrasts this with party agreements, which bind only the parties unless incorporated into a court order. The \"effective against all persons\" wording paraphrases the rule together with its note, so it is fair.",
+        "evidence_excerpt": "A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding. Note: \"its terms are enforceable against non-parties in any federal or state proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "IV.B, same bullet",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f)",
+      "citation_as_written": "FRCP Rule 26(f) conference",
+      "pincite": "",
+      "cited_for": "The 502(d) order should be raised at the initial scheduling conference or the Rule 26(f) conference",
+      "quotes": [],
+      "context": "This should be raised at the initial scheduling conference or the FRCP Rule 26(f) conference.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f)(3)(D) expressly requires the discovery plan to address privilege issues, including whether to ask the court to include the parties' agreement in an order under Federal Rule of Evidence 502. So raising a 502(d) order at the Rule 26(f) conference is directly supported.",
+        "evidence_excerpt": "\"(D) any issues about claims of privilege or of protection as trial-preparation materials ... and—if the parties agree on a procedure to assert these claims after production—whether to ask the court to include their agreement in an order under Federal Rule of Evidence 502\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "V.B, Veeva Vault Preservation Considerations (first paragraph)",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Veeva Vault is a complex, regulated system designed for compliance with electronic-records requirements (audit trail, e-signatures)",
+      "quotes": [],
+      "context": "Veeva Vault warrants specific attention because it is a complex, regulated system designed for compliance with 21 CFR Part 11 requirements.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Part 11 (Electronic Records; Electronic Signatures) sets the criteria for trustworthy electronic records and signatures. Its closed-system controls include system validation (§ 11.10(a)), audit trails (§ 11.10(e)), and electronic signature requirements (§§ 11.50, 11.70, Subpart C). The statement that a regulated system like Veeva Vault is designed to comply with Part 11 is accurate as a description of what Part 11 covers.",
+        "evidence_excerpt": "§ 11.1 Scope. (a) The regulations in this part set forth the criteria under which the agency considers electronic records, electronic signatures, and handwritten signatures executed to electronic records to be trustworthy, reliable, and generally equivalent to paper records",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VI.C, Field Sales Mobile Device Refresh",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Proportionality considerations support a tiered approach to mobile device preservation",
+      "quotes": [],
+      "context": "balances the Company's preservation obligations against proportionality considerations under Federal Rule of Civil Procedure 26(b)(1) and guidance from the Sedona Conference.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) is the source of the proportionality standard and its listed factors. Strictly, the rule limits the scope of discovery rather than preservation. Still, citing it as the source of the proportionality considerations that inform a tiered preservation approach, together with Sedona guidance, is a reasonable and common reading.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, considering ... whether the burden or expense of the proposed discovery outweighs its likely benefit.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VI.C, Field Sales Mobile Device Refresh",
+      "authority_type": "restatement_or_treatise",
+      "authority": "The Sedona Conference (guidance)",
+      "citation_as_written": "guidance from the Sedona Conference",
+      "pincite": "",
+      "cited_for": "Guidance supporting proportional preservation (no need to image every data source)",
+      "quotes": [],
+      "context": "proportionality considerations under Federal Rule of Civil Procedure 26(b)(1) and guidance from the Sedona Conference. Blanket forensic imaging of all 85 devices is neither required nor proportionate",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "The Sedona Conference, Commentary on Legal Holds, Second Edition: The Trigger & The Process, 20 Sedona Conf. J. 341 (2019) (Guidelines 6-7)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Sedona Conference Commentary on Legal Holds (2d ed.) says preservation is to be reasonable, good-faith and proportional. Guideline 7 makes accessibility, probative value, and the burden and cost of preservation factors in setting scope. That supports a tiered, proportional approach rather than forensic imaging of every device. The citation is generic and names no specific publication.",
+        "evidence_excerpt": "Guideline 7: Factors that may be considered in determining the scope of information that should be preserved include the nature of the issues raised in the matter, the accessibility of the information, the probative value of the information, and the relative burdens and costs of the preservation effort.",
+        "source_urls": [
+          "https://www.thesedonaconference.org/file-download/download/public/5134"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VII.A, Ashford Precision Components",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)",
+      "pincite": "",
+      "cited_for": "A party must produce documents in its possession, custody, or control; control includes legal right or practical ability to obtain documents from a third party (constructive control over contract manufacturer records)",
+      "quotes": [
+        "possession, custody, or control"
+      ],
+      "context": "Under Federal Rule of Civil Procedure 34(a), a party is obligated to produce documents within its \"possession, custody, or control.\" Courts have consistently interpreted \"control\" to extend beyond mere physical possession",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"possession, custody, or control\" found verbatim in Rule 34(a)(1).",
+        "explanation": "Rule 34(a) limits requests to items in the responding party's \"possession, custody, or control.\" The rule does not define \"control.\" The \"legal right or practical ability\" reading comes from case law, and the document presents it that way (\"Courts have consistently interpreted\"). That is a fair reading in support of the proposition.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VII.A, Ashford Precision Components (same paragraph)",
+      "authority_type": "case",
+      "authority": "Unnamed case law applying the 'legal right' and 'practical ability' control tests",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Courts applying both tests have found constructive control where a quality/supply agreement grants audit and access rights (no case actually cited)",
+      "quotes": [],
+      "context": "courts applying both the \"legal right\" and \"practical ability\" tests have found constructive control sufficient to trigger preservation and production obligations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "e.g., Ice Corp. v. Hamilton Sundstrand Corp., 245 F.R.D. 513, 521-22 (D. Kan. 2007)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The memo cites no case, which is the defect. The proposition matches real case law. Ice Corp. found Rule 34 control over design documents held by a third-party contractor (Artus): the defendants had contractual access and viewing rights and the 'practical ability' to obtain the documents, as well as a legal right through ownership. I found no case on the exact quality-agreement audit-rights facts, so the generalization is plausible but uncited.",
+        "evidence_excerpt": "\"Production of documents not in a party's possession is required if a party has the practical ability to obtain the documents from another, irrespective of legal entitlements to the documents.\" ... \"Ratier has the right to view such drawings at Artus's location.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8749184/ice-corp-v-hamilton-sundstrand-corp/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VII.A, Ashford Precision Components (same paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e)",
+      "citation_as_written": "Rule 37(e)",
+      "pincite": "",
+      "cited_for": "Failure to preserve documents within constructive control could result in spoliation sanctions including adverse inference or default judgment",
+      "quotes": [],
+      "context": "could result in spoliation sanctions under Rule 37(e), including adverse inference instructions or, in extreme cases, entry of default judgment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 37(e) authorizes sanctions when a party fails to take reasonable steps to preserve electronically stored information. Those sanctions include an adverse-inference presumption or instruction and default judgment, but only on a finding of intent to deprive. The document calls default judgment the extreme case, which is consistent with that. The rule covers only ESI, not all documents. That is a small nuance, and the records at issue are largely electronic.",
+        "evidence_excerpt": "only upon finding that the party acted with the intent to deprive another party of the information's use in the litigation may: (A) presume that the lost information was unfavorable to the party; (B) instruct the jury that it may or must presume the information was unfavorable to the party; or (C) dismiss the action or enter a default judgment.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VII.A, recommended actions bullet 4",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 45",
+      "citation_as_written": "FRCP Rule 45",
+      "pincite": "",
+      "cited_for": "Subpoena may be necessary to compel preservation and production from Ashford",
+      "quotes": [],
+      "context": "consider whether a subpoena under FRCP Rule 45 may be necessary to compel preservation and production.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 45 subpoenas can command a nonparty to produce documents and ESI in its possession, custody, or control. Rule 34(c) confirms that nonparties are compelled through Rule 45. Using a subpoena to compel production, and in practice preservation, from a nonparty supplier fits the rule.",
+        "evidence_excerpt": "command each person to whom it is directed to ... produce designated documents, electronically stored information, or tangible things in that person's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VII.B, FDA Records",
+      "authority_type": "statute",
+      "authority": "Freedom of Information Act",
+      "citation_as_written": "Freedom of Information Act requests",
+      "pincite": "",
+      "cited_for": "FDA-held records are generally obtainable via FOIA",
+      "quotes": [],
+      "context": "These records are generally obtainable through Freedom of Information Act requests if needed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "5 U.S.C. § 552",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FOIA requires each agency, including FDA, to make records promptly available to any person on a request that reasonably describes them. Exemptions apply, notably (b)(4) for trade secrets and confidential commercial information, which the document's 'generally obtainable' hedge covers.",
+        "evidence_excerpt": "5 U.S.C. 552(a)(3)(A): \"Each agency, upon any request for records which (i) reasonably describes such records and (ii) is made in accordance with published rules... shall make the records promptly available to any person.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/5/552"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VIII, Backup Tapes (first paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(2)(B)",
+      "pincite": "",
+      "cited_for": "ESI from sources not reasonably accessible because of undue burden or cost need not be preserved or produced absent a showing of good cause; backup tapes frequently so classified",
+      "quotes": [
+        "not reasonably accessible because of undue burden or cost"
+      ],
+      "context": "Under Federal Rule of Civil Procedure 26(b)(2)(B), ESI from sources that are \"not reasonably accessible because of undue burden or cost\" need not be preserved or produced absent a showing of good cause by the requesting party.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"not reasonably accessible because of undue burden or cost\" found verbatim in Rule 26(b)(2)(B).",
+        "explanation": "The quote and the good-cause mechanism are accurate, but the rule says only that a party 'need not provide discovery' from such sources. It says nothing about relieving a party of preservation. The 2006 Advisory Committee Note says the opposite: calling a source not reasonably accessible does not relieve the party of its duty to preserve, and whether unsearched sources must be preserved depends on the circumstances. So the claim that such ESI 'need not be preserved ... absent a showing of good cause' misstates the rule. The point that backup tapes are often treated as not reasonably accessible is the memo's own commentary; the rule text does not mention backup tapes.",
+        "evidence_excerpt": "Rule: \"A party need not provide discovery of electronically stored information from sources that the party identifies as not reasonably accessible because of undue burden or cost.\" 2006 Note: \"A party's identification of sources of electronically stored information as not reasonably accessible does not relieve the party of its common-law or statutory duties to preserve evidence.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The quoted phrase appears in the rule. Rule 26(b)(2)(B) reads: \"A party need not provide discovery of electronically stored information from sources that the party identifies as not reasonably accessible because of undue burden or cost.\" The rule addresses production only. The 2006 Advisory Committee Note says the opposite of the memo's preservation claim: \"A party's identification of sources of electronically stored information as not reasonably accessible does not relieve the party of its common-law or statutory duties to preserve evidence.\" So saying such ESI \"need not be preserved ... absent a showing of good cause\" misstates the rule. The good-cause mechanism and the quote are accurate, but the preservation proposition is wrong.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ]
+      }
+    },
+    {
+      "ref": 12,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "VIII, Backup Tapes (second paragraph)",
+      "authority_type": "case",
+      "authority": "Zubulake line of cases (S.D.N.Y.)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Where backup tapes are the only remaining source of relevant data, courts may order restoration at the producing party's expense",
+      "quotes": [],
+      "context": "the Zubulake line of cases from the Southern District of New York, and subsequent decisions in courts across the country, have established that where backup tapes are the only remaining source of relevant data",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Zubulake v. UBS Warburg LLC, 217 F.R.D. 309, 324 (S.D.N.Y. 2003) (Zubulake I); Zubulake v. UBS Warburg LLC, 216 F.R.D. 280 (S.D.N.Y. 2003) (Zubulake III)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Zubulake I ordered UBS to restore and produce emails from five sample backup tapes at its own expense, with cost-shifting to be considered afterward. Zubulake III then split restoration costs 75% to UBS and 25% to the plaintiff. So courts may order restoration largely at the producer's expense. The memo leaves out that Zubulake treats backup tapes as the one setting where cost-shifting is appropriate under a seven-factor test. 'Only remaining source' is a simplification: it corresponds to the test's 'availability from other sources' factor. No case or pin is given.",
+        "evidence_excerpt": "UBS is also ordered to produce, at its expense, responsive e-mails from any five backups tapes selected by Zubulake. ... the costs of restoring any backup tapes are allocated between UBS and Zubulake seventy-five percent and twenty-five percent, respectively.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8753319/zubulake-v-ubs-warburg-llc/",
+          "https://www.courtlistener.com/opinion/8753052/zubulake-v-ubs-warburg-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "IX.B, Acknowledgment and Compliance Tracking",
+      "authority_type": "case",
+      "authority": "Zubulake v. VCB Warburg (sic; real case is Zubulake v. UBS Warburg LLC, Zubulake V)",
+      "citation_as_written": "Zubulake v. VCB Warburg, 229 F.R.D. 422 (S.D.N.Y. 2004)",
+      "pincite": "",
+      "cited_for": "Issuing a hold notice is insufficient; party must take affirmative steps to monitor compliance (written acknowledgments, reminders, audits, hold coordinator)",
+      "quotes": [],
+      "context": "Under Zubulake v. VCB Warburg, 229 F.R.D. 422 (S.D.N.Y. 2004), and Pension Committee of the University of Montreal Pension Plan v. Banc of America Securities, LLC, 685 F. Supp. 2d 456 (S.D.N.Y. 2010), a party must go beyond issuing the notice",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Zubulake v. UBS Warburg LLC, 229 F.R.D. 422, 432-34 (S.D.N.Y. 2004) (Zubulake V)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The reporter cite, court, and year are correct, but the party name is wrong: the case is Zubulake v. UBS Warburg LLC, not \"VCB Warburg.\" On substance, the case supports the proposition. Zubulake V holds that it is not enough to notify employees of a litigation hold. Counsel must take affirmative steps to monitor compliance (at 432), including periodically reissuing the hold, communicating directly with key players, reminding them periodically, and instructing employees to produce copies of their files (at 433-34). The document lists written acknowledgments, audits, and a hold coordinator as examples. Those mechanisms are not named in the opinion, but they are a reasonable gloss on its 'reasonable steps' / monitor-compliance rule. The status is driven by the garbled party name, not by any problem with the substance.",
+        "evidence_excerpt": "In short, it is not sufficient to notify all employees of a litigation hold and expect that the party will then retain and produce all relevant information. Counsel must take affirmative steps to monitor compliance so that all sources of discoverable information are identified and searched.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8757285/zubulake-v-ubs-warburg-llc/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. CourtListener lists 229 F.R.D. 422 (S.D.N.Y. July 20, 2004) as \"Zubulake v. UBS Warburg LLC\" (cluster 8757285, opinion 8740575), not \"VCB Warburg.\" The reporter, court, and year are correct and the substance is supported. Under the heading \"A. Counsel's Duty to Monitor Compliance,\" the opinion says: \"it is not sufficient to notify all employees of a litigation hold and expect that the party will then retain and produce all relevant information. Counsel must take affirmative steps to monitor compliance.\" The only defect is the garbled party name. Written acknowledgments, audits, and a hold coordinator are the memo's elaboration of that rule, not mechanisms the opinion names.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8757285/zubulake-v-ubs-warburg-llc/"
+        ]
+      }
+    },
+    {
+      "ref": 14,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "IX.B, Acknowledgment and Compliance Tracking",
+      "authority_type": "case",
+      "authority": "Pension Committee of the University of Montreal Pension Plan v. Banc of America Securities, LLC",
+      "citation_as_written": "685 F. Supp. 2d 456 (S.D.N.Y. 2010)",
+      "pincite": "",
+      "cited_for": "Party must go beyond issuing a hold notice and monitor compliance",
+      "quotes": [],
+      "context": "Pension Committee of the University of Montreal Pension Plan v. Banc of America Securities, LLC, 685 F. Supp. 2d 456 (S.D.N.Y. 2010), a party must go beyond issuing the notice and take affirmative steps to monitor compliance.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is correct: 685 F. Supp. 2d 456 (S.D.N.Y. Jan. 15, 2010) (Scheindlin, J.). The opinion treats preservation obligations as extending beyond a hold. It faults plaintiffs who did not sufficiently supervise or monitor their employees' collection, holds that an email direction to search was insufficient to constitute a written hold, and calls a custodian's unsupervised search deficient. This supports the paraphrase that a party must go beyond issuing a notice and monitor compliance. Note that Chin v. Port Authority (2d Cir. 2012) later rejected its per se gross-negligence rule for failing to issue a written hold, and it was abrogated in part by the 2015 amendment to FRCP 37(e); this does not affect the proposition.",
+        "evidence_excerpt": "\"Almost all plaintiffs' pre-2005 conduct, apart from the failure to issue written litigation holds, is best characterized as either grossly negligent or negligent because they failed to execute a comprehensive search for documents and/or failed to sufficiently supervise or monitor their employees' document collection.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1881971/pension-committee-of-the-university-of-montreal-pension-plan-v-banc-of/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "IX.C, Privilege Protocol for Collection",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "",
+      "cited_for": "Court-ordered protection against privilege waiver from inadvertent disclosure; raise at scheduling conference or Rule 26(f) meet-and-confer",
+      "quotes": [],
+      "context": "We recommend early negotiation of an order under Federal Rule of Evidence 502(d), which provides court-ordered protection against privilege waiver resulting from inadvertent disclosure. This request should be raised at the initial scheduling conference or the Rule 26(f) meet-and-confer",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(d) authorizes a federal court to order that privilege/work-product protection is not waived by disclosure connected with the litigation, with effect in other federal and state proceedings. FRCP 26(f)(3)(D) expressly directs the discovery plan to address whether to ask the court to include the parties' agreement in an FRE 502 order, so raising it at the 26(f) conference is apt. The description is slightly narrow: a 502(d) order is not limited to inadvertent disclosures. That does not undercut the proposition.",
+        "evidence_excerpt": "\"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.\"; FRCP 26(f)(3)(D): \"whether to ask the court to include their agreement in an order under Federal Rule of Evidence 502\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "outside-counsel-case-assessment.docx.md",
+      "location": "XII, Conclusion",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f)",
+      "citation_as_written": "FRCP Rule 26(f) meet-and-confer",
+      "pincite": "",
+      "cited_for": "Anticipated Rule 26(f) conference with plaintiffs' counsel within about 90 days",
+      "quotes": [],
+      "context": "We will also prepare for the anticipated FRCP Rule 26(f) meet-and-confer with plaintiffs' counsel",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) does require a parties' conference, at least 21 days before the Rule 16(b) scheduling conference or scheduling order. Rule 16(b)(2) generally requires the scheduling order within the earlier of 90 days after service or 60 days after appearance. The estimate of 'approximately 90 days' is a scheduling projection consistent with that framework.",
+        "evidence_excerpt": "Rule 26(f)(1): \"the parties must confer as soon as practicable—and in any event at least 21 days before a scheduling conference is to be held or a scheduling order is due under Rule 16(b).\" Rule 16(b)(2): \"within the earlier of 90 days after any defendant has been served with the complaint or 60 days after any defendant has appeared.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "it-migration-memo.eml.md",
+      "location": "Opening paragraph",
+      "authority_type": "other",
+      "authority": "Kessler et al. v. Vantage Medical Devices, Inc.",
+      "citation_as_written": "Case No. 1:25-cv-04387-RLM, in the Southern District of Indiana",
+      "pincite": "",
+      "cited_for": "The class action complaint served May 28 on the company (the matter at hand)",
+      "quotes": [],
+      "context": "the company was served on May 28 with a class action complaint — Kessler et al. v. Vantage Medical Devices, Inc., Case No. 1:25-cv-04387-RLM, in the Southern District of Indiana",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption and docket number."
+    },
+    {
+      "ref": 18,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Custodians sheet, CUST-004 (Braddock) S5",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Veeva Submissions data must be exported with full audit trail and electronic signatures",
+      "quotes": [],
+      "context": "must be exported with full audit trail and electronic signatures per 21 CFR Part 11.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Part 11 does not itself set litigation-export rules. It does require secure, time-stamped audit trails that are retained as long as the record (§ 11.10(e)), the ability to generate accurate and complete copies of records (§ 11.10(b)), and signature manifestations linked to their records (§§ 11.50, 11.70). Read reasonably, it supports treating audit trails and e-signatures as part of the record that must be kept intact on export. The citation is a loose but fair reference.",
+        "evidence_excerpt": "(b) The ability to generate accurate and complete copies of records in both human readable and electronic form... (e) Use of secure, computer-generated, time-stamped audit trails... Such audit trail documentation shall be retained for a period at least as long as that required for the subject electronic records",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=11"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Custodians sheet, CUST-006 (Suresh) R7",
+      "authority_type": "statute",
+      "authority": "Sunshine Act (Physician Payments Sunshine Act)",
+      "citation_as_written": "Sunshine Act",
+      "pincite": "",
+      "cited_for": "KOL consultant payment information subject to disclosure",
+      "quotes": [],
+      "context": "KOL engagement records may contain consultant payment information subject to Sunshine Act disclosure",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7h (Physician Payments Sunshine Act, ACA § 6002)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Sunshine Act requires applicable manufacturers to report payments and other transfers of value to covered recipients. 'Consulting fees' is an expressly listed nature-of-payment category, so consulting payments to KOL physicians are subject to Sunshine Act reporting and public disclosure.",
+        "evidence_excerpt": "\"any applicable manufacturer that provides a payment or other transfer of value to a covered recipient ... shall submit to the Secretary ... the following information\"; (a)(1)(A)(vi) lists \"Consulting fees.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/42/1320a-7h"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Custodians sheet, CUST-009 (Chandrasekaran) S10",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d) order",
+      "pincite": "",
+      "cited_for": "Negotiate clawback agreement/order with plaintiffs' counsel early",
+      "quotes": [],
+      "context": "Negotiate clawback agreement (FRE 502(d) order) with plaintiffs' counsel early in litigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(d) allows a court-ordered non-waiver (clawback) order. Under 502(e), a party agreement binds only the parties unless it is incorporated into a court order, so pairing a negotiated clawback agreement with a 502(d) order fits the rule. Recommending that this be negotiated early is ordinary practice and consistent with FRCP 26(f)(3)(D).",
+        "evidence_excerpt": "502(e): \"An agreement on the effect of disclosure in a federal proceeding is binding only on the parties to the agreement, unless it is incorporated into a court order.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Custodians sheet, CUST-009 T10",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d) stipulated order",
+      "pincite": "",
+      "cited_for": "Recommend early stipulated 502(d) order",
+      "quotes": [],
+      "context": "Recommend early FRE 502(d) stipulated order.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "A stipulated FRE 502(d) order is a recognized mechanism: the court may enter a non-waiver order, and 502(e) contemplates incorporating the parties' agreement into a court order. Recommending one early is consistent with the rule and with FRCP 26(f)(3)(D).",
+        "evidence_excerpt": "\"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Custodians sheet, CUST-009 T10",
+      "authority_type": "other",
+      "authority": "Crime-fraud exception (doctrine, no cite)",
+      "citation_as_written": "crime-fraud exception",
+      "pincite": "",
+      "cited_for": "Prior legal assessments, though likely work product, could be subject to crime-fraud exception arguments if plaintiffs allege knowing concealment",
+      "quotes": [],
+      "context": "likely protected work product but could be subject to crime-fraud exception arguments if plaintiffs allege knowing concealment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Federal courts hold that the crime-fraud exception can defeat work-product protection as well as attorney-client privilege. The Eleventh Circuit so held in Drummond Co. v. Conrad & Scherer, LLP, 885 F.3d 1324 (11th Cir. 2018). The Fourth Circuit, in In re Grand Jury 2021 Subpoenas, 87 F.4th 229 (4th Cir. 2023), applied the exception to opinion work product but required more than prima facie evidence. The note is suitably hedged ('could be subject to ... arguments'). One point it leaves out: the exception reaches only materials prepared in furtherance of a crime or fraud, so after-the-fact legal assessments are not automatically exposed.",
+        "evidence_excerpt": "Drummond: \"we conclude that the crime-fraud exception may defeat work product protection in this circumstance\"; 4th Cir.: \"because opinion work product is more strictly protected, 'more than prima facie evidence' is required to overcome the privilege\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4480471/drummond-company-inc-v-conrad-scherer-llp/",
+          "https://www.courtlistener.com/opinion/9444364/in-re-grand-jury-2021-subpoenas/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-002 K3",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 820",
+      "citation_as_written": "21 CFR Part 820",
+      "pincite": "",
+      "cited_for": "ERP data retained per regulatory requirements, minimum life of device + 2 years",
+      "quotes": [],
+      "context": "ERP data retained per regulatory requirements (21 CFR Part 820) — minimum life of device + 2 years.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. § 820.180(b) (Quality System Regulation version in effect in 2025)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Part 820 does set a record-retention period, so the citation is right in substance. The paraphrase is loose. Section 820.180(b) requires retention for the design and expected life of the device, but never less than 2 years from release for commercial distribution. It does not say 'life of device + 2 years.' The 2-year figure is a minimum, not an add-on. Also, the Quality Management System Regulation, effective Feb. 2, 2026, replaced 820.180 with 820.35 and ISO 13485 clause 4.2.5. The scenario is set in 2025, so the old version applies.",
+        "evidence_excerpt": "(b) Record retention period. All records required by this part shall be retained for a period of time equivalent to the design and expected life of the device, but in no case less than 2 years from the date of release for commercial distribution by the manufacturer.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.180",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=820&section=820.35"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-003 K4",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 820",
+      "citation_as_written": "21 CFR Part 820",
+      "pincite": "",
+      "cited_for": "Veeva controlled documents retained per Part 820",
+      "quotes": [],
+      "context": "Controlled documents retained per 21 CFR Part 820 and Veeva lifecycle configuration.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Part 820 (Quality System Regulation, in effect in 2025) requires that all records required by the part be retained for at least the expected life of the device. Citing Part 820 as the source of the controlled-document retention obligation is a reasonable general reference.",
+        "evidence_excerpt": "All records required by this part shall be retained for a period of time equivalent to the design and expected life of the device, but in no case less than 2 years from the date of release for commercial distribution by the manufacturer.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.180"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-003 P4",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Veeva audit trails and electronic signatures per Part 11",
+      "quotes": [],
+      "context": "(who viewed/edited/approved, timestamps, electronic signatures per 21 CFR Part 11)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Part 11 requires time-stamped audit trails that record operator actions creating, modifying, or deleting records (§ 11.10(e)). It also governs electronic signatures, including signer name, date/time, and meaning (§ 11.50), and Subpart C. The parenthetical description of audit trails and e-signatures 'per 21 CFR Part 11' is accurate.",
+        "evidence_excerpt": "(e) Use of secure, computer-generated, time-stamped audit trails to independently record the date and time of operator entries and actions that create, modify, or delete electronic records.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-003 T4",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Veeva Vault is a validated, Part 11 compliant system; preservation must keep audit trail integrity",
+      "quotes": [],
+      "context": "Veeva Vault is a validated, 21 CFR Part 11 compliant system.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Part 11 requires system validation (§ 11.10(a)) and audit trails that do not obscure earlier entries and are retained with the records (§ 11.10(e)). Calling the system 'validated, Part 11 compliant' and saying audit-trail integrity must be preserved is consistent with the regulation.",
+        "evidence_excerpt": "(a) Validation of systems to ensure accuracy, reliability, consistent intended performance, and the ability to discern invalid or altered records.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-009 K10",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 820",
+      "citation_as_written": "21 CFR Part 820",
+      "pincite": "",
+      "cited_for": "Paper records retained for life of device + 2 years",
+      "quotes": [],
+      "context": "Paper records retained per 21 CFR Part 820 — minimum life of device + 2 years.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. § 820.180(b) (Quality System Regulation version in effect in 2025)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same defect as ref 23. Part 820 does govern retention of paper quality records. But section 820.180(b) sets the period as the design and expected life of the device, with a 2-year floor from release. It is not 'life of device + 2 years.'",
+        "evidence_excerpt": "retained for a period of time equivalent to the design and expected life of the device, but in no case less than 2 years from the date of release for commercial distribution",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.180"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-010 M11",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(2)(B)",
+      "citation_as_written": "FRCP Rule 26(b)(2)(B)",
+      "pincite": "",
+      "cited_for": "Backup tapes generally not reasonably accessible but must be preserved",
+      "quotes": [
+        "reasonably accessible"
+      ],
+      "context": "FRCP Rule 26(b)(2)(B) — backup tapes are generally not 'reasonably accessible' but must be preserved.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"reasonably accessible\" found verbatim in Rule 26(b)(2)(B) (\"not reasonably accessible because of undue burden or cost\").",
+        "explanation": "The overall point is consistent with the Rule 26(b)(2)(B) framework and its 2006 Committee Note: inaccessible sources may be exempt from discovery, but the preservation duty remains. However, the rule text does not mention backup tapes. And the Note treats preservation of inaccessible sources as dependent on the circumstances, not as an automatic 'must be preserved' under the rule. That makes the attribution somewhat loose.",
+        "evidence_excerpt": "2006 Note: \"does not relieve the party of its common-law or statutory duties to preserve evidence. Whether a responding party is required to preserve unsearched sources ... depends on the circumstances of each case.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-010 T11",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(2)(B)",
+      "citation_as_written": "FRCP Rule 26(b)(2)(B)",
+      "pincite": "",
+      "cited_for": "Backup tapes not reasonably accessible absent showing of good cause",
+      "quotes": [],
+      "context": "FRCP Rule 26(b)(2)(B) — not reasonably accessible absent showing of good cause.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under Rule 26(b)(2)(B), discovery from sources that are not reasonably accessible is not required unless the requesting party shows good cause. The shorthand 'not reasonably accessible absent showing of good cause' fairly summarizes that rule. Treating backup tapes as such a source is an application of the rule, not something its text says.",
+        "evidence_excerpt": "\"If that showing is made, the court may nonetheless order discovery from such sources if the requesting party shows good cause, considering the limitations of Rule 26(b)(2)(C).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-011 N12",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)",
+      "citation_as_written": "FRCP Rule 34(a) subpoena to non-party",
+      "pincite": "",
+      "cited_for": "If Ashford does not cooperate, consider Rule 34(a) subpoena to non-party or motion to compel (Rule 34 does not govern non-party subpoenas; Rule 45 does)",
+      "quotes": [],
+      "context": "consider FRCP Rule 34(a) subpoena to non-party or motion to compel.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 45 (via Fed. R. Civ. P. 34(c))",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 34(a) applies only to requests served on another party. It provides no subpoena to a non-party. Rule 34(c) says a nonparty can be compelled to produce documents only as provided in Rule 45. A \"Rule 34(a) subpoena to non-party\" therefore cites the wrong rule. A motion to compel against the party itself, on a control theory, would be a proper Rule 34/37 tool.",
+        "evidence_excerpt": "Rule 34(c): \"As provided in Rule 45, a nonparty may be compelled to produce documents and tangible things or to permit an inspection.\" 1970 note: \"Rule 34 as revised continues to apply only to parties\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Rule 34(a) begins: \"A party may serve on any other party a request within the scope of Rule 26(b)\". It reaches only parties. Rule 34(c) says: \"As provided in Rule 45, a nonparty may be compelled to produce documents and tangible things or to permit an inspection.\" Rule 34(a) does not authorize a \"subpoena to non-party\"; Rule 45 does. Elsewhere the same inventory cites Rule 34(a) correctly for the 'possession, custody, or control' / constructive-control point, but in this entry it is cited for a non-party subpoena, which it does not provide.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ]
+      }
+    },
+    {
+      "ref": 31,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-011 T12",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)",
+      "citation_as_written": "FRCP Rule 34(a)",
+      "pincite": "",
+      "cited_for": "Discovery of documents in party's possession, custody, or control; constructive control over Ashford records",
+      "quotes": [
+        "possession, custody, or control"
+      ],
+      "context": "FRCP Rule 34(a) permits discovery of documents in a party's 'possession, custody, or control' — constructive control argument applies here.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"possession, custody, or control\" found verbatim in Rule 34(a)(1).",
+        "explanation": "Rule 34(a) allows discovery of items in the responding party's possession, custody, or control. The document's constructive-control argument is a reasonable reading of the \"control\" language.",
+        "evidence_excerpt": "inspect, copy, test, or sample the following items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-001 F2",
+      "authority_type": "case",
+      "authority": "Zubulake V and Pension Committee (short forms)",
+      "citation_as_written": "Zubulake V and Pension Committee",
+      "pincite": "",
+      "cited_for": "Adverse inference instructions for unmet duty to preserve",
+      "quotes": [],
+      "context": "adverse inference instructions under Zubulake V and Pension Committee standards",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Zubulake v. UBS Warburg LLC, 229 F.R.D. 422 (S.D.N.Y. 2004); Pension Comm. of Univ. of Montreal Pension Plan v. Banc of Am. Sec., LLC, 685 F. Supp. 2d 456 (S.D.N.Y. 2010)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Zubulake V gave an adverse inference instruction for emails deleted after the duty to preserve attached. Pension Committee held that failing to issue a written hold was gross negligence and imposed a permissive adverse-inference jury charge. Both support adverse inference as the risk of an unmet preservation duty. Note that Rule 37(e)(2), as amended in 2015, now requires intent to deprive before an adverse inference for lost ESI, so Pension Committee's negligence-based approach is partly superseded for ESI.",
+        "evidence_excerpt": "Zubulake V: \"the jury empanelled to hear this case will be given an adverse inference instruction with respect to e-mails deleted after August 2001\"; Pension Committee: \"the appropriate sanction here is some form of an adverse inference instruction\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8757285/zubulake-v-ubs-warburg-llc/",
+          "https://www.courtlistener.com/opinion/1881971/pension-committee-of-the-university-of-montreal-pension-plan-v-banc-of/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-005 R6",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(2)(B)",
+      "citation_as_written": "FRCP Rule 26(b)(2)(B)",
+      "pincite": "",
+      "cited_for": "Tapes may not be reasonably accessible but must be preserved",
+      "quotes": [
+        "reasonably accessible"
+      ],
+      "context": "Tapes may not be 'reasonably accessible' under FRCP Rule 26(b)(2)(B) but must be preserved",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"reasonably accessible\" found verbatim in Rule 26(b)(2)(B).",
+        "explanation": "Saying the tapes 'may' not be reasonably accessible is accurate under the rule. The preservation point matches the 2006 Committee Note, which says inaccessibility does not relieve preservation duties. The minor defect is that the rule itself imposes no preservation duty: the Note leaves preservation of inaccessible sources to the circumstances of each case, so 'must be preserved' is not a direct holding of Rule 26(b)(2)(B).",
+        "evidence_excerpt": "\"A party's identification of sources of electronically stored information as not reasonably accessible does not relieve the party of its common-law or statutory duties to preserve evidence.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-008 N9",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Veeva admin role transfer may require validation",
+      "quotes": [],
+      "context": "may require validation per 21 CFR Part 11 requirements",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The statement is hedged ('may require validation'). Part 11 requires system validation (§ 11.10(a)), limiting system access to authorized individuals (§ 11.10(d)), and authority checks (§ 11.10(g)). An administrative role change in a validated system can plausibly trigger these controls, so the citation reasonably supports the hedged proposition.",
+        "evidence_excerpt": "(a) Validation of systems to ensure accuracy, reliability, consistent intended performance... (d) Limiting system access to authorized individuals.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=11"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-009 N10 and R10",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Workflow suspension in validated system requires change control documentation",
+      "quotes": [],
+      "context": "Workflow suspension must be documented per change control procedures (21 CFR Part 11 validated system). / Veeva Vault is a 21 CFR Part 11 validated system.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 11.10(k)(2) requires revision and change control procedures that keep an audit trail of modifications to systems documentation. § 11.10(a) requires validation. Requiring change-control documentation for a workflow change in a Part 11 validated system is supported.",
+        "evidence_excerpt": "(k) Use of appropriate controls over systems documentation including: ... (2) Revision and change control procedures to maintain an audit trail that documents time-sequenced development and modification of systems documentation.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-013 F14",
+      "authority_type": "case",
+      "authority": "Zubulake V (short form)",
+      "citation_as_written": "Zubulake V",
+      "pincite": "",
+      "cited_for": "Litigation hold must be communicated and compliance verified",
+      "quotes": [],
+      "context": "Under Zubulake V, litigation hold must be communicated and compliance verified.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Zubulake v. UBS Warburg LLC, 229 F.R.D. 422, 432-34 (S.D.N.Y. 2004)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Zubulake V holds that counsel must issue a litigation hold, communicate it to the key players, and take affirmative steps to monitor compliance. It says issuing the notice alone is not enough.",
+        "evidence_excerpt": "it is not sufficient to notify all employees of a litigation hold and expect that the party will then retain and produce all relevant information. Counsel must take affirmative steps to monitor compliance",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8757285/zubulake-v-ubs-warburg-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-013 R14",
+      "authority_type": "case",
+      "authority": "Zubulake V and Pension Committee (short forms)",
+      "citation_as_written": "Zubulake V, Pension Committee",
+      "pincite": "",
+      "cited_for": "Periodic compliance reminders at 60-day intervals as best practice",
+      "quotes": [],
+      "context": "Schedule periodic compliance reminders at 60-day intervals per best practices (Zubulake V, Pension Committee).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Zubulake v. UBS Warburg LLC, 229 F.R.D. 422, 433-34 (S.D.N.Y. 2004)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Zubulake V says the hold should be periodically re-issued and key players periodically reminded, which supports periodic reminders. Neither case sets a 60-day interval; that figure is a practice choice, not law. I found no discussion of reminders in Pension Committee ('remind' does not appear). Its relevance is to written holds and monitoring collection, so citing it for reminders is loose. Sedona Guideline 8(g) also endorses periodic reminders without a fixed interval.",
+        "evidence_excerpt": "The litigation hold should be periodically re-issued so that new employees are aware of it, and so that it is fresh in the minds of all employees. ... the key players should be periodically reminded that the preservation duty is still in place.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8757285/zubulake-v-ubs-warburg-llc/",
+          "https://www.courtlistener.com/opinion/1881971/pension-committee-of-the-university-of-montreal-pension-plan-v-banc-of/",
+          "https://www.thesedonaconference.org/file-download/download/public/5134"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Urgency Matrix sheet, ACT-014 R15",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 45",
+      "citation_as_written": "FRCP Rule 45",
+      "pincite": "",
+      "cited_for": "Demand letter should reserve right to seek subpoena if Ashford does not cooperate",
+      "quotes": [],
+      "context": "reserve right to seek subpoena under FRCP Rule 45 if cooperation not forthcoming",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes.",
+        "explanation": "Rule 45 is the correct way to subpoena a nonparty such as the supplier for documents. Reserving the right to seek a subpoena is consistent with the rule.",
+        "evidence_excerpt": "produce designated documents, electronically stored information, or tangible things in that person's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "task.json.md",
+      "location": "Rubric C-003 / C-004",
+      "authority_type": "other",
+      "authority": "Kessler et al. v. Vantage Medical Devices, Inc.",
+      "citation_as_written": "Case No. 1:25-cv-04387-RLM",
+      "pincite": "",
+      "cited_for": "Hold notice must identify the matter and case number",
+      "quotes": [],
+      "context": "PASS if the litigation hold notice identifies the matter as Kessler et al. v. Vantage Medical Devices, Inc. ... identifies Case No. 1:25-cv-04387-RLM.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption and docket number."
+    },
+    {
+      "ref": 40,
+      "document": "task.json.md",
+      "location": "Rubric C-029",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)",
+      "citation_as_written": "FRCP Rule 34(a)",
+      "pincite": "",
+      "cited_for": "Constructive control over Ashford's records under 'possession, custody, or control' standard",
+      "quotes": [
+        "possession, custody, or control"
+      ],
+      "context": "under FRCP Rule 34(a)'s 'possession, custody, or control' standard",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"possession, custody, or control\" found verbatim in Rule 34(a)(1).",
+        "explanation": "The rubric item points to Rule 34(a)'s \"possession, custody, or control\" standard as the basis for constructive control over a third party's records. The rule text contains that standard.",
+        "evidence_excerpt": "items in the responding party's possession, custody, or control",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "task.json.md",
+      "location": "Rubric C-036",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(2)(B)",
+      "citation_as_written": "FRCP Rule 26(b)(2)(B)",
+      "pincite": "",
+      "cited_for": "Backup tapes as 'not reasonably accessible' ESI sources",
+      "quotes": [
+        "not reasonably accessible"
+      ],
+      "context": "references FRCP Rule 26(b)(2)(B) or the concept of 'not reasonably accessible' ESI sources",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"not reasonably accessible\" found verbatim in Rule 26(b)(2)(B).",
+        "explanation": "The rubric correctly identifies Rule 26(b)(2)(B) as the source of the concept of ESI sources that are 'not reasonably accessible.'",
+        "evidence_excerpt": "\"A party need not provide discovery of electronically stored information from sources that the party identifies as not reasonably accessible because of undue burden or cost.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "custodian-data-inventory.xlsx.md",
+      "location": "Data Sources sheet, SRC-013 (personal devices) cell T13",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d)",
+      "pincite": "",
+      "cited_for": "Recommends a Rule 502(d) stipulated order for clawback protection if personal data is inadvertently collected from personal devices",
+      "quotes": [],
+      "context": "Outside counsel (Natalie R. Prichard) to advise on scope and protocol. Recommend FRE 502(d) stipulated order for clawback protection if personal data inadvertently collected.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(d) protects only attorney-client privilege and work-product protection against waiver by disclosure. It gives no clawback protection for 'personal data' as such, meaning non-privileged private information inadvertently collected from personal devices; that is normally handled by a protective order under FRCP 26(c). The recommendation is still reasonable to the extent personal devices may hold privileged material, so this is treated as a loose application rather than a mischaracterization.",
+        "evidence_excerpt": "502(d): \"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "retention-policy-vnt-pol-007.docx.md",
+      "location": "Section 1.1 Purpose",
+      "authority_type": "regulation",
+      "authority": "21 CFR Part 820 — Quality System Regulation",
+      "citation_as_written": "21 CFR Part 820",
+      "pincite": "",
+      "cited_for": "FDA regulatory requirements with which the retention policy is designed to ensure compliance",
+      "quotes": [],
+      "context": "ensure compliance with applicable federal and state laws, FDA regulatory requirements (including 21 CFR Part 820 — Quality System Regulation), tax and financial record-keeping obligations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 CFR Part 820 is FDA's device current-good-manufacturing-practice / quality-system regulation, so the retention policy's reference to it is sound. The policy is dated January 1, 2024. On that date Part 820 was still titled the 'Quality System Regulation': the FDA's amending rule was itself titled 'Medical Devices; Quality System Regulation Amendments' and took effect February 2, 2026. Today the Part is headed 'Quality Management System Regulation,' so any revision of the policy after 2026 should update the name. One related item outside this ref: the policy's Design History File row cites § 820.184, which under the pre-2026 regulation governed device history records, not design history files.",
+        "evidence_excerpt": "LII: \"21 CFR Part 820 - QUALITY MANAGEMENT SYSTEM REGULATION\"; FDA: rule \"Medical Devices; Quality System Regulation Amendments Final Rule\" ... effective February 2, 2026.",
+        "source_urls": [
+          "https://www.law.cornell.edu/cfr/text/21/part-820",
+          "https://www.fda.gov/medical-devices/postmarket-requirements-devices/quality-management-system-regulation-qmsr"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "retention-policy-vnt-pol-007.docx.md",
+      "location": "Section 3.1 table, Design History Files row, Notes column",
+      "authority_type": "regulation",
+      "authority": "21 CFR § 820.184",
+      "citation_as_written": "21 CFR § 820.184",
+      "pincite": "",
+      "cited_for": "Retention of Design History Files (life of product + 5 years)",
+      "quotes": [],
+      "context": "Design History Files (DHFs) | Life of product + 5 years after last unit distributed | Per 21 CFR § 820.184",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. § 820.30(j) (design history file); retention under 21 C.F.R. § 820.180(b) (pre-2026 Quality System Regulation)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 820.184 covers Device History Records (production records for each batch, lot or unit), not Design History Files. Design History Files are covered by 820.30(j). Section 820.184 sets no retention period, and nothing in Part 820 sets a period of 'life of product + 5 years after last unit distributed.' Section 820.180(b) sets expected life with a 2-year minimum. Section 820.184 was later removed when the Quality Management System Regulation took effect in 2026.",
+        "evidence_excerpt": "§ 820.184 Device history record. Each manufacturer shall maintain device history records (DHR's)... (j) Design history file. Each manufacturer shall establish and maintain a DHF for each type of device.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.184",
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.30"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The pre-2026 text of 21 C.F.R. § 820.184 is headed \"§ 820.184 Device history record.\" and begins \"Each manufacturer shall maintain device history records (DHR's).\" It does not address Design History Files, which § 820.30(j) covers, and it sets no retention period. The retention rule is § 820.180(b): \"retained for a period of time equivalent to the design and expected life of the device, but in no case less than 2 years from the date of release for commercial distribution by the manufacturer.\" Nothing in Part 820 requires \"life of product + 5 years.\" The citation pairs the wrong section with the wrong record type and a retention period the regulation does not contain. (A company policy could choose a longer period, but it attributes that period to § 820.184, which does not set it.)",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.184",
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-01/title-21.xml?part=820&section=820.180"
+        ]
+      }
+    },
+    {
+      "ref": 45,
+      "document": "retention-policy-vnt-pol-007.docx.md",
+      "location": "Section 4.3 Veeva Vault, Document Lifecycle",
+      "authority_type": "regulation",
+      "authority": "21 CFR Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Audit trail and electronic signatures of Veeva Vault lifecycle transitions comply with FDA electronic records rules",
+      "quotes": [],
+      "context": "Each state transition is recorded in the system audit trail with a timestamp, user identity, and electronic signature (where applicable, in compliance with 21 CFR Part 11).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Part 11 sets FDA's requirements for electronic records and electronic signatures. Section 11.10(e) requires secure, computer-generated, time-stamped audit trails. Citing Part 11 for audit-trailed, electronically signed lifecycle changes is accurate.",
+        "evidence_excerpt": "(e) Use of secure, computer-generated, time-stamped audit trails to independently record the date and time of operator entries and actions that create, modify, or delete electronic records.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=11&section=11.10",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=11&section=11.1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "retention-policy-vnt-pol-007.docx.md",
+      "location": "Section 6.2 Backup Tapes as Non-Archival Media, 'In the event of a litigation hold' paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure, Rule 26(b)(2)(B)",
+      "citation_as_written": "Rule 26(b)(2)(B) of the Federal Rules of Civil Procedure",
+      "pincite": "26(b)(2)(B)",
+      "cited_for": "Proportionality and burden of backup tape preservation relative to availability of data from more accessible sources (not reasonably accessible ESI)",
+      "quotes": [],
+      "context": "Any such determination should consider the proportionality and burden of backup tape preservation relative to the availability of the same data from other, more accessible sources, consistent with the principles set forth in Rule 26(b)(2)(B) of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(2)(B) covers ESI from sources that are not reasonably accessible because of undue burden or cost, and backup media are the classic example, so invoking its principles of burden and accessibility for backup tapes is reasonable. Two loose points. First, the rule governs what must be produced in discovery, not what must be preserved: the 2006 Committee Note says that designating a source as not reasonably accessible does not relieve a party of its duty to preserve, and that whether such sources must be preserved depends on the circumstances of each case. Second, proportionality is codified in Rule 26(b)(1) (and 26(b)(2)(C)), not in (b)(2)(B). The policy's hedged wording ('consistent with the principles') makes these minor.",
+        "evidence_excerpt": "\"A party need not provide discovery of electronically stored information from sources that the party identifies as not reasonably accessible because of undue burden or cost.\" Note: \"A party's identification of sources of electronically stored information as not reasonably accessible does not relieve the party of its common-law or statutory duties to preserve evidence. Whether a responding party is required to preserve unsearched sources ... depends on the circumstances of each case.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part III, para. 25",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(d) (Class Action Fairness Act of 2005)",
+      "citation_as_written": "28 U.S.C. § 1332(d)",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction over class actions: more than 100 members, over $5,000,000 in controversy, minimal diversity",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332(d), the Class Action Fairness Act of 2005 (\"CAFA\"). CAFA grants federal district courts original jurisdiction over class actions in which...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed (the complaint paraphrases).",
+        "explanation": "Under § 1332(d)(2), district courts have original jurisdiction over class actions where more than $5,000,000 is in controversy and any class member is a citizen of a State different from any defendant (minimal diversity). Under § 1332(d)(5)(B), CAFA does not apply where the proposed classes total fewer than 100 members. The complaint's summary is accurate apart from one small looseness: it says 'more than 100 members,' but the statutory threshold is 100 or more. That makes no difference with a class of about 47,000.",
+        "evidence_excerpt": "\"exceeds the sum or value of $5,000,000, exclusive of interest and costs, and is a class action in which—(A) any member of a class of plaintiffs is a citizen of a State different from any defendant\"; \"(B) the number of members of all proposed plaintiff classes in the aggregate is less than 100.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part III, para. 28",
+      "authority_type": "statute",
+      "authority": "CAFA minimal diversity (28 U.S.C. § 1332(d)), referenced by name",
+      "citation_as_written": "CAFA",
+      "pincite": "",
+      "cited_for": "Minimal diversity satisfied because one plaintiff is a citizen of a state different from the defendant",
+      "quotes": [],
+      "context": "Because at least one plaintiff is a citizen of a state different from the defendant, the minimal diversity requirement of CAFA is satisfied.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under § 1332(d)(2)(A), minimal diversity exists when any class member is a citizen of a State different from any defendant. On the pleaded facts, Kessler is an Ohio citizen and Vantage is a citizen of Delaware and Indiana, so the requirement is met.",
+        "evidence_excerpt": "\"(A) any member of a class of plaintiffs is a citizen of a State different from any defendant\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part III, para. 29",
+      "authority_type": "other",
+      "authority": "U.S. Const. amend. XIV, Due Process Clause",
+      "citation_as_written": "Fourteenth Amendment's Due Process Clause",
+      "pincite": "",
+      "cited_for": "Personal jurisdiction: Vantage is essentially 'at home' in Indiana",
+      "quotes": [
+        "at home"
+      ],
+      "context": "Vantage is essentially \"at home\" in Indiana for purposes of the Fourteenth Amendment's Due Process Clause.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"at home\" does not appear in the constitutional text. It is the Supreme Court's term of art for general jurisdiction under the Due Process Clause; found verbatim in Daimler AG v. Bauman, 571 U.S. 117 (2014), quoting Goodyear, 564 U.S. 915.",
+        "explanation": "Personal jurisdiction is governed by the Fourteenth Amendment's Due Process Clause. Under Daimler/Goodyear a corporation is subject to general jurisdiction where it is \"essentially at home\", and its principal place of business is a paradigm forum. The complaint alleges Vantage is headquartered in Indiana, so the proposition is a correct statement of the doctrine. The phrase comes from the case law, not the amendment's text, but the complaint does not attribute the words to the text.",
+        "evidence_excerpt": "so constant and pervasive \"as to render [it] essentially at home in the forum State.\" ... the place of incorporation and principal place of business are \"paradig[m] ... bases for general jurisdiction.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2649076/daimler-ag-v-bauman/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part III, para. 30",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1)",
+      "pincite": "(b)(1)",
+      "cited_for": "Venue proper where defendant resides in the district",
+      "quotes": [],
+      "context": "Venue is proper in this District pursuant to 28 U.S.C. § 1391(b)(1) because Defendant Vantage resides in this District",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1391(b)(1) does make venue proper in a district where any defendant resides, provided all defendants reside in that State. Vantage is the only defendant, so the statute supports the legal proposition. The application is a separate problem: the complaint is filed in the Southern District of Indiana but rests residency on the Fort Wayne headquarters, which is in Allen County and therefore in the Northern District (28 U.S.C. § 94). See ref 51.",
+        "evidence_excerpt": "\"a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/94"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part III, para. 30",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(c)",
+      "citation_as_written": "28 U.S.C. § 1391(c)",
+      "pincite": "(c)",
+      "cited_for": "Defendant resides in the District within the meaning of the residency provision",
+      "quotes": [],
+      "context": "Defendant Vantage resides in this District within the meaning of 28 U.S.C. § 1391(c)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1391(c)(2), (d)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1391(c)(2) says an entity defendant resides in any district where it is subject to personal jurisdiction, so it does support the residency proposition in general. But Indiana has more than one federal district, and for a corporation in a multi-district State § 1391(d) is the specific provision: the corporation resides in any district where its contacts would support personal jurisdiction if that district were a separate State. Citing only (c) is incomplete. The factual premise is also flawed. The complaint is captioned in the Southern District of Indiana, Indianapolis Division, yet says Vantage's Fort Wayne headquarters is 'located within this District.' Fort Wayne is the county seat of Allen County, which by statute (28 U.S.C. § 94) is in the Fort Wayne Division of the Northern District. Residency in the Southern District would therefore depend on Vantage's contacts there under § 1391(d).",
+        "evidence_excerpt": "§ 1391(d): \"in a State which has more than one judicial district ... such corporation shall be deemed to reside in any district in that State within which its contacts would be sufficient to subject it to personal jurisdiction if that district were a separate State\"; § 94: \"The Fort Wayne Division comprises the counties of Adams, Allen, ...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/94",
+          "https://www.in.gov/library/collections-and-services/genealogy/indiana-county-research-guides/allen-county/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part III, para. 30",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "(b)(2)",
+      "cited_for": "Venue proper where a substantial part of the events or omissions occurred",
+      "quotes": [],
+      "context": "pursuant to 28 U.S.C. § 1391(b)(2) because a substantial part of the events and omissions giving rise to the claims asserted herein occurred in this District",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1391(b)(2) makes venue proper in a district where a substantial part of the events or omissions giving rise to the claim occurred, so the statute supports the legal proposition. The complaint's application is a separate problem: the events it pleads (design, testing, and manufacture in Fort Wayne) took place in Allen County, which is in the Northern District of Indiana, while the suit is filed in the Southern District.",
+        "evidence_excerpt": "\"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391",
+          "https://www.law.cornell.edu/uscode/text/28/94"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part IV.B, para. 39",
+      "authority_type": "other",
+      "authority": "ASTM F3141 and ISO 14243 standards",
+      "citation_as_written": "ASTM F3141 and ISO 14243",
+      "pincite": "",
+      "cited_for": "Cyclical loading and wear bench testing performed in accordance with these standards",
+      "quotes": [],
+      "context": "bench testing including cyclical loading and wear testing in accordance with ASTM F3141 and ISO 14243 standards",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both standards exist and fit the reference to cyclical loading and wear bench testing of a knee implant. ASTM F3141 is the 'Standard Guide for Total Knee Replacement Loading Profiles,' which supplies loading profiles for knee-simulator testing. ISO 14243 is the multi-part standard 'Implants for surgery — Wear of total knee-joint prostheses,' covering wear-testing load and displacement parameters (Parts 1 and 3) and wear measurement (Part 2). The complaint cites neither a part number nor a year, which is ordinary for a pleading.",
+        "evidence_excerpt": "ISO 14243-2:2016 foreword: \"consists of the following parts, under the general title Implants for surgery — Wear of total knee-joint prostheses: — Part 1: Loading and displacement parameters for wear-testing machines with load control...\"; Endolab: ASTM F3141 \"Standard Guide for Total Knee Replacement Loading Profiles\"",
+        "source_urls": [
+          "https://cdn.standards.iteh.ai/samples/69851/73a5da651c2a4ddfb2270146a02e691c/ISO-14243-2-2016.pdf",
+          "https://endolab.org/knee-implants/astm-f3141/",
+          "https://www.astm.org/Standards/F3141.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part IV.D, para. 57",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 803 (Medical Device Reporting)",
+      "citation_as_written": "21 C.F.R. Part 803",
+      "pincite": "",
+      "cited_for": "Manufacturer required to submit MDRs to FDA for reportable adverse events and malfunctions",
+      "quotes": [],
+      "context": "Vantage was required under 21 C.F.R. Part 803 to submit Medical Device Reports (\"MDRs\") to the FDA for reportable adverse events",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Part 803 (Medical Device Reporting), at § 803.50(a), requires manufacturers to report within 30 days information reasonably suggesting that a device may have caused or contributed to a death or serious injury, or has malfunctioned in a way likely to cause or contribute to death or serious injury if the malfunction recurred. The complaint's description closely tracks this text.",
+        "evidence_excerpt": "§ 803.50 ... you must report to us ... no later than 30 calendar days after ... information ... that reasonably suggests that a device that you market: (1) May have caused or contributed to a death or serious injury or (2) Has malfunctioned and this device or a similar device that you market would be likely to cause or contribute to a death or serious injury, if the malfunction were to recur.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=803&section=803.50"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part IV.E, para. 67(a)",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. § 820.90",
+      "citation_as_written": "21 C.F.R. § 820.90",
+      "pincite": "",
+      "cited_for": "Cited as FDA Quality System Regulation requiring a CAPA investigation (section as cited; 820.90 is actually the nonconforming-product provision, CAPA is 820.100)",
+      "quotes": [],
+      "context": "Vantage did not initiate a Corrective and Preventive Action (\"CAPA\") investigation, as required by its quality management system procedures and by FDA's Quality System Regulation, 21 C.F.R. § 820.90",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. § 820.100 (2025) (Quality System Regulation, corrective and preventive action; superseded by the QMSR effective Feb. 2, 2026)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The pre-2026 Quality System Regulation section 21 C.F.R. § 820.90 is titled 'Nonconforming product.' It covers control, review, and disposition of nonconforming product. It does not set the CAPA requirement the complaint cites it for. CAPA procedures were in § 820.100, 'Corrective and preventive action,' which required procedures for investigating the causes of nonconformities. § 820.90(a) mentions only 'a determination of the need for an investigation' of a nonconformance, which is a partial overlap at most. Separately, current eCFR Part 820 is now the Quality Management System Regulation (89 FR 7523, Feb. 2, 2024, effective 2026), so the old section numbers apply only to historical conduct. That is fine here because the alleged conduct was in 2022, but the section number is wrong.",
+        "evidence_excerpt": "§ 820.90 Nonconforming product. (a) Control of nonconforming product. Each manufacturer shall establish and maintain procedures to control product that does not conform to specified requirements... / § 820.100 Corrective and preventive action. (a) Each manufacturer shall establish and maintain procedures for implementing corrective and preventive action.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-06-01/title-21.xml?part=820&section=820.90",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-06-01/title-21.xml?part=820&section=820.100",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=820"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. The pre-2026 21 C.F.R. § 820.90 is headed \"Nonconforming product.\" Paragraph (a) requires procedures to \"control product that does not conform to specified requirements.\" It mentions only \"a determination of the need for an investigation\" of a nonconformance and never refers to corrective and preventive action. The CAPA requirement is in § 820.100, \"Corrective and preventive action\": \"Each manufacturer shall establish and maintain procedures for implementing corrective and preventive action,\" including \"(2) Investigating the cause of nonconformities relating to product, processes, and the quality system.\" The correct provision exists and the section number is wrong, so WRONG_CITATION_REAL_CASE is reasonable. MISCHARACTERIZED would also be defensible.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-06-01/title-21.xml?part=820&section=820.90",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-06-01/title-21.xml?part=820&section=820.100"
+        ]
+      }
+    },
+    {
+      "ref": 56,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part IV.E, para. 67(d)",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 806 (Reports of Corrections and Removals)",
+      "citation_as_written": "21 C.F.R. Part 806",
+      "pincite": "",
+      "cited_for": "Vantage allegedly failed to file a report as required for corrections and removals",
+      "quotes": [],
+      "context": "did not file a report under 21 C.F.R. Part 806 as required for corrections and removals",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Part 806 governs medical device reports of corrections and removals. Section 806.10 requires manufacturers to submit a written report to FDA of any correction or removal started to reduce a risk to health, due within 10 working days. That fits the complaint's allegation that Vantage did not file a Part 806 report.",
+        "evidence_excerpt": "§ 806.10 Reports of corrections and removals. (a) Each device manufacturer or importer shall submit a written report to FDA of any correction or removal of a device initiated by such manufacturer or importer if the correction or removal was initiated: (1) To reduce a risk to health posed by the device",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=806&section=806.10"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part V, para. 86",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(a) and 23(b)(3)",
+      "citation_as_written": "Federal Rules of Civil Procedure 23(a) and 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Basis for bringing the action as a class action",
+      "quotes": [],
+      "context": "Plaintiffs bring this action as a class action pursuant to Federal Rules of Civil Procedure 23(a) and 23(b)(3)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 23(a) sets the prerequisites for a class action, and Rule 23(b)(3) supplies the predominance and superiority category. Together they are the proper basis for a damages class action in federal court.",
+        "evidence_excerpt": "the questions of law or fact common to class members predominate over any questions affecting only individual members, and that a class action is superior",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part V, para. 88",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 23(a)(1)",
+      "pincite": "",
+      "cited_for": "Numerosity",
+      "quotes": [],
+      "context": "Numerosity — Fed. R. Civ. P. 23(a)(1). The members of the proposed Class are so numerous that joinder of all members is impracticable.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint's numerosity language tracks the rule's text.",
+        "explanation": "Rule 23(a)(1) is the numerosity prerequisite.",
+        "evidence_excerpt": "the class is so numerous that joinder of all members is impracticable",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part V, para. 89",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 23(a)(2)",
+      "pincite": "",
+      "cited_for": "Commonality",
+      "quotes": [],
+      "context": "Commonality — Fed. R. Civ. P. 23(a)(2). There are questions of law and fact common to the Class that are capable of generating common answers.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint says 'questions of law and fact'; the rule says 'law or fact'. That is a paraphrase, not a defect.",
+        "explanation": "Rule 23(a)(2) is the commonality prerequisite. The phrase 'capable of generating common answers' is gloss from case law, not text from the rule, but it is not attributed as a quote.",
+        "evidence_excerpt": "there are questions of law or fact common to the class",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part V, para. 90",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(a)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 23(a)(3)",
+      "pincite": "",
+      "cited_for": "Typicality",
+      "quotes": [],
+      "context": "Typicality — Fed. R. Civ. P. 23(a)(3). The claims of the named Plaintiffs are typical of the claims of the Class.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 23(a)(3) is the typicality prerequisite.",
+        "evidence_excerpt": "the claims or defenses of the representative parties are typical of the claims or defenses of the class",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part V, para. 91",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(a)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 23(a)(4)",
+      "pincite": "",
+      "cited_for": "Adequacy of representation",
+      "quotes": [],
+      "context": "Adequacy — Fed. R. Civ. P. 23(a)(4). Plaintiffs will fairly and adequately protect the interests of the Class.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint's language tracks the rule's text.",
+        "explanation": "Rule 23(a)(4) is the adequacy prerequisite.",
+        "evidence_excerpt": "the representative parties will fairly and adequately protect the interests of the class",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "class-action-complaint.docx.md",
+      "location": "Part V, para. 92",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(b)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Predominance and superiority",
+      "quotes": [],
+      "context": "Predominance and Superiority — Fed. R. Civ. P. 23(b)(3). Common questions of law and fact predominate over any questions affecting only individual Class members.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint's predominance language closely paraphrases the rule.",
+        "explanation": "Rule 23(b)(3) requires predominance and superiority.",
+        "evidence_excerpt": "the questions of law or fact common to class members predominate over any questions affecting only individual members, and that a class action is superior to other available methods for fairly and efficiently adjudicating the controversy",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "class-action-complaint.docx.md",
+      "location": "Count III, para. 108",
+      "authority_type": "statute",
+      "authority": "Uniform Commercial Code (merchant; implied warranty of merchantability) and Indiana, Ohio, Florida law",
+      "citation_as_written": "Uniform Commercial Code and applicable state law, including the laws of Indiana, Ohio, Florida",
+      "pincite": "",
+      "cited_for": "Vantage was a merchant with respect to the KR-3000",
+      "quotes": [],
+      "context": "Vantage was a merchant with respect to the ProFlex KR-3000 Total Knee Replacement System within the meaning of the Uniform Commercial Code and applicable state law, including the laws of Indiana, Ohio, Florida",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.C.C. §§ 2-104(1), 2-314(1) (as adopted in Indiana, Ohio, Florida, etc.)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "UCC 2-104(1) defines a merchant as a person who deals in goods of the kind. UCC 2-314(1) implies the warranty of merchantability when the seller is a merchant for goods of that kind. Alleging that a device manufacturer and seller is a merchant 'within the meaning of the UCC' properly invokes these sections. The citation is general, with no section numbers.",
+        "evidence_excerpt": "\"Merchant\" means a person who deals in goods of the kind or otherwise by his occupation holds himself out as having knowledge or skill peculiar to the practices or goods involved in the transaction",
+        "source_urls": [
+          "https://www.law.cornell.edu/ucc/2/2-104",
+          "https://www.law.cornell.edu/ucc/2/2-314"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "class-action-complaint.docx.md",
+      "location": "Count IV, para. 115(b)",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Parts 801, 803, and 814",
+      "citation_as_written": "21 C.F.R. Parts 801, 803, and 814",
+      "pincite": "",
+      "cited_for": "Federal regulations requiring truthful and complete device labeling, marketing, and adverse event reporting, as a source of duty to disclose",
+      "quotes": [],
+      "context": "Federal regulations requiring truthful and complete device labeling, marketing, and adverse event reporting, including 21 C.F.R. Parts 801, 803, and 814",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The three parts are real and match the description. Part 801 is Labeling, Part 803 is Medical Device Reporting (adverse events), and Part 814 is Premarket Approval of Medical Devices, which is reasonably described as covering marketing. Together they fit the complaint's general description of federal labeling, marketing and adverse-event reporting requirements. Whether they create a state-law duty to disclose is a legal argument, not something the citation itself misstates.",
+        "evidence_excerpt": "PART 801—LABELING ... PART 803—MEDICAL DEVICE REPORTING ... PART 814—PREMARKET APPROVAL OF MEDICAL DEVICES",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=801",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=803",
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=814"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "class-action-complaint.docx.md",
+      "location": "Prayer for Relief, item A",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(b)(3)",
+      "citation_as_written": "Federal Rule of Civil Procedure 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Certification of the class action",
+      "quotes": [],
+      "context": "An order certifying this action as a class action pursuant to Federal Rule of Civil Procedure 23(b)(3)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 23(b)(3) is a proper category under which to certify a damages class. The request to certify under it is consistent with the rule.",
+        "evidence_excerpt": "A class action may be maintained if Rule 23(a) is satisfied and if: ... (3) the court finds that the questions of law or fact common to class members predominate",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "class-action-complaint.docx.md",
+      "location": "Rule 11 Certification",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 11(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 11(b)",
+      "pincite": "11(b)",
+      "cited_for": "Counsel's certification regarding proper purpose, legal and factual contentions",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 11(b), the undersigned counsel hereby certifies that, to the best of counsel's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint's paraphrase ('to the best of counsel's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances') tracks Rule 11(b)'s text verbatim.",
+        "explanation": "Rule 11(b) makes the certification described: no improper purpose (b)(1), legal contentions warranted (b)(2), and factual contentions supported (b)(3). The complaint is filed in federal court (S.D. Ind.), so the rule applies.",
+        "evidence_excerpt": "an attorney or unrepresented party certifies that to the best of the person's knowledge, information, and belief, formed after an inquiry reasonable under the circumstances",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_11"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "it-systems-summary.docx.md",
+      "location": "Section 4.2 Document Lifecycle and Audit Trails",
+      "authority_type": "regulation",
+      "authority": "21 CFR Part 11",
+      "citation_as_written": "21 CFR Part 11",
+      "pincite": "",
+      "cited_for": "Veeva Vault is a validated system with full electronic signature capability",
+      "quotes": [],
+      "context": "Veeva Vault is a 21 CFR Part 11–compliant validated system with full electronic signature capability.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Part 11 covers electronic records and signatures and requires system validation (section 11.10(a)). The citation correctly names the governing standard. Whether Veeva Vault actually complies is a factual claim about the product, not about the regulation.",
+        "evidence_excerpt": "(a) Validation of systems to ensure accuracy, reliability, consistent intended performance, and the ability to discern invalid or altered records.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2025-05-22/title-21.xml?part=11&section=11.10"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

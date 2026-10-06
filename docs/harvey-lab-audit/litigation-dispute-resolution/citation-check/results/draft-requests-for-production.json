@@ -1,0 +1,3088 @@
+{
+  "task": "draft-requests-for-production",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "answer-and-counterclaim.docx.md",
+    "case-management-order.docx.md",
+    "complaint-blackthorn-v-ridgeline.docx.md",
+    "exclusive-distribution-agreement.docx.md",
+    "internal-investigation-memo.docx.md",
+    "partner-strategy-memo.docx.md",
+    "stipulated-protective-order.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Parties, ¶5",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. §1332",
+      "pincite": "",
+      "cited_for": "Blackthorn is a citizen of Delaware and Ohio for diversity jurisdiction purposes",
+      "quotes": [],
+      "context": "Blackthorn is a citizen of the States of Delaware and Ohio for purposes of diversity jurisdiction under 28 U.S.C. §1332.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1332(c)(1) (more precise)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Blackthorn is pleaded as a Delaware corporation with its principal place of business in Akron, Ohio. Under § 1332(c)(1), a corporation is a citizen of its state of incorporation and the state of its principal place of business, so Delaware and Ohio citizenship is correct. Citing only the general section rather than (c)(1) is acceptable in a pleading.",
+        "evidence_excerpt": "a corporation shall be deemed to be a citizen of every State and foreign state by which it has been incorporated and of the State or foreign state where it has its principal place of business",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Parties, ¶9",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. §1332",
+      "pincite": "",
+      "cited_for": "Ridgeline is a citizen of Texas for diversity jurisdiction purposes",
+      "quotes": [],
+      "context": "Ridgeline is a citizen of the State of Texas for purposes of diversity jurisdiction under 28 U.S.C. §1332.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332 is the correct diversity statute, but it does not make an LLC a citizen of the state where it is organized or has its principal place of business. The corporate rule in (c)(1) covers only corporations. The unincorporated-association rule in (d)(10) applies only 'for purposes of this subsection [(d), class actions] and section 1453.' Sixth Circuit law (Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003 (6th Cir. 2009)) gives an LLC the citizenship of each of its members. Complaint ¶9 pairs Ridgeline's Texas organization and Houston headquarters with a conclusory claim of Texas citizenship. It never alleges the citizenship of Ridgeline's members, such as managing member Calloway. The statute is real and correctly cited, but the allegation as framed is not supported by § 1332's text. The defect lies in the pleading's jurisdictional allegation, not in the citation itself.",
+        "evidence_excerpt": "(10) For purposes of this subsection and section 1453, an unincorporated association shall be deemed to be a citizen of the State where it has its principal place of business and the State under whose laws it is organized.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332",
+          "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶16",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. §1331",
+      "pincite": "",
+      "cited_for": "Federal question subject matter jurisdiction",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction under 28 U.S.C. §1331 (federal question jurisdiction) because Blackthorn's claims include claims arising under the Defend Trade Secrets Act of 2016, 18 U.S.C. §1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1331 confers original federal-question jurisdiction over civil actions arising under federal law; DTSA claims (18 U.S.C. § 1836) arise under federal law. The citation is accurate and supports the proposition.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶16",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016",
+      "citation_as_written": "18 U.S.C. §1836 et seq.",
+      "pincite": "",
+      "cited_for": "Federal statute providing a private civil cause of action for trade secret misappropriation",
+      "quotes": [],
+      "context": "claims arising under the Defend Trade Secrets Act of 2016, 18 U.S.C. §1836 et seq., a federal statute providing a private civil cause of action for the misappropriation of trade secrets.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1836, as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153), gives trade secret owners a private civil cause of action for misappropriation in § 1836(b)(1). The 'et seq.' cite is the conventional form.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶17",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367(a)",
+      "citation_as_written": "28 U.S.C. §1367(a)",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state-law contract and Ohio UTSA claims",
+      "quotes": [],
+      "context": "This Court has supplemental jurisdiction under 28 U.S.C. §1367(a) over Blackthorn's state-law claims for breach of contract and misappropriation of trade secrets under the Ohio Uniform Trade Secrets Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1367(a) provides supplemental jurisdiction over state-law claims that form part of the same Article III case or controversy as claims within original jurisdiction. The complaint invokes it for the Ohio contract and UTSA claims, which are related to the federal DTSA claim. The complaint's paraphrase tracks the statutory text.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶17",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code §1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "State-law trade secret misappropriation claim within supplemental jurisdiction",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Ohio Uniform Trade Secrets Act, Ohio Rev. Code §1333.61 et seq., because those claims arise from the same case or controversy",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "R.C. 1333.61 et seq. is correctly identified as the Ohio Uniform Trade Secrets Act and supplies the state-law misappropriation claim. Supplemental jurisdiction comes from 28 U.S.C. 1367, not this statute; the statute is cited only to identify the claim.",
+        "evidence_excerpt": "\"Sections 1333.61 to 1333.69 of the Revised Code may be cited as the 'Uniform Trade Secrets Act.'\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶18",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)(1)",
+      "citation_as_written": "28 U.S.C. §1332(a)(1)",
+      "pincite": "",
+      "cited_for": "Alternative diversity jurisdiction; complete diversity and amount over $75,000",
+      "quotes": [],
+      "context": "this Court has subject matter jurisdiction under 28 U.S.C. §1332(a)(1) (diversity of citizenship jurisdiction) because there is complete diversity of citizenship",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332(a)(1) grants diversity jurisdiction over suits between citizens of different states where more than $75,000 is in controversy, exclusive of interest and costs. That matches the complaint's description. The statute supports the proposition, although the factual allegation of Ridgeline's citizenship has the LLC problem described in ref 1.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶20",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1)",
+      "citation_as_written": "28 U.S.C. §1391(b)(1)",
+      "pincite": "",
+      "cited_for": "Venue proper based on forum selection clause designating N.D. Ohio",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. §1391(b)(1) because the Exclusive Distribution Agreement between the parties contains a forum selection clause",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1391(b)(2) (or (b)(1) with (c)(2) and (d) on a residence theory); the forum-selection clause is not itself a § 1391 venue ground",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(1) sets venue where any defendant resides; it is a residence-based provision. The complaint cites it 'because' the EDA contains a forum-selection clause, but (b)(1) has no forum-selection basis. Venue under (b)(1) would depend on Ridgeline, a Texas LLC with its principal place of business in Houston, 'residing' in N.D. Ohio under § 1391(c)(2) and (d), meaning it is subject to personal jurisdiction there. The complaint does not make that argument in ¶20. A residence theory through consent-based personal jurisdiction is arguable, which is why confidence is medium, but the stated rationale misdescribes what (b)(1) provides.",
+        "evidence_excerpt": "(b)(1): a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "The first check overstates this one. 28 U.S.C. § 1391(b)(1) puts venue in 'a judicial district in which any defendant resides, if all defendants are residents of the State.' Under § 1391(c)(2), an unincorporated entity such as an LLC 'shall be deemed to reside, if a defendant, in any judicial district in which such defendant is subject to the court's personal jurisdiction with respect to the civil action in question.' Ridgeline is the only defendant and is a Texas LLC. Complaint ¶19 alleges that Ridgeline 'consented to the personal jurisdiction of the courts located in the Northern District of Ohio through the forum selection clause.' Read fairly, the clause gives consent to personal jurisdiction, which makes Ridgeline a resident of N.D. Ohio under (c)(2), which satisfies (b)(1). The statute therefore supports the cited conclusion that venue is proper under (b)(1). The defect is in the drafting: ¶20 skips the (c)(2) residence step and makes it sound as if the forum-selection clause is itself the venue ground, which § 1391 does not provide. Paragraph 20 also pleads (b)(2) as an alternative. Section (d), which the first check cited, applies only to corporations, so it is not the relevant provision for an LLC.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ]
+      }
+    },
+    {
+      "ref": 8,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Jurisdiction and Venue, ¶20",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. §1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Alternative venue: substantial part of events occurred in the District",
+      "quotes": [],
+      "context": "Alternatively, venue is proper under 28 U.S.C. §1391(b)(2) because a substantial part of the events or omissions giving rise to Blackthorn's claims occurred in this District",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(2) provides venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. The complaint's paraphrase tracks the statute closely.",
+        "evidence_excerpt": "a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Factual Allegations A, ¶29",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and Ohio UTSA, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "18 U.S.C. §1836 et seq.; Ohio Rev. Code §1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "The ValvePrime materials qualify as trade secrets under both statutes",
+      "quotes": [],
+      "context": "These trade secrets qualify for protection under both the federal Defend Trade Secrets Act, 18 U.S.C. §1836 et seq., and the Ohio Uniform Trade Secrets Act, Ohio Rev. Code §1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes exist and define trade secrets broadly enough to cover technical and pricing or business information: DTSA § 1839(3) and Ohio Rev. Code § 1333.61(D). Ohio's Uniform Trade Secrets Act (UTSA) begins at § 1333.61, the definitions section ('As used in sections 1333.61 to 1333.69'). The statutes are correctly cited for an allegation that the materials qualify; whether they do is a factual question.",
+        "evidence_excerpt": "Ohio Rev. Code § 1333.61(D): \"'Trade secret' means information, including the whole or any portion or phase of any scientific or technical information, design, process, procedure, formula, pattern, compilation, program, device, method, technique, or improvement, or any business information or plans, financial information...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV heading",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. §1836",
+      "pincite": "",
+      "cited_for": "Count IV: Misappropriation of Trade Secrets under the DTSA",
+      "quotes": [],
+      "context": "COUNT IV: Misappropriation of Trade Secrets Under the Defend Trade Secrets Act (18 U.S.C. §1836)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a count heading citing § 1836 for DTSA misappropriation. Section 1836 ('Civil proceedings') contains the private civil action for misappropriation that the DTSA added.",
+        "evidence_excerpt": "Civil proceedings ... An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV, ¶91",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(3)",
+      "citation_as_written": "18 U.S.C. §1839(3)",
+      "pincite": "",
+      "cited_for": "ValvePrime algorithm, pricing matrix and historical data are 'trade secrets' under DTSA definition",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "constitute \"trade secrets\" within the meaning of 18 U.S.C. §1839(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\": the defined term \"trade secret\" appears in §1839(3); the plural is a trivial variation.",
+        "explanation": "Section 1839(3) defines 'trade secret' to include financial, business, technical, and engineering information, including compilations, programs, codes, methods, and formulas. It applies where the owner has taken reasonable secrecy measures and the information derives independent economic value from not being generally known. An algorithm's source code, a pricing matrix, and historical pricing data fit within that definition. Whether they qualify is a factual allegation.",
+        "evidence_excerpt": "all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures, programs, or codes",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV, ¶94",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(1)",
+      "citation_as_written": "18 U.S.C. §1836(b)(1)",
+      "pincite": "",
+      "cited_for": "Interstate commerce nexus of the trade secrets",
+      "quotes": [],
+      "context": "relate to a product and service used in, and intended for use in, interstate and foreign commerce within the meaning of 18 U.S.C. §1836(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1836(b)(1) creates the DTSA civil action for a misappropriated trade secret related to a product or service used in, or intended for use in, interstate or foreign commerce. The complaint's interstate-commerce allegation tracks that text.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV, ¶95",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(5)",
+      "citation_as_written": "18 U.S.C. §1839(5)",
+      "pincite": "",
+      "cited_for": "Ridgeline misappropriated trade secrets (improper acquisition, disclosure, use)",
+      "quotes": [],
+      "context": "Ridgeline misappropriated Blackthorn's trade secrets within the meaning of 18 U.S.C. §1839(5) by:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1839(5) defines 'misappropriation' in two parts. Part (A) covers acquiring a trade secret by someone who knows or has reason to know it was acquired by improper means. Part (B) covers disclosure or use without consent by someone who used improper means or knew of them. That matches the complaint's theory of improper acquisition, disclosure, and use.",
+        "evidence_excerpt": "(A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV, ¶98",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. §1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Willful and malicious misappropriation; exemplary damages up to two times actual damages (cited twice in ¶98)",
+      "quotes": [],
+      "context": "willful and malicious within the meaning of 18 U.S.C. §1836(b)(3)(C)... exemplary damages in an amount not to exceed two times the amount of actual damages, as provided by 18 U.S.C. §1836(b)(3)(C)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to 2 times the damages awarded under subparagraph (B) when a trade secret is willfully and maliciously misappropriated. The complaint says '2x actual damages' where the statute measures from damages under (B), which can include unjust enrichment or a royalty, not only actual loss. That is an acceptable paraphrase.",
+        "evidence_excerpt": "if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV, ¶98",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. §1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Attorney's fees for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "an award of reasonable attorney's fees as provided by 18 U.S.C. §1836(b)(3)(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1836(b)(3)(D) authorizes reasonable attorney's fees to the prevailing party where the trade secret was willfully and maliciously misappropriated, among other grounds.",
+        "evidence_excerpt": "or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count IV, ¶99",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(A)",
+      "citation_as_written": "18 U.S.C. §1836(b)(3)(A)",
+      "pincite": "",
+      "cited_for": "Injunctive relief to prevent actual or threatened misappropriation",
+      "quotes": [],
+      "context": "Blackthorn is entitled to injunctive relief under 18 U.S.C. §1836(b)(3)(A) to prevent any actual or threatened misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The paraphrase 'to prevent any actual or threatened misappropriation' matches the statute's wording.",
+        "explanation": "Section 1836(b)(3)(A) lets a court grant an injunction to prevent any actual or threatened misappropriation, subject to limits on employment restraints. Clause (iii) of the same subparagraph also allows orders requiring affirmative protective actions, which covers the requested return/destroy order.",
+        "evidence_excerpt": "grant an injunction—(i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V heading",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Revised Code §1333.61 *et seq.*",
+      "pincite": "",
+      "cited_for": "Count V: Ohio trade secret misappropriation",
+      "quotes": [],
+      "context": "COUNT V: Misappropriation of Trade Secrets Under Ohio Revised Code §1333.61 *et seq.*",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Ohio Rev. Code 1333.61 et seq. is Ohio's Uniform Trade Secrets Act (definitions in 1333.61, injunctions 1333.62, damages 1333.63, fees 1333.64), the proper basis for an Ohio trade secret misappropriation count.",
+        "evidence_excerpt": "Section 1333.61 - Trade Secrets Definitions ... \"Misappropriation\" ... \"trade secret\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶101",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.61(D)",
+      "citation_as_written": "Ohio Revised Code §1333.61(D)",
+      "pincite": "",
+      "cited_for": "Materials are 'trade secrets' under Ohio statute",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "constitute \"trade secrets\" within the meaning of Ohio Revised Code §1333.61(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secret\" found as the term defined in 1333.61(D) (complaint uses plural).",
+        "explanation": "Division (D) defines \"trade secret\"; citing it for the claim that the materials are trade secrets is proper.",
+        "evidence_excerpt": "(D) \"Trade secret\" means information ... that satisfies both of the following: (1) It derives independent economic value, actual or potential, from not being generally known ... (2) It is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶102",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.61(D)",
+      "citation_as_written": "Ohio Revised Code §1333.61(D)",
+      "pincite": "",
+      "cited_for": "Statutory definition of trade secret (independent economic value; reasonable secrecy efforts); restated in ¶103",
+      "quotes": [],
+      "context": "Under Ohio Revised Code §1333.61(D), a \"trade secret\" is defined as information that: (a) derives independent economic value... and (b) is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No formal quotes attributed. The paraphrased two elements track the statute closely; the statute numbers them (1) and (2), while the complaint uses (a) and (b).",
+        "explanation": "1333.61(D) sets out the two-part definition, independent economic value from not being generally known and reasonable secrecy efforts, as stated.",
+        "evidence_excerpt": "derives \"independent economic value, actual or potential, from not being generally known\" and \"is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶104",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.61(B)",
+      "citation_as_written": "Ohio Revised Code §1333.61(B)",
+      "pincite": "",
+      "cited_for": "Definition of 'misappropriation' including acquisition by improper means and disclosure/use without consent",
+      "quotes": [
+        "misappropriation"
+      ],
+      "context": "Ridgeline's conduct constitutes \"misappropriation\" within the meaning of Ohio Revised Code §1333.61(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"misappropriation\" found as the term defined in 1333.61(B).",
+        "explanation": "Division (B) defines misappropriation as acquisition by a person who knows or has reason to know the secret was acquired by improper means, or disclosure/use without consent by a person who used improper means or owed a duty of secrecy. Matches the proposition.",
+        "evidence_excerpt": "(B) \"Misappropriation\" means any of the following: (1) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; (2) Disclosure or use of a trade secret of another without the express or implied consent...",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶105",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.62",
+      "citation_as_written": "Ohio Revised Code §1333.62",
+      "pincite": "",
+      "cited_for": "Damages: actual loss and unjust enrichment",
+      "quotes": [],
+      "context": "Blackthorn is entitled to damages under Ohio Revised Code §1333.62, including both actual loss caused by the misappropriation and unjust enrichment",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 1333.63(A)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "1333.62 governs injunctions and says nothing about damages. Damages for actual loss and unjust enrichment are provided in 1333.63(A). The proposition is correct Ohio law, but the section number is wrong.",
+        "evidence_excerpt": "1333.62 (A) \"Actual or threatened misappropriation may be enjoined...\"; 1333.63(A) \"...a complainant in a civil action is entitled to recover damages for misappropriation.\" [recovery for actual loss and unjust enrichment]",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Confirmed. Ohio Rev. Code § 1333.62 is titled 'Injunction Against Misappropriation.' Its text covers injunctions only: '(A) Actual or threatened misappropriation may be enjoined...' The damages language the complaint paraphrases is in § 1333.63(A): 'Damages may include both the actual loss caused by misappropriation and the unjust enrichment caused by misappropriation that is not taken into account in computing actual loss.' The proposition is correct Ohio law, but the section number is off by one.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ]
+      }
+    },
+    {
+      "ref": 22,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶106",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.62(B)",
+      "citation_as_written": "Ohio Revised Code §1333.62(B)",
+      "pincite": "",
+      "cited_for": "Willful and malicious misappropriation; exemplary damages not exceeding twice compensatory (also cited in ¶110(e), Prayer (b))",
+      "quotes": [],
+      "context": "willful and malicious within the meaning of Ohio Revised Code §1333.62(B). Accordingly, Blackthorn is entitled to an award of exemplary damages in an amount not exceeding twice the compensatory damages awarded.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 1333.63(B)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "1333.62(B) covers royalty-conditioned injunctions in exceptional circumstances and does not mention willful and malicious misappropriation or exemplary damages. Exemplary damages are in 1333.63(B), and Ohio caps them at three times the compensatory award, not the 'twice' the complaint states (twice is the uniform-act figure). So the section is wrong and the cap is understated.",
+        "evidence_excerpt": "1333.62(B) \"In exceptional circumstances, an injunction may condition future use upon payment of a reasonable royalty...\"; 1333.63(B) \"If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A) of this section.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Confirmed. Ohio Rev. Code § 1333.62(B) reads: 'In exceptional circumstances, an injunction may condition future use upon payment of a reasonable royalty...' It says nothing about willful and malicious misappropriation or exemplary damages. The exemplary-damages provision is § 1333.63(B): 'If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A).' The complaint gets two things wrong: it cites the wrong section, and it describes the Ohio limit as 'not exceeding twice' when the statute says three times. A request for 2x still falls within the Ohio cap, so the requested relief is available, but the statute is described inaccurately. MISCHARACTERIZED is reasonable. WRONG_CITATION_REAL_CASE combined with a misstated cap would also be defensible.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ]
+      }
+    },
+    {
+      "ref": 23,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶107",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.63",
+      "citation_as_written": "Ohio Revised Code §1333.63",
+      "pincite": "",
+      "cited_for": "Attorney's fees for willful and malicious misappropriation (also ¶110(f), Prayer (e))",
+      "quotes": [],
+      "context": "Blackthorn is entitled to an award of reasonable attorney's fees under Ohio Revised Code §1333.63",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 1333.64(C)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "1333.63 is the damages section and does not provide for attorney's fees. Fees for willful and malicious misappropriation come from 1333.64(C). The proposition is correct law, but the section number is wrong.",
+        "evidence_excerpt": "Section 1333.64 | Attorney's fees — The court may award reasonable attorney's fees to the prevailing party, if any of the following applies: ... (C) Willful and malicious misappropriation exists.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Confirmed. Ohio Rev. Code § 1333.63 covers damages in (A) and exemplary damages in (B) and contains no attorney's-fee provision. Fees are in § 1333.64: 'The court may award reasonable attorney's fees to the prevailing party, if any of the following applies: ... (C) Willful and malicious misappropriation exists.' The proposition is correct Ohio law, but the section number is off by one.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ]
+      }
+    },
+    {
+      "ref": 24,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶108",
+      "authority_type": "statute",
+      "authority": "Ohio Rev. Code § 1333.62(A)",
+      "citation_as_written": "Ohio Revised Code §1333.62(A)",
+      "pincite": "",
+      "cited_for": "Injunctive relief against actual or threatened misappropriation",
+      "quotes": [],
+      "context": "Blackthorn is further entitled to injunctive relief under Ohio Revised Code §1333.62(A)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "1333.62(A) authorizes injunctions against actual or threatened misappropriation, as cited.",
+        "evidence_excerpt": "(A) Actual or threatened misappropriation may be enjoined.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Count V, ¶109",
+      "authority_type": "statute",
+      "authority": "Ohio UTSA and federal DTSA (as such)",
+      "citation_as_written": "Ohio UTSA; DTSA (Count IV)",
+      "pincite": "",
+      "cited_for": "Ohio UTSA claim pleaded in addition to DTSA claim; elements substantially similar but not identical",
+      "quotes": [],
+      "context": "Blackthorn pleads its Ohio UTSA claim in addition to, and not in lieu of, its federal DTSA claim (Count IV).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code § 1333.61 et seq.; 18 U.S.C. § 1836 et seq. (see 18 U.S.C. § 1838)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Ohio UTSA (R.C. 1333.61 et seq.) and the federal DTSA both exist. The DTSA expressly does not preempt or displace state trade secret remedies (18 U.S.C. § 1838), so the Ohio claim can be pleaded alongside the DTSA claim. The two statutes' definitions of trade secret and misappropriation are closely parallel. That supports the 'substantially similar but not identical' characterization, which is a general pleading statement rather than a pinpoint proposition.",
+        "evidence_excerpt": "\"this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by United States Federal, State ... law for the misappropriation of a trade secret\" (18 U.S.C. § 1838)",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1838",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Damages ¶110(e), (f)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C), (D)",
+      "citation_as_written": "18 U.S.C. §1836(b)(3)(C); 18 U.S.C. §1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Exemplary damages up to 2x and attorney's fees and costs under DTSA",
+      "quotes": [],
+      "context": "exemplary damages of up to two times the amount of actual damages under both 18 U.S.C. §1836(b)(3)(C) and Ohio Revised Code §1333.62(B)... under 18 U.S.C. §1836(b)(3)(D) and Ohio Revised Code §1333.63.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "For the DTSA cites: (b)(3)(C) provides exemplary damages of up to 2x for willful and malicious misappropriation, and (b)(3)(D) provides reasonable attorney's fees to the prevailing party in that case. Section 1836(b)(3)(D) mentions only attorney's fees, not costs. Costs come from general federal rules, which is a minor looseness. Note that the same sentence pairs these cites with Ohio Rev. Code §1333.62(B) and §1333.63, and those Ohio section numbers are wrong (see ref 27). Exemplary damages are in §1333.63(B), with a cap of 3x rather than 2x, and fees are in §1333.64.",
+        "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Prayer for Relief (b), (e)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C), (D); Ohio Rev. Code §§ 1333.62(B), 1333.63",
+      "citation_as_written": "18 U.S.C. §1836(b)(3)(C); Ohio Revised Code §1333.62(B); 18 U.S.C. §1836(b)(3)(D); Ohio Revised Code §1333.63",
+      "pincite": "",
+      "cited_for": "Exemplary damages and attorney's fees prayed for",
+      "quotes": [],
+      "context": "Exemplary damages in an amount up to two times the compensatory damages awarded, pursuant to 18 U.S.C. §1836(b)(3)(C) and Ohio Revised Code §1333.62(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. §1836(b)(3)(C); Ohio Rev. Code §1333.63(B) (exemplary damages); 18 U.S.C. §1836(b)(3)(D); Ohio Rev. Code §1333.64(C) (attorney's fees)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA cites are correct. The Ohio cites are each off by one section. §1333.62 covers injunctions, and its division (B) is about royalty-conditioned injunctions in exceptional circumstances, not exemplary damages. Exemplary damages are in §1333.63(B), which allows up to three times the award (the complaint describes the Ohio cap as 2x). §1333.63 covers damages, while attorney's fees for willful and malicious misappropriation are in §1333.64(C). Asking for 2x is still within Ohio's 3x cap, so the substance survives but the section citations are garbled. The same misnumbering appears in complaint ¶¶105-107.",
+        "evidence_excerpt": "§1333.62(B): \"In exceptional circumstances, an injunction may condition future use upon payment of a reasonable royalty...\"; §1333.63(B): \"If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A)\"; §1333.64: \"The court may award reasonable attorney's fees to the prevailing party, if ... (C) Willful and malicious misappropriation exists.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Confirmed. The DTSA cites, 18 U.S.C. § 1836(b)(3)(C) and (D), are not disputed. Both Ohio cites are off by one section. § 1333.62(B) covers royalty-conditioned injunctions ('In exceptional circumstances, an injunction may condition future use upon payment of a reasonable royalty...'). Exemplary damages are in § 1333.63(B), which allows 'not exceeding three times any award.' Attorney's fees for willful and malicious misappropriation are in § 1333.64(C), not § 1333.63. In ¶110(e), the complaint also describes the Ohio cap as 'up to two times,' which understates the statute. The prayer asks for 2x, which is within the Ohio limit, so the relief requested is available, but the citations are garbled.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ]
+      }
+    },
+    {
+      "ref": 28,
+      "document": "complaint-blackthorn-v-ridgeline.docx.md",
+      "location": "Certificate of Service",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure Rule 4",
+      "citation_as_written": "Federal Rules of Civil Procedure Rule 4",
+      "pincite": "",
+      "cited_for": "Service of the complaint via process server",
+      "quotes": [],
+      "context": "served upon Defendant... in accordance with Federal Rules of Civil Procedure Rule 4, via personal delivery by a process server authorized under Federal and Texas law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 4 governs service of the summons and complaint. Rule 4(c)(2) lets any non-party aged 18 or older serve, which covers a process server. Rule 4(h)(1) allows service on a corporation, partnership or association by delivery to an agent authorized by appointment or by law, which covers a registered agent, or by state-law methods through 4(e)(1). That supports personal delivery by a process server to Ridgeline's Texas registered agent. Minor nit: the certificate mentions only the complaint, not a summons, but this does not affect the citation.",
+        "evidence_excerpt": "Rule 4(c)(2): \"Any person who is at least 18 years old and not a party may serve a summons and complaint.\" Rule 4(h)(1): \"delivering a copy of the summons and of the complaint to an officer, a managing or general agent, or any other agent authorized by appointment or by law to receive service of process\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer ¶1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Admits federal question jurisdiction based on DTSA claims",
+      "quotes": [],
+      "context": "this Court has subject-matter jurisdiction pursuant to 28 U.S.C. § 1331 based on Blackthorn's claims arising under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ridgeline's answer admits federal-question jurisdiction under § 1331 based on the DTSA claims. The statute grants exactly that jurisdiction.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer ¶1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Basis of federal question jurisdiction",
+      "quotes": [],
+      "context": "claims arising under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836 creates the DTSA private civil action (§ 1836(b)(1)) and confers original jurisdiction on the federal district courts over civil actions brought under the section (§ 1836(c)), so it supports federal-question jurisdiction over DTSA claims.",
+        "evidence_excerpt": "\"The district courts of the United States shall have original jurisdiction of civil actions brought under this section.\" (§ 1836(c)); \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection...\" (§ 1836(b)(1))",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer ¶1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state law claims",
+      "quotes": [],
+      "context": "this Court may exercise supplemental jurisdiction under 28 U.S.C. § 1367 over the state law claims",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1367(a) (more precise)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1367(a) grants supplemental jurisdiction over claims so related to the original-jurisdiction claims that they form part of the same Article III case or controversy. That matches the answer's admission about the state-law claims.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer ¶1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391",
+      "citation_as_written": "28 U.S.C. § 1391",
+      "pincite": "",
+      "cited_for": "Admits venue proper in N.D. Ohio, along with forum selection clause (EDA)",
+      "quotes": [],
+      "context": "venue is proper in the Northern District of Ohio, Eastern Division, pursuant to 28 U.S.C. § 1391 and the forum selection clause contained in Section 12.4 of the Exclusive Distribution Agreement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391 is the general federal venue statute. The answer's general admission that venue is proper under § 1391, together with the forum-selection clause, is supported at least through § 1391(b)(2) (substantial part of the events in the district). The answer does not cite a subsection, so there is no subsection error.",
+        "evidence_excerpt": "a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer ¶26",
+      "authority_type": "statute",
+      "authority": "DTSA, 18 U.S.C. § 1836 et seq., and Ohio UTSA, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.; Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "ValvePrime and pricing data are not 'trade secrets' within the meaning of the statutes",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "constitute \"trade secrets\" within the meaning of the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., or the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\" is a defined term placed in quotation marks. Both statutes define \"trade secret\" in the singular (18 U.S.C. § 1839(3); Ohio Rev. Code § 1333.61(D)). The plural is an immaterial variation in a term-of-art reference.",
+        "explanation": "Both statutes contain definitions of 'trade secret' that the answer invokes to deny that the information qualifies. The citations are accurate. The denial itself is a factual contention, not a legal proposition the statutes have to establish.",
+        "evidence_excerpt": "18 U.S.C. § 1839(3): trade secret requires that \"(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer ¶27(a)",
+      "authority_type": "other",
+      "authority": "NIST cybersecurity standards",
+      "citation_as_written": "National Institute of Standards and Technology (NIST)",
+      "pincite": "",
+      "cited_for": "Basic cybersecurity standards call for MFA/IP restrictions to protect sensitive business information",
+      "quotes": [],
+      "context": "Basic cybersecurity standards, including those published by the National Institute of Standards and Technology (NIST), call for such controls to protect sensitive business information.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is a general reference to NIST cybersecurity guidance, with no specific publication named. NIST's published small-business guidance calls MFA essential for reducing risk and recommends stronger authenticators where sensitive information is involved, which supports the MFA part of the proposition. I did not locate NIST text specifically addressing IP-address restrictions; that part of the claim is unconfirmed. The citation is also vague because it names no specific publication.",
+        "evidence_excerpt": "\"Enabling MFA on all accounts that offer it is essential for reducing the cybersecurity risks to your business.\" ... \"For applications that protect sensitive information ... organizations should be enforcing, or at least offering, phishing resistant authenticators.\"",
+        "source_urls": [
+          "https://www.nist.gov/itl/smallbusinesscyber/guidance-topic/multi-factor-authentication"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer, Count IV response, ¶46",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Denies DTSA claim; no trade secrets within DTSA meaning",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "do not constitute \"trade secrets\" within the meaning of the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\" is a defined statutory term. It appears as 'trade secret' in the definitions section, 18 U.S.C. § 1839(3), which applies to the chapter that begins at § 1836.",
+        "explanation": "The answer denies that the information qualifies as trade secrets under the DTSA. The term is defined for the chapter in § 1839(3), so citing § 1836 et seq. reaches that definition. This is a proper denial resting on the statutory definition.",
+        "evidence_excerpt": "As used in this chapter— ... the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839",
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer, Count V response, ¶47",
+      "authority_type": "statute",
+      "authority": "Ohio UTSA, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Denies Ohio UTSA claim; no trade secrets under the Act",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "do not constitute \"trade secrets\" under the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\": the defined term \"Trade secret\" (singular) appears in R.C. 1333.61(D); the plural is an inconsequential grammatical variation of the statutory term.",
+        "explanation": "R.C. 1333.61 is titled 'Uniform trade secrets act definitions' and defines 'trade secret' as information that derives independent economic value from not being generally known and is the subject of reasonable secrecy efforts. The Answer's denial invokes those same elements, so the citation is accurate.",
+        "evidence_excerpt": "Section 1333.61 | Uniform trade secrets act definitions ... \"Trade secret\" means information ... that satisfies both of the following: (1) It derives independent economic value ... (2) It is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "First Affirmative Defense",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(6)",
+      "citation_as_written": "Federal Rule of Civil Procedure 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Failure to state a claim defense reserved",
+      "quotes": [],
+      "context": "Ridgeline reserves this defense pursuant to Federal Rule of Civil Procedure 12(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 12(b)(6) is the defense of failure to state a claim. Reserving it in an answer is consistent with Rule 12(b), which says every defense must be asserted in the responsive pleading. Rule 12(h)(2)(A) is what preserves the defense when it is raised in a pleading, so a cite to 12(h)(2) would be slightly more precise, but citing 12(b)(6) is standard practice.",
+        "evidence_excerpt": "\"Every defense to a claim for relief in any pleading must be asserted in the responsive pleading if one is required... (6) failure to state a claim upon which relief can be granted\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Fifth Affirmative Defense",
+      "authority_type": "statute",
+      "authority": "DTSA, 18 U.S.C. § 1836 et seq., and Ohio UTSA, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.; Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Information does not qualify as trade secrets under either statute",
+      "quotes": [
+        "trade secrets"
+      ],
+      "context": "do not qualify as \"trade secrets\" under either the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., or the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq., because:",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secrets\" is a defined-term reference. The statutes define \"trade secret\" (singular), so this is an immaterial variation.",
+        "explanation": "The affirmative defense correctly identifies the statutory definitions: DTSA § 1839(3) (reasonable secrecy measures plus independent economic value) and Ohio Rev. Code § 1333.61(D). Whether the information fails those definitions is a factual matter.",
+        "evidence_excerpt": "Ohio Rev. Code § 1333.61: \"As used in sections 1333.61 to 1333.69 of the Revised Code... 'Trade secret' means information... that satisfies both of the following:\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Counterclaim ¶50",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 13(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 13(a)",
+      "pincite": "",
+      "cited_for": "Counterclaim is compulsory, arising from the same transaction or occurrence",
+      "quotes": [],
+      "context": "it is a compulsory counterclaim arising from the same transaction or occurrence—the EDA—as Blackthorn's claims, and is therefore properly asserted under Federal Rule of Civil Procedure 13(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 13(a)(1) makes a counterclaim compulsory when it arises out of the same transaction or occurrence as the opposing party's claim. That is exactly what the answer cites it for. Whether the facts satisfy the rule is a question of the fictional record.",
+        "evidence_excerpt": "\"A pleading must state as a counterclaim any claim that—at the time of its service—the pleader has against an opposing party if the claim\" arises out of the same transaction or occurrence (summary of 13(a)(1)(A)-(B) as reported by the fetch tool)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_13"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Counterclaim ¶50",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over the counterclaim (described as 'original jurisdiction')",
+      "quotes": [],
+      "context": "The Court has original jurisdiction over the Counterclaim pursuant to 28 U.S.C. § 1367 (supplemental jurisdiction)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1367(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1367(a) grants supplemental jurisdiction over claims so related to claims within the court's original jurisdiction that they form part of the same Article III case or controversy. A compulsory counterclaim arising from the same EDA fits that grant, so the cite supports jurisdiction over the counterclaim. The defect is the label: the pleading says § 1367 confers 'original jurisdiction', but the statute confers supplemental jurisdiction that depends on an anchor of original jurisdiction (here § 1331 over the DTSA claim). The paragraph's own parenthetical says 'supplemental jurisdiction', which lessens the error.",
+        "evidence_excerpt": "in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Counterclaim ¶50",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Alternative diversity jurisdiction over the counterclaim",
+      "quotes": [],
+      "context": "alternatively, pursuant to 28 U.S.C. § 1332 (diversity jurisdiction).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1332 is the diversity-jurisdiction statute, and the counterclaim invokes it only as an alternative basis. Citing it for that purpose is correct. Whether diversity is actually complete depends on the citizenship of Ridgeline's members as an LLC (see ref 1), but the statute supports the proposition it is cited for.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between—(1) citizens of different States;",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Demand for Jury Trial",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 38(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 38(b)",
+      "pincite": "",
+      "cited_for": "Jury demand",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 38(b), Defendant/Counterclaim Plaintiff Ridgeline Distribution Partners, LLC hereby demands a trial by jury",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 38(b) governs jury demands and allows the demand to be included in a pleading, here the Answer and Counterclaim.",
+        "evidence_excerpt": "(b) Demand. On any issue triable of right by a jury, a party may demand a jury trial by: (1) serving the other parties with a written demand—which may be included in a pleading—no later than 14 days after the last pleading directed to the issue is served",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_38"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Section 6.1(e) (Survival)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016",
+      "citation_as_written": "18 U.S.C. §1836 et seq.",
+      "pincite": "",
+      "cited_for": "Trade secret confidentiality obligations continue in perpetuity while information remains a trade secret under applicable law",
+      "quotes": [],
+      "context": "so long as such information remains a trade secret under applicable law, including the Defend Trade Secrets Act of 2016 (18 U.S.C. §1836 et seq.) and the Ohio Uniform Trade Secrets Act (Ohio Rev. Code §1333.61 et seq.).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a contract survival clause that ties the duration of confidentiality to whether information 'remains a trade secret under applicable law,' including the DTSA. The DTSA chapter defines 'trade secret' (18 U.S.C. § 1839(3)) by reasonable secrecy measures and independent economic value, with no fixed time limit, so using it as the reference standard is accurate. The perpetual duration comes from the contract, not the statute, and the clause does not claim otherwise.",
+        "evidence_excerpt": "As used in this chapter— ... the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information ... if— (A) the owner thereof has taken reasonable measures to keep such information secret",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Section 6.1(e) (Survival)",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act",
+      "citation_as_written": "Ohio Rev. Code §1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Trade secret confidentiality obligations continue in perpetuity while information remains a trade secret under applicable law",
+      "quotes": [],
+      "context": "including the Defend Trade Secrets Act of 2016 (18 U.S.C. §1836 et seq.) and the Ohio Uniform Trade Secrets Act (Ohio Rev. Code §1333.61 et seq.).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio Rev. Code 1333.61-1333.69 is Ohio's Uniform Trade Secrets Act (R.C. 1333.69). The contract cites it as the 'applicable law' that determines whether information remains a trade secret; the statutory definition (1333.61(D)) turns on continuing secrecy and economic value and sets no fixed expiry, consistent with a survival clause that lasts while information remains a trade secret. The perpetual duration itself is a contractual term, not a statutory command, but the citation is used appropriately.",
+        "evidence_excerpt": "R.C. 1333.69: \"Sections 1333.61 to 1333.69 of the Revised Code may be cited as the 'Uniform Trade Secrets Act.'\" R.C. 1333.61(D)(1): \"It derives independent economic value, actual or potential, from not being generally known to...\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer, Count IV heading (before ¶46)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Heading of Ridgeline's response to Count IV (DTSA trade secret misappropriation)",
+      "quotes": [],
+      "context": "**Count IV: Misappropriation of Trade Secrets — DTSA (18 U.S.C. § 1836)**",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a response heading for the DTSA count citing 18 U.S.C. § 1836, which provides the civil action for trade secret misappropriation.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "answer-and-counterclaim.docx.md",
+      "location": "Answer, Count V heading (before ¶47)",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Heading of Ridgeline's response to Count V (Ohio UTSA trade secret misappropriation)",
+      "quotes": [],
+      "context": "**Count V: Misappropriation of Trade Secrets — Ohio UTSA (Ohio Rev. Code § 1333.61 et seq.)**",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a count heading. It correctly identifies the Ohio UTSA as R.C. 1333.61 et seq.",
+        "evidence_excerpt": "1333.61 - Uniform trade secrets act definitions ... 1333.69 - Title of act",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "task.json.md",
+      "location": "rubric C-005",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Fed. R. Civ. P. 34",
+      "pincite": "",
+      "cited_for": "Introductory language of the RFPs should cite Rule 34 as authority for the requests",
+      "quotes": [],
+      "context": "PASS if the document includes introductory language citing or referencing Federal Rule of Civil Procedure 34 as the authority for the requests. FAIL if Rule 34 is not referenced anywhere in the document.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34 is the federal rule authorizing a party to serve requests to produce documents, ESI and tangible things. It is the correct authority to cite in the introductory language of a set of RFPs.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "task.json.md",
+      "location": "rubric C-042",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(A)",
+      "pincite": "34(b)(2)(A)",
+      "cited_for": "30-day response deadline for requests for production",
+      "quotes": [],
+      "context": "PASS if the document states or references a 30-day response deadline consistent with Fed. R. Civ. P. 34(b)(2)(A), or references the applicable rule for response timing.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(2)(A) requires a written response within 30 days after service, unless the time is stipulated under Rule 29 or ordered by the court.",
+        "evidence_excerpt": "The party to whom the request is directed must respond in writing within 30 days after being served",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "task.json.md",
+      "location": "rubric C-047",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (federal DTSA)",
+      "citation_as_written": "federal DTSA",
+      "pincite": "",
+      "cited_for": "Trade secret misappropriation claim underlying requests",
+      "quotes": [],
+      "context": "Requests cover trade secret misappropriation (federal DTSA and/or state Ohio UTSA)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836 et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Informal reference to the federal DTSA in a rubric item. The DTSA (Pub. L. 114-153) created a federal private civil action for trade secret misappropriation at 18 U.S.C. § 1836(b), so it does underlie a trade secret claim. The cite is informal but not wrong.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "task.json.md",
+      "location": "rubric C-047",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act",
+      "citation_as_written": "state Ohio UTSA",
+      "pincite": "",
+      "cited_for": "Trade secret misappropriation claim underlying requests",
+      "quotes": [],
+      "context": "Requests cover trade secret misappropriation (federal DTSA and/or state Ohio UTSA)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code 1333.61 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a generic reference in a rubric item. The Ohio UTSA exists, R.C. 1333.61-1333.69, and it supplies a state-law misappropriation claim, with damages under 1333.63 and injunctions under 1333.62. It is an informal reference, not a formal citation.",
+        "evidence_excerpt": "1333.61 - Uniform trade secrets act definitions; 1333.62 - Injunction against misappropriation; 1333.63 - Damages recoverable; 1333.69 - Title of act",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "task.json.md",
+      "location": "rubric C-050",
+      "authority_type": "court_rule",
+      "authority": "Judge Kesselman's Standing Order (ESI requirements)",
+      "citation_as_written": "Judge Kesselman's Standing Order",
+      "pincite": "",
+      "cited_for": "Requires ESI requests to specify custodians and date ranges",
+      "quotes": [],
+      "context": "Judge Kesselman's Standing Order ESI requirements acknowledged ... demonstrates compliance with Judge Kesselman's Standing Order by specifying custodians and date ranges for ESI requests",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe standing order of the fictional presiding judge in the matter"
+    },
+    {
+      "ref": 52,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "II.A, 40-Request Limit",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Rule 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Overbroad requests draw proportionality objections",
+      "quotes": [],
+      "context": "No \"all documents relating to Blackthorn\" or \"all communications\" without topic limitations — those draw proportionality objections under Rule 26(b)(1) and burn our limited allotment for nothing useful.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter that is relevant and proportional to the needs of the case, weighing burden against likely benefit. The memo's point that broad \"all documents\" requests draw proportionality objections under this rule is accurate.",
+        "evidence_excerpt": "\"any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "II.B, Judge Kesselman's Standing Order",
+      "authority_type": "court_rule",
+      "authority": "Judge Kesselman's Standing Order (ESI custodians and date ranges)",
+      "citation_as_written": "Judge Kesselman's Standing Order",
+      "pincite": "",
+      "cited_for": "ESI requests must specify custodians and date ranges with reasonable specificity",
+      "quotes": [],
+      "context": "Judge Kesselman's Standing Order requires that ESI requests specify (1) custodians and (2) date ranges with reasonable specificity.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe standing order of the fictional presiding judge"
+    },
+    {
+      "ref": 54,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "II.C, Form of Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(1)(C)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(1)(C)",
+      "pincite": "34(b)(1)(C)",
+      "cited_for": "Requesting party may specify the form for producing ESI",
+      "quotes": [],
+      "context": "Cite Fed. R. Civ. P. 34(b)(1)(C) (requesting party may specify form) and note that 34(b)(2)(E) allows the producing party to choose if no form is specified — we do not want that.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(b)(1)(C) says the request 'may specify the form or forms in which electronically stored information is to be produced'. The memo's companion point about 34(b)(2)(E) is also accurate: under 34(b)(2)(E)(ii), if no form is specified, the responding party produces in the form ordinarily maintained or a reasonably usable form.",
+        "evidence_excerpt": "(C) may specify the form or forms in which electronically stored information is to be produced.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "II.C, Form of Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(E)",
+      "citation_as_written": "34(b)(2)(E)",
+      "pincite": "34(b)(2)(E)",
+      "cited_for": "Producing party may choose the form if none is specified",
+      "quotes": [],
+      "context": "note that 34(b)(2)(E) allows the producing party to choose if no form is specified",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "When the request specifies no form, Rule 34(b)(2)(E)(ii) lets the producing party produce in the form in which the ESI is ordinarily maintained or in a reasonably usable form. In practice, that means the producing party chooses among those options. Rule 34(b)(2)(D) also requires it to state the form it intends to use. 'Choose' is a fair paraphrase, though the choice is bounded by those two options.",
+        "evidence_excerpt": "(ii) If a request does not specify a form for producing electronically stored information, a party must produce it in a form or forms in which it is ordinarily maintained or in a reasonably usable form or forms",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "III, Priority 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)(1)(A) and (B)",
+      "citation_as_written": "Rule 34(a)(1)(A) and (B)",
+      "pincite": "34(a)(1)(A), (B)",
+      "cited_for": "Rule permits requests for tangible things (forensic images, USB drives, devices)",
+      "quotes": [],
+      "context": "Under Rule 34(a)(1)(A) and (B), we can request tangible things. Draft a separate request targeting forensic images or contents of USB drives",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a)(1)(B) covers 'any designated tangible things', such as USB drives, laptops and devices. Rule 34(a)(1)(A) covers ESI, such as forensic images and drive contents. Citing both subparagraphs fits a request for the devices and their contents. Ridgeline is the defendant party, so Rule 34 applies to it.",
+        "evidence_excerpt": "(A) any designated documents or electronically stored information ... or (B) any designated tangible things",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "III, Priority 8",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA)",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Trade secret claims: need to establish independent economic value, reasonable secrecy measures",
+      "quotes": [],
+      "context": "To prove DTSA and Ohio UTSA claims, we must establish the ValvePrime algorithm and customer pricing data are trade secrets",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.; trade-secret definition at 18 U.S.C. § 1839(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA definition of 'trade secret' in 18 U.S.C. § 1839(3) requires (A) reasonable measures to keep the information secret and (B) independent economic value from the information not being generally known or readily ascertainable. That matches the memo's statement of what must be established.",
+        "evidence_excerpt": "(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "III, Priority 8",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act (Ohio UTSA)",
+      "citation_as_written": "Ohio UTSA",
+      "pincite": "",
+      "cited_for": "Trade secret claims",
+      "quotes": [],
+      "context": "To prove DTSA and Ohio UTSA claims, we must establish the ValvePrime algorithm and customer pricing data are trade secrets",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code 1333.61 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio UTSA (R.C. 1333.61-1333.69) exists. The memo correctly says that a claim requires showing the information is a trade secret, which matches the definition in 1333.61(D): independent economic value from not being generally known, plus reasonable secrecy efforts.",
+        "evidence_excerpt": "R.C. 1333.61(D)(2): \"It is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61",
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "IV.A, Proportionality",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Rule 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Requests must be proportional considering importance of issues, amount in controversy, access, resources, burden-benefit",
+      "quotes": [],
+      "context": "Under Rule 26(b)(1), requests must be proportional considering the issues' importance, amount in controversy ($18+ million), relative access to information, parties' resources, and burden-benefit balance.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter relevant and proportional to the needs of the case, listing the same factors the memo paraphrases (importance of issues, amount in controversy, relative access, resources, importance of discovery, burden vs. benefit). The memo leaves out one factor (the importance of the discovery in resolving the issues), which is an acceptable paraphrase.",
+        "evidence_excerpt": "proportional to the needs of the case, considering the importance of the issues at stake in the action, the amount in controversy, the parties' relative access to relevant information, the parties' resources, the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "partner-strategy-memo.docx.md",
+      "location": "IV.B, Apex's internal documents",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 45",
+      "citation_as_written": "Rule 45 subpoena",
+      "pincite": "",
+      "cited_for": "Apex's internal records must be obtained from non-party via subpoena",
+      "quotes": [],
+      "context": "If we need Apex's internal records, we serve a Rule 45 subpoena separately.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Apex is a non-party (Complaint ¶13; CMO). Rule 34 requests reach only parties, and Rule 34(c) points to Rule 45 for compelling nonparty production. Rule 45(a)(1)(A)(iii) lets a subpoena command production of documents in the recipient's possession, custody, or control.",
+        "evidence_excerpt": "Rule 34(c): \"As provided in Rule 45, a nonparty may be compelled to produce documents and tangible things or to permit an inspection.\" Rule 45(a)(1)(A)(iii): subpoena must \"command each person to whom it is directed to ... produce designated documents, electronically stored information, or tangible things in that person's possession, custody, or control\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction",
+      "quotes": [],
+      "context": "Jurisdiction is based upon 28 U.S.C. § 1331 (federal question) and 28 U.S.C. § 1367 (supplemental jurisdiction).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case management order bases jurisdiction on § 1331 (federal question). The statute is the federal-question grant, so the citation is correct.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction",
+      "quotes": [],
+      "context": "Jurisdiction is based upon 28 U.S.C. § 1331 (federal question) and 28 U.S.C. § 1367 (supplemental jurisdiction).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1367 is the supplemental-jurisdiction statute. It is correctly paired with § 1331 federal-question jurisdiction over the DTSA claim as the anchor for the state-law claims.",
+        "evidence_excerpt": "28 U.S. Code § 1367 - Supplemental jurisdiction",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/28/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Basis for misappropriation of trade secrets claim",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836, and the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The case management order describes the claim as DTSA misappropriation under 18 U.S.C. § 1836, and § 1836(b) supplies that cause of action.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Basis for state-law trade secret misappropriation claim",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under the Defend Trade Secrets Act, 18 U.S.C. § 1836, and the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation and name are correct: R.C. 1333.61 et seq. is Ohio's Uniform Trade Secrets Act and provides a misappropriation claim, with an injunction under 1333.62 and damages under 1333.63.",
+        "evidence_excerpt": "\"Sections 1333.61 to 1333.69 of the Revised Code may be cited as the 'Uniform Trade Secrets Act.'\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background (final paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f)",
+      "citation_as_written": "Fed. R. Civ. P. 26(f)",
+      "pincite": "",
+      "cited_for": "Joint Report and Discovery Plan; Rule 26(f) conference",
+      "quotes": [],
+      "context": "Having considered the parties' Joint Report and Discovery Plan submitted under Fed. R. Civ. P. 26(f) and Local Rule 16.3 of the Northern District of Ohio",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) requires the parties to confer, develop a proposed discovery plan, and submit a written report outlining the plan to the court. A 'Joint Report and Discovery Plan submitted under Fed. R. Civ. P. 26(f)' is consistent with the rule.",
+        "evidence_excerpt": "jointly responsible for arranging the conference, for attempting in good faith to agree on the proposed discovery plan, and for submitting to the court within 14 days after the conference a written report outlining the plan.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background (opening of Rule 26(f) conference paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (combined Rule 26(f) scheduling conference)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Combined Rule 26(f) scheduling and case management conference held July 12, 2024",
+      "quotes": [],
+      "context": "The Court held a combined Rule 26(f) scheduling conference and case management conference with counsel of record on July 12, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 16(b) (scheduling conference); Fed. R. Civ. P. 26(f) (parties' conference)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) governs a conference among the parties, held at least 21 days before the court's scheduling conference under Rule 16(b). It is not a conference the court holds. Calling the court's conference a 'Rule 26(f) scheduling conference' is loose labeling that courts sometimes use. The rule is real and relevant, but the court-held scheduling conference properly falls under Rule 16(b).",
+        "evidence_excerpt": "the parties must confer as soon as practicable—and in any event at least 21 days before a scheduling conference is to be held or a scheduling order is due under Rule 16(b).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "case-management-order.docx.md",
+      "location": "I. Background (final paragraph)",
+      "authority_type": "court_rule",
+      "authority": "N.D. Ohio Local Rule 16.3",
+      "citation_as_written": "Local Rule 16.3 of the Northern District of Ohio",
+      "pincite": "",
+      "cited_for": "Governs parties' Joint Report and Discovery Plan",
+      "quotes": [],
+      "context": "Joint Report and Discovery Plan submitted under Fed. R. Civ. P. 26(f) and Local Rule 16.3 of the Northern District of Ohio",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "N.D. Ohio Civ. R. 16.3(b)(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.D. Ohio LR 16.3 (Track Assignment and Case Management Conference) requires the parties to confer before the Rule 16(b) conference on the Rule 26(f) items and the Court's agenda items, and to submit a report on that discussion. This matches a Joint Report and Discovery Plan submitted under Rule 26(f) and LR 16.3.",
+        "evidence_excerpt": "\"In addition to discussing the items identified in Fed. R. Civ. P. 26(f), counsel for all parties are directed to engage in meaningful discussions ... The parties must submit a report on their discussion at least seven days before the Fed. R. Civ. P. 16(b) conference.\"",
+        "source_urls": [
+          "https://www.ohnd.uscourts.gov/sites/ohnd/files/Civil_Rules_4-15-2025.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "case-management-order.docx.md",
+      "location": "II.1 Initial Disclosures",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(1)",
+      "pincite": "",
+      "cited_for": "Initial disclosures due July 29, 2024",
+      "quotes": [],
+      "context": "Initial Disclosures under Fed. R. Civ. P. 26(a)(1). The parties shall exchange initial disclosures within fourteen (14) days",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1) governs initial disclosures. Under Rule 26(a)(1)(C), they are due within 14 days after the Rule 26(f) conference unless a stipulation or court order sets a different time. A case management order setting the July 29, 2024 deadline is therefore consistent with the rule.",
+        "evidence_excerpt": "\"A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "case-management-order.docx.md",
+      "location": "II.4 Expert Reports",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)",
+      "pincite": "",
+      "cited_for": "Plaintiff's initial expert reports due April 30, 2025",
+      "quotes": [],
+      "context": "Plaintiff's initial expert reports under Fed. R. Civ. P. 26(a)(2) shall be due by April 30, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2) governs expert disclosures, and 26(a)(2)(D) has them made at the times and in the sequence the court orders. A court-set deadline for the plaintiff's initial expert reports fits that rule.",
+        "evidence_excerpt": "\"A party must make these disclosures at the times and in the sequence that the court orders.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "case-management-order.docx.md",
+      "location": "II.5 Expert Reports",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)",
+      "pincite": "",
+      "cited_for": "Defendant's rebuttal expert reports due May 30, 2025",
+      "quotes": [],
+      "context": "Defendant's rebuttal expert reports under Fed. R. Civ. P. 26(a)(2) shall be due by May 30, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2)(D) lets the court set the timing and sequence of expert disclosures, including rebuttal reports. Without an order, rebuttal reports are due 30 days after the other side's disclosure. The CMO's dates (April 30 and May 30) leave exactly that 30-day gap.",
+        "evidence_excerpt": "\"if the evidence is intended solely to contradict or rebut evidence on the same subject matter identified by another party under Rule 26(a)(2)(B) or (C), within 30 days after the other party's disclosure\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "case-management-order.docx.md",
+      "location": "II.7 Dispositive Motions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 56",
+      "citation_as_written": "Fed. R. Civ. P. 56",
+      "pincite": "",
+      "cited_for": "Summary judgment motions deadline",
+      "quotes": [],
+      "context": "All dispositive motions, including motions for summary judgment under Fed. R. Civ. P. 56, shall be filed no later than July 31, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 56 governs summary judgment motions, and Rule 56(b) lets the court set a different filing deadline, as the CMO does.",
+        "evidence_excerpt": "\"Unless a different time is set by local rule or the court orders otherwise, a party may file a motion for summary judgment at any time until 30 days after the close of all discovery.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "case-management-order.docx.md",
+      "location": "II.7 Dispositive Motions",
+      "authority_type": "court_rule",
+      "authority": "N.D. Ohio Local Rule 7.1",
+      "citation_as_written": "Local Rule 7.1",
+      "pincite": "",
+      "cited_for": "Oppositions to dispositive motions filed in accordance with local rule",
+      "quotes": [],
+      "context": "Oppositions shall be filed in accordance with Local Rule 7.1.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "N.D. Ohio Civ. R. 7.1(d)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.D. Ohio LR 7.1 (Motions) governs memoranda in opposition. Subsection (d) sets a 30-day deadline for oppositions to dispositive motions unless the Judicial Officer orders otherwise, and subsection (f) sets page limits. It is the right rule for 'Oppositions shall be filed in accordance with Local Rule 7.1.'",
+        "evidence_excerpt": "\"(d) Memorandum in Opposition. Unless otherwise ordered by the Judicial Officer, each party opposing a motion must serve and file a memorandum in opposition within thirty (30) days after service of any dispositive motion...\"",
+        "source_urls": [
+          "https://www.ohnd.uscourts.gov/sites/ohnd/files/Civil_Rules_4-15-2025.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "case-management-order.docx.md",
+      "location": "II.8 Pretrial Conference",
+      "authority_type": "court_rule",
+      "authority": "Court's Standing Order on Civil Cases",
+      "citation_as_written": "the Court's Standing Order on Civil Cases",
+      "pincite": "",
+      "cited_for": "Proposed pretrial orders submitted per Standing Order",
+      "quotes": [],
+      "context": "Counsel shall submit proposed pretrial orders in accordance with the Court's Standing Order on Civil Cases.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe standing order of the presiding judge"
+    },
+    {
+      "ref": 74,
+      "document": "case-management-order.docx.md",
+      "location": "III.A Interrogatories",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 33(a)(1)",
+      "pincite": "33(a)(1)",
+      "cited_for": "25-interrogatory limit including discrete subparts",
+      "quotes": [],
+      "context": "Each party is limited to twenty-five (25) interrogatories, including all discrete subparts, directed to any other party, pursuant to Fed. R. Civ. P. 33(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The order's 'twenty-five (25) interrogatories, including all discrete subparts' tracks the rule's wording.",
+        "explanation": "Rule 33(a)(1) limits each party to 25 interrogatories, including all discrete subparts, served on any other party, unless stipulated or ordered otherwise.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "case-management-order.docx.md",
+      "location": "III.B Requests for Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Fed. R. Civ. P. 34",
+      "pincite": "",
+      "cited_for": "All RFPs must comply with Rule 34; 40-request limit",
+      "quotes": [],
+      "context": "All Requests for Production must comply with the requirements of Fed. R. Civ. P. 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case management order says RFPs must comply with Rule 34, and Rule 34 does govern requests for production. The 40-request limit comes from the court's own order, not from Rule 34, which sets no numerical limit. The order cites Rule 34 only for compliance, so this is accurate.",
+        "evidence_excerpt": "(b) Procedure. (1) Contents of the Request. The request: (A) must describe with reasonable particularity each item or category of items to be inspected",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "case-management-order.docx.md",
+      "location": "III.C Requests for Admission",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 36",
+      "citation_as_written": "Fed. R. Civ. P. 36",
+      "pincite": "",
+      "cited_for": "30-RFA limit",
+      "quotes": [],
+      "context": "Each party is limited to thirty (30) Requests for Admission, including all discrete subparts, directed to any other party, pursuant to Fed. R. Civ. P. 36.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(b)(2)(A); Fed. R. Civ. P. 36",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36 governs requests for admission, but its text sets no numerical limit. The court's power to cap the number of RFAs comes from Rule 26(b)(2)(A). The 30-RFA cap is a valid order-imposed limit on Rule 36 requests. Read as 'RFAs served pursuant to Rule 36,' the citation is acceptable, but Rule 36 is not the source of the limiting authority. This is a loose attribution, not a mischaracterization.",
+        "evidence_excerpt": "Rule 26(b)(2)(A): \"By order or local rule, the court may also limit the number of requests under Rule 36.\" Rule 36(a)(1): \"A party may serve on any other party a written request to admit...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "case-management-order.docx.md",
+      "location": "III.D Depositions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(b)(6)",
+      "citation_as_written": "Fed. R. Civ. P. 30(b)(6)",
+      "pincite": "",
+      "cited_for": "Corporate designee depositions counted as single deposition",
+      "quotes": [],
+      "context": "Depositions of corporate designees noticed under Fed. R. Civ. P. 30(b)(6) shall be counted as a single deposition regardless of the number of topics noticed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(b)(6) governs depositions of an organization through its designees. The 1993 Advisory Committee Note says a 30(b)(6) deposition is treated as a single deposition for the ten-deposition limit. That matches the order's single-deposition counting provision; the order's 'regardless of the number of topics' language is a court-ordered limit.",
+        "evidence_excerpt": "A deposition under Rule 30(b)(6) should, for purposes of this limit, be treated as a single deposition even though more than one person may be designated to testify.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 78,
+      "document": "case-management-order.docx.md",
+      "location": "IV.C Form of Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(1)(C)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(1)(C)",
+      "pincite": "34(b)(1)(C)",
+      "cited_for": "Party requesting non-TIFF form must specify it in the discovery request",
+      "quotes": [],
+      "context": "must specify the requested form in its discovery request pursuant to Fed. R. Civ. P. 34(b)(1)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(b)(1)(C) lets the requesting party specify the form of ESI production in its request. That supports the order's requirement that a party wanting a non-TIFF form specify it in the request.",
+        "evidence_excerpt": "The request: ... (C) may specify the form or forms in which electronically stored information is to be produced.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "case-management-order.docx.md",
+      "location": "IV.C Form of Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(D) and (E)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(D) and (E)",
+      "pincite": "34(b)(2)(D), (E)",
+      "cited_for": "Producing party may object to requested form of production",
+      "quotes": [],
+      "context": "The producing party may object to the requested form of production under Fed. R. Civ. P. 34(b)(2)(D) and (E)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(2)(D) lets the response object to a requested form for producing ESI. Rule 34(b)(2)(E) supplies the related default production procedures. Subsection (D) is the operative provision for the objection right, and citing (E) alongside it is reasonable.",
+        "evidence_excerpt": "The response may state an objection to a requested form for producing electronically stored information. If the responding party objects to a requested form—or if no form was specified in the request—the party must state the form or forms it intends to use.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "case-management-order.docx.md",
+      "location": "IV.D Privilege Logs",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "pincite": "26(b)(5)(A)",
+      "cited_for": "Privilege logs produced per rule",
+      "quotes": [],
+      "context": "Privilege logs shall be produced in accordance with Fed. R. Civ. P. 26(b)(5)(A) on a rolling basis",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(5)(A) requires a party withholding privileged material to expressly make the claim and describe the withheld items. That is the textual source of the privilege-log practice, so ordering logs 'in accordance with' it is accurate. The rule does not use the word 'log'.",
+        "evidence_excerpt": "the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 81,
+      "document": "case-management-order.docx.md",
+      "location": "IV.E Clawback",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "Fed. R. Evid. 502(d)",
+      "pincite": "502(d)",
+      "cited_for": "Inadvertent production of privileged material is not a waiver",
+      "quotes": [],
+      "context": "Pursuant to Fed. R. Evid. 502(d), the inadvertent production of privileged or work-product-protected materials in this action shall not constitute a waiver",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(d) authorizes a federal court to order that disclosure connected with the pending litigation does not waive privilege or protection. The CMO's clawback provision is this kind of order.",
+        "evidence_excerpt": "\"A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 82,
+      "document": "case-management-order.docx.md",
+      "location": "VI. Preservation of Evidence",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e)",
+      "citation_as_written": "Fed. R. Civ. P. 37(e)",
+      "pincite": "37(e)",
+      "cited_for": "Duty to preserve ESI; sanctions for failure to preserve",
+      "quotes": [],
+      "context": "pursuant to Fed. R. Civ. P. 37(e) and the common law duty of preservation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(e) covers ESI that 'should have been preserved' and sets the measures and sanctions for failing to take reasonable steps to preserve it. The underlying duty to preserve comes from the common law, which the order also cites. Pairing the two is accurate.",
+        "evidence_excerpt": "If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost because a party failed to take reasonable steps to preserve it, and it cannot be restored or replaced through additional discovery, the court: (1) upon finding prejudice ... may order measures no greater than necessary to cure the prejudice",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 83,
+      "document": "case-management-order.docx.md",
+      "location": "VI. Preservation of Evidence",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e)",
+      "citation_as_written": "Fed. R. Civ. P. 37(e)",
+      "pincite": "37(e)",
+      "cited_for": "Sanctions for failure to preserve, including adverse inference",
+      "quotes": [],
+      "context": "Failure to preserve relevant evidence may result in sanctions under Fed. R. Civ. P. 37(e), including, where appropriate, adverse inference instructions",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(e) authorizes measures to cure prejudice and, on a finding of intent to deprive, an adverse-inference presumption or jury instruction. So it supports sanctions that include adverse inference instructions, and the CMO's 'where appropriate' hedge fits the intent requirement. The defect: 37(e) covers only lost electronically stored information. The CMO cites it as the sanctions basis for failing to preserve 'relevant evidence' generally, including paper documents and tangible items, which fall under inherent authority and the common law rather than 37(e).",
+        "evidence_excerpt": "(e) Failure to Preserve Electronically Stored Information. If electronically stored information that should have been preserved ... is lost ... (2) only upon finding that the party acted with the intent to deprive ... may: ... (B) instruct the jury that it may or must presume the information was unfavorable to the party",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 84,
+      "document": "case-management-order.docx.md",
+      "location": "VII. Meet-and-Confer",
+      "authority_type": "court_rule",
+      "authority": "N.D. Ohio Local Rule 37.1",
+      "citation_as_written": "Local Rule 37.1 of the Northern District of Ohio",
+      "pincite": "",
+      "cited_for": "Meet-and-confer certification before discovery motions",
+      "quotes": [],
+      "context": "consistent with Local Rule 37.1 of the Northern District of Ohio and Fed. R. Civ. P. 37(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "N.D. Ohio Civ. R. 37.1(a)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.D. Ohio LR 37.1 (Discovery Disputes) requires counsel to make, and certify to the Court, sincere good-faith efforts to resolve a discovery dispute before it is referred to a judicial officer. This is consistent with the CMO's meet-and-confer certification requirement.",
+        "evidence_excerpt": "\"Discovery disputes shall be referred to a Judicial Officer only after counsel for the party seeking the disputed discovery has made, and certified to the Court the making of, sincere, good faith efforts to resolve such disputes.\"",
+        "source_urls": [
+          "https://www.ohnd.uscourts.gov/sites/ohnd/files/Civil_Rules_4-15-2025.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 85,
+      "document": "case-management-order.docx.md",
+      "location": "VII. Meet-and-Confer",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 37(a)(1)",
+      "pincite": "37(a)(1)",
+      "cited_for": "Good-faith certification before motion to compel",
+      "quotes": [],
+      "context": "consistent with Local Rule 37.1 of the Northern District of Ohio and Fed. R. Civ. P. 37(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(a)(1) requires a motion to compel to include a certification that the movant conferred, or tried to confer, in good faith before seeking court action.",
+        "evidence_excerpt": "The motion must include a certification that the movant has in good faith conferred or attempted to confer with the person or party failing to make disclosure or discovery in an effort to obtain it without court action.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 86,
+      "document": "case-management-order.docx.md",
+      "location": "VII. Meet-and-Confer",
+      "authority_type": "court_rule",
+      "authority": "Court's Standing Order on Civil Cases",
+      "citation_as_written": "the Court's Standing Order on Civil Cases",
+      "pincite": "",
+      "cited_for": "Letter briefs submitted to Chambers per Standing Order",
+      "quotes": [],
+      "context": "Letter briefs shall be submitted directly to Chambers in accordance with the Court's Standing Order on Civil Cases.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe standing order of the presiding judge"
+    },
+    {
+      "ref": 87,
+      "document": "case-management-order.docx.md",
+      "location": "VIII. Amendment and Modification",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "16(b)(4)",
+      "cited_for": "Schedule modification upon good cause",
+      "quotes": [],
+      "context": "This Case Management Order may be modified upon a showing of good cause by either party, consistent with Fed. R. Civ. P. 16(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) allows a schedule to be modified for good cause and with the judge's consent. The order's \"upon a showing of good cause... consistent with\" language matches the rule. The judge's consent is implied because the order is a court order.",
+        "evidence_excerpt": "\"A schedule may be modified only for good cause and with the judge's consent.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 88,
+      "document": "case-management-order.docx.md",
+      "location": "X. Miscellaneous",
+      "authority_type": "court_rule",
+      "authority": "N.D. Ohio Local Rules",
+      "citation_as_written": "the Local Rules of the Northern District of Ohio",
+      "pincite": "",
+      "cited_for": "All filings must comply with local rules",
+      "quotes": [],
+      "context": "All filings in this action shall comply with the Court's Electronic Filing Procedures and the Local Rules of the Northern District of Ohio.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The N.D. Ohio Local Civil Rules exist and govern practice before that court. LR 5.1(b) separately ties electronic filings to the Court's Electronic Filing Policies and Procedures Manual. That supports the CMO directive that filings comply with the Electronic Filing Procedures and the Local Rules.",
+        "evidence_excerpt": "LR 1.1(d): \"These Rules shall be construed ... to govern the practice of attorneys before this Court\"; LR 5.1(b): \"All electronic filings shall be governed by the Court's Electronic Filing Policies and Procedures Manual and orders of the Court.\"",
+        "source_urls": [
+          "https://www.ohnd.uscourts.gov/sites/ohnd/files/Civil_Rules_4-15-2025.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 89,
+      "document": "case-management-order.docx.md",
+      "location": "X. Miscellaneous",
+      "authority_type": "court_rule",
+      "authority": "Judge Kesselman's Standing Order on Civil Cases (ESI specificity)",
+      "citation_as_written": "the undersigned's Standing Order on Civil Cases",
+      "pincite": "",
+      "cited_for": "ESI requests must identify custodians and date ranges with reasonable specificity",
+      "quotes": [],
+      "context": "The Standing Order's provisions regarding ESI specificity, including the requirements that discovery requests for electronically stored information identify custodians and date ranges with reasonable specificity, apply with full force to all discovery requests served in this action.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe standing order of the fictional presiding judge"
+    },
+    {
+      "ref": 90,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§1 Purpose and Scope",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Basis for trade secret claims",
+      "quotes": [],
+      "context": "misappropriation of trade secrets brought by Blackthorn against Ridgeline under the Defend Trade Secrets Act, 18 U.S.C. § 1836, and the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The protective order describes the trade secret claims as brought under the DTSA, 18 U.S.C. § 1836. That section provides the private civil action for misappropriation.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 91,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§1 Purpose and Scope",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Basis for state trade secret claims",
+      "quotes": [],
+      "context": "under the Defend Trade Secrets Act, 18 U.S.C. § 1836, and the Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation and name are correct, and the statute is the basis for Ohio trade secret claims.",
+        "evidence_excerpt": "1333.61 - Uniform trade secrets act definitions; 1333.62 - Injunction against misappropriation; 1333.63 - Damages recoverable",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/chapter-1333"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 92,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§1 Purpose and Scope",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure / Rule 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Order does not limit parties' discovery obligations under the FRCP",
+      "quotes": [],
+      "context": "Nothing in this Order shall be construed to limit or affect the parties' obligations under the Federal Rules of Civil Procedure, including Fed. R. Civ. P. 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) is the FRCP provision that defines the scope of discovery. The protective order says that nothing in it limits the parties' obligations under the FRCP, 'including' Rule 26(b)(1). That is an accurate general reference. Strictly, 26(b)(1) defines scope rather than imposing obligations, but the savings-clause usage is reasonable.",
+        "evidence_excerpt": "\"Unless otherwise limited by court order, the scope of discovery is as follows: Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 93,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§2.5 Definition of Document",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)",
+      "citation_as_written": "Fed. R. Civ. P. 34(a)",
+      "pincite": "34(a)",
+      "cited_for": "Meaning of 'Document'",
+      "quotes": [],
+      "context": "\"Document\" shall have the meaning ascribed to it by Fed. R. Civ. P. 34(a), and includes all writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 34(a)(1)(A) (more precise subdivision)",
+        "quote_check": "No quotation is attributed. The protective order's list ('writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations') matches Rule 34(a)(1)(A) word for word.",
+        "explanation": "Rule 34(a)(1)(A) describes 'documents or electronically stored information' with exactly the illustrative list the protective order uses. Defining 'Document' by reference to Rule 34(a) is the standard and accurate practice. The more precise subdivision is (a)(1)(A).",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 94,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§3.5 Inadvertent Production of Privileged Material",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(B)",
+      "pincite": "26(b)(5)(B)",
+      "cited_for": "Clawback procedure for inadvertently produced privileged material",
+      "quotes": [],
+      "context": "the Receiving Party shall promptly return, sequester, or destroy the identified material and all copies thereof, consistent with Fed. R. Civ. P. 26(b)(5)(B) and Fed. R. Evid. 502(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The order's 'promptly return, sequester, or destroy' tracks the rule's wording.",
+        "explanation": "Rule 26(b)(5)(B) sets the clawback procedure. After notice, the receiving party must promptly return, sequester, or destroy the information and any copies. The protective order's language matches the rule.",
+        "evidence_excerpt": "After being notified, a party must promptly return, sequester, or destroy the specified information and any copies it has; must not use or disclose the information until the claim is resolved",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 95,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§3.5 Inadvertent Production of Privileged Material",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Fed. R. Evid. 502(b)",
+      "pincite": "502(b)",
+      "cited_for": "Inadvertent disclosure waiver standard",
+      "quotes": [],
+      "context": "consistent with Fed. R. Civ. P. 26(b)(5)(B) and Fed. R. Evid. 502(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 502(b) sets the standard for when an inadvertent disclosure does not waive privilege, and it cross-references FRCP 26(b)(5)(B), consistent with how the protective order pairs the two.",
+        "evidence_excerpt": "\"the disclosure does not operate as a waiver ... if: (1) the disclosure is inadvertent; (2) the holder ... took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 96,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§6.3 Burden of Proof",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(c)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(c)(1)",
+      "pincite": "26(c)(1)",
+      "cited_for": "Good cause standard for Confidential designations",
+      "quotes": [],
+      "context": "For Confidential material, the Designating Party must show good cause for the designation under the standard set forth in Fed. R. Civ. P. 26(c)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(c)(1) supplies the good-cause standard for protective orders. Stipulated protective orders commonly apply it to confidentiality designations, so citing it as the good-cause standard is accurate.",
+        "evidence_excerpt": "The court may, for good cause, issue an order to protect a party or person from annoyance, embarrassment, oppression, or undue burden or expense",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 97,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§7.3 No Public Filing",
+      "authority_type": "court_rule",
+      "authority": "N.D. Ohio Local Rule 5.2",
+      "citation_as_written": "N.D. Ohio Local Rule 5.2",
+      "pincite": "",
+      "cited_for": "Procedures for filing under seal",
+      "quotes": [],
+      "context": "complying with the Court's procedures for filing under seal, including N.D. Ohio Local Rule 5.2.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "N.D. Ohio LR 5.2 is titled 'Filing Documents Under Seal' and sets the court's sealed-filing procedure, including that a statute, rule or prior order must authorize the sealing and that the filing be linked to that order. It supports the protective order's reference to the Court's sealing procedures.",
+        "evidence_excerpt": "\"Rule 5.2 Filing Documents Under Seal. No document will be accepted for filing under seal unless a statute, court rule, or prior court order authorizes the filing of sealed documents.\"",
+        "source_urls": [
+          "https://www.ohnd.uscourts.gov/sites/ohnd/files/Civil_Rules_4-15-2025.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 98,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§8.4 Requesting Party's Right to Specify Format",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(1)(C)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(1)(C)",
+      "pincite": "34(b)(1)(C)",
+      "cited_for": "Requesting party may specify form of ESI production",
+      "quotes": [],
+      "context": "Consistent with Fed. R. Civ. P. 34(b)(1)(C), a requesting party may specify the form or forms in which ESI is to be produced in its discovery requests.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(1)(C) provides that a request may specify the form or forms for producing ESI. That matches the proposition.",
+        "evidence_excerpt": "(C) may specify the form or forms in which electronically stored information is to be produced.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 99,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§8.4 (final sentence)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(1)(C)",
+      "citation_as_written": "Rule 34(b)(1)(C)",
+      "pincite": "34(b)(1)(C)",
+      "cited_for": "Order does not limit requesting party's right to specify production format",
+      "quotes": [],
+      "context": "Nothing in this Order shall be construed to limit a requesting party's right to specify production format under Rule 34(b)(1)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(1)(C) gives the requesting party the right to specify ESI production format. The order's savings clause correctly identifies that right.",
+        "evidence_excerpt": "The request: ... (C) may specify the form or forms in which electronically stored information is to be produced.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 100,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "IV.A ValvePrime System",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "ValvePrime algorithm, source code and pricing tier data are trade secrets protected under federal law",
+      "quotes": [],
+      "context": "to constitute trade secrets entitled to protection under both the federal Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and Ohio's Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA (18 U.S.C. § 1836 et seq.) protects trade secrets. Its definition in § 1839(3) expressly covers technical and business information, including programs, codes, compilations, and financial information, when the owner keeps it secret through reasonable measures and it has independent economic value. Calling the algorithm, source code, and pricing data protectable trade secrets is a fair statement of the statute, which is cited generally for that point. Whether they actually qualify is a factual question.",
+        "evidence_excerpt": "\"all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures, programs, or codes...\" (18 U.S.C. § 1839(3))",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836",
+          "https://www.law.cornell.edu/uscode/text/18/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 101,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "IV.A ValvePrime System",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "ValvePrime protected as trade secrets under Ohio law",
+      "quotes": [],
+      "context": "Ohio's Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq. The ValvePrime system derives independent economic value from the fact that it is not generally known",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ohio Rev. Code 1333.61(D)",
+        "quote_check": "No quotations attributed. The memo's paraphrase, 'derives independent economic value from the fact that it is not generally known', closely tracks 1333.61(D)(1).",
+        "explanation": "The memo applies the statutory trade secret definition in R.C. 1333.61(D), which requires independent economic value from not being generally known or readily ascertainable, plus reasonable secrecy efforts. It characterizes the statute accurately. A pin to 1333.61(D) would be more precise.",
+        "evidence_excerpt": "R.C. 1333.61(D)(1): \"It derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable by proper means by, other persons who can obtain economic value from its disclosure or use.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 102,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "IV.C USB Drive Transfer",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)(1)(A) and (B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)(1)(A) and (B)",
+      "pincite": "34(a)(1)(A), (B)",
+      "cited_for": "Court order compelling Ridgeline to produce USB drive, laptops for inspection",
+      "quotes": [],
+      "context": "a court order compelling Ridgeline to produce these tangible items for inspection under Federal Rule of Civil Procedure 34(a)(1)(A) and (B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a)(1)(A)-(B) allows a party to request production for inspection of ESI and tangible things held by another party, and Ridgeline is the defendant. A fair reading of the memo is that the items would be produced 'for inspection under' Rule 34. The court's power to compel comes from Rule 37(a)(3)(B)(iv), not Rule 34 itself, but the memo does not claim Rule 34 is the compulsion mechanism. Rule 37 was not read for this check.",
+        "evidence_excerpt": "to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control: (A) any designated documents or electronically stored information ... or (B) any designated tangible things",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 103,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "V.B Cure Notice and Audit Request (preservation paragraph)",
+      "authority_type": "other",
+      "authority": "Federal preservation law (unspecified)",
+      "citation_as_written": "Under applicable federal law",
+      "pincite": "",
+      "cited_for": "Ridgeline's obligation to preserve documents and ESI likely attached no later than August 1, 2023",
+      "quotes": [],
+      "context": "Under applicable federal law, Ridgeline's obligation to preserve relevant documents and electronically stored information likely attached no later than this date",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No specific authority is cited, only 'applicable federal law', so there is no citation to check. The general federal standard the memo relies on is real: the duty to preserve arises when a party has notice that evidence is relevant to litigation, or should have known it may be relevant to future litigation. See John B. v. Goetz, 531 F.3d 448 (6th Cir. 2008), quoting Fujitsu Ltd. v. Fed. Express Corp., 247 F.3d 423, 436 (2d Cir. 2001). The conclusion that the duty attached by the August 1, 2023 cure notice is a fact-specific application, and the memo hedges it with 'likely'. That is plausible but not verifiable as a cited holding.",
+        "evidence_excerpt": "\"a party to civil litigation has a duty to preserve relevant information, including ESI, when that party 'has notice that the evidence is relevant to litigation or ... should have known that the evidence may be relevant to future litigation.'\" (John B. v. Goetz)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1467997/john-b-v-goetz/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 104,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VII.A.4 Physical and Electronic Devices",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(a)(1)(A) and (B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)(1)(A) and (B)",
+      "pincite": "34(a)(1)(A), (B)",
+      "cited_for": "Devices and storage media subject to inspection and production",
+      "quotes": [],
+      "context": "These items are subject to inspection and production under Federal Rule of Civil Procedure 34(a)(1)(A) and (B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Devices and storage media (USB drives, laptops, hard drives) are tangible things under (a)(1)(B), and their data is ESI under (a)(1)(A). Both are subject to production and inspection, including testing or sampling, when in the responding party's possession, custody or control.",
+        "evidence_excerpt": "to produce and permit the requesting party or its representative to inspect, copy, test, or sample ... (B) any designated tangible things",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 105,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VII.B Preservation Concerns",
+      "authority_type": "other",
+      "authority": "Federal preservation law (unspecified)",
+      "citation_as_written": "Under applicable federal law",
+      "pincite": "",
+      "cited_for": "Duty to preserve triggered when party knows or should know evidence is relevant to future or pending litigation",
+      "quotes": [],
+      "context": "Under applicable federal law, a party's duty to preserve relevant documents and electronically stored information is triggered when the party knows or should know that the evidence is relevant to future or pending litigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No specific authority is cited. The rule as stated matches established federal law: the duty to preserve is triggered when a party knows or should know that evidence is relevant to pending or future litigation. John B. v. Goetz, 531 F.3d 448 (6th Cir. 2008), quoting Fujitsu, 247 F.3d at 436, says exactly that. The substance is accurate, but because no authority is identified there is no citation to verify.",
+        "evidence_excerpt": "\"it is beyond question that a party to civil litigation has a duty to preserve relevant information, including ESI, when that party 'has notice that the evidence is relevant to litigation or ... should have known that the evidence may be relevant to future litigation.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1467997/john-b-v-goetz/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 106,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VII.C.3 Recommendations",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 45",
+      "citation_as_written": "Federal Rule of Civil Procedure 45",
+      "pincite": "",
+      "cited_for": "Non-party Apex must be subpoenaed separately",
+      "quotes": [],
+      "context": "As a non-party, Apex must be subpoenaed separately under Federal Rule of Civil Procedure 45.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a) document requests may be served only on 'any other party', and Rule 34(c) provides that a nonparty is compelled to produce under Rule 45. So non-party Apex must be subpoenaed under Rule 45.",
+        "evidence_excerpt": "Rule 34(a): \"A party may serve on any other party a request within the scope of Rule 26(b)\"; Rule 34(c): \"As provided in Rule 45, a nonparty may be compelled to produce documents and tangible things or to permit an inspection.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 107,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VIII Conclusion",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Misappropriation of trade secrets claim",
+      "quotes": [],
+      "context": "Misappropriation of trade secrets under both the federal Defend Trade Secrets Act (18 U.S.C. § 1836 et seq.) and Ohio's Uniform Trade Secrets Act (Ohio Rev. Code § 1333.61 et seq.).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836(b)(1) provides a civil action for misappropriation of trade secrets, and the definitions are in § 1839 within the 'et seq.' range. The citation is correct for a misappropriation claim.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/uscode/text/18/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 108,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VIII Conclusion",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Rev. Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Rev. Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Misappropriation of trade secrets claim under Ohio law",
+      "quotes": [],
+      "context": "Ohio's Uniform Trade Secrets Act (Ohio Rev. Code § 1333.61 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio Rev. Code § 1333.61 et seq. is Ohio's Uniform Trade Secrets Act. Section 1333.61 defines 'misappropriation' and 'trade secret', and later sections provide the remedies. The memo correctly identifies it as the basis for a state-law misappropriation claim.",
+        "evidence_excerpt": "Uniform trade secrets act definitions. ... \"Misappropriation\" means ... (1) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 109,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VII.B Preservation Concerns / IV.D",
+      "authority_type": "other",
+      "authority": "Spoliation / adverse inference doctrine (no authority cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Destroyed or altered records may support adverse inference or spoliation arguments",
+      "quotes": [],
+      "context": "there may be additional grounds for adverse inference or spoliation arguments.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations; no authority cited.",
+        "explanation": "No authority is cited; this is a general statement of spoliation doctrine. It accords with Fed. R. Civ. P. 37(e), which the case management order invokes. Rule 37(e) permits measures for lost ESI, and under (e)(2) it permits an adverse-inference presumption or jury instruction, but only on a finding of intent to deprive. The memo's hedged statement that destroyed or altered records 'may' support adverse inference or spoliation arguments is a fair reading. There is no specific citation to check.",
+        "evidence_excerpt": "Rule 37(e)(2) permits the court to \"presume that the lost information was unfavorable to the party\" or instruct the jury accordingly \"only upon finding that the party acted with the intent to deprive another party of the information's use in the litigation.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 110,
+      "document": "internal-investigation-memo.docx.md",
+      "location": "VII.C.5 Recommendations",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a) (initial disclosures)",
+      "citation_as_written": "Rule 26(a)",
+      "pincite": "",
+      "cited_for": "Ridgeline's Rule 26(a) disclosures may reveal concerns about adequacy of preservation, supporting a possible preservation-order request",
+      "quotes": [],
+      "context": "Evaluate whether to seek a preservation order from the Court if Ridgeline's initial discovery responses or Rule 26(a) disclosures reveal any concerns about the adequacy of Ridgeline's preservation efforts or suggest that document destruction may have occurred.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a) covers required disclosures. Initial disclosures under 26(a)(1)(A) include copies or descriptions of documents and ESI in the party's possession, custody, or control. The memo's point that these disclosures could reveal preservation concerns is a reasonable strategic inference, not a misstatement of the rule.",
+        "evidence_excerpt": "\"a party must, without awaiting a discovery request, provide to the other parties:\" ... copies or descriptions of documents, electronically stored information, and tangible things in the party's possession, custody, or control (summary of 26(a)(1)(A)(ii) as reported by the fetch tool)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 111,
+      "document": "case-management-order.docx.md",
+      "location": "VI. Preservation of Evidence",
+      "authority_type": "other",
+      "authority": "Common law duty of preservation",
+      "citation_as_written": "the common law duty of preservation",
+      "pincite": "",
+      "cited_for": "Parties must preserve relevant evidence under Rule 37(e) and the common law duty of preservation",
+      "quotes": [],
+      "context": "preserve evidence relevant to the claims and defenses in this action, including all electronically stored information, paper documents, and tangible items, pursuant to Fed. R. Civ. P. 37(e) and the common law duty of preservation.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The common-law duty to preserve relevant evidence when litigation is reasonably anticipated is real and well established. The 2015 Advisory Committee Note to Fed. R. Civ. P. 37(e) expressly recognizes that duty and states that Rule 37(e) rests on it. The common-law duty also reaches paper and tangible items, which Rule 37(e) (ESI only) does not, so pairing the two fits the order's broad preservation directive.",
+        "evidence_excerpt": "Many court decisions hold that potential litigants have a duty to preserve relevant information when litigation is reasonably foreseeable. ... Rule 37(e) is based on this common-law duty; it does not attempt to create a new duty to preserve.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 112,
+      "document": "stipulated-protective-order.docx.md",
+      "location": "§1 Purpose and Scope (second paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure (general)",
+      "citation_as_written": "Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Order applies to discovery conducted under the Federal Rules of Civil Procedure and does not limit parties' obligations under them",
+      "quotes": [],
+      "context": "This Order applies to discovery conducted pursuant to the Federal Rules of Civil Procedure and the Court's Case Management Order dated July 15, 2024. Nothing in this Order shall be construed to limit or affect the parties' obligations under the Federal Rules of Civil Procedure, including Fed. R. Civ. P. 26(b)(1).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a general reference to the FRCP as the framework governing discovery. The specifically cited Rule 26(b)(1) defines the scope of discovery, which fits a savings clause preserving parties' obligations. The first clause of 26(b)(1) ('Unless otherwise limited by court order') also confirms that court orders interact with that scope.",
+        "evidence_excerpt": "\"Unless otherwise limited by court order, the scope of discovery is as follows: Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}
