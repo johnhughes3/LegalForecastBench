@@ -208,9 +208,10 @@ def statistics(sampler: Any) -> dict[str, Any]:
         stats[f"{key}_lb"] = sampler.lower_bound(flagged, n, stats[key])
         stats[f"{key}_point"] = round(stats[key] * flagged / n)
     stats["flagged_pct"] = f"{100 * flagged / criteria_total:.1f}"
-    stats["defective_share"] = f"{100 * stats['defective_lb'] / criteria_total:.1f}"
-    stats["objective_share"] = f"{100 * stats['objective_lb'] / criteria_total:.1f}"
-    stats["env_items_share"] = f"{100 * stats['env_items_lb'] / criteria_total:.1f}"
+    for key in ("defective", "objective", "env_items"):
+        # Truncate, not round: these shares are lower bounds, cited as "more than".
+        tenths = 1000 * stats[f"{key}_lb"] // criteria_total
+        stats[f"{key}_share"] = f"{tenths // 10}.{tenths % 10}"
     return stats
 
 

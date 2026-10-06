@@ -2,5 +2,6 @@ condition,display_label,micro_brier,equal_case_brier,accuracy,mean_predicted_dis
 full_luna,GPT-5.6 Luna full documents,0.143216925065,0.150835108106,0.808785529716,,0.736434108500,full-document agentic
 gpt-5-6-luna-summaries-high,GPT-5.6 Luna summary + high reasoning,0.154894573643,0.161194367379,0.785529715762,0.730000000000,0.736434108500,"summary cache, one-shot"
 gpt-6-luna-summaries-none,GPT-6 Luna summary + no reasoning,0.171520930233,0.186942624439,0.741602067183,0.736020671835,0.736434108500,"summary cache, one-shot"
-jev-luna-summaries,Jev summary + one-shot,0.367541343669,0.344162087793,0.325581395349,0.304728682171,0.736434108500,"summary cache, one-shot"
+jev-luna-summaries,Jev Luna summary + one-shot,0.367541343669,0.344162087793,0.325581395349,0.304728682171,0.736434108500,"summary cache, one-shot"
+jev-grok-short-summaries,Jev Grok summary + one-shot,0.327251937984,0.305047305234,0.382428940568,0.355633074935,0.736434108500,"Grok summary cache, one-shot"
 constant-p-0.50,Constant p = 0.50,0.250000000000,,,0.500000000000,0.736434108500,constant probability baseline
