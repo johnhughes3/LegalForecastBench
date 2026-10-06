@@ -116,8 +116,14 @@ if "$container"; then
   pull_pinned_texlive_image "$image"
   options=()
   if "$release"; then options+=(--release); fi
+  # Rootless Docker maps container root to the invoking user, so the host
+  # user's own uid would land on an unwritable subordinate uid instead.
+  user="$(id -u):$(id -g)"
+  if docker info --format '{{.SecurityOptions}}' 2>/dev/null | grep -q rootless; then
+    user=0:0
+  fi
   exec docker run --rm --platform linux/amd64 --network none \
-    --user "$(id -u):$(id -g)" \
+    --user "$user" \
     --env SOURCE_DATE_EPOCH --env FORCE_SOURCE_DATE --env HOME=/tmp \
     --volume "$repo_root:/paper:ro" \
     --volume "$output_dir:/paper/docs/paper/build" \
