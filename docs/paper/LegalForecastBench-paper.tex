@@ -50,6 +50,7 @@
 \newcommand{\labObjectivePoint}{301}
 \newcommand{\labObjectiveShare}{6.0}
 \newcommand{\labEnvLB}{319}
+\newcommand{\labEnvShare}{11.2}
 \newcommand{\labEnvPoint}{468}
 \newcommand{\labAnyLB}{524}
 \newcommand{\labAnyPoint}{668}
@@ -78,7 +79,7 @@ The beta includes 91 cases and 387 scored claim--defendant units. In the initial
 
 Reinforcement learning (RL) techniques have led to significant recent gains in frontier model capabilities, but the most noteworthy gains have been in domains like mathematics and coding that are susceptible to  automated verification. Reinforcement learning with verifiable rewards (RLVR) has allowed froniter models to gain capabilities by receiving reward signals from automated correctness checks (like mathematical answer matching, executable tests, or formal proof checking) \citep{deepseek,rlve}. Earlier self-play systems demonstrated the powerful capabilities that automated outcome feedback could provide to models playing games with explicit rules and automatable scoring mechanisms \citep{alphazero}.
 
-Frontier models have also made noteworthy gains on legal tasks that are objectively verifiable; for example, tests that ask models bar exam-style questions about established legal propoositions have become largely satured \citep{ncbe}. This increase in legal capabilities has forced researchers to develop new tasks that challenge today's frontier models. The literature illustrates at least two approaches being used recently: preference evaluation (comparing which of two outputs practicing attorneys prefer) and rubric-based reinforcement learning (grading model outputs against specified criteria to produce a reward) \citep{judgmentbench}. While these approaches are important and useful, our audit of one of the most widely used rubric-based legal benchmark (which utilized rubrics supplied by leading data companies) found that more than XXX\% of the rubrics (95\% CI) contained material errors that could impact the grading on those rubrics and more than XXX\% of the rubrics evaluated revealed errors or inconsistencies in the task environment. This illustrates the extraordinary difficulty of obtaining reliable, high-quality training data  that can improve frontier models' legal abilities at current capability levels.
+Frontier models have also made noteworthy gains on legal tasks that are objectively verifiable; for example, tests that ask models bar exam-style questions about established legal propoositions have become largely satured \citep{ncbe}. This increase in legal capabilities has forced researchers to develop new tasks that challenge today's frontier models. The literature illustrates at least two approaches being used recently: preference evaluation (comparing which of two outputs practicing attorneys prefer) and rubric-based reinforcement learning (grading model outputs against specified criteria to produce a reward) \citep{judgmentbench}. While these approaches are important and useful, our audit of one of the most widely used rubric-based legal benchmark (which utilized rubrics supplied by leading data companies) found that more than \labDefectiveShare\% of the criteria in the litigation practice area (95\% CI) contained material errors that could impact the grading on those rubrics, and more than \labEnvShare\% come from task environments with errors or inconsistencies. This illustrates the extraordinary difficulty of obtaining reliable, high-quality training data  that can improve frontier models' legal abilities at current capability levels.
 
 This paper aims to demonstrate that judicial dispositions in litigation matters provide a valuable external signal that can make high-level legal judgment tasks verifiable against an objective ground truth. This approach rests on a simple reality of the legal system: "It is emphatically the province and duty of the Judicial Department to say what the law is." Marbury v. Madison, 5 U.S. 137, 177 (1803). Every litigated judgment has the force of law as between the parties, and definitively resolves any disputes between the parties on the interpretation of the law or its application to a specific fact pattern.
 
@@ -210,7 +211,7 @@ Gemini 3.1 Pro Preview & 0.18345 & 0.18080 & 302/387 & 78.04 & 59.04 \\
 Cohort-rate reference & 0.19410 & --- & 285/387 & 73.64 & ---\\
 Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \bottomrule\end{tabular}
-\caption{Benchmark raisedesults, sorted by micro-Brier loss.}
+\caption{Benchmark results, sorted by micro-Brier loss.}
 \label{tab:main}
 \end{table}
 

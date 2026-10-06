@@ -210,6 +210,7 @@ def statistics(sampler: Any) -> dict[str, Any]:
     stats["flagged_pct"] = f"{100 * flagged / criteria_total:.1f}"
     stats["defective_share"] = f"{100 * stats['defective_lb'] / criteria_total:.1f}"
     stats["objective_share"] = f"{100 * stats['objective_lb'] / criteria_total:.1f}"
+    stats["env_items_share"] = f"{100 * stats['env_items_lb'] / criteria_total:.1f}"
     return stats
 
 
@@ -242,6 +243,7 @@ MACROS = {
     "objective_point": "labObjectivePoint",
     "objective_share": "labObjectiveShare",
     "env_items_lb": "labEnvLB",
+    "env_items_share": "labEnvShare",
     "env_items_point": "labEnvPoint",
     "any_defect_lb": "labAnyLB",
     "any_defect_point": "labAnyPoint",
