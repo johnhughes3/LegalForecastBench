@@ -173,10 +173,10 @@
         ],
         "lane_owner": "other",
         "largest_symbol": "main",
-        "largest_symbol_lines": 91,
+        "largest_symbol_lines": 95,
         "layer": "application",
-        "line_count": 441,
-        "nonblank_line_count": 393,
+        "line_count": 452,
+        "nonblank_line_count": 404,
         "top_level_definition_count": 14
       },
       "docs/paper/figures/make_figures.py": {

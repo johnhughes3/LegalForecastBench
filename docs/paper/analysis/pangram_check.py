@@ -334,6 +334,13 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
         "part of its title (repeatable)",
     )
     parser.add_argument(
+        "--max-usd",
+        type=float,
+        default=10.0,
+        help="refuse to send if the estimated cost exceeds this many dollars "
+        "(default: 10)",
+    )
+    parser.add_argument(
         "--model",
         default="default",
         help="Pangram model selector (default: Pangram's current default model)",
@@ -371,10 +378,14 @@ def main(argv: list[str] | None = None) -> int:
         f"{BLOCK_WORDS}-word blocks, or ${blocks * USD_PER_BLOCK:.2f} at Pangram's "
         "published realtime rate (an estimate; Pangram's own count governs).\n"
     )
+    if client is not None and blocks * USD_PER_BLOCK > args.max_usd:
+        raise SystemExit(
+            f"estimated ${blocks * USD_PER_BLOCK:.2f} exceeds --max-usd "
+            f"{args.max_usd:.2f}; raise it to send"
+        )
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "paper.txt").write_text(text + "\n", encoding="utf-8")
 
-    outcomes = ["sent" if u.words else "nothing sent" for u in units]
     details: list[str] = []
     if client is None:
         outcomes = ["extracted, not sent" if u.words else "nothing sent" for u in units]

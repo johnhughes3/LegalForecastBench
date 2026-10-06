@@ -217,3 +217,20 @@ def test_one_document_is_scored_and_windows_are_reported_by_section(
     assert "placeholder" not in printed
     saved = json.loads((out / "response.json").read_text(encoding="utf-8"))
     assert saved["prediction_short"] == "Mixed"
+
+
+def test_cost_ceiling_refuses_before_any_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Refuse:
+        def predict(self, text: str, *, model: str) -> dict[str, Any]:
+            raise AssertionError("no request may be sent over the ceiling")
+
+    monkeypatch.setenv(pangram_check.KEY_VARIABLE, "placeholder")
+    monkeypatch.setattr(pangram_check, "_client", Refuse)
+    monkeypatch.setattr(pangram_check, "MIN_WORDS", 3)
+    manuscript = tmp_path / "paper.tex"
+    manuscript.write_text(FIXTURE, encoding="utf-8")
+    arguments = ["--manuscript", str(manuscript), "--out", str(tmp_path / "out")]
+    with pytest.raises(SystemExit, match="exceeds --max-usd"):
+        pangram_check.main([*arguments, "--max-usd", "0"])
