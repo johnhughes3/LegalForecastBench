@@ -8,6 +8,7 @@ This check covers every citation to legal authority in Harvey LAB's `litigation-
 | File | Contents |
 |---|---|
 | [`problems.md`](problems.md) | Every citation whose final status is a problem, by task, with the finding |
+| [`rubric-intent.json`](rubric-intent.json) | For each problem citation, whether the task instructions or a rubric criterion asks the model to catch it, and whether a criterion rewards relying on it |
 | [`summary.json`](summary.json) | The counts in this README, by status, authority type, location, and task |
 | `results/<task>.json` | Every citation in the task: where it appears, what it is cited for, quotations attributed to it, the first check (status, explanation, source URLs, excerpt read), and the second check where one was made |
 
@@ -48,7 +49,7 @@ Thirty-five problems sit in a `task.json`, that is, in the task instructions or 
 
 ## How to read these numbers
 
-- **A problem in a document is not necessarily a defect in the task.** Some tasks hand the model an opposing party's brief or proposed jury instructions to critique, and a miscited authority there may be planted for the model to catch. This check records whether a citation is accurate, not whether the error was intended or whether the rubric rewards spotting it. The two largest counts come from tasks of exactly this kind (an opposing motion to dismiss, a counterparty's jury instructions), alongside tasks where the flawed authority sits in the client's own research memo or in the rubric. Classifying each problem as planted or unplanted, and as affecting a graded criterion or not, has not been done.
+- **Planted errors are few.** For each of the 467 problems, an Opus agent read the task's instructions and every rubric criterion and recorded whether any of them asks the model to catch that error, and whether any criterion rewards relying on it ([`rubric-intent.json`](rubric-intent.json)). 31 problems (7%), in 8 tasks, are targeted by a criterion; these are misstatements of law planted in an opposing party's filing, which the rubric asks the model to rebut on substance. None of the 76 not-found authorities is targeted, and no criterion checks citation accuracy as such. The other 436 (93%) are unintentional. In the other direction, for 120 problems (26%) in 15 tasks a criterion rewards relying on the defective authority or on the proposition it was wrongly cited for, so a model that gets the law right can lose credit. These classifications are AI judgments from reading the rubric text.
 - **The second check is not independent.** It used the same model family, saw the first finding and its sources, and overturned 3%. It removes clear mistakes; it is not a substitute for a person reading the authorities.
 - **Extraction varies between runs.** An interrupted rerun of the extraction step listed 3,872 instances, against 3,821 in the run reported here, with different instances in every task. Totals are therefore approximate at the level of a few percent; the problem findings themselves each rest on their own recorded source.
 - **"Other" is a mixed category.** It includes agency guidance and pattern jury instructions, but also some contract provisions the extraction treated as authority; problems in it are less informative than those for cases and statutes.
