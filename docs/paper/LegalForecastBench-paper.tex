@@ -79,7 +79,7 @@ This paper argues that the heavy reliance on artificially constructed environmen
 
 LegalForecastBench illustrates one mechanism by which the signal from judicial decisions can be used to objectively evaluate the legal reasoning capabilities of frontier models. Models receive the same briefs that a federal judge received when ruling on a motion to dismiss, and are asked to estimate the probability that the judge dismissed each claim challenged by a defendant.
 
-The beta includes 91 cases and 387 scored claim--defendant units. In the initial run, GPT-6 Sol has the lowest micro-Brier loss (0.118) and the highest accuracy (84.5\%) of seventeen models tested. Notably, the test showed that almost all of the frontier reasoning models now outperform the retrospectively fitted constant-probability reference (i.e., the base rate), which human lawyers have not been able to outperform in past studies of prediction. We describe how more training signal could potentially be extracted from real-world litigation data, and suggest this approach may be more effective than relying on fictitious environments created by some data providers.
+The beta includes 91 cases and 387 scored claim--defendant units. In the initial run, GPT-6 Sol has the lowest micro-Brier loss (0.118) and the highest accuracy (84.5\%) of seventeen models tested. We describe how more training signal could potentially be extracted from real-world litigation data, and suggest this approach may be more effective than relying on fictitious environments created by some data providers.
 \end{abstract}
 
 \section{Introduction}
@@ -190,7 +190,7 @@ Across the 387 scored units in 91 cases, the observed-scale outcome ICC was 0.76
 % BEGIN AI-PREPARED (disclosed in the AI use statement; not sent to the Pangram check)
 % TODO: No rewrite. Leave this section empirical. Do not add interpretation between the subsections.
 
-\subsection{Frontier models substantially outperform unconditional references}
+\subsection{Model performance and unconditional references}
 Table~\ref{tab:main} reports the seventeen configurations on the ranked leaderboard. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). All seventeen beat the retrospectively fitted constant micro-Brier of 0.19410; GPT-6 Sol's micro-Brier is lower than that constant by about 39.4\%.
 
 Sixteen configurations also beat majority-class accuracy (the 73.64\% accuracy of predicting dismissal for every unit). Muse Spark 1.3 does not: 279/387 correct forecasts is 72.09\%. Gemini 3.1 Pro Preview has the highest micro-Brier in the panel (0.18345) and still beats that accuracy baseline (302/387, 78.04\%).
