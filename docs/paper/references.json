@@ -582,6 +582,19 @@
     "type": "paper"
   },
   {
+    "key": "harveyResearchLab",
+    "title": "How Harvey Built a Research Lab on a Budget",
+    "authors": [
+      "Gabe Pereyra"
+    ],
+    "year": 2026,
+    "venue": "Sequoia Capital, Own Your Intelligence; August 11, 2026",
+    "url": "https://www.youtube.com/watch?v=MGouk8W51v0&t=251s",
+    "accessed": "2026-10-06",
+    "notes": "Slide at 4:11, Scale with expert data providers, states that Mercor and Snorkel run expert review and verification of every generated LAB task.",
+    "type": "video"
+  },
+  {
     "key": "harveyLAB",
     "title": "Introducing Harvey's Legal Agent Benchmark",
     "authors": [
