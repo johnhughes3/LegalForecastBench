@@ -475,7 +475,7 @@ Summary preparation cost an estimated \$10.32 for the Luna summaries and \$29.99
 
 \section{Potential advantages of using real-world litigation data as ground truth instead ofsynthetic data or rubric-based rewards}
 
-Using real-world litigation data as ground truth for evaluating frontier models has several advantages over other leading approaches. The leading vertical legal AI company, Harvey AI Corporation, released Legal Agent Benchmark (LAB), in May 2026. Now widely cited by frontier research labs as a key evaluation of agentic legal capabilities for frontier models, LAB uses AI-generated task environments to test models on pre-specified rubrics. Harvey has publicly disclosed that it retained Mercor and Snorkel, leading third-party data providers, to conduct expert review and verification of all of the AI-generated tasks. [[cite https://www.youtube.com/watch?v=MGouk8W51v0\&t=1186s]] Harvey open-sourced the benchmark (except for a held-out test set), and invited practicing lawyers to validate and improve it by reviewing existing tasks and auditing rubrics. [[cite https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark]] I took up that invitation and did a deep-dive review of one of the substantive litigation tasks (drafting an issues list for a motion to dismiss opposition brief) and an audit of all the litigation rubrics. This analysis underscored the challenges involved in creating suitable reinforcement learning environments that can advance the capabilities frontier in the legal domain---and illustrated why extracting signal from real-world litigation data could be more effective than existing approaches.
+Using real-world litigation data as ground truth for evaluating frontier models has several advantages over other leading approaches. The leading vertical legal AI company, Harvey AI Corporation, released Legal Agent Benchmark (LAB), in May 2026. Now widely cited by frontier research labs as a key evaluation of agentic legal capabilities for frontier models, LAB uses AI-generated task environments to test models on pre-specified rubrics. Harvey has publicly disclosed that it retained Mercor and Snorkel, leading third-party data providers, to conduct expert review and verification of all of the AI-generated tasks. [[cite https://www.youtube.com/watch?v=MGouk8W51v0\&t=1186s]] Harvey open-sourced the benchmark (except for a held-out test set), and invited practicing lawyers to validate and improve it by reviewing existing tasks and auditing rubrics. \citep{harveyLAB} I took up that invitation and did a deep-dive review of one of the substantive litigation tasks (drafting an issues list for a motion to dismiss opposition brief) and an audit of all the litigation rubrics. This analysis underscored the challenges involved in creating suitable reinforcement learning environments that can advance the capabilities frontier in the legal domain---and illustrated why extracting signal from real-world litigation data could be more effective than existing approaches.
 
 
 \subsection{Audit of LAB's litigation rubrics}
@@ -549,45 +549,23 @@ As I am a practicing attorney and do not have any formal training in artificial 
 
 \bibitem{alphazero} David Silver, Thomas Hubert, Julian Schrittwieser et al. Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm. \emph{arXiv:1712.01815 (2017), preprint; precursor to the distinct 2018 Science article}, 2017. \url{https://arxiv.org/abs/1712.01815}.
 
-\bibitem{alphaproof} Thomas Hubert, Rishi Mehta, Laurent Sartran et al. Olympiad-level formal mathematical reasoning with reinforcement learning. \emph{Nature 651, 607--613; version of record 13 March 2026}, 2026. \url{https://www.nature.com/articles/s41586-025-09833-y}.
-
-\bibitem{navierstokesproof} OpenAI. Finite Time Blowup for Navier--Stokes. \emph{Technical manuscript}, September 2026. \url{https://cdn.openai.com/pdf/32d9f210-8b73-45e0-91bc-82a30aef8a9a/navier-stokes.pdf}.
-
-\bibitem{navierstokesreport} OpenAI. On the Navier--Stokes Millennium Prize Problem. \emph{Research announcement}, September 8, 2026; updated September 10, 2026. \url{https://openai.com/index/navier-stokes-solution/}.
-
 \bibitem{judgmentbench} Russell Yang, Ruishi Chen, Pierce Kelaita et al. JudgmentBench: Comparing Rubric and Preference Evaluation for Quality Assessment. \emph{arXiv:2605.25240v3, preprint}, 2026. \url{https://arxiv.org/abs/2605.25240}.
-
-\bibitem{rubricsrewards} Anisha Gunjal, Anthony Wang, Elaine Lau, Vaskar Nath, Yunzhong He, Bing Liu, and Sean Hendryx. Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains. In \emph{International Conference on Learning Representations}, 2026. First posted as arXiv:2507.17746 in 2025. \url{https://proceedings.iclr.cc/paper_files/paper/2026/hash/cfd7bee7a651ee9af525098ef67a9e45-Abstract-Conference.html}.
 
 \bibitem{harveyTraining} Niko Grupen, Julio Pereyra, Gabe Pereyra et al. Training a Legal Agent with Applied Compute. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/training-a-legal-agent-with-applied-compute}.
 
 \bibitem{tenet} Calvin Qi, Vasudha Rengarajan, Julio Pereyra et al. Harvey Tenet Research Preview. \emph{August 20, 2026 company research report}, 2026. \url{https://www.harvey.ai/blog/post-training-update-harvey-tenet}.
 
-\bibitem{instructgpt} Long Ouyang, Jeffrey Wu, Xu Jiang et al. Training language models to follow instructions with human feedback. \emph{NeurIPS 2022}, 2022. \url{https://arxiv.org/abs/2203.02155}.
-
 \bibitem{legalbench} Neel Guha, Julian Nyarko, Daniel E. Ho et al. LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models. \emph{NeurIPS 2023, Datasets and Benchmarks}, 2023. \url{https://arxiv.org/abs/2308.11462}.
 
 \bibitem{ncbe} National Conference of Bar Examiners. About the Multistate Bar Examination. Official examination description, n.d.; accessed September 29, 2026. \url{https://www.ncbex.org/exams/mbe/about-mbe}.
-
-\bibitem{hart} H. L. A. Hart. Positivism and the Separation of Law and Morals. \emph{Harvard Law Review}, 71(4):593--629, 1958. Especially pp. 607--608. \url{https://www.jstor.org/stable/1338225}.
-
-\bibitem{fuller} Lon L. Fuller. Positivism and Fidelity to Law---A Reply to Professor Hart. \emph{Harvard Law Review}, 71(4):630--672, 1958. Especially pp. 661--664. \url{https://www.jstor.org/stable/1338226}.
-
-\bibitem{declaratory} United States Congress. Declaratory Judgment Act, 28 U.S.C.\ \S\ 2201(a). Text consulted September 29, 2026. \url{https://www.law.cornell.edu/uscode/text/28/2201}.
-
-\bibitem{moitie} Supreme Court of the United States. Federated Department Stores, Inc. v. Moitie, 452 U.S.\ 394, 398--399 (1981). \url{https://www.govinfo.gov/content/pkg/USREPORTS-452/pdf/USREPORTS-452-394.pdf}.
 
 \bibitem{brier} Glenn W. Brier. Verification of Forecasts Expressed in Terms of Probability. \emph{Monthly Weather Review 78(1) (1950), 1--3}, 1950. \url{https://journals.ametsoc.org/view/journals/mwre/78/1/1520-0493_1950_078_0001_vofeit_2_0_co_2.xml}.
 
 \bibitem{gneiting} Tilmann Gneiting, Adrian E. Raftery. Strictly Proper Scoring Rules, Prediction, and Estimation. \emph{Journal of the American Statistical Association 102 (2007), 359--378}, 2007. \url{https://doi.org/10.1198/016214506000001437}.
 
-\bibitem{holmes} Oliver Wendell Holmes, Jr. The Path of the Law. \emph{Harvard Law Review}, 10(8):457--478, 1897. Especially pp. 457, 460--461. \url{https://www.jstor.org/stable/1322028}.
-
 \bibitem{securitiesFilings2024} Cornerstone Research and Stanford Law School Securities Class Action Clearinghouse. Securities Class Action Filings---2024 Year in Review. \emph{Research report}, 2025. p.~16, status of core federal securities class action filings as of the end of 2024. \url{https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf}.
 
 \bibitem{shadow} Robert H. Mnookin and Lewis Kornhauser. Bargaining in the Shadow of the Law: The Case of Divorce. \emph{Yale Law Journal}, 88(5):950--997, 1979. \url{https://doi.org/10.2307/795824}.
-
-\bibitem{nylawyerskills} Paul C. Saunders. Legal Skills and Professional Values: A Handbook. \emph{Journal of the New York State Judicial Institute on Professionalism in the Law}, 7(1), Fall 2019. Reproducing and discussing the MacCrate skills framework. \url{https://www.nycourts.gov/LegacyPDFS/ip/JIPL/pdf/JIPL%20-%20FINAL%20-%20Skills%20and%20Professional%20Values.pdf}.
 
 \bibitem{outcomerl} Benjamin Turtel, Danny Franklin, Kris Skotheim et al. Outcome-based Reinforcement Learning to Predict the Future. \emph{Transactions on Machine Learning Research (November 2025); arXiv:2505.17989v4}, 2025. \url{https://arxiv.org/abs/2505.17989}.
 
@@ -600,16 +578,6 @@ As I am a practicing attorney and do not have any formal training in artificial 
 
 \bibitem{labtask} Harvey AI task authors; upstream authorship not individually listed. Pinned LAB task.json for analyze-counterparty-motion-to-dismiss. \emph{Primary online source}, 2026. \url{https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json}.
 
-\bibitem{jacobswallach} Abigail Z. Jacobs and Hanna Wallach. Measurement and Fairness. In \emph{Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency}, pp. 375--385, 2021. \url{https://doi.org/10.1145/3442188.3445901}.
-
-\bibitem{amodei} Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and Dan Man\'e. Concrete Problems in AI Safety. \emph{arXiv:1606.06565v2}, 2016. \url{https://arxiv.org/abs/1606.06565}.
-
-\bibitem{gao} Leo Gao, John Schulman, and Jacob Hilton. Scaling Laws for Reward Model Overoptimization. In \emph{Proceedings of the 40th International Conference on Machine Learning}, PMLR 202:10835--10866, 2023. \url{https://proceedings.mlr.press/v202/gao23h.html}.
-
-\bibitem{sharmaSycophancy} Mrinank Sharma, Meg Tong, Tomasz Korbak et al. Towards Understanding Sycophancy in Language Models. \emph{ICLR 2024; first posted as arXiv:2310.13548 in 2023}, 2024. \url{https://arxiv.org/abs/2310.13548}.
-
-\bibitem{shapiraSycophancy} Itai Shapira, Gerdus Benade, and Ariel D. Procaccia. How RLHF Amplifies Sycophancy. \emph{ICML 2026; arXiv:2602.01002}, 2026. \url{https://arxiv.org/abs/2602.01002}.
-
 \bibitem{ruger} Theodore W. Ruger, Pauline T. Kim, Andrew D. Martin, Kevin M. Quinn. The Supreme Court Forecasting Project: Legal and Political Science Approaches to Predicting Supreme Court Decision-Making. \emph{Columbia Law Review 104 (2004), 1150--1210}, 2004. \href{https://andrewdmartin.wustl.edu/app/uploads/2019/01/The-Supreme-Court-Forecasting-Project-Legal-and-Political-Science-Approaches-to-Predicting-Supreme-Court-Decision-Making-2bvpcdb.pdf}{Author-hosted article PDF}.
 
 \bibitem{katz} Daniel Martin Katz, Michael J. Bommarito II, Josh Blackman. A General Approach for Predicting the Behavior of the Supreme Court of the United States. \emph{PLOS ONE 12(4): e0174698 (2017)}, 2017. \url{https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0174698}.
@@ -618,13 +586,9 @@ As I am a practicing attorney and do not have any formal training in artificial 
 
 \bibitem{cail} Chaojun Xiao, Haoxi Zhong, Zhipeng Guo et al. CAIL2018: A Large-Scale Legal Dataset for Judgment Prediction. \emph{arXiv:1807.02478 (2018); CAIL challenge dataset paper}, 2018. \url{https://arxiv.org/abs/1807.02478}.
 
-\bibitem{medvedeva} Masha Medvedeva, Pauline McBride. Legal Judgment Prediction: If You Are Going to Do It, Do It Right. \emph{Proceedings of the Natural Legal Language Processing Workshop (ACL), 2023, pp. 73--84}, 2023. \url{https://aclanthology.org/2023.nllp-1.9/}.
-
 \bibitem{clcuket} Huiyuan Xie, Felix Steffek, Joana Ribeiro de Faria et al. The CLC-UKET Dataset: Benchmarking Case Outcome Prediction for the UK Employment Tribunal. \emph{Proceedings of the Natural Legal Language Processing Workshop (ACL), 2024, pp. 81--96}, 2024. \url{https://aclanthology.org/2024.nllp-1.7/}.
 
 \bibitem{harveyLAB} Niko Grupen, Gabe Pereyra, Julio Pereyra. Introducing Harvey's Legal Agent Benchmark. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark}.
-
-\bibitem{lightman} Hunter Lightman, Vineet Kosaraju, Yura Burda et al. Let's Verify Step by Step. \emph{ICLR 2024; arXiv:2305.20050}, 2024. \url{https://arxiv.org/abs/2305.20050}.
 
 \bibitem{autocast} Andy Zou, Tristan Xiao, Ryan Jia et al. Forecasting Future World Events with Neural Networks. \emph{NeurIPS 2022, Datasets and Benchmarks}, 2022. \url{https://arxiv.org/abs/2206.15474}.
 
@@ -632,63 +596,17 @@ As I am a practicing attorney and do not have any formal training in artificial 
 
 \bibitem{forecastbench} Ezra Karger, Houtan Bastani, Chen Yueh-Han et al. ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities. \emph{ICLR2025}, 2025. \url{https://arxiv.org/abs/2409.19839}.
 
-\bibitem{miller} Evan Miller. Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations. \emph{arXiv preprint}, 2024. \url{https://arxiv.org/abs/2411.00640}.
-
-\bibitem{swebench} Carlos E. Jimenez, John Yang, Alexander Wettig et al. SWE-bench: Can Language Models Resolve Real-World GitHub Issues?. \emph{ICLR 2024}, 2024. \url{https://arxiv.org/abs/2310.06770}.
-
 \bibitem{swecritique} OpenAI. Why SWE-bench Verified no longer measures frontier coding capabilities. \emph{Primary online source}, 2026. \url{https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/}.
 
 \bibitem{jevdocs} TypeSafe AI. Models: Jev and the System One Interface. \emph{Product documentation, accessed September 29, 2026}, 2026. \url{https://docs.typesafe.ai/models}.
-
-\bibitem{dobbs} Supreme Court of the United States. Dobbs v. Jackson Women's Health Organization, 597 U.S.\ 215 (2022). Decided June 24, 2022. \url{https://www.supremecourt.gov/opinions/21pdf/19-1392_6j37.pdf}.
-
-\bibitem{shavell} Steven Shavell. Economic Analysis of Litigation and the Legal Process. \emph{NBER Working Paper 9697}, 2003. Chapter 17 of the draft \emph{Foundations of Economic Analysis of Law}. \url{https://www.nber.org/papers/w9697}.
 
 \bibitem{priestklein} George L. Priest, Benjamin Klein. The Selection of Disputes for Litigation. \emph{Journal of Legal Studies 13 (1984), 1--55}, 1984. \url{https://www.journals.uchicago.edu/doi/10.1086/467732}.
 
 \bibitem{settlement} Lucian A. Bebchuk. Litigation and Settlement Under Imperfect Information. \emph{RAND Journal of Economics 15(3) (1984), 404--415}, 1984. \url{https://hls.harvard.edu/bibliography/litigation-and-settlement-under-imperfect-information/}.
 
-\bibitem{jonesbarnes} Supreme Court of the United States. Jones v. Barnes, 463 U.S.\ 745, 751--753 (1983). \url{https://tile.loc.gov/storage-services/service/ll/usrep/usrep463/usrep463745/usrep463745.pdf}.
-
-\bibitem{lawyercalibration} Jane Goodman-Delahunty, P\"ar Anders Granhag, Maria Hartwig, and Elizabeth F. Loftus. Insightful or Wishful: Lawyers' Ability to Predict Case Outcomes. \emph{Psychology, Public Policy, and Law}, 16(2):133--157, 2010. \url{https://doi.org/10.1037/a0019060}.
-
-\bibitem{litigationAdoption} Harvey Team. How AI Agents are Changing the Way Lawyers do Legal Work. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/ai-agents-for-legal-work}.
-
-\bibitem{harveyInitial} Niko Grupen, Gabe Pereyra, Julio Pereyra. Legal Agent Benchmark: Initial Results. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/legal-agent-benchmark-initial-results}.
-
-\bibitem{labAA} Artificial Analysis. Harvey LAB-AA: New Benchmark Evaluating AI on Legal Tasks. \emph{July 7, 2026, benchmark announcement}, 2026. \url{https://artificialanalysis.ai/articles/harvey-lab-aa}.
-
 \bibitem{labAAboard} Artificial Analysis. Harvey LAB-AA evaluation results. \emph{Leaderboard, accessed October 5, 2026}, 2026. \url{https://artificialanalysis.ai/evaluations/harvey-lab-aa}.
 
-\bibitem{labAAmethod} Artificial Analysis. Intelligence benchmarking methodology: Harvey LAB-AA. \emph{Methodology page, accessed October 5, 2026}, 2026. \url{https://artificialanalysis.ai/methodology/intelligence-benchmarking\#harvey-lab-aa}.
-
-\bibitem{opusAnnouncement} Harvey Team. Opus 4.8, Now Live in Harvey. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/opus-4-8-now-live-in-harvey}.
-
-\bibitem{fableAnnouncement} Harvey Team. Fable 5, Now Available in Harvey. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/fable-5-now-available-in-harvey}.
-
-\bibitem{sonnetAnnouncement} Harvey Team. Claude Sonnet 5, Now Live in Harvey. \emph{Primary online source}, 2026. \url{https://www.harvey.ai/blog/sonnet-5-in-harvey}.
-
-\bibitem{atlantic} United States Supreme Court. Atlantic Marine Construction Co. v. United States District Court. \emph{571 U.S.49,59--66 (2013)}, 2013. \url{https://www.law.cornell.edu/supremecourt/text/12-929}.
-
-\bibitem{texasLimitations} Texas Legislature. Texas Civil Practice and Remedies Code, Chapter 16. \emph{Texas Civil Practice and Remedies Code § 16.070, accessed September 29, 2026}, 2026. \url{https://statutes.capitol.texas.gov/Docs/CP/htm/CP.16.htm#16.070}.
-
-\bibitem{jones} Supreme Court of the United States. Jones v. Bock. \emph{549 U.S.199,215}, 2007. \url{https://tile.loc.gov/storage-services/service/ll/usrep/usrep549/usrep549199/usrep549199.pdf}.
-
-\bibitem{italiancowboy} Supreme Court of Texas. Italian Cowboy Partners, Ltd. v. Prudential Insurance Co. of America. \emph{341 S.W.3d 323, 334--37 (Tex. 2011)}, 2011. \url{https://www.txcourts.gov/media/819896/OpinionsFY2011.pdf}.
-
-\bibitem{claynavierstokes} Clay Mathematics Institute. Navier--Stokes Announcement. September 11, 2026. \url{https://www.claymath.org/news/navier-stokes-announcement/}.
-
-
-\bibitem{stubenbergmbe} Matthew Stubenberg, Chloe Berridge, Thomas Smith, and Joshua Casey. How AI Stacks Up Against the Multistate Bar Exam. \emph{University of Hawai'i Richardson School of Law Research Paper No.\ 5291811; SSRN working paper}, May 12, 2025. \url{https://doi.org/10.2139/ssrn.5291811}.
-
-\bibitem{stubenbergperfect} Matthew Stubenberg. AI model achieves 100\% on MBE bar exam questions. \emph{Researcher's online benchmark update, LinkedIn}, 2026; accessed September 30, 2026. \url{https://www.linkedin.com/posts/matthew-stubenberg_well-it-finally-happened-an-ai-model-correctly-activity-7482410775534448641-urAX}.
-
-\bibitem{valslegalbench} Vals AI. LegalBench Leaderboard and Methodology. \emph{Benchmark-provider results and commentary}, updated September 27, 2026; accessed September 30, 2026. \url{https://www.vals.ai/benchmarks/legal_bench}.
-
-
 \bibitem{makicc} Tak K. Mak. Analysing Intraclass Correlation for Dichotomous Variables. \emph{Journal of the Royal Statistical Society, Series C (Applied Statistics)}, 37(3):344--352, 1988. \url{https://doi.org/10.2307/2347309}.
-
-\bibitem{cameronmiller} A. Colin Cameron and Douglas L. Miller. A Practitioner's Guide to Cluster-Robust Inference. \emph{Journal of Human Resources}, 50(2):317--372, 2015. \url{https://doi.org/10.3368/jhr.50.2.317}.
 
 \end{thebibliography}
 
