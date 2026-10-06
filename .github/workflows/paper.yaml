@@ -33,9 +33,9 @@ jobs:
     permissions:
       contents: read
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
-    # Three bounded image-pull attempts plus latexmk. A stalled ghcr layer
-    # used to consume the whole job before Docker reported a retry.
-    timeout-minutes: 25
+    # The small pinned image needs no runtime package installation. Two
+    # bounded pulls keep a registry stall from consuming the whole job.
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

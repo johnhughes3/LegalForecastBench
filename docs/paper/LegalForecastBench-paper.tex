@@ -12,11 +12,8 @@
 \urlstyle{same}
 \captionsetup{font=small,labelfont=bf}
 % Drafting markers. A line starting with % TODO is visible only in the source.
-% \todo prints a margin note; \todo[inline] prints a note in the text.
-% Colored macros mark provisional prose. For a clean PDF, load todonotes as
-% \usepackage[disable]{todonotes} and redefine \draft, \checkcite, and \checknum
-% to return their argument unchanged.
-\usepackage{todonotes}
+% Colored macros mark provisional prose. For a clean PDF, redefine \draft,
+% \checkcite, and \checknum to return their argument unchanged.
 \newcommand{\draft}[1]{\textcolor{red}{#1}}
 \newcommand{\checkcite}[1]{\textcolor{blue}{#1}}
 \newcommand{\checknum}[1]{\textcolor{orange}{#1}}

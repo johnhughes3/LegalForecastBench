@@ -85,9 +85,9 @@ export FORCE_SOURCE_DATE=1
 pull_pinned_texlive_image() {
   local image=$1
   local attempt=1
-  local attempts=${PAPER_IMAGE_PULL_ATTEMPTS:-3}
-  local pull_timeout=${PAPER_IMAGE_PULL_TIMEOUT_SECONDS:-240}
-  local backoff=${PAPER_IMAGE_PULL_BACKOFF_SECONDS:-10}
+  local attempts=${PAPER_IMAGE_PULL_ATTEMPTS:-2}
+  local pull_timeout=${PAPER_IMAGE_PULL_TIMEOUT_SECONDS:-120}
+  local backoff=${PAPER_IMAGE_PULL_BACKOFF_SECONDS:-5}
   if ! command -v timeout >/dev/null 2>&1; then
     printf 'timeout is required to pull the pinned TeX Live image.\n' >&2
     return 1
