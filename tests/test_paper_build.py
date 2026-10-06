@@ -102,9 +102,55 @@ def test_container_build_retries_a_stalled_image_pull(tmp_path: Path) -> None:
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
-    assert log.read_text(encoding="utf-8").splitlines() == ["pull", "pull", "run"]
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        "pull",
+        "pull",
+        "info",
+        "run",
+    ]
     assert "attempt 1 did not finish" in result.stderr
     assert (tmp_path / "compiled").exists()
+
+
+def test_container_build_runs_as_mapped_root_under_rootless_docker(
+    tmp_path: Path,
+) -> None:
+    paper_dir = tmp_path / "docs" / "paper"
+    paper_dir.mkdir(parents=True)
+    shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper_dir / "build.sh")
+    shutil.copy2(
+        ROOT / "docs" / "paper" / "texlive-image.txt", paper_dir / "texlive-image.txt"
+    )
+    args = tmp_path / "run-args"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    docker = bin_dir / "docker"
+    docker.write_text(
+        "#!/usr/bin/env bash\n"
+        "case $1 in\n"
+        "  pull) exit 0 ;;\n"
+        '  info) echo "[name=seccomp,profile=builtin name=rootless]"; exit 0 ;;\n'
+        '  run) printf "%s\\n" "$@" > "$PAPER_TEST_RUN_ARGS"; exit 0 ;;\n'
+        "esac\n"
+        "exit 1\n"
+    )
+    docker.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(paper_dir / "build.sh"), "--container"],
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "SOURCE_DATE_EPOCH": "1",
+            "PAPER_TEST_RUN_ARGS": str(args),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    run_args = args.read_text(encoding="utf-8").splitlines()
+    assert run_args[run_args.index("--user") + 1] == "0:0"
 
 
 def test_pdf_date_requires_a_manuscript_date(tmp_path: Path) -> None:
