@@ -1,0 +1,783 @@
+{
+  "task": "draft-conflict-check-memorandum",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "chow-annual-disclosure.docx.md",
+    "conflict-tracker-results.docx.md",
+    "new-matter-intake-form.docx.md",
+    "reilly-lateral-disclosure.docx.md",
+    "ridgeline-engagement-letter.docx.md",
+    "strand-hiring-questionnaire.docx.md",
+    "task.json.md",
+    "verano-engagement-request.eml.md",
+    "voss-annual-disclosure.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "new-matter-intake-form.docx.md",
+      "location": "Section 5, Claims, item 1",
+      "authority_type": "statute",
+      "authority": "Illinois Trade Secrets Act",
+      "citation_as_written": "765 ILCS 1065",
+      "pincite": "",
+      "cited_for": "Basis for claim of misappropriation of trade secrets by TriPoint",
+      "quotes": [],
+      "context": "Misappropriation of trade secrets under the Illinois Trade Secrets Act (765 ILCS 1065) and the Defend Trade Secrets Act (18 U.S.C. § 1836).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "765 ILCS 1065 is the Illinois Trade Secrets Act. Section 2 defines misappropriation, Section 3 provides for injunctive relief, and Section 4 provides for damages. It is a proper basis for a trade-secret misappropriation claim.",
+        "evidence_excerpt": "(765 ILCS 1065/1) Sec. 1. This Act shall be known as and may be cited as the \"Illinois Trade Secrets Act\". ... (765 ILCS 1065/4) Sec. 4. (a) In addition to the relief provided for by Section 3, a person is entitled to recover damages for misappropriation.",
+        "source_urls": [
+          "https://ftp.ilga.gov/ILCS/Ch%200765/Act%201065/076510650K1.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200765/Act%201065/076510650K4.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200765/Act%201065/076510650F.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "new-matter-intake-form.docx.md",
+      "location": "Section 5, Claims, item 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal basis for claim of misappropriation of trade secrets",
+      "quotes": [],
+      "context": "Misappropriation of trade secrets under the Illinois Trade Secrets Act (765 ILCS 1065) and the Defend Trade Secrets Act (18 U.S.C. § 1836).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836 is the Defend Trade Secrets Act's civil-proceedings section. Subsection (b)(1) creates a private civil action for misappropriation of trade secrets related to products or services in interstate commerce, so it is the correct federal basis for a trade-secret misappropriation claim. A pin to § 1836(b) would be more precise, but the cite as given is acceptable.",
+        "evidence_excerpt": "\"Private Civil Actions.\" \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "verano-engagement-request.eml.md",
+      "location": "The Proposed Matter, claim 1",
+      "authority_type": "statute",
+      "authority": "Illinois Trade Secrets Act",
+      "citation_as_written": "765 ILCS 1065",
+      "pincite": "",
+      "cited_for": "Verano's anticipated trade-secret misappropriation claim",
+      "quotes": [],
+      "context": "Misappropriation of trade secrets under the Illinois Trade Secrets Act (765 ILCS 1065) and the federal Defend Trade Secrets Act (18 U.S.C. § 1836);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "765 ILCS 1065 is the Illinois Trade Secrets Act. It defines misappropriation in Section 2 and provides injunctive relief and damages in Sections 3 and 4, so it supports an anticipated misappropriation claim.",
+        "evidence_excerpt": "(b) \"Misappropriation\" means: (1) acquisition of a trade secret of a person by another person who knows or has reason to know that the trade secret was acquired by improper means",
+        "source_urls": [
+          "https://ftp.ilga.gov/ILCS/Ch%200765/Act%201065/076510650K2.html",
+          "https://ftp.ilga.gov/ILCS/Ch%200765/Act%201065/076510650K1.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "verano-engagement-request.eml.md",
+      "location": "The Proposed Matter, claim 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Verano's anticipated federal trade-secret misappropriation claim",
+      "quotes": [],
+      "context": "Misappropriation of trade secrets under the Illinois Trade Secrets Act (765 ILCS 1065) and the federal Defend Trade Secrets Act (18 U.S.C. § 1836);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same authority as ref 1. 18 U.S.C. § 1836(b)(1) provides the federal DTSA civil action for trade-secret misappropriation, which is the claim Verano anticipates.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "new-matter-intake-form.docx.md",
+      "location": "Section 9, item 1 (Reilly)",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule of Professional Conduct 1.9",
+      "citation_as_written": "Illinois Rule of Professional Conduct 1.9",
+      "pincite": "",
+      "cited_for": "Duties to former clients; Reilly's prior representation of TriPoint/Trident flagged for conflicts analysis",
+      "quotes": [],
+      "context": "Flagged for conflicts analysis under Illinois Rule of Professional Conduct 1.9 (duties to former clients).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.9 (Duties to Former Clients) governs conflicts that arise from representing a former client, such as Reilly's prior work for TriPoint. Paragraphs (a) through (c) cover substantially related matters, conflicts a lawyer brings from a former firm, and use of a former client's confidential information. Citing it to flag the issue is accurate.",
+        "evidence_excerpt": "RULE 1.9: DUTIES TO FORMER CLIENTS (a) A lawyer who has formerly represented a client in a matter shall not thereafter represent another person in the same or a substantially related matter in which that person's interests are materially adverse to the interests of the former client unless the former client gives informed consent.",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/6d541484-4102-40c7-97b3-b75bf113958a/RULE%201.9.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "new-matter-intake-form.docx.md",
+      "location": "Section 9, item 2 (Ridgeline)",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule of Professional Conduct 1.7",
+      "citation_as_written": "Illinois Rule of Professional Conduct 1.7",
+      "pincite": "",
+      "cited_for": "Concurrent conflicts of interest; suit against Ridgeline's 72%-owned portfolio company while Ridgeline is a current client",
+      "quotes": [],
+      "context": "Flagged for conflicts analysis under Illinois Rule of Professional Conduct 1.7 (concurrent conflicts of interest).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.7 governs concurrent conflicts of interest with current clients. Comment [34] covers the Ridgeline issue directly: being adverse to a client's affiliate (such as a majority-owned portfolio company) is not automatically barred, but it can be a conflict depending on the circumstances. Citing the rule to flag the issue for conflicts analysis is accurate.",
+        "evidence_excerpt": "RULE 1.7: CONFLICT OF INTEREST: CURRENT CLIENTS (a) Except as provided in paragraph (b), a lawyer shall not represent a client if the representation involves a concurrent conflict of interest. ... [34] A lawyer who represents a corporation or other organization does not, by virtue of that representation, necessarily represent any constituent or affiliated organization, such as a parent or subsidiary.",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/e3223b75-d2b3-42c5-8cbc-c268c32dd8a6/RULE%201.7.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 3 of 5, Conflict Flag",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.9(a) (Illinois Rules of Professional Conduct)",
+      "citation_as_written": "Rule 1.9(a)",
+      "pincite": "1.9(a)",
+      "cited_for": "Substantial-relationship conflict arising from Reilly's prior representation of TriPoint at prior firm",
+      "quotes": [],
+      "context": "Requires immediate review for substantial-relationship conflict under Rule 1.9(a) and imputation analysis under Rule 1.10.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.9(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 1.9(a) is the substantial-relationship test for a lawyer who personally represented the former client. Reilly was lead counsel for Trident/TriPoint at his prior firm and is now proposed to act adversely to it in a matter involving the same engineering division. Rule 1.9(a) is the correct provision for that analysis.",
+        "evidence_excerpt": "A lawyer who has formerly represented a client in a matter shall not thereafter represent another person in the same or a substantially related matter in which that person's interests are materially adverse to the interests of the former client unless the former client gives informed consent.",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/6d541484-4102-40c7-97b3-b75bf113958a/file"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 3 of 5, Conflict Flag",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.10 (Illinois Rules of Professional Conduct)",
+      "citation_as_written": "Rule 1.10",
+      "pincite": "",
+      "cited_for": "Imputation of Reilly's conflict to the firm",
+      "quotes": [],
+      "context": "Requires immediate review for substantial-relationship conflict under Rule 1.9(a) and imputation analysis under Rule 1.10.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.10 (2010)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois Rule 1.10 is titled 'Imputation of Conflicts of Interest: General Rule'. Paragraph (a) imputes a lawyer's Rule 1.9 prohibition to the whole firm, and paragraph (e) lets a lateral's Rule 1.9 conflict be cured by timely screening. Citing it for an 'imputation analysis' of Reilly's former-client conflict is accurate.",
+        "evidence_excerpt": "RULE 1.10: IMPUTATION OF CONFLICTS OF INTEREST: GENERAL RULE (a) While lawyers are associated in a firm, none of them shall knowingly represent a client when any one of them practicing alone would be prohibited from doing so by Rules 1.7 or 1.9",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/76b61e9e-4b4a-4520-988b-63e09c112048/file"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 4 of 5, Conflict Flag",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.9 (former client)",
+      "citation_as_written": "Rule 1.9",
+      "pincite": "",
+      "cited_for": "Possible duties to David Kowalczyk as former client based on beneficiary communications in Kowalczyk Family Trust matter",
+      "quotes": [],
+      "context": "the beneficiary's interactions with firm attorneys may give rise to duties under Rule 1.9 (former client) or Rule 1.18 (prospective client) depending on the nature of communications.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.9",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 1.9 is correctly identified as the former-client rule. By its terms it applies only to a former client, and the record says Kowalczyk was not the firm's client of record; the trust was. The tracker acknowledges this and says only that duties 'may' arise 'depending on the nature of communications', which is a fair conditional reading of the rule.",
+        "evidence_excerpt": "RULE 1.9: DUTIES TO FORMER CLIENTS (a) A lawyer who has formerly represented a client in a matter shall not thereafter represent another person in the same or a substantially related matter",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/6d541484-4102-40c7-97b3-b75bf113958a/file"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 4 of 5, Conflict Flag",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.18 (prospective client)",
+      "citation_as_written": "Rule 1.18",
+      "pincite": "",
+      "cited_for": "Possible duties to David Kowalczyk as prospective client",
+      "quotes": [],
+      "context": "the beneficiary's interactions with firm attorneys may give rise to duties under Rule 1.9 (former client) or Rule 1.18 (prospective client) depending on the nature of communications.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.18",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 1.18 is correctly identified as the prospective-client rule. It applies only to a person who consults a lawyer about possibly forming a client-lawyer relationship. Kowalczyk was a trust beneficiary who gave an affidavit, so whether he ever qualified is doubtful on the facts. The tracker, however, says only that duties 'may' arise 'depending on the nature of communications', which is a fair conditional reading of the rule.",
+        "evidence_excerpt": "A person who consults with a lawyer about the possibility of forming a client-lawyer relationship with respect to a matter is a prospective client.",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/fea63f10-3240-4c78-863a-5d8f0176db08/file"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 5 of 5, Conflict Flag",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.18",
+      "citation_as_written": "Rule 1.18",
+      "pincite": "",
+      "cited_for": "Prospective-client duties owed to Verano from the April 2022 declined engagement",
+      "quotes": [],
+      "context": "Prospective-client duties may apply under Rule 1.18. Reason for prior declination is undocumented.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.18 (2010, amended eff. Jan. 1, 2016)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois Rule 1.18 sets out duties to prospective clients. Under 1.18(a), anyone who consults a lawyer about possibly forming a client-lawyer relationship is a prospective client. Under 1.18(b), confidentiality duties continue even if no relationship results. Verano's April 2022 intake inquiry, which the firm declined, fits that definition, so the tracker's hedged statement that 'prospective-client duties may apply under Rule 1.18' is accurate.",
+        "evidence_excerpt": "(a) A person who consults with a lawyer about the possibility of forming a client-lawyer relationship with respect to a matter is a prospective client. (b) Even when no client-lawyer relationship ensues, a lawyer who has learned information from a prospective client shall not use or reveal that information",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/fea63f10-3240-4c78-863a-5d8f0176db08/file"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "reilly-lateral-disclosure.docx.md",
+      "location": "Section 3",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.9",
+      "citation_as_written": "Rule 1.9",
+      "pincite": "",
+      "cited_for": "Reilly's access to TriPoint engineering-division confidential information could implicate former-client duties in a substantially related matter",
+      "quotes": [],
+      "context": "My access to confidential engineering-division personnel and organizational information was extensive and could implicate Rule 1.9 and Rule 1.10 in any substantially related matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.9",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois Rule 1.9 ('Duties to Former Clients') bars a lawyer from taking a substantially related matter that is materially adverse to a former client without the former client's informed consent (1.9(a)), and from using the former client's information against it (1.9(c)). Comment [3] treats confidential information that would materially advance the new client's position as a mark of substantial relationship. The rule supports the cited proposition.",
+        "evidence_excerpt": "(a) A lawyer who has formerly represented a client in a matter shall not thereafter represent another person in the same or a substantially related matter in which that person's interests are materially adverse to the interests of the former client unless the former client gives informed consent.",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/6d541484-4102-40c7-97b3-b75bf113958a/file"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "reilly-lateral-disclosure.docx.md",
+      "location": "Section 3",
+      "authority_type": "court_rule",
+      "authority": "Rule 1.10",
+      "citation_as_written": "Rule 1.10",
+      "pincite": "",
+      "cited_for": "Imputation of Reilly's conflict in a substantially related matter",
+      "quotes": [],
+      "context": "My access to confidential engineering-division personnel and organizational information was extensive and could implicate Rule 1.9 and Rule 1.10 in any substantially related matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.10 (2010)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois Rule 1.10 governs imputation of conflicts. Under 1.10(a), a Rule 1.9 conflict of one lawyer is imputed to every lawyer in the firm. Rule 1.10(e) covers laterals: when a lawyer joins a firm, the firm may not take a matter in which that lawyer is disqualified under Rule 1.9 unless the lawyer is timely screened. Reilly's statement that his conflict 'could implicate Rule 1.9 and Rule 1.10' in a substantially related matter is an accurate, hedged statement of the rule.",
+        "evidence_excerpt": "(a) While lawyers are associated in a firm, none of them shall knowingly represent a client when any one of them practicing alone would be prohibited from doing so by Rules 1.7 or 1.9 ... (e) When a lawyer becomes associated with a firm, no lawyer associated in the firm shall knowingly represent a person in a matter in which that lawyer is disqualified under Rule 1.9 unless the personally disqualified lawyer is timely screened",
+        "source_urls": [
+          "https://www.illinoiscourts.gov/resources/76b61e9e-4b4a-4520-988b-63e09c112048/file",
+          "https://www.illinoiscourts.gov/rules/supreme-court-rules?a=viii"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "ridgeline-engagement-letter.docx.md",
+      "location": "Section 6 (Termination)",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rules of Professional Conduct",
+      "citation_as_written": "Illinois Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Firm's termination right subject to its ethical obligations",
+      "quotes": [],
+      "context": "subject in all cases to the Firm's ethical obligations under the Illinois Rules of Professional Conduct and any other applicable rules of professional conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Illinois Rules of Professional Conduct of 2010 exist; the official rule PDFs say they were adopted July 1, 2009, effective January 1, 2010. The engagement letter makes the firm's termination right subject to its ethical obligations under those Rules, which is a general reference. Withdrawal is specifically governed by Rule 1.16, but I did not read Rule 1.16 itself.",
+        "evidence_excerpt": "Adopted July 1, 2009, effective January 1, 2010.",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/e3223b75-d2b3-42c5-8cbc-c268c32dd8a6/RULE%201.7.pdf",
+          "https://www.illinoiscourts.gov/rules/supreme-court-rules?a=viii"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "ridgeline-engagement-letter.docx.md",
+      "location": "Section 8 (Governing Law)",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rules of Professional Conduct",
+      "citation_as_written": "Illinois Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Engagement letter governed by Illinois law including the Rules",
+      "quotes": [],
+      "context": "governed by and construed in accordance with the laws of the State of Illinois, including the Illinois Rules of Professional Conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Illinois Rules of Professional Conduct exist as Illinois Supreme Court rules that took effect January 1, 2010. Referring to them in a governing-law clause alongside Illinois law is an accurate general reference to a real body of rules.",
+        "evidence_excerpt": "Adopted July 1, 2009, effective January 1, 2010.",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/6d541484-4102-40c7-97b3-b75bf113958a/RULE%201.9.pdf",
+          "https://www.illinoiscourts.gov/rules/supreme-court-rules?a=viii"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "ridgeline-engagement-letter.docx.md",
+      "location": "Section 1(c)",
+      "authority_type": "statute",
+      "authority": "federal securities laws",
+      "citation_as_written": "applicable federal securities laws",
+      "pincite": "",
+      "cited_for": "Scope of general regulatory compliance counsel for Ridgeline Fund III LP (generic reference, no specific statute)",
+      "quotes": [],
+      "context": "general regulatory compliance counsel pertaining to Ridgeline Fund III LP's operations under applicable federal securities laws.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "A generic contractual scope description ('applicable federal securities laws') that names no specific statute. Nothing specific can be checked at a pin cite. Federal securities laws governing private funds plainly exist, and the reference makes no legal proposition that could be wrong. I did not retrieve a specific statute because none is identified.",
+        "evidence_excerpt": "Engagement letter: \"general regulatory compliance counsel pertaining to Ridgeline Fund III LP's operations under applicable federal securities laws.\"",
+        "source_urls": [],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "reilly-lateral-disclosure.docx.md",
+      "location": "Section 2.2, Platte River Environmental Services",
+      "authority_type": "statute",
+      "authority": "Clean Water Act",
+      "citation_as_written": "Clean Water Act",
+      "pincite": "",
+      "cited_for": "Subject of EPA enforcement action Reilly defended for another former client (no section cited)",
+      "quotes": [],
+      "context": "Defense of EPA administrative enforcement action concerning alleged Clean Water Act violations at a remediation site in Lake County, Illinois.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Federal Water Pollution Control Act (Clean Water Act), 33 U.S.C. § 1251 et seq.; EPA administrative penalties at 33 U.S.C. § 1319(g)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Generic factual reference in Reilly's lateral disclosure to an EPA administrative enforcement action under the Clean Water Act. The Act exists. The U.S. Code short-title note confirms the 'commonly referred to as the Clean Water Act' name, and 33 U.S.C. § 1319 ('Administrative penalties', subsection (g)) provides for EPA administrative enforcement. Nothing in the reference is inaccurate.",
+        "evidence_excerpt": "\"This Act [this chapter] may be cited as the 'Federal Water Pollution Control Act' (commonly referred to as the Clean Water Act).\"; 33 U.S.C. § 1319 heading: \"Administrative penalties\"",
+        "source_urls": [
+          "https:/1251",
+          "https:/1319"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "new-matter-intake-form.docx.md",
+      "location": "Section 6, Conflicts Notes (Reilly); Section 9 item 1",
+      "authority_type": "other",
+      "authority": "EEOC Charge No. 440-2013-01782",
+      "citation_as_written": "EEOC Charge No. 440-2013-01782",
+      "pincite": "",
+      "cited_for": "Prior matter in which Reilly represented Trident/TriPoint at Castellan Merritt",
+      "quotes": [],
+      "context": "Previously represented Trident Sensor Solutions LLC (now TriPoint Dynamics LLC) at Castellan Merritt LLP in two employment matters (EEOC Charge No. 440-2013-01782 and Cook County Circuit Court Case No. 2015 L 004218).",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional parties."
+    },
+    {
+      "ref": 18,
+      "document": "new-matter-intake-form.docx.md",
+      "location": "Section 6, Conflicts Notes (Reilly); Section 9 item 1",
+      "authority_type": "case",
+      "authority": "Cook County Circuit Court Case No. 2015 L 004218",
+      "citation_as_written": "Cook County Circuit Court Case No. 2015 L 004218",
+      "pincite": "",
+      "cited_for": "Prior wrongful-termination matter in which Reilly represented Trident/TriPoint",
+      "quotes": [],
+      "context": "two employment matters (EEOC Charge No. 440-2013-01782 and Cook County Circuit Court Case No. 2015 L 004218)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional parties."
+    },
+    {
+      "ref": 19,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 3 of 5, Prior Matters",
+      "authority_type": "other",
+      "authority": "EEOC Charge No. 440-2013-01782",
+      "citation_as_written": "EEOC Charge No. 440-2013-01782",
+      "pincite": "",
+      "cited_for": "Age discrimination defense, resolved 2014",
+      "quotes": [],
+      "context": "EEOC Charge No. 440-2013-01782 — Age discrimination defense. Resolved 2014.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional parties."
+    },
+    {
+      "ref": 20,
+      "document": "conflict-tracker-results.docx.md",
+      "location": "Hit 3 of 5, Prior Matters",
+      "authority_type": "case",
+      "authority": "Cook County Circuit Court Case No. 2015 L 004218",
+      "citation_as_written": "Cook County Circuit Court Case No. 2015 L 004218",
+      "pincite": "",
+      "cited_for": "Wrongful termination defense, resolved 2016",
+      "quotes": [],
+      "context": "Cook County Circuit Court Case No. 2015 L 004218 — Wrongful termination defense. Resolved 2016.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional parties."
+    },
+    {
+      "ref": 21,
+      "document": "reilly-lateral-disclosure.docx.md",
+      "location": "Section 2.1, Matter 1",
+      "authority_type": "other",
+      "authority": "EEOC Charge No. 440-2013-01782",
+      "citation_as_written": "EEOC Charge No.: 440-2013-01782",
+      "pincite": "",
+      "cited_for": "EEOC age-discrimination charge defended by Reilly for Trident",
+      "quotes": [],
+      "context": "EEOC Charge No.: 440-2013-01782 Dates of Representation: Commenced approximately 2013; resolved 2014",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional parties."
+    },
+    {
+      "ref": 22,
+      "document": "reilly-lateral-disclosure.docx.md",
+      "location": "Section 2.1, Matter 2",
+      "authority_type": "case",
+      "authority": "Cook County Circuit Court Case No. 2015 L 004218",
+      "citation_as_written": "Cook County Circuit Court Case No. 2015 L 004218",
+      "pincite": "",
+      "cited_for": "Wrongful-termination suit defended by Reilly for Trident",
+      "quotes": [],
+      "context": "Court/Case No.: Cook County Circuit Court Case No. 2015 L 004218",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional parties."
+    },
+    {
+      "ref": 23,
+      "document": "voss-annual-disclosure.docx.md",
+      "location": "Section 6, item 1",
+      "authority_type": "case",
+      "authority": "Hollcroft Ventures Sensor Technologies, Inc. v. Alderman Precision Machining Corp.",
+      "citation_as_written": "Matter No. WH-2020-0412",
+      "pincite": "",
+      "cited_for": "Prior firm matter on which Voss worked as associate; closed and settled August 22, 2021",
+      "quotes": [],
+      "context": "Hollcroft Ventures Sensor Technologies, Inc. v. Alderman Precision Machining Corp. — Matter No. WH-2020-0412. Breach of contract.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional firm."
+    },
+    {
+      "ref": 24,
+      "document": "voss-annual-disclosure.docx.md",
+      "location": "Section 6, item 3",
+      "authority_type": "case",
+      "authority": "Trillium National Insurance Co. v. Barker Holdings Group",
+      "citation_as_written": "Matter No. WH-2022-1034",
+      "pincite": "",
+      "cited_for": "Closed insurance coverage dispute on which Voss worked under Reilly",
+      "quotes": [],
+      "context": "Trillium National Insurance Co. v. Barker Holdings Group — Matter No. WH-2022-1034. Insurance coverage dispute.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe prior matter of the fictional firm."
+    },
+    {
+      "ref": 25,
+      "document": "task.json.md",
+      "location": "rubric C-006",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule of Professional Conduct 1.9 / ABA Model Rule 1.9",
+      "citation_as_written": "Illinois Rule of Professional Conduct 1.9 (or ABA Model Rule 1.9)",
+      "pincite": "",
+      "cited_for": "Former-client conflict from Reilly's prior representation of TriPoint",
+      "quotes": [],
+      "context": "PASS if the memo cites Illinois Rule of Professional Conduct 1.9 (or ABA Model Rule 1.9) in connection with Reilly's prior representation of TriPoint.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.9 is the correct rule for a former-client conflict arising from Reilly's prior representation of TriPoint. Paragraph (b) also covers clients represented by a lawyer's former firm. I read the Illinois text from the official court PDF. ABA Model Rule 1.9 is the model counterpart; the ABA page returned 403, so I did not read its text directly.",
+        "evidence_excerpt": "(b) A lawyer shall not knowingly represent a person in the same or a substantially related matter in which a firm with which the lawyer formerly was associated had previously represented a client (1) whose interests are materially adverse to that person; and (2) about whom the lawyer had acquired information protected by Rules 1.6 and 1.9(c)",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/6d541484-4102-40c7-97b3-b75bf113958a/RULE%201.9.pdf",
+          "https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_9_duties_of_former_clients/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "task.json.md",
+      "location": "rubric C-012",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule of Professional Conduct 1.7 / ABA Model Rule 1.7",
+      "citation_as_written": "Illinois Rule of Professional Conduct 1.7 (or ABA Model Rule 1.7)",
+      "pincite": "",
+      "cited_for": "Concurrent-client conflict re Ridgeline",
+      "quotes": [],
+      "context": "PASS if the memo cites Illinois Rule of Professional Conduct 1.7 (or ABA Model Rule 1.7) in connection with the Ridgeline concurrent-client conflict.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.7 (Conflict of Interest: Current Clients) exists and is the correct rule for a concurrent-client conflict. I read the Illinois text from the official court PDF. ABA Model Rule 1.7 is the model counterpart with the same title; the ABA page returned 403, so I did not read its text directly. The Illinois citation alone supports the rubric item.",
+        "evidence_excerpt": "A concurrent conflict of interest exists if: (1) the representation of one client will be directly adverse to another client; or (2) there is a significant risk that the representation of one or more clients will be materially limited by the lawyer's responsibilities to another client",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/e3223b75-d2b3-42c5-8cbc-c268c32dd8a6/RULE%201.7.pdf",
+          "https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_7_conflict_of_interest_current_clients/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "task.json.md",
+      "location": "rubric C-022",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule 1.7(a)(2) and Rule 1.8(i)",
+      "citation_as_written": "Illinois Rule 1.7(a)(2) (personal interest conflict) and/or Illinois Rule 1.8(i) (related persons)",
+      "pincite": "",
+      "cited_for": "Lisa Chow's spousal conflict",
+      "quotes": [],
+      "context": "PASS if the memo cites Illinois Rule 1.7(a)(2) (personal interest conflict) and/or Illinois Rule 1.8(i) (related persons) in connection with Lisa Chow's spousal conflict.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.7(a)(2) & cmt. [11]",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The 1.7(a)(2) half is correct. It reaches a 'significant risk' of material limitation from 'a personal interest of the lawyer', and Comment [11] specifically covers lawyers related as spouses who represent different clients in the same or related matters. The 1.8(i) half is mischaracterized. Illinois RPC 1.8(i) bars acquiring a proprietary interest in the cause of action and has nothing to do with 'related persons'. The only 'related persons' definition in Illinois 1.8 is in paragraph (c), on gifts. No paragraph of Illinois Rule 1.8 deals with spousal or family-relationship conflicts between lawyers. Because the rubric uses 'and/or', citing 1.7(a)(2) alone suffices, but the 1.8(i) description is wrong.",
+        "evidence_excerpt": "Rule 1.8(i): \"A lawyer shall not acquire a proprietary interest in the cause of action or subject matter of litigation the lawyer is conducting for a client...\"; Rule 1.7 cmt. [11]: \"a lawyer related to another lawyer, e.g., as parent, child, sibling or spouse, ordinarily may not represent a client in a matter where that lawyer is representing another party, unless each client gives informed consent.\"",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/3caad5cf-ebdc-488f-98d0-d256d2cdd321/RULE%201.8.pdf",
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/e3223b75-d2b3-42c5-8cbc-c268c32dd8a6/RULE%201.7.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. I read the official Illinois Supreme Court text of Ill. RPC 1.8 (extracted from the PDF). Paragraph (i) reads: \"(i) A lawyer shall not acquire a proprietary interest in the cause of action or subject matter of litigation the lawyer is conducting for a client, except that the lawyer may: (1) acquire a lien authorized by law ... and (2) contract with a client for a reasonable contingent fee in a civil case.\" It says nothing about related persons or spouses. The only 'related persons' language in Rule 1.8 is in paragraph (c), the gift rule: \"For purposes of this paragraph, related persons include a spouse, child, grandchild, parent...\" That definition applies only to substantial gifts and instruments, not to conflicts between lawyers who are married to each other. Nothing in Illinois Rule 1.8 or its comments governs spousal conflicts between lawyers. The '1.8(i) related persons' label appears to be carried over from an older ABA numbering and does not match current Illinois text. The 1.7(a)(2) half was not disputed, and the rubric's 'and/or' means 1.7(a)(2) alone would satisfy it. Still, the 1.8(i) description is wrong, so MISCHARACTERIZED stands for that half.",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/3caad5cf-ebdc-488f-98d0-d256d2cdd321/RULE%201.8.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 28,
+      "document": "task.json.md",
+      "location": "rubric C-036",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule 1.10(a) / ABA Model Rule 1.10",
+      "citation_as_written": "Illinois Rule 1.10(a) (or ABA Model Rule 1.10)",
+      "pincite": "",
+      "cited_for": "Imputation of Reilly's Rule 1.9 conflict to the firm",
+      "quotes": [],
+      "context": "analyzes whether Reilly's individual conflict under Rule 1.9 is imputed to the entire firm under Illinois Rule 1.10(a) (or ABA Model Rule 1.10)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.10(a) imputes to every lawyer in the firm any prohibition one lawyer has under Rule 1.7 or 1.9, subject only to a personal-interest exception. So it is the correct rule for asking whether Reilly's Rule 1.9 conflict is imputed. Note that because Reilly is a lateral, the Illinois cure provision is 1.10(e) (screening) rather than a subdivision of (a); see ref 29. I could not read the ABA Model Rule 1.10 alternative directly (americanbar.org returned 403), but the Illinois rule alone supports the proposition.",
+        "evidence_excerpt": "\"(a) While lawyers are associated in a firm, none of them shall knowingly represent a client when any one of them practicing alone would be prohibited from doing so by Rules 1.7 or 1.9, unless the prohibition is based on a personal interest of the prohibited lawyer...\"",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/76b61e9e-4b4a-4520-988b-63e09c112048/RULE%201.10.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "task.json.md",
+      "location": "rubric C-037",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule 1.10(a)(2)",
+      "citation_as_written": "Illinois Rule 1.10(a)(2)",
+      "pincite": "",
+      "cited_for": "Screening of lawyers with prior-firm conflicts to cure imputation",
+      "quotes": [],
+      "context": "PASS if the memo discusses that Illinois Rule 1.10(a)(2) (or equivalent) permits screening of lawyers whose conflict arises from prior-firm representation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Ill. R. Prof'l Conduct 1.10(e) (equivalent to ABA Model Rule 1.10(a)(2))",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.10(a) is a single paragraph with no subparagraph (a)(2). In Illinois, lateral-hire screening for a lawyer disqualified under Rule 1.9 is in Rule 1.10(e): imputation is avoided if that lawyer is timely screened and gets no part of the fee. The '1.10(a)(2)' numbering matches the ABA Model Rule, whose screening exception covers conflicts arising from a prior firm. I know the ABA text only from search-result summaries, because americanbar.org returned 403. The substance is correct, since Illinois does permit screening to cure a lateral's prior-firm conflict, and the rubric hedges with '(or equivalent)'. But the Illinois subdivision cited does not exist.",
+        "evidence_excerpt": "Ill. RPC 1.10(e): \"When a lawyer becomes associated with a firm, no lawyer associated in the firm shall knowingly represent a person in a matter in which that lawyer is disqualified under Rule 1.9 unless the personally disqualified lawyer is timely screened from any participation in the matter and is apportioned no part of the fee therefrom.\"",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/76b61e9e-4b4a-4520-988b-63e09c112048/RULE%201.10.pdf",
+          "https://www.calbar.ca.gov/Portals/0/documents/rules/Rule_1.10-Exec_Summary-Redline.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. I read the official Illinois text of RPC 1.10 (\"Adopted July 1, 2009, effective January 1, 2010\"). Paragraph (a) is a single undivided paragraph with no (a)(1) or (a)(2): \"(a) While lawyers are associated in a firm, none of them shall knowingly represent a client when any one of them practicing alone would be prohibited from doing so by Rules 1.7 or 1.9, unless the prohibition is based on a personal interest of the prohibited lawyer...\" Lateral-hire screening is in paragraph (e): \"(e) When a lawyer becomes associated with a firm, no lawyer associated in the firm shall knowingly represent a person in a matter in which that lawyer is disqualified under Rule 1.9 unless the personally disqualified lawyer is timely screened from any participation in the matter and is apportioned no part of the fee therefrom.\" So the proposition is substantively correct: Illinois does allow screening to cure a lateral's prior-firm conflict. But 'Illinois Rule 1.10(a)(2)' cites a subdivision that does not exist. The correct cite is Ill. RPC 1.10(e); the (a)(2) numbering is the ABA Model Rule's. The rubric's '(or equivalent)' hedge softens this, and the error could arguably be called a minor pinpoint defect. Because the cited Illinois subdivision is nonexistent rather than a wrong page, I keep WRONG_CITATION_REAL_CASE.",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/76b61e9e-4b4a-4520-988b-63e09c112048/RULE%201.10.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 30,
+      "document": "task.json.md",
+      "location": "rubric C-040",
+      "authority_type": "court_rule",
+      "authority": "Illinois Rule 1.18 / ABA Model Rule 1.18",
+      "citation_as_written": "Illinois Rule 1.18 (or ABA Model Rule 1.18)",
+      "pincite": "",
+      "cited_for": "Duties to prospective client Verano from the 2022 declined engagement",
+      "quotes": [],
+      "context": "PASS if the memo cites Illinois Rule 1.18 (or ABA Model Rule 1.18) regarding duties owed to prospective clients in connection with the 2022 declined engagement.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Illinois RPC 1.18 ('Duties to Prospective Client') defines a prospective client as someone who consults a lawyer about possibly forming a client-lawyer relationship. It bars using or revealing information learned from a prospective client even when no relationship results, and it restricts later adverse representation in substantially related matters. That fits the duties owed to Verano from the 2022 declined engagement. I could not fetch the ABA Model Rule 1.18 alternative (403), but the Illinois rule alone supports the proposition.",
+        "evidence_excerpt": "\"(a) A person who consults with a lawyer about the possibility of forming a client-lawyer relationship with respect to a matter is a prospective client. (b) Even when no client-lawyer relationship ensues, a lawyer who has learned information from a prospective client shall not use or reveal that information...\"",
+        "source_urls": [
+          "https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/fea63f10-3240-4c78-863a-5d8f0176db08/RULE%201.18.pdf"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

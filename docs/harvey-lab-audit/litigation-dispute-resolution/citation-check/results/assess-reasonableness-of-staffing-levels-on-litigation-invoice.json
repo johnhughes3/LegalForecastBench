@@ -1,0 +1,863 @@
+{
+  "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "approved-staffing-plan.docx.md",
+    "barros-staffing-email.eml.md",
+    "case-status-summary.docx.md",
+    "hl-may-2025-invoice.xlsx.md",
+    "pinnacle-billing-guidelines.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "approved-staffing-plan.docx.md",
+      "location": "Intro paragraph (claims asserted)",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act of 1990",
+      "citation_as_written": "O.C.G.A. § 10-1-760 et seq.",
+      "pincite": "",
+      "cited_for": "Statutory basis for Pinnacle's trade secret misappropriation claim against MedCore",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under both the Georgia Trade Secrets Act of 1990 (O.C.G.A. § 10-1-760 et seq.) and the federal Defend Trade Secrets Act of 2016 (18 U.S.C. § 1836 et seq.), and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The name \"Georgia Trade Secrets Act of 1990\" and the cite O.C.G.A. § 10-1-760 et seq. are both correct; § 10-1-760 is the short-title section of Article 27. It is the proper statutory basis for a Georgia trade secret misappropriation claim.",
+        "evidence_excerpt": "[Ga. Code Ann. §§ 10-1-760 through 10-1-767.] ... § 10-1-760 Short title. This article shall be known as the \"Georgia Trade Secrets Act of 1990.\"",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "approved-staffing-plan.docx.md",
+      "location": "Intro paragraph (claims asserted)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Federal statutory basis for Pinnacle's trade secret misappropriation claim",
+      "quotes": [],
+      "context": "the federal Defend Trade Secrets Act of 2016 (18 U.S.C. § 1836 et seq.), and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA is codified at 18 U.S.C. § 1836 et seq. Section 1836(b)(1) creates a private civil action for the owner of a misappropriated trade secret. That makes it the correct federal statutory basis for the claim.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "approved-staffing-plan.docx.md",
+      "location": "Section 5, Depositions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(b)(6)",
+      "citation_as_written": "Federal Rule of Civil Procedure 30(b)(6)",
+      "pincite": "30(b)(6)",
+      "cited_for": "Anticipated depositions of MedCore corporate designees",
+      "quotes": [],
+      "context": "as well as one or more MedCore corporate designees under Federal Rule of Civil Procedure 30(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(b)(6) lets a party name an organization as the deponent, which then testifies through designated witnesses. It is the correct rule for deposing MedCore's corporate designees.",
+        "evidence_excerpt": "\"In its notice or subpoena, a party may name as the deponent a public or private corporation, a partnership, an association, a governmental agency, or other entity and must describe with reasonable particularity the matters for examination.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "approved-staffing-plan.docx.md",
+      "location": "Re line and Acknowledgment block",
+      "authority_type": "other",
+      "authority": "Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC (the matter itself)",
+      "citation_as_written": "Case No. 1:24-cv-04187-RWS (N.D. Ga.)",
+      "pincite": "",
+      "cited_for": "Caption of the fictional underlying litigation being staffed and billed",
+      "quotes": [],
+      "context": "Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC, Case No. 1:24-cv-04187-RWS (N.D. Ga.) — Proposed Discovery-Phase Staffing Plan",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket number in the fictional scenario."
+    },
+    {
+      "ref": 4,
+      "document": "case-status-summary.docx.md",
+      "location": "Section II, Case Background and Current Posture",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Federal trade secret misappropriation claim asserted by Pinnacle",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under both the Georgia Trade Secrets Act and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836 et seq., and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153) created the federal civil action for trade secret misappropriation codified at 18 U.S.C. § 1836(b). '18 U.S.C. § 1836 et seq.' is a standard way to cite the DTSA's civil claim, and it supports the description of Pinnacle's federal misappropriation claim.",
+        "evidence_excerpt": "\"This Act may be cited as the `Defend Trade Secrets Act of 2016'.\" ... \"An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "case-status-summary.docx.md",
+      "location": "Section II, Case Background and Current Posture",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "Georgia Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "State statutory trade secret claim asserted by Pinnacle (named without cite)",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under both the Georgia Trade Secrets Act and the federal Defend Trade Secrets Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-760 et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Georgia Trade Secrets Act of 1990 exists (O.C.G.A. §§ 10-1-760 through 10-1-767). It provides a state statutory trade secret misappropriation claim.",
+        "evidence_excerpt": "§ 10-1-760 Short title. This article shall be known as the \"Georgia Trade Secrets Act of 1990.\"",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://law.justia.com/codes/georgia/2021/title-10/chapter-1/article-27/section-10-1-767/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "case-status-summary.docx.md",
+      "location": "Section III.C, Motion to Compel",
+      "authority_type": "court_rule",
+      "authority": "Local Rules (N.D. Ga.) meet-and-confer requirement",
+      "citation_as_written": "the Local Rules",
+      "pincite": "",
+      "cited_for": "Pre-filing meet-and-confer communication was required before the motion to compel",
+      "quotes": [],
+      "context": "a meet-and-confer communication was exchanged with Sternfield Morrison & Katz LLP as required under the Local Rules, but opposing counsel was unwilling to supplement the responses.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "N.D. Ga. Civ. LR 37.1(A)(1) (incorporating Fed. R. Civ. P. 37(a) duty-to-confer certification)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is pending in the Northern District of Georgia (Case No. 1:24-cv-04187). N.D. Ga. Civil Local Rule 37.1(A)(1) requires a motion to compel to include counsel's certification of the duty to confer under Fed. R. Civ. P. 37(a). That supports the general statement that a pre-filing meet-and-confer was required under the Local Rules. The source does not name a specific rule, but the reference is accurate.",
+        "evidence_excerpt": "LR 37.1 MOTIONS TO COMPEL A DISCLOSURE OR DISCOVERY (A) Form. A motion to compel ... shall: (1) Include the certification of counsel with regard to the duty to confer required by Fed. R. Civ. P. 37(a)(2)(A)(B);",
+        "source_urls": [
+          "https://www.gand.uscourts.gov/sites/gand/files/local_rules/NDGARulesCV.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "case-status-summary.docx.md",
+      "location": "Section III.D, Interrogatory Responses and Written Discovery",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA) specificity requirements; Eleventh Circuit case law",
+      "citation_as_written": "DTSA requirements ... recent case law developments in the Eleventh Circuit",
+      "pincite": "",
+      "cited_for": "Research on DTSA requirements for specificity of trade secret identification, an issue subject to recent Eleventh Circuit case law (no case named)",
+      "quotes": [],
+      "context": "Priya Sengupta conducted legal research on DTSA requirements relevant to the specificity of trade secret identification in interrogatory responses, an issue that has been the subject of recent case law developments in the Eleventh Circuit.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA exists (18 U.S.C. § 1836 et seq.), but its text has no express specificity or identification requirement; that standard comes from case law. The added claim that trade secret identification specificity 'has been the subject of recent case law developments in the Eleventh Circuit' cannot be checked because no case is named. A web search found Eleventh Circuit DTSA decisions on other issues (Compulife v. Newman on improper means and compilations; Highland Consulting v. Minjares on ownership). The specificity development it found was Ninth Circuit authority (Quintara). No identifiable Eleventh Circuit authority on identification specificity was located, so the Eleventh Circuit part of the claim is unverified rather than shown to be false.",
+        "evidence_excerpt": "Search results: \"the Ninth Circuit's recent decision in Quintara Biosciences v. Ruifeng Biztech rejects importing California's pre-discovery 'reasonable particularity' rule into the Defend Trade Secrets Act\"; Eleventh Circuit cases located (Compulife v. Newman; Highland Consulting Group v. Minjares) address other DTSA issues.",
+        "source_urls": [
+          "https:/1836",
+          "https://patentlyo.com/patent/2025/08/damore-trade-secret-particularity.html",
+          "https://ipwatchdog.com/2026/01/28/identifying-trade-secrets-under-dtsa-critical-requirement-reasonable-particularity/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "case-status-summary.docx.md",
+      "location": "Re line (header) and Section I",
+      "authority_type": "other",
+      "authority": "Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC (the matter itself)",
+      "citation_as_written": "Case No. 1:24-cv-04187-RWS, U.S. District Court for the Northern District of Georgia",
+      "pincite": "",
+      "cited_for": "Caption of the fictional underlying litigation",
+      "quotes": [],
+      "context": "Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC Case No. 1:24-cv-04187-RWS U.S. District Court for the Northern District of Georgia Before the Honorable Richard W. Stanton",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket in the fictional scenario."
+    },
+    {
+      "ref": 9,
+      "document": "barros-staffing-email.eml.md",
+      "location": "Subject lines (both emails)",
+      "authority_type": "other",
+      "authority": "Pinnacle v. MedCore (the matter itself)",
+      "citation_as_written": "Case No. 1:24-cv-04187-RWS",
+      "pincite": "",
+      "cited_for": "Matter identifier in email subject",
+      "quotes": [],
+      "context": "Subject: Staffing Addition Request — Pinnacle v. MedCore (Case No. 1:24-cv-04187-RWS)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own docket number."
+    },
+    {
+      "ref": 10,
+      "document": "barros-staffing-email.eml.md",
+      "location": "Karen Cho email, paragraph 3",
+      "authority_type": "statute",
+      "authority": "Trade secret preemption issues (no authority cited)",
+      "citation_as_written": "trade secret preemption issues",
+      "pincite": "",
+      "cited_for": "Subject of research Barros would perform; no specific authority named",
+      "quotes": [],
+      "context": "conducting research on the trade secret preemption issues we've been tracking",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is not a legal citation. The email names a research topic, 'trade secret preemption issues,' without citing any statute or case, so there is no authority to check. Trade secret preemption is a real doctrine: search-result snippets describe Georgia Trade Secrets Act preemption under O.C.G.A. § 10-1-767, but the statute's text could not be fetched (Justia returned 403). The reference states nothing false.",
+        "evidence_excerpt": "conducting research on the trade secret preemption issues we've been tracking",
+        "source_urls": [
+          "https://law.justia.com/codes/georgia/2021/title-10/chapter-1/article-27/section-10-1-767/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "pinnacle-billing-guidelines.docx.md",
+      "location": "Section 9.2 Time Entry Narratives",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act, O.C.G.A. § 10-1-767",
+      "citation_as_written": "O.C.G.A. § 10-1-767",
+      "pincite": "§ 10-1-767",
+      "cited_for": "Example of an acceptable time entry narrative referencing trade secret preemption research",
+      "quotes": [],
+      "context": "Acceptable: \"Research Georgia Trade Secrets Act preemption of common-law unjust enrichment claim; analyze relevant case law under O.C.G.A. § 10-1-767.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed to the authority. The quoted text is the guideline's own sample narrative.",
+        "explanation": "O.C.G.A. § 10-1-767 is the GTSA's \"Applicability of article\" (preemption) section. It supersedes conflicting tort and restitutionary remedies, and unjust enrichment is a restitutionary claim. The sample narrative pairing preemption of an unjust enrichment claim with § 10-1-767 is therefore accurate.",
+        "evidence_excerpt": "§ 10-1-767 Applicability of article. (a) Except as provided in subsection (b) of this Code section, this article shall supersede conflicting tort, restitutionary, and other laws of this state providing civil remedies for misappropriation of a trade secret.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://law.justia.com/codes/georgia/2021/title-10/chapter-1/article-27/section-10-1-767/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 8 (05/02/2025, Tyler Webb), cell I9",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act / Georgia Trade Secrets Act",
+      "citation_as_written": "DTSA and Georgia Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Research on federal preemption relating to DTSA and GTSA claims",
+      "quotes": [],
+      "context": "Research federal preemption issues relating to DTSA and Georgia Trade Secrets Act claims; prepare research memorandum for K. Cho.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836 et seq. (preemption: 18 U.S.C. § 1838); O.C.G.A. § 10-1-760 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes exist. The invoice entry only names preemption as a research topic, and that is a legitimate question. The DTSA addresses it expressly in § 1838: the chapter does not preempt or displace state-law trade secret remedies. The GTSA is codified at O.C.G.A. § 10-1-760 et seq., as Agilysys v. Hall (N.D. Ga.) confirms. Note that the research would find that the DTSA does not preempt the GTSA claim.",
+        "evidence_excerpt": "18 U.S.C. § 1838: \"this chapter shall not be construed to preempt or displace any other remedies, whether civil or criminal, provided by ... State ... law for the misappropriation of a trade secret\"; Agilysys: \"Under [the GTSA] O.C.G.A. §§ 10-1-760 et seq., a claim for misappropriation of trade secrets requires...\"",
+        "source_urls": [
+          "https:/1838",
+          "https://www.courtlistener.com/opinion/7326057/agilysys-inc-v-hall/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 2 (05/01/2025, James Pettersson), cell I3",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "Georgia Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Preemption of common-law claims research for interrogatory response on damages theory",
+      "quotes": [],
+      "context": "research Georgia Trade Secrets Act preemption of common-law claims for interrogatory response regarding damages theory.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-767",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The GTSA has a preemption (displacement) provision, § 10-1-767(a). It supersedes conflicting state tort, restitutionary, and other civil remedies for trade secret misappropriation. That makes research on GTSA preemption of common-law claims a real issue.",
+        "evidence_excerpt": "(a) Except as provided in subsection (b) of this Code section, this article shall supersede conflicting tort, restitutionary, and other laws of this state providing civil remedies for misappropriation of a trade secret.",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 13 (05/05/2025, Nina Barros), cell I14",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "Georgia Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Elements and evidentiary requirements for misappropriation",
+      "quotes": [],
+      "context": "Research Georgia Trade Secrets Act elements and evidentiary requirements for establishing misappropriation; prepare research memorandum for litigation team.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. §§ 10-1-760 to 10-1-767 (see § 10-1-761 definitions)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The GTSA defines \"misappropriation\" and \"improper means\" in § 10-1-761. Those definitions supply the elements of a misappropriation claim, so researching the elements under the Act is accurate. Caveat: the PDF source's header misnumbers this section as \"§ 10-2-761\"; the correct number is 10-1-761.",
+        "evidence_excerpt": "(2) \"Misappropriation\" means: (A) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) Disclosure or use of a trade secret of another without express or implied consent ...",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 19 (05/07/2025, James Pettersson), cell I20",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37",
+      "citation_as_written": "Fed. R. Civ. P. 37",
+      "pincite": "37",
+      "cited_for": "Standards for motion to compel production of documents withheld on privilege grounds",
+      "quotes": [],
+      "context": "Draft motion to compel production of MedCore documents withheld on privilege grounds; research applicable standards under Fed. R. Civ. P. 37.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(a) governs motions for an order compelling disclosure or discovery, including when a party fails to produce documents requested under Rule 34. Citing it for the standards on a motion to compel production of withheld documents is accurate. Privilege-log standards themselves come from Rule 26(b)(5), but Rule 37 is the right procedural vehicle.",
+        "evidence_excerpt": "Rule 37. Failure to Make Disclosures or to Cooperate in Discovery; Sanctions ... (a)(1) ... a party may move for an order compelling disclosure or discovery ... (a)(3)(B)(iv) a party fails to produce documents ... as requested under Rule 34.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 31 (05/09/2025, Priya Sengupta), cell I32",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Extraterritorial application issues research",
+      "quotes": [],
+      "context": "begin research on DTSA extraterritorial application issues.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. §§ 1836, 1837",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a billing-entry mention of research on DTSA extraterritorial issues. The topic exists: 18 U.S.C. § 1837, 'Applicability to conduct outside the United States,' extends chapter 90, which includes the § 1836 civil action, to some foreign conduct. The reference is accurate.",
+        "evidence_excerpt": "\"This chapter also applies to conduct occurring outside the United States if— (1) the offender is a natural person who is a citizen or permanent resident alien of the United States, or an organization organized under the laws of the United States ...; or (2) an act in furtherance of the offense was committed in the United States.\"",
+        "source_urls": [
+          "https:/1837",
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 36 (05/12/2025, Nina Barros), cell I37",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(b)",
+      "citation_as_written": "Fed. R. Civ. P. 37(b)",
+      "pincite": "37(b)",
+      "cited_for": "Standard for sanctions for failure to produce; supplemental memo for motion to compel",
+      "quotes": [],
+      "context": "Research standard for sanctions under Fed. R. Civ. P. 37(b) for failure to produce; prepare supplemental research memo for motion to compel.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(b) is the sanctions provision for failing to comply with a court order, including an order to provide or permit discovery. Researching 37(b) sanctions for failure to produce in a memo supporting a motion to compel is a reasonable use. One caveat: 37(b) sanctions require a prior discovery order to have been violated.",
+        "evidence_excerpt": "(b) Failure to Comply with a Court Order. ... (2)(A) For Not Obeying a Discovery Order. If a party ... fails to obey an order to provide or permit discovery ...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 37 (05/12/2025, Priya Sengupta), cell I38",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Extraterritorial application requirements re MedCore's overseas data transfers",
+      "quotes": [],
+      "context": "Research DTSA extraterritorial application requirements and prepare memorandum analyzing applicability to MedCore's overseas data transfers.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. §§ 1836, 1837",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Research on DTSA extraterritorial-application requirements for overseas data transfers fits a real statutory provision. 18 U.S.C. § 1837 sets the conditions (a U.S. offender, or an act in furtherance committed in the United States) under which chapter 90 reaches conduct outside the United States.",
+        "evidence_excerpt": "18 U.S. Code § 1837 – \"Applicability to conduct outside the United States\" ... \"(2) an act in furtherance of the offense was committed in the United States.\"",
+        "source_urls": [
+          "https:/1837"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 65 (05/19/2025, Priya Sengupta), cell I66",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Implications of Dr. Liu's testimony regarding extraterritorial data transfers",
+      "quotes": [],
+      "context": "Research implications of Dr. Liu's testimony regarding extraterritorial data transfers under DTSA; update research memorandum.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. §§ 1836, 1837",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This billing entry describes research on extraterritorial data transfers under the DTSA. The research topic is real: 18 U.S.C. § 1837 governs when chapter 90, including the § 1836 civil action, applies to conduct outside the United States. Nothing about it is mischaracterized.",
+        "evidence_excerpt": "\"This chapter also applies to conduct occurring outside the United States if— ...\"",
+        "source_urls": [
+          "https:/1837"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 72 (05/21/2025, James Pettersson), cell I73",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(c)",
+      "citation_as_written": "Fed. R. Civ. P. 26(c)",
+      "pincite": "26(c)",
+      "cited_for": "Good-cause standards for protective order; opposition brief",
+      "quotes": [],
+      "context": "Draft opposition brief to MedCore's anticipated motion for protective order; research standards for good cause under Fed. R. Civ. P. 26(c).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(c)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(c)(1) governs protective orders. It lets a court issue one \"for good cause\", so it is the correct rule for researching the good-cause standard.",
+        "evidence_excerpt": "\"The court may, for good cause, issue an order to protect a party or person from annoyance, embarrassment, oppression, or undue burden or expense\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 85 (05/23/2025, Nina Barros), cell I86",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Trade secret identification requirements",
+      "quotes": [],
+      "context": "Research trade secret identification requirements under DTSA; analyze sufficiency of Pinnacle's current trade secret identification disclosures.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This billing entry describes research on trade secret identification requirements under the DTSA. The DTSA exists. The statute itself does not spell out an identification or particularity rule; courts developed that requirement in DTSA cases. That makes it a legitimate research topic, and the entry does not misstate the law.",
+        "evidence_excerpt": "\"An owner of a trade secret that is misappropriated may bring a civil action under this subsection ...\" (18 U.S.C. § 1836(b)(1)); search results show courts addressing identification of trade secrets under the DTSA (e.g., Ninth Circuit, Quintara Biosciences v. Ruifeng Biztech).",
+        "source_urls": [
+          "https:/1836",
+          "https://patentlyo.com/patent/2025/08/damore-trade-secret-particularity.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 86 (05/23/2025, Tyler Webb), cell I87",
+      "authority_type": "other",
+      "authority": "Eleventh Circuit law on spoliation sanctions (no case named)",
+      "citation_as_written": "Eleventh Circuit law",
+      "pincite": "",
+      "cited_for": "Standards for spoliation sanctions",
+      "quotes": [],
+      "context": "Research standards for spoliation sanctions under Eleventh Circuit law; prepare research memorandum regarding MedCore's document preservation obligations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The entry names a research topic, not a specific authority. Eleventh Circuit case law on spoliation sanctions does exist. For example, Mann v. Taser International, 588 F.3d 1291 (11th Cir. 2009), reviews spoliation sanctions for abuse of discretion and requires bad faith. The general reference is accurate, but no particular case can be checked.",
+        "evidence_excerpt": "Mann v. Taser: \"We review the district court's decision regarding spoliation sanctions for abuse of discretion... Plaintiffs present no evidence that any party acted in bad faith regarding any of the instances.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/78530/mann-v-taser-international-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 100 (05/28/2025, James Pettersson), cell I101",
+      "authority_type": "other",
+      "authority": "Eleventh Circuit law on summary judgment in trade secret cases (no case named)",
+      "citation_as_written": "Eleventh Circuit law",
+      "pincite": "",
+      "cited_for": "Summary judgment standards in trade secret misappropriation cases",
+      "quotes": [],
+      "context": "research standards for summary judgment in trade secret misappropriation cases under Eleventh Circuit law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The entry names a research topic, not a specific authority. The Eleventh Circuit has decided summary judgment issues in trade secret misappropriation cases. A CourtListener search found 32 such Eleventh Circuit opinions, including Manuel v. Convergys Corp., 430 F.3d 1132 (11th Cir. 2005), and Precision Air Parts v. Avco Corp., 736 F.2d 1499 (11th Cir. 1984). The general reference is accurate, but no particular case can be checked.",
+        "evidence_excerpt": "Manuel v. Convergys: \"Convergys filed a counterclaim in this action that alleged misappropriation of trade secrets... The district court... granted both Manuel's motion for summary judgment and Manuel's motion to dismiss Convergys's counterclaim.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/77150/william-s-manuel-v-convergys-corporation/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 104 (05/28/2025, Priya Sengupta), cell I105",
+      "authority_type": "other",
+      "authority": "Eleventh Circuit law on unjust enrichment and disgorgement (no case named)",
+      "citation_as_written": "Eleventh Circuit trade secret cases",
+      "pincite": "",
+      "cited_for": "Unjust enrichment and disgorgement remedy standards",
+      "quotes": [],
+      "context": "Research unjust enrichment and disgorgement remedy standards in Eleventh Circuit trade secret cases; prepare memorandum.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The entry names a research topic, not a specific authority. Eleventh Circuit trade secret opinions do discuss unjust enrichment and disgorgement remedies. For example, Proudfoot Consulting Co. v. Gordon, 576 F.3d 1223 (11th Cir. 2009), notes that the Florida trade secrets statute allows recovery of unjust enrichment. A CourtListener search also turned up Acrylicon USA v. Silikal GmbH, 985 F.3d 1350, and Alabama Aircraft v. Boeing, 133 F.4th 1238; I did not read their text. The general reference is accurate, but no particular case can be checked.",
+        "evidence_excerpt": "Proudfoot: \"See Fla. Stat. § 688.004. (allowing court to award unjust enrichment beyond actual loss caused by misappropriation or 'a reasonable royalty...')\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/78411/proudfoot-consulting-co-v-gordon/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 117 (05/30/2025, Tyler Webb), cell I118",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act and Georgia Trade Secrets Act fee-shifting provisions",
+      "citation_as_written": "DTSA and Georgia Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Standards for recovery of attorneys' fees / fee-shifting",
+      "quotes": [],
+      "context": "Research standards for recovery of attorneys' fees in DTSA and Georgia Trade Secrets Act cases; prepare memorandum regarding fee-shifting provisions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(3)(D); O.C.G.A. § 10-1-764",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes contain fee-shifting provisions. Under the DTSA (§ 1836(b)(3)(D)), a court may award reasonable attorney's fees to the prevailing party for a bad-faith claim, a bad-faith motion about an injunction, or willful and malicious misappropriation. Under the GTSA (O.C.G.A. § 10-1-764), a court may award reasonable fees for willful and malicious misappropriation, as Brandenburg v. All-Fleet Refinishing confirms. The GTSA text itself could not be fetched because Justia returned a 403 error.",
+        "evidence_excerpt": "§ 1836(b)(3)(D): \"the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party\"; Brandenburg: \"OCGA § 10-1-764 provides that if the court finds wilful and malicious misappropriation, the court may award reasonable attorney fees to the prevailing party.\"",
+        "source_urls": [
+          "https:/1836",
+          "https://www.courtlistener.com/opinion/1247379/brandenburg-v-all-fleet-refinishing-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Summary sheet, matter caption (cell B14)",
+      "authority_type": "other",
+      "authority": "Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC (the matter itself)",
+      "citation_as_written": "Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC",
+      "pincite": "",
+      "cited_for": "Matter caption on invoice",
+      "quotes": [],
+      "context": "B14: Pinnacle Health Systems, Inc. v. MedCore Analytics, LLC",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption."
+    },
+    {
+      "ref": 27,
+      "document": "case-status-summary.docx.md",
+      "location": "Section III.A, Document Review (third production paragraph)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA)",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Priya Sengupta's research on DTSA requirements relevant to categorizing produced documents",
+      "quotes": [],
+      "context": "Priya Sengupta provided additional research and preparation support, particularly with respect to DTSA requirements relevant to categorizing the produced documents.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a narrative mention of research on DTSA requirements. The DTSA (Pub. L. 114-153, codified at 18 U.S.C. § 1836 et seq.) exists, and the reference makes no specific legal claim to check.",
+        "evidence_excerpt": "\"This Act may be cited as the `Defend Trade Secrets Act of 2016'.\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "case-status-summary.docx.md",
+      "location": "Section III.D, Interrogatory Responses and Written Discovery",
+      "authority_type": "other",
+      "authority": "Trade secret preemption issues (no authority cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Barros researched trade secret preemption issues; Pinnacle contends MedCore's interrogatories seek information preempted by its trade secret claims",
+      "quotes": [],
+      "context": "Nina Barros assisted with research on trade secret preemption issues that arose in connection with certain of MedCore's interrogatories, which sought information that Pinnacle contends is preempted by its trade secret claims.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No authority is cited. The passage gives fictional facts: Barros researched preemption issues, and Pinnacle contends that some interrogatories seek information preempted by its trade secret claims. That is a party contention, not a legal proposition tied to any authority. The wording is legally loose, since preemption under statutes like O.C.G.A. § 10-1-767 displaces competing claims or remedies rather than discovery requests, but there is no citation to evaluate.",
+        "evidence_excerpt": "Nina Barros assisted with research on trade secret preemption issues that arose in connection with certain of MedCore's interrogatories, which sought information that Pinnacle contends is preempted by its trade secret claims.",
+        "source_urls": [],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "case-status-summary.docx.md",
+      "location": "Section IV, Staffing and Resource Update (Sengupta bullet)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA)",
+      "citation_as_written": "DTSA",
+      "pincite": "",
+      "cited_for": "Sengupta legal research on DTSA requirements relevant to interrogatory responses",
+      "quotes": [],
+      "context": "Priya Sengupta, Junior Associate — Legal research on DTSA requirements relevant to interrogatory responses, deposition exhibit binder preparation, and cite-checking.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836 et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a staffing-summary mention of legal research on DTSA requirements. The DTSA exists and is correctly named, and the reference makes no specific legal claim to check.",
+        "evidence_excerpt": "\"This Act may be cited as the `Defend Trade Secrets Act of 2016'.\"",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "case-status-summary.docx.md",
+      "location": "Section IV, Staffing and Resource Update (Barros bullet)",
+      "authority_type": "other",
+      "authority": "Trade secret preemption issues (no authority cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Barros interrogatory-related research on trade secret preemption",
+      "quotes": [],
+      "context": "Nina Barros, Mid-Level Associate — Assisted with interrogatory-related research on trade secret preemption issues and reviewed deposition transcripts.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "A staffing bullet describes a research topic, not an authority. With no statute or case cited, there is nothing to verify, and the reference makes no false legal claim.",
+        "evidence_excerpt": "Nina Barros, Mid-Level Associate — Assisted with interrogatory-related research on trade secret preemption issues and reviewed deposition transcripts.",
+        "source_urls": [],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "pinnacle-billing-guidelines.docx.md",
+      "location": "Section 9.2 Time Entry Narratives, example of block-billed entry",
+      "authority_type": "other",
+      "authority": "Trade secret preemption issues (no authority cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Example of an unacceptable block-billed time entry",
+      "quotes": [
+        "Research trade secret preemption issues; draft memorandum; confer with partner regarding strategy — 4.5 hrs"
+      ],
+      "context": "\"Research trade secret preemption issues; draft memorandum; confer with partner regarding strategy — 4.5 hrs\"",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "The quoted example time entry appears verbatim in pinnacle-billing-guidelines.docx.md, line 141. It is the guideline's own illustrative text, not a quotation from any external authority.",
+        "explanation": "The billing guidelines use this time entry as an example of block billing. It cites no legal authority, so there is nothing external to check. The guidelines' contrasting 'acceptable' example (line 289) does name O.C.G.A. § 10-1-767, but that is not the cited item here.",
+        "evidence_excerpt": "\"Research trade secret preemption issues; draft memorandum; confer with partner regarding strategy — 4.5 hrs\"",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "hl-may-2025-invoice.xlsx.md",
+      "location": "Entry 2 (05/01/2025, James Pettersson), cell I3",
+      "authority_type": "other",
+      "authority": "Georgia Trade Secrets Act preemption of common-law claims",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Research on preemption of common-law claims under the Georgia Trade Secrets Act for interrogatory response on damages theory",
+      "quotes": [],
+      "context": "research Georgia Trade Secrets Act preemption of common-law claims for interrogatory response regarding damages theory.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-767",
+        "quote_check": "No quotes attributed.",
+        "explanation": "GTSA preemption of common-law claims is a real doctrine grounded in § 10-1-767(a). Section 10-1-767(b) carves out contractual remedies and civil remedies not based on trade secret misappropriation. Researching it for a damages-theory interrogatory response is plausible.",
+        "evidence_excerpt": "this article shall supersede conflicting tort, restitutionary, and other laws of this state providing civil remedies for misappropriation of a trade secret. (b) This article shall not affect: (1) Contractual duties or remedies ... (2) Other civil remedies that are not based upon misappropriation of a trade secret",
+        "source_urls": [
+          "https://d288exxlbtx24f.cloudfront.net/GCA_10-1-760_through_10-1-767.pdf",
+          "https://www.bfvlaw.com/georgia-supreme-court-opines-on-preemption-under-the-georgia-trade-secrets-act/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

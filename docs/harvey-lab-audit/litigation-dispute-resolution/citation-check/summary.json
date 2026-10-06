@@ -1,0 +1,369 @@
+{
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "tasks": 52,
+  "citation_instances": 3821,
+  "fictional_by_design": 203,
+  "checked": 3618,
+  "by_final_status": {
+    "VERIFIED": 2754,
+    "VERIFIED_MINOR_DEFECT": 346,
+    "NOT_FOUND_LIKELY_FABRICATED": 76,
+    "CITATION_POINTS_TO_DIFFERENT_CASE": 16,
+    "MISCHARACTERIZED": 277,
+    "MISQUOTED": 40,
+    "WRONG_CITATION_REAL_CASE": 58,
+    "UNABLE_TO_VERIFY": 51
+  },
+  "problems": 467,
+  "tasks_with_problems": 41,
+  "by_authority_type": {
+    "case": {
+      "VERIFIED": 306,
+      "VERIFIED_MINOR_DEFECT": 54,
+      "NOT_FOUND_LIKELY_FABRICATED": 60,
+      "CITATION_POINTS_TO_DIFFERENT_CASE": 12,
+      "MISCHARACTERIZED": 111,
+      "MISQUOTED": 31,
+      "WRONG_CITATION_REAL_CASE": 10,
+      "UNABLE_TO_VERIFY": 6
+    },
+    "statute": {
+      "VERIFIED": 1089,
+      "VERIFIED_MINOR_DEFECT": 143,
+      "NOT_FOUND_LIKELY_FABRICATED": 3,
+      "CITATION_POINTS_TO_DIFFERENT_CASE": 1,
+      "MISCHARACTERIZED": 70,
+      "MISQUOTED": 4,
+      "WRONG_CITATION_REAL_CASE": 26,
+      "UNABLE_TO_VERIFY": 5
+    },
+    "regulation": {
+      "VERIFIED": 134,
+      "VERIFIED_MINOR_DEFECT": 32,
+      "MISCHARACTERIZED": 16,
+      "MISQUOTED": 1,
+      "WRONG_CITATION_REAL_CASE": 3,
+      "UNABLE_TO_VERIFY": 3
+    },
+    "court_rule": {
+      "VERIFIED": 982,
+      "VERIFIED_MINOR_DEFECT": 75,
+      "NOT_FOUND_LIKELY_FABRICATED": 5,
+      "MISCHARACTERIZED": 48,
+      "MISQUOTED": 1,
+      "WRONG_CITATION_REAL_CASE": 9
+    },
+    "restatement_or_treatise": {
+      "VERIFIED": 26,
+      "VERIFIED_MINOR_DEFECT": 5,
+      "NOT_FOUND_LIKELY_FABRICATED": 2,
+      "MISCHARACTERIZED": 1,
+      "WRONG_CITATION_REAL_CASE": 1,
+      "UNABLE_TO_VERIFY": 3
+    },
+    "other": {
+      "VERIFIED": 217,
+      "VERIFIED_MINOR_DEFECT": 37,
+      "NOT_FOUND_LIKELY_FABRICATED": 6,
+      "CITATION_POINTS_TO_DIFFERENT_CASE": 3,
+      "MISCHARACTERIZED": 31,
+      "MISQUOTED": 3,
+      "WRONG_CITATION_REAL_CASE": 9,
+      "UNABLE_TO_VERIFY": 34
+    }
+  },
+  "second_check": {
+    "NOT_FOUND_LIKELY_FABRICATED": {
+      "held": 76,
+      "overturned": 0
+    },
+    "CITATION_POINTS_TO_DIFFERENT_CASE": {
+      "held": 15,
+      "overturned": 0
+    },
+    "MISCHARACTERIZED": {
+      "held": 277,
+      "overturned": 10
+    },
+    "MISQUOTED": {
+      "held": 42,
+      "overturned": 1
+    },
+    "WRONG_CITATION_REAL_CASE": {
+      "held": 57,
+      "overturned": 3
+    }
+  },
+  "by_location": {
+    "task_json": {
+      "problem": 35,
+      "other": 367
+    },
+    "supplied_documents": {
+      "problem": 432,
+      "other": 2784
+    }
+  },
+  "per_task": [
+    {
+      "task": "analyze-counterparty-motion-to-dismiss",
+      "checked": 84,
+      "problems": 10
+    },
+    {
+      "task": "analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+      "checked": 72,
+      "problems": 4
+    },
+    {
+      "task": "analyze-counterpartys-motion-for-summary-judgment",
+      "checked": 40,
+      "problems": 10
+    },
+    {
+      "task": "assess-litigation-hold-scope-for-custodian-identification",
+      "checked": 40,
+      "problems": 2
+    },
+    {
+      "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+      "checked": 29,
+      "problems": 0
+    },
+    {
+      "task": "assess-settlement-value-range",
+      "checked": 134,
+      "problems": 49
+    },
+    {
+      "task": "build-litigation-case-timeline",
+      "checked": 53,
+      "problems": 1
+    },
+    {
+      "task": "categorize-document-production-set-by-relevance-and-privilege",
+      "checked": 113,
+      "problems": 8
+    },
+    {
+      "task": "compare-document-production-against-discovery-requests",
+      "checked": 57,
+      "problems": 6
+    },
+    {
+      "task": "draft-answer-to-breach-of-contract-complaint",
+      "checked": 13,
+      "problems": 1
+    },
+    {
+      "task": "draft-case-assessment-memorandum",
+      "checked": 31,
+      "problems": 4
+    },
+    {
+      "task": "draft-complaint",
+      "checked": 28,
+      "problems": 1
+    },
+    {
+      "task": "draft-conflict-check-memorandum",
+      "checked": 23,
+      "problems": 2
+    },
+    {
+      "task": "draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement",
+      "checked": 55,
+      "problems": 0
+    },
+    {
+      "task": "draft-defective-industrial-equipment-product-liability",
+      "checked": 75,
+      "problems": 13
+    },
+    {
+      "task": "draft-deposition-outline",
+      "checked": 45,
+      "problems": 1
+    },
+    {
+      "task": "draft-discovery-plan-memorandum",
+      "checked": 115,
+      "problems": 0
+    },
+    {
+      "task": "draft-federal-complaint-drafting",
+      "checked": 28,
+      "problems": 2
+    },
+    {
+      "task": "draft-interrogatories",
+      "checked": 80,
+      "problems": 3
+    },
+    {
+      "task": "draft-jury-instructions",
+      "checked": 97,
+      "problems": 23
+    },
+    {
+      "task": "draft-litigation-discovery-responses",
+      "checked": 92,
+      "problems": 2
+    },
+    {
+      "task": "draft-litigation-hold-notice-for-new-product-liability-matter",
+      "checked": 65,
+      "problems": 5
+    },
+    {
+      "task": "draft-motion-for-preliminary-injunction",
+      "checked": 61,
+      "problems": 2
+    },
+    {
+      "task": "draft-motion-for-summary-judgment",
+      "checked": 70,
+      "problems": 10
+    },
+    {
+      "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+      "checked": 69,
+      "problems": 5
+    },
+    {
+      "task": "draft-motion-to-compel-discovery-responses",
+      "checked": 115,
+      "problems": 10
+    },
+    {
+      "task": "draft-motion-to-dismiss-brief",
+      "checked": 300,
+      "problems": 98
+    },
+    {
+      "task": "draft-opposition-to-motion-for-summary-judgment",
+      "checked": 99,
+      "problems": 29
+    },
+    {
+      "task": "draft-opposition-to-motion-to-dismiss",
+      "checked": 164,
+      "problems": 54
+    },
+    {
+      "task": "draft-pretrial-statement",
+      "checked": 81,
+      "problems": 18
+    },
+    {
+      "task": "draft-requests-for-production",
+      "checked": 108,
+      "problems": 4
+    },
+    {
+      "task": "draft-responses-to-interrogatories",
+      "checked": 139,
+      "problems": 8
+    },
+    {
+      "task": "draft-responses-to-requests-for-production",
+      "checked": 38,
+      "problems": 5
+    },
+    {
+      "task": "draft-witness-examination-outline",
+      "checked": 78,
+      "problems": 0
+    },
+    {
+      "task": "extract-key-admissions-from-deposition-transcript",
+      "checked": 19,
+      "problems": 2
+    },
+    {
+      "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+      "checked": 29,
+      "problems": 0
+    },
+    {
+      "task": "extract-key-terms-from-counterparty-complaint",
+      "checked": 25,
+      "problems": 2
+    },
+    {
+      "task": "extract-privileged-communications-from-production-set",
+      "checked": 76,
+      "problems": 4
+    },
+    {
+      "task": "extract-scope-terms-from-matter-plan",
+      "checked": 15,
+      "problems": 0
+    },
+    {
+      "task": "identify-excessive-or-duplicative-research-charges-in-litigation-invoice",
+      "checked": 38,
+      "problems": 2
+    },
+    {
+      "task": "identify-government-subpoena-issues",
+      "checked": 34,
+      "problems": 1
+    },
+    {
+      "task": "identify-issues-in-counterparty-complaint",
+      "checked": 33,
+      "problems": 2
+    },
+    {
+      "task": "identify-issues-in-counterparty-interrogatories",
+      "checked": 90,
+      "problems": 2
+    },
+    {
+      "task": "identify-issues-in-matter-budget-proposal",
+      "checked": 6,
+      "problems": 0
+    },
+    {
+      "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+      "checked": 79,
+      "problems": 15
+    },
+    {
+      "task": "research-ucc-warranty-disclaimer-requirements-for-new-product-launch",
+      "checked": 78,
+      "problems": 0
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "checked": 129,
+      "problems": 38
+    },
+    {
+      "task": "review-document-production-set-for-attorney",
+      "checked": 68,
+      "problems": 4
+    },
+    {
+      "task": "review-litigation-invoice-against-outside-counsel-billing-guidelines",
+      "checked": 14,
+      "problems": 0
+    },
+    {
+      "task": "review-outside-counsel-engagement-letter-for-problematic-terms",
+      "checked": 16,
+      "problems": 0
+    },
+    {
+      "task": "review-privilege-log-clawback-review",
+      "checked": 164,
+      "problems": 5
+    },
+    {
+      "task": "verify-disbursement-charges-against-billing-guidelines",
+      "checked": 14,
+      "problems": 0
+    }
+  ]
+}

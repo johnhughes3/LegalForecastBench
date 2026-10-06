@@ -1,0 +1,2291 @@
+{
+  "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "defense-strategy-memo.docx.md",
+    "gerhardt-rebuttal-report.docx.md",
+    "marchetti-deposition-excerpts.docx.md",
+    "marchetti-expert-report.docx.md",
+    "osha-citation.docx.md",
+    "plaintiff-exhibit-list.docx.md",
+    "solano-trial-strategy-email.eml.md",
+    "supply-agreement.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "supply-agreement.docx.md",
+      "location": "Section 9.1 Governing Law",
+      "authority_type": "other",
+      "authority": "United Nations Convention on Contracts for the International Sale of Goods (CISG)",
+      "citation_as_written": "CISG",
+      "pincite": "",
+      "cited_for": "Parties agree the CISG shall not apply to the Agreement",
+      "quotes": [],
+      "context": "The Parties expressly agree that the United Nations Convention on Contracts for the International Sale of Goods (CISG) shall not apply to this Agreement.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "United Nations Convention on Contracts for the International Sale of Goods, art. 6, Apr. 11, 1980, 1489 U.N.T.S. 3",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The CISG is a real treaty, and Article 6 expressly lets the parties exclude its application. A contract clause opting out of the CISG is therefore effective under the Convention's own terms. The clause is a contractual opt-out rather than a citation for a legal holding, and it is consistent with Article 6.",
+        "evidence_excerpt": "\"The parties may exclude the application of this Convention or, subject to article 12, derogate from or vary the effect of any of its provisions.\"",
+        "source_urls": [
+          "https://cisg-online.org/cisg-article-by-article/part-1/art.-6-cisg",
+          "https://uncitral.un.org/en/texts/salegoods/conventions/sale_of_goods/cisg"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "supply-agreement.docx.md",
+      "location": "Section 9.1 Governing Law",
+      "authority_type": "statute",
+      "authority": "Laws of the State of Washington (general reference, no specific statute)",
+      "citation_as_written": "laws of the State of Washington",
+      "pincite": "",
+      "cited_for": "Washington law governs the Agreement and all disputes",
+      "quotes": [],
+      "context": "shall be governed by and construed in accordance with the laws of the State of Washington, without giving effect to any choice-of-law or conflict-of-law provisions",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a general contractual choice of Washington law, and there is no specific provision to check. Washington's UCC allows parties to a transaction with a reasonable relation to Washington to agree that Washington law governs. Here the buyer is a Washington corporation, so the clause is a valid reference.",
+        "evidence_excerpt": "when a transaction bears a reasonable relation to this state and also to another state or nation the parties may agree that the law either of this state or of such other state or nation shall govern their rights and duties.",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=62A.1-301"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 1)",
+      "authority_type": "case",
+      "authority": "Apex Tooling Corp. v. Meridian Components LLC",
+      "citation_as_written": "Superior Court of California, County of Alameda (2022)",
+      "pincite": "",
+      "cited_for": "Prior engagement where Marchetti testified on lost profits in breach-of-supply-agreement matter",
+      "quotes": [],
+      "context": "Apex Tooling Corp. v. Meridian Components LLC, Superior Court of California, County of Alameda (2022) — testified regarding lost-profits analysis in a breach-of-supply-agreement matter",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert, part of in-universe scenario."
+    },
+    {
+      "ref": 3,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 2)",
+      "authority_type": "case",
+      "authority": "Harborview Industries, Inc. v. Pacifica Chemical Corp.",
+      "citation_as_written": "Oregon Circuit Court, Multnomah County (2021)",
+      "pincite": "",
+      "cited_for": "Prior engagement: business-interruption damages from chemical-supply defect",
+      "quotes": [],
+      "context": "Harborview Industries, Inc. v. Pacifica Chemical Corp., Oregon Circuit Court, Multnomah County (2021) — testified regarding business-interruption damages arising from a chemical-supply defect",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 4,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 3)",
+      "authority_type": "case",
+      "authority": "Western Fabrication Alliance v. Summit Alloys, Inc.",
+      "citation_as_written": "AAA Commercial Arbitration, Portland, Oregon (2020)",
+      "pincite": "",
+      "cited_for": "Prior engagement: contract damages in metals-supply dispute",
+      "quotes": [],
+      "context": "Western Fabrication Alliance v. Summit Alloys, Inc., AAA Commercial Arbitration, Portland, Oregon (2020) — testified regarding contract damages in a metals-supply dispute",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 5,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 4)",
+      "authority_type": "case",
+      "authority": "Greenleaf Plastics, Inc. v. Triton Resin Co.",
+      "citation_as_written": "Superior Court of California, County of San Francisco (2019)",
+      "pincite": "",
+      "cited_for": "Prior engagement: lost profits and scrap costs in polymer-supply dispute",
+      "quotes": [],
+      "context": "Greenleaf Plastics, Inc. v. Triton Resin Co., Superior Court of California, County of San Francisco (2019)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 6,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 5)",
+      "authority_type": "case",
+      "authority": "Cascade Precision Machining v. Ironclad Tools, LLC",
+      "citation_as_written": "Washington Superior Court, King County (2018)",
+      "pincite": "",
+      "cited_for": "Prior engagement: damages from defective tooling components",
+      "quotes": [],
+      "context": "Cascade Precision Machining v. Ironclad Tools, LLC, Washington Superior Court, King County (2018)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 7,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 6)",
+      "authority_type": "case",
+      "authority": "Pacific Rim Automotive Parts, Inc. v. Harbor Supply Group",
+      "citation_as_written": "Oregon Circuit Court, Washington County (2017)",
+      "pincite": "",
+      "cited_for": "Prior engagement: lost profits from supply-chain disruption",
+      "quotes": [],
+      "context": "Pacific Rim Automotive Parts, Inc. v. Harbor Supply Group, Oregon Circuit Court, Washington County (2017)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 8,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 7)",
+      "authority_type": "case",
+      "authority": "Redwood Manufacturing Co. v. Atlas Industrial Coatings",
+      "citation_as_written": "AAA Commercial Arbitration, San Francisco, California (2023)",
+      "pincite": "",
+      "cited_for": "Prior engagement: business-interruption losses",
+      "quotes": [],
+      "context": "Redwood Manufacturing Co. v. Atlas Industrial Coatings, AAA Commercial Arbitration, San Francisco, California (2023)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 9,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "II. Qualifications, prior engagements list (bullet 8)",
+      "authority_type": "case",
+      "authority": "Columbia Valley Components, Inc. v. Everett Chemical Solutions",
+      "citation_as_written": "Washington Superior Court, Pierce County (2023)",
+      "pincite": "",
+      "cited_for": "Prior engagement: scrap, rework, and consequential damages",
+      "quotes": [],
+      "context": "Columbia Valley Components, Inc. v. Everett Chemical Solutions, Washington Superior Court, Pierce County (2023)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 10,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "Appendix A, Representative Expert Engagements items 1-8 (repeats of body list)",
+      "authority_type": "case",
+      "authority": "Apex Tooling; Harborview; Western Fabrication; Greenleaf Plastics; Cascade Precision Machining; Pacific Rim Automotive Parts; Redwood Manufacturing; Columbia Valley Components (same eight matters as in Section II)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Repeat listing of prior engagements in CV",
+      "quotes": [],
+      "context": "1. Apex Tooling Corp. v. Meridian Components LLC, Superior Court of California, County of Alameda (2022) — testified on lost profits ...",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matters of the fictional expert."
+    },
+    {
+      "ref": 11,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "Appendix A, Representative Expert Engagements item 9",
+      "authority_type": "case",
+      "authority": "Sierra Ridge Molding, Inc. v. Premier Polymer Corp.",
+      "citation_as_written": "Superior Court of California, County of Los Angeles (2021)",
+      "pincite": "",
+      "cited_for": "Prior engagement: lost-profits and replacement-cost damages",
+      "quotes": [],
+      "context": "Sierra Ridge Molding, Inc. v. Premier Polymer Corp., Superior Court of California, County of Los Angeles (2021) — testified on lost-profits and replacement-cost damages",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 12,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "Appendix A, Representative Expert Engagements item 10",
+      "authority_type": "case",
+      "authority": "Timberline Manufacturing Group v. Northwest Chemical Distributors, LLC",
+      "citation_as_written": "Oregon Circuit Court, Lane County (2022)",
+      "pincite": "",
+      "cited_for": "Prior engagement: business-interruption and lost-customer damages",
+      "quotes": [],
+      "context": "Timberline Manufacturing Group v. Northwest Chemical Distributors, LLC, Oregon Circuit Court, Lane County (2022)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 13,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "I. Executive Summary, item 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Basis for challenging Marchetti's expert damages testimony",
+      "quotes": [],
+      "context": "Specified portions of Dr. Lena Marchetti's expert damages testimony under FRE 702 and Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and its progeny.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 702 governs whether expert opinion testimony is admissible. It is the correct basis for challenging an expert's damages testimony, alongside Daubert.",
+        "evidence_excerpt": "A witness who is qualified as an expert by knowledge, skill, experience, training, or education may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "I. Executive Summary, item 1",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Gatekeeping standard for expert testimony; basis for challenge to Marchetti",
+      "quotes": [],
+      "context": "under FRE 702 and Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and its progeny",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "On CourtListener, 509 U.S. 579 resolves to Daubert v. Merrell Dow Pharmaceuticals, Inc., decided June 28, 1993, so the name, cite and year are correct. Daubert holds that Rule 702 makes the trial judge responsible for ensuring that expert testimony is relevant and reliable. That supports using it as the basis for a challenge to an expert.",
+        "evidence_excerpt": "To the contrary, under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable. The primary locus of this obligation is Rule 702",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "I. Executive Summary, item 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407",
+      "citation_as_written": "FRE 407",
+      "pincite": "",
+      "cited_for": "Exclude evidence of Cascade's subsequent remedial measures (Nov 2023 testing upgrade, desiccant packets)",
+      "quotes": [],
+      "context": "Evidence of Cascade's subsequent remedial measures ... under FRE 407.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the rule. The memo's later paraphrase in Section IV tracks the rule text closely.",
+        "explanation": "Rule 407 bars evidence of subsequent remedial measures offered to prove negligence, culpable conduct, a product or design defect, or a need for a warning, subject to exceptions such as feasibility if disputed. Seeking to exclude the November 2023 testing upgrade and the desiccant packets under FRE 407 is a correct use of the rule. Whether those measures qualify on these facts is advocacy, not a citation defect.",
+        "evidence_excerpt": "When measures are taken that would have made an earlier injury or harm less likely to occur, evidence of the subsequent measures is not admissible to prove: negligence; culpable conduct; a defect in a product or its design; or a need for a warning or instruction. But the court may admit this evidence for another purpose, such as impeachment or — if disputed — proving ownership, control, or the feasibility of precautionary measures.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "I. Executive Summary, item 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence 403 and 404(b)",
+      "citation_as_written": "FRE 403 and FRE 404(b)",
+      "pincite": "",
+      "cited_for": "Exclude unrelated OSHA citation",
+      "quotes": [],
+      "context": "The unrelated OSHA citation (Citation No. 2023-OR-00487) under FRE 403 and FRE 404(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 403 allows relevant evidence to be excluded when unfair prejudice and similar dangers substantially outweigh its probative value. FRE 404(b)(1) bars other-act evidence offered to prove character or propensity. Both are proper grounds for a motion to exclude an unrelated prior OSHA citation. Whether exclusion succeeds is advocacy.",
+        "evidence_excerpt": "FRE 403: \"The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice...\" FRE 404(b)(1): \"Evidence of any other crime, wrong, or act is not admissible to prove a person's character...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403",
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "I. Executive Summary, last paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Interplay of Supply Agreement consequential-damages cap and Marchetti testimony; anchoring bias",
+      "quotes": [],
+      "context": "The interplay between the Supply Agreement's consequential-damages cap (Section 7.2) and Marchetti's testimony also merits inclusion in our motion on FRE 403 grounds",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 403",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 403 lets a court exclude relevant evidence whose probative value is substantially outweighed by unfair prejudice, confusing the issues, or misleading the jury. Arguing that a damages figure would anchor the jury despite a contractual cap is a reasonable application of that balancing test.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury, undue delay, wasting time, or needlessly presenting cumulative evidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.A, paragraph on credentialism",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702 / Daubert (reference)",
+      "citation_as_written": "Daubert; FRE 702",
+      "pincite": "",
+      "cited_for": "Marchetti never qualified under Daubert in federal court; methodology never subjected to FRE 702 scrutiny",
+      "quotes": [],
+      "context": "she has never been qualified as an expert under Daubert in federal court ... has never been subjected to the rigors of FRE 702 scrutiny",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo names Daubert and FRE 702 correctly as the federal standard for qualifying an expert and scrutinizing methodology. The point that Marchetti was never qualified in federal court is a fictional fact. The legal references themselves are accurate.",
+        "evidence_excerpt": "In Daubert the Court charged trial judges with the responsibility of acting as gatekeepers to exclude unreliable expert testimony",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.B, paragraph 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702 / Daubert trilogy",
+      "citation_as_written": "FRE 702 and the Daubert trilogy",
+      "pincite": "",
+      "cited_for": "Ipse dixit expert assertions are what Rule 702 and Daubert trilogy exclude",
+      "quotes": [],
+      "context": "This is textbook ipse dixit — the precise type of unsupported expert assertion that FRE 702 and the Daubert trilogy are designed to exclude.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The 'ipse dixit' language comes from Joiner (part of the Daubert trilogy), which I checked.",
+        "explanation": "General Electric Co. v. Joiner, 522 U.S. 136, 146 (1997), holds that nothing in Daubert or the Rules requires admitting opinion evidence connected to existing data only by the ipse dixit of the expert. The Rule 702 committee note says gatekeeping requires more than 'taking the expert's word for it.' Both support the memo's statement.",
+        "evidence_excerpt": "nothing in either Daubert or the Federal Rules of Evidence requires a district court to admit opinion evidence which is connected to existing data only by the ipse dixit of the expert.",
+        "source_urls": [
+          "https://www.law.cornell.edu/supct/html/96-188.ZO.html",
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.B, paragraph 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702(a)-(d)",
+      "citation_as_written": "FRE 702(a)–(d)",
+      "pincite": "(a)-(d)",
+      "cited_for": "Expert testimony must rest on sufficient facts/data, reliable principles and methods, reliably applied; reputational-harm opinion fails; also Daubert factors (testability, peer review, error rate, general acceptance)",
+      "quotes": [],
+      "context": "Under FRE 702(a)–(d), expert testimony must be based on sufficient facts or data, must be the product of reliable principles and methods, and the expert must have reliably applied those principles and methods to the facts of the case.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo's paraphrase of FRE 702(b)-(d) (sufficient facts or data, reliable principles and methods, reliable application to the facts) is accurate. The Daubert factors (testing, peer review, error rate, general acceptance) are not in the rule text itself. They come from Daubert and the 2000 Advisory Committee Note to Rule 702, and the memo's sentence treats them as part of the Daubert analysis, not as rule text. Whether the reputational-harm opinion fails is advocacy, not something the rule can establish.",
+        "evidence_excerpt": "\"(b) the testimony is based on sufficient facts or data; (c) the testimony is the product of reliable principles and methods; and (d) the expert's opinion reflects a reliable application of the principles and methods to the facts of the case.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.B, paragraph 3",
+      "authority_type": "case",
+      "authority": "General Electric Co. v. Joiner",
+      "citation_as_written": "522 U.S. 136, 146 (1997)",
+      "pincite": "146",
+      "cited_for": "Trial court may exclude opinion where analytical gap between data and opinion is too great; here there is no data at all",
+      "quotes": [
+        "simply too great an analytical gap between the data and the opinion proffered"
+      ],
+      "context": "The Supreme Court's decision in General Electric Co. v. Joiner, 522 U.S. 136, 146 (1997), is directly on point. The Court held that a trial court may conclude that there is \"simply too great an analytical gap between the data and the opinion proffered.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Found verbatim at 522 U.S. 146. The quote appears after the *146 page marker and before the *147 marker.",
+        "explanation": "Joiner holds that nothing in Daubert or the FRE requires a court to admit opinion evidence connected to the data only by the expert's ipse dixit, and that a court may find too great an analytical gap between the data and the opinion. The memo's claim that 'here there is no data at all' applies the rule to its own facts; it is not a claim about what Joiner holds.",
+        "evidence_excerpt": "nothing in either Daubert or the Federal Rules of Evidence requires a district court to admit opinion evidence that is connected to existing data only by the ipse dixit of the expert. A court may conclude that there is simply too great an analytical gap between the data and the opinion proffered.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/118157/general-electric-co-v-joiner/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.B, paragraph 3",
+      "authority_type": "case",
+      "authority": "Unnamed Ninth Circuit decisions (no case identified)",
+      "citation_as_written": "The Ninth Circuit has likewise excluded lump-sum damages estimates",
+      "pincite": "",
+      "cited_for": "Ninth Circuit has excluded lump-sum damages estimates untethered to empirical analysis or reliable methodology",
+      "quotes": [],
+      "context": "The Ninth Circuit has likewise excluded lump-sum damages estimates that are untethered to any empirical analysis or reliable methodology",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo names no Ninth Circuit decision, so there is no authority to check. A targeted CourtListener search of Ninth Circuit opinions on excluding speculative lump-sum damages estimates returned no results. The proposition may well reflect general Daubert/FRE 702 practice, but as written it rests on no identifiable authority.",
+        "evidence_excerpt": "CourtListener search (court=ca9) for exclusion of speculative lump-sum damages estimates without methodology under Daubert: count 0.",
+        "source_urls": [
+          "https://www.courtlistener.com/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.C",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Lost-profits regression unreliably applied (FY2020 exclusion without sensitivity analysis; failure to control for industry downturn)",
+      "quotes": [],
+      "context": "Marchetti's application of that methodology to the facts of this case suffers from two critical deficiencies that render her opinion unreliable under FRE 702.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRE 702(d), as amended in 2023, requires that the expert's opinion reflect a reliable application of the principles and methods to the facts of the case. That supports challenging the regression on application-of-method grounds (excluding FY2020 without sensitivity analysis, and not controlling for the industry downturn). Whether those specific flaws exist is a matter of the fictional record.",
+        "evidence_excerpt": "(d) the expert's opinion reflects a reliable application of the principles and methods to the facts of the case.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.D",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702 (sufficient facts or data)",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Expert may not adopt party's unverified spreadsheet as independent opinion",
+      "quotes": [
+        "sufficient facts or data"
+      ],
+      "context": "FRE 702 requires that expert testimony be based on \"sufficient facts or data.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"sufficient facts or data\": found verbatim in Rule 702(b).",
+        "explanation": "The memo quotes Rule 702(b) accurately. Arguing that an expert who simply adopts a party's unverified spreadsheet lacks a sufficient basis is a reasonable application of the rule. The 2023 committee note says the sufficiency of the basis is an admissibility question the court decides by a preponderance. The same note warns that the 'sufficient facts or data' requirement does not let a court exclude testimony just because it believes one side's version of disputed facts.",
+        "evidence_excerpt": "(b) the testimony is based on sufficient facts or data; ... But this does not mean, as certain courts have held, that arguments about the sufficiency of an expert's basis always go to weight and not admissibility.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.D, last paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Exclude $2,340,000 scrap/rework figure",
+      "quotes": [],
+      "context": "the $2,340,000 figure should be excluded under FRE 702 or, at minimum, that Marchetti should not be permitted to offer it as an \"expert opinion\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRE 702 requires the proponent to show by a preponderance that expert testimony rests on sufficient facts or data and is the product of reliable principles and methods reliably applied. That makes it a proper basis for moving to exclude an unsupported damages figure, or to stop it from being offered as expert opinion. Whether the figure should actually be excluded is an argument for advocacy, not something the rule decides.",
+        "evidence_excerpt": "may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that: ... (b) the testimony is based on sufficient facts or data;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.E",
+      "authority_type": "other",
+      "authority": "Duty to mitigate damages (general contract-damages principle; no authority cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Expert damages model ignoring duty to mitigate is unreliable",
+      "quotes": [],
+      "context": "an evidentiary argument about the reliability of an expert opinion that fails to account for a well-established principle of contract damages",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "e.g., Jaeger v. Cleaver Construction, Inc., 148 Wn. App. 698, 201 P.3d 1028 (2009) (mitigation / avoidable consequences); governing law is Washington per Supply Agreement § 9.1",
+        "quote_check": "No quotes attributed; no authority cited in the memo.",
+        "explanation": "The memo cites no authority. The underlying principle is real and well established in Washington, the governing law under Supply Agreement § 9.1: an injured party cannot recover damages it could have avoided through reasonable efforts. The further inference, that an expert model ignoring mitigation is therefore unreliable under Rule 702, is the memo's own argument and is not drawn from any authority. Washington also puts the burden of proving a failure to mitigate on the party asserting it (Ainsworth v. Progressive, 180 Wn. App. 52, citing Cox v. Keg Rests., 86 Wn. App. 239, 244). That somewhat undercuts the reliability framing.",
+        "evidence_excerpt": "The doctrine of avoidable consequences, or mitigation of damages, prevents an injured party from recovering damages that the party could have avoided through reasonable efforts.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4753805/jaeger-v-cleaver-construction-inc/",
+          "https://www.courtlistener.com/opinion/4763125/ainsworth-v-progressive-casualty-insurance/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "III.F",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702 / Daubert (cumulative reliability)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Arithmetic error supports cumulative lack of rigor; Marchetti never subjected to Daubert scrutiny in federal court",
+      "quotes": [],
+      "context": "The fact that Marchetti has never been subjected to Daubert scrutiny in federal court",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo refers to Daubert and Rule 702 reliability generally, which is accurate. The committee note says any step that makes the analysis unreliable makes the testimony inadmissible, which supports the cumulative lack-of-rigor argument. It also points to Kumho's 'same level of intellectual rigor' standard. The statement that Marchetti was never subjected to Daubert scrutiny is a fictional fact.",
+        "evidence_excerpt": "\"any step that renders the analysis unreliable . . . renders the expert's testimony inadmissible. This is true whether the step completely changes a reliable methodology or merely misapplies that methodology.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "IV (FRE 407 Analysis)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407",
+      "citation_as_written": "FRE 407",
+      "pincite": "",
+      "cited_for": "Subsequent measures not admissible to prove negligence, culpable conduct, product defect, or need for warning",
+      "quotes": [],
+      "context": "FRE 407 provides that when measures are taken that would have made an earlier injury or harm less likely to occur, evidence of the subsequent measures is not admissible to prove negligence, culpable conduct, a defect in a product or its design, or a need for a warning or instruction.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The memo's paraphrase tracks the rule text almost word for word.",
+        "explanation": "FRE 407 bars evidence of subsequent remedial measures when offered to prove negligence, culpable conduct, a defect in a product or its design, or a need for a warning or instruction. That is exactly the proposition the memo cites it for.",
+        "evidence_excerpt": "When measures are taken that would have made an earlier injury or harm less likely to occur, evidence of the subsequent measures is not admissible to prove: negligence; culpable conduct; a defect in a product or its design; or a need for a warning or instruction.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "IV (FRE 407 Analysis)",
+      "authority_type": "case",
+      "authority": "Unnamed Ninth Circuit authority applying FRE 407",
+      "citation_as_written": "The Ninth Circuit applies FRE 407 broadly",
+      "pincite": "",
+      "cited_for": "Ninth Circuit applies Rule 407 broadly including product-liability and breach-of-warranty contexts",
+      "quotes": [],
+      "context": "The Ninth Circuit applies FRE 407 broadly, including in product-liability and breach-of-warranty contexts",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo names no Ninth Circuit case, so the general claim that the court applies FRE 407 broadly cannot be traced to a specific authority. The rule's text does cover product cases: it bars subsequent-measure evidence offered to prove 'a defect in a product or its design.' That supports the product-liability part of the claim, but no text I read addresses breach-of-warranty claims. The Ninth Circuit does apply Rule 407. However, Pau v. Yosemite Park & Curry Co., 928 F.2d 880 (9th Cir. 1991), citing In re Aircrash in Bali, 871 F.2d 812, 816-17, held that the rule covers only a defendant's voluntary actions. That limits how 'broadly' the rule reaches in this circuit. Without a named case, the specific characterization cannot be confirmed.",
+        "evidence_excerpt": "FRE 407: \"evidence of the subsequent measures is not admissible to prove: negligence; culpable conduct; a defect in a product or its design; or a need for a warning or instruction.\" Pau, 928 F.2d 880: \"we held that rule 407 only applies to a defendant's voluntary actions.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407",
+          "https://www.courtlistener.com/opinion/557846/pau-v-yosemite-park-and-curry-company-mca/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "IV (Rebuttal of the feasibility exception)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407 (feasibility exception)",
+      "citation_as_written": "FRE 407",
+      "pincite": "",
+      "cited_for": "Feasibility exception applies only if defendant controverts feasibility; Cascade has not",
+      "quotes": [
+        "feasibility of precautionary measures"
+      ],
+      "context": "Solano's invocation of the \"feasibility of precautionary measures\" exception in FRE 407 is inapposite. The feasibility exception applies only when the defendant controverts the feasibility",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'feasibility of precautionary measures' found verbatim in the text of FRE 407.",
+        "explanation": "The rule admits subsequent-measure evidence to prove feasibility only 'if disputed', and the advisory committee note confirms that the other purpose must be controverted. That supports the memo's statement that the exception applies only when the defendant controverts feasibility. (Strictly, the requirement is that feasibility be genuinely disputed. In practice that means disputed by the party that took the measures, here the defendant.)",
+        "evidence_excerpt": "\"The requirement that the other purpose be controverted calls for automatic exclusion unless a genuine issue be present.\" (Advisory Committee Note); rule text: \"if disputed — proving ownership, control, or the feasibility of precautionary measures.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "V (FRE 404(b) Analysis)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 404(b)(1)",
+      "citation_as_written": "FRE 404(b)(1)",
+      "pincite": "(b)(1)",
+      "cited_for": "Prohibits other-acts evidence to show character/propensity; OSHA citation used for propensity",
+      "quotes": [],
+      "context": "FRE 404(b)(1) prohibits evidence of other crimes, wrongs, or acts to prove a person's character in order to show that on a particular occasion the person acted in accordance with that character.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks are used. The memo's paraphrase follows the rule text closely, using 'other crimes, wrongs, or acts' where the rule says 'any other crime, wrong, or act'.",
+        "explanation": "The memo's paraphrase of Rule 404(b)(1) is accurate.",
+        "evidence_excerpt": "Evidence of any other crime, wrong, or act is not admissible to prove a person's character in order to show that on a particular occasion the person acted in accordance with the character.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "V (FRE 404(b) Analysis, second paragraph)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 404(b)(2)",
+      "citation_as_written": "FRE 404(b)(2)",
+      "pincite": "(b)(2)",
+      "cited_for": "Plan or knowledge purposes unavailing; no logical connection between ventilation citation and resin moisture",
+      "quotes": [],
+      "context": "Plaintiff's invocation of \"plan or knowledge\" under FRE 404(b)(2) is equally unavailing.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'plan or knowledge' quotes the plaintiff's argument, not the rule. The rule lists 'plan' and 'knowledge' as separate examples.",
+        "explanation": "Rule 404(b)(2) allows other-act evidence for non-character purposes, including plan and knowledge. The rule text does not itself state the memo's 'logical connection' requirement; that is case-law gloss applied to the facts. Still, citing (b)(2) as the source of the plan and knowledge exceptions is accurate, and the argument that there is no non-propensity relevance is a fair application of the rule.",
+        "evidence_excerpt": "This evidence may be admissible for another purpose, such as proving motive, opportunity, intent, preparation, plan, knowledge, identity, absence of mistake, or lack of accident.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "V (FRE 403 Analysis)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Probative value minimal vs. unfair prejudice, confusion, misleading jury, undue time",
+      "quotes": [],
+      "context": "the FRE 403 balance tips decisively in favor of exclusion",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 403",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo lists unfair prejudice, confusion, misleading the jury, and undue time, which accurately paraphrases the dangers enumerated in Rule 403 (\"undue delay, wasting time\").",
+        "evidence_excerpt": "unfair prejudice, confusing the issues, misleading the jury, undue delay, wasting time, or needlessly presenting cumulative evidence",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VI",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Jury should not hear $14.2M figure before court resolves enforceability of consequential-damages cap (anchoring)",
+      "quotes": [],
+      "context": "The consequential-damages cap, however, has an important evidentiary dimension under FRE 403.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 403",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The argument is that the jury should not hear the $14.2M figure before the cap is resolved because of anchoring or prejudice. Rule 403 balancing supports this. The rule does not mention sequencing, but asking to exclude or limit evidence on these grounds is a legitimate use of the rule.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of ... unfair prejudice, confusing the issues, misleading the jury",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VI, first paragraph",
+      "authority_type": "other",
+      "authority": "Supply Agreement Section 7.2 (in-universe contract provision); motion for summary judgment / judgment as a matter of law (procedural references)",
+      "citation_as_written": "Section 7.2",
+      "pincite": "",
+      "cited_for": "Cap on consequential damages at $2,000,000",
+      "quotes": [],
+      "context": "Section 7.2 of the Supply Agreement contains a limitation-of-liability clause capping consequential damages at $2,000,000.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Contract between the fictional parties, part of the scenario."
+    },
+    {
+      "ref": 36,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VII, item 4 (Legal Standards)",
+      "authority_type": "court_rule",
+      "authority": "FRE 702/Daubert, FRE 407, FRE 403, FRE 404(b)",
+      "citation_as_written": "FRE 702/Daubert, FRE 407, FRE 403, FRE 404(b)",
+      "pincite": "",
+      "cited_for": "Legal Standards section of proposed motion",
+      "quotes": [],
+      "context": "Legal Standards — FRE 702/Daubert, FRE 407, FRE 403, FRE 404(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "All four Federal Rules of Evidence exist and are the standard authorities for the motion's targets: FRE 702 (expert testimony, applied through Daubert), FRE 407 (subsequent remedial measures), FRE 403 (exclusion for unfair prejudice), and FRE 404(b) (other acts). Listing them as the Legal Standards for the motion is accurate.",
+        "evidence_excerpt": "Rule 702. Testimony by Expert Witnesses ... if the proponent demonstrates to the court that it is more likely than not that ...; Rule 407. Subsequent Remedial Measures; Rule 403 ... The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of ... unfair prejudice; Rule 404. Character Evidence; Other Crimes, Wrongs, or Acts",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702",
+          "https://www.law.cornell.edu/rules/fre/rule_407",
+          "https://www.law.cornell.edu/rules/fre/rule_403",
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VII, Page estimate",
+      "authority_type": "court_rule",
+      "authority": "Local rules of the Western District of Washington (general reference)",
+      "citation_as_written": "local rules for the Western District of Washington",
+      "pincite": "",
+      "cited_for": "25-30 page motion body is within local rules",
+      "quotes": [],
+      "context": "The motion body should be approximately 25–30 pages, within the local rules for the Western District of Washington.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. LCR 7(e)(5) (motions in limine: 6,300 words/18 pages); LCR 7(e)(4) (Daubert or other 7(d)(3) motions: 4,200 words/12 pages)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The W.D. Wash. local rules exist, but a 25-30 page body is not within them. In the version in effect in January 2025, motions in limine may not exceed 6,300 words, or 18 pages if handwritten or typewritten. Even the longest category, which covers summary-judgment and similar motions, caps at 8,400 words or 24 pages. Under LCR 16(b)(4), Daubert motions are due by the dispositive-motion deadline.",
+        "evidence_excerpt": "(5) Any motion in limine noted under LCR 7(d)(4) and any brief in opposition shall not exceed 6,300 words or, if written by hand or with a typewriter, eighteen pages.",
+        "source_urls": [
+          "https://web.archive.org/web/20250106231336/https://www.wawd.uscourts.gov/sites/wawd/files/020123%20WAWD%20Local%20Civil%20Rules%20CLEAN.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Finding holds. The W.D. Wash. limits are counted in words, not pages. The rules in effect in January 2025 (2/1/2023 version, Wayback snapshot of 2025-01-06) say at LCR 7(e)(5): 'Any motion in limine noted under LCR 7(d)(4) and any brief in opposition shall not exceed 6,300 words or, if written by hand or with a typewriter, eighteen pages.' LCR 7(e)(4) caps other 7(d)(3) motions, such as a Daubert motion noted separately, at 4,200 words or 12 pages. Even the largest category, LCR 7(e)(3) (summary judgment, dismissal, and similar motions), caps at '8,400 words or ... twenty-four pages.' A 25-30 page double-spaced typed body is roughly 6,250 to 8,400+ words. At most the bottom of the range might just fit under 6,300 words on a generous words-per-page assumption, yet the memo calls the whole range compliant. The 2026 rules carry the same 6,300-word limit, now numbered 7(e)(5) and referring to 7(d)(5), so it does not matter which version applied. The memo's statement that a 25-30 page body is 'within the local rules' is not supported.",
+        "source_urls": [
+          "https://web.archive.org/web/20250106231336/https://www.wawd.uscourts.gov/sites/wawd/files/020123%20WAWD%20Local%20Civil%20Rules%20CLEAN.pdf",
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWD%20Local%20Civil%20Rules%20(2026)%20-%20Clean.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 38,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VIII, On Daubert",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702, as amended",
+      "citation_as_written": "FRE 702, as amended",
+      "pincite": "",
+      "cited_for": "Proponent bears burden to show reliability by a preponderance of the evidence; weight vs. admissibility",
+      "quotes": [],
+      "context": "FRE 702, as amended, places the burden squarely on the proponent to demonstrate reliability by a preponderance of the evidence.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Amended FRE 702 requires the proponent to show the court that each admissibility requirement is more likely than not met, which is a preponderance standard. The 2023 Committee Note says attacks go to weight only after the court finds the requirements met. That matches the memo's point that the weight-versus-admissibility argument does not excuse the threshold showing.",
+        "evidence_excerpt": "\"expert testimony may not be admitted unless the proponent demonstrates to the court that it is more likely than not that the proffered testimony meets the admissibility requirements\"; \"once the court has found it more likely than not that the admissibility requirement has been met, any attack by the opponent will go only to the weight of the evidence.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VIII, On FRE 407 (feasibility)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407",
+      "citation_as_written": "FRE 407",
+      "pincite": "",
+      "cited_for": "Feasibility exception inapplicable because feasibility not controverted",
+      "quotes": [],
+      "context": "Solano will invoke the feasibility exception. Our response is straightforward: feasibility is not controverted.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The rule allows subsequent-measure evidence to prove feasibility only 'if disputed' (the pre-2011 text said 'if controverted'; the 2011 restyling was stylistic only). The advisory committee note adds that the other purpose must be controverted, which 'calls for automatic exclusion unless a genuine issue be present.' So the legal premise holds: the exception does not apply when feasibility is not contested. Whether Cascade actually contested feasibility is a factual argument about the fictional record, not something the rule decides.",
+        "evidence_excerpt": "But the court may admit this evidence for another purpose, such as impeachment or — if disputed — proving ownership, control, or the feasibility of precautionary measures.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VIII, On OSHA citation",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 404(b)(2)",
+      "citation_as_written": "FRE 404(b)(2)",
+      "pincite": "",
+      "cited_for": "Plan/knowledge purposes require probative of a specific non-propensity purpose",
+      "quotes": [],
+      "context": "Solano will invoke \"plan\" and \"knowledge\" as permissible purposes under 404(b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'plan' and 'knowledge' both appear in the rule's list of permitted uses.",
+        "explanation": "Rule 404(b)(2) lists plan and knowledge as permissible purposes for other-act evidence offered 'for another purpose', meaning a non-character purpose. That supports the memo's point that the evidence must be probative of a specific non-propensity purpose.",
+        "evidence_excerpt": "This evidence may be admissible for another purpose, such as proving motive, opportunity, intent, preparation, plan, knowledge, identity, absence of mistake, or lack of accident.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "VIII, On the damages cap",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Evidentiary sequencing request on cap enforceability",
+      "quotes": [],
+      "context": "On the damages cap (FRE 403)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 403",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo invokes Rule 403 as the ground for a sequencing or exclusion request on the damages-cap evidence. That is a reasonable application of Rule 403's prejudice and confusion balancing.",
+        "evidence_excerpt": "probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "I. Introduction, para 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "pincite": "26(a)(2)(B)",
+      "cited_for": "Report submitted pursuant to expert-disclosure rule",
+      "quotes": [],
+      "context": "This report is submitted pursuant to Federal Rule of Civil Procedure 26(a)(2)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FRCP 26(a)(2)(B) requires a written report, prepared and signed by the witness, from any witness retained or specially employed to give expert testimony. A rebuttal expert report served under that rule is the proper use of the citation.",
+        "evidence_excerpt": "this disclosure must be accompanied by a written report—prepared and signed by the witness—if the witness is one retained or specially employed to provide expert testimony in the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "II. Qualifications, para 6",
+      "authority_type": "case",
+      "authority": "Willamette Composites, Inc. v. ProForm Resins Corp.",
+      "citation_as_written": "No. 3:20-cv-01456-JR (D. Or. 2021)",
+      "pincite": "",
+      "cited_for": "Prior federal expert engagement (polymer defect and moisture failure analysis)",
+      "quotes": [],
+      "context": "Willamette Composites, Inc. v. ProForm Resins Corp., No. 3:20-cv-01456-JR (D. Or. 2021) (polymer defect and moisture-related failure analysis)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 44,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "II. Qualifications, para 6",
+      "authority_type": "case",
+      "authority": "Tacoma Precision Parts, LLC v. EvergreenChem Industries, Inc.",
+      "citation_as_written": "No. 2:21-cv-00843-BJR (W.D. Wash. 2022)",
+      "pincite": "",
+      "cited_for": "Prior federal expert engagement (injection-molding process failure and resin contamination)",
+      "quotes": [],
+      "context": "Tacoma Precision Parts, LLC v. EvergreenChem Industries, Inc., No. 2:21-cv-00843-BJR (W.D. Wash. 2022)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 45,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "II. Qualifications, para 6",
+      "authority_type": "case",
+      "authority": "Bay Area Automotive Components, Inc. v. Sierra Polymer Supply Co.",
+      "citation_as_written": "No. 4:22-cv-02017-DMR (N.D. Cal. 2023)",
+      "pincite": "",
+      "cited_for": "Prior federal expert engagement (resin quality specification dispute)",
+      "quotes": [],
+      "context": "Bay Area Automotive Components, Inc. v. Sierra Polymer Supply Co., No. 4:22-cv-02017-DMR (N.D. Cal. 2023)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 46,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "II. Qualifications, para 6",
+      "authority_type": "case",
+      "authority": "Pacific Rim Molding Corp. v. Columbia Chemical Partners, LP",
+      "citation_as_written": "No. 3:23-cv-00721-SI (D. Or. 2024)",
+      "pincite": "",
+      "cited_for": "Prior federal expert engagement (polymer storage protocol and moisture ingress causation)",
+      "quotes": [],
+      "context": "Pacific Rim Molding Corp. v. Columbia Chemical Partners, LP, No. 3:23-cv-00721-SI (D. Or. 2024)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matter of the fictional expert."
+    },
+    {
+      "ref": 47,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "V.C para 23",
+      "authority_type": "other",
+      "authority": "Washington law on mitigation of damages (no authority cited)",
+      "citation_as_written": "Under Washington law",
+      "pincite": "",
+      "cited_for": "Non-breaching party has duty to take reasonable steps to mitigate; avoidable damages not recoverable",
+      "quotes": [],
+      "context": "Under Washington law, as under general contract-damages principles, a non-breaching party has a duty to take reasonable steps to mitigate its damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "E.g., Young v. Whidbey Island Bd. of Realtors, 96 Wn.2d 729, 732, 638 P.2d 1235 (1982)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The report cites no authority, but the statement of Washington law is accurate. The Washington Supreme Court adopts the avoidable-consequences (mitigation) rule: a party wronged by a breach of contract must use reasonable means to avoid or minimize damages and cannot recover damages that could have been avoided.",
+        "evidence_excerpt": "\"where one person has committed a tort, breach of contract, or other legal wrong against another, it is incumbent upon the latter to use such means as are reasonable under the circumstances to avoid or minimize the damages. The person wronged cannot recover for any item of damage which could thus have been avoided.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1226605/young-v-whidbey-island-board-of-realtors/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "gerhardt-rebuttal-report.docx.md",
+      "location": "Exhibit B, Prior Expert Testimony items 1-4",
+      "authority_type": "case",
+      "authority": "Willamette Composites v. ProForm; Tacoma Precision Parts v. EvergreenChem; Bay Area Automotive Components v. Sierra Polymer; Pacific Rim Molding v. Columbia Chemical (repeat listing)",
+      "citation_as_written": "Nos. 3:20-cv-01456-JR; 2:21-cv-00843-BJR; 4:22-cv-02017-DMR; 3:23-cv-00721-SI",
+      "pincite": "",
+      "cited_for": "Repeat listing of Gerhardt's prior testimony",
+      "quotes": [],
+      "context": "1. Willamette Composites, Inc. v. ProForm Resins Corp., No. 3:20-cv-01456-JR (D. Or. 2021) — Deposition and trial testimony",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Prior matters of the fictional expert."
+    },
+    {
+      "ref": 49,
+      "document": "plaintiff-exhibit-list.docx.md",
+      "location": "Introductory paragraph",
+      "authority_type": "court_rule",
+      "authority": "Local Civil Rule 16(e), W.D. Wash.",
+      "citation_as_written": "Local Civil Rule 16(e) of the Western District of Washington",
+      "pincite": "16(e)",
+      "cited_for": "Basis for submitting exhibit list",
+      "quotes": [],
+      "context": "Pursuant to the Court's Scheduling Order dated August 5, 2024 (Dkt. 47), Local Civil Rule 16(e) of the Western District of Washington, and Rules 16 and 26 of the Federal Rules of Civil Procedure",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. LCR 16(e), (h)(6), (i)(5); LCR 16.1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "LCR 16(e) governs filing the proposed pretrial order 30 days before trial, and LCR 16.1 sets that order's form, which includes the exhibit list. The plaintiff's exhibit list itself is governed by LCR 16(h)(6), and under that rule it is served on other parties but not filed. Citing 16(e) alone as the basis for submitting an exhibit list is a loose but defensible fit.",
+        "evidence_excerpt": "(e) Proposed Pretrial Order: The proposed pretrial order, bearing the signatures of counsel for each party, shall be filed 30 days prior to the scheduled trial date ... (See LCR 16.1 for form of pretrial order)",
+        "source_urls": [
+          "https://web.archive.org/web/20250106231336/https://www.wawd.uscourts.gov/sites/wawd/files/020123%20WAWD%20Local%20Civil%20Rules%20CLEAN.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "plaintiff-exhibit-list.docx.md",
+      "location": "Introductory paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure 16 and 26",
+      "citation_as_written": "Rules 16 and 26 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Basis for submitting exhibit list",
+      "quotes": [],
+      "context": "Rules 16 and 26 of the Federal Rules of Civil Procedure, Plaintiff Ridgeline Manufacturing Corp. hereby submits its Exhibit List",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRCP 26(a)(3)(A)(iii) requires pretrial disclosure identifying each document or other exhibit. FRCP 16 governs pretrial conferences and orders, including identifying documents (16(c)(2)) and pretrial orders that control the course of the action (16(d)). Together they are a proper basis for submitting an exhibit list.",
+        "evidence_excerpt": "Rule 26(a)(3)(A)(iii): \"an identification of each document or other exhibit, including summaries of other evidence—separately identifying those items the party expects to offer and those it may offer if the need arises.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "plaintiff-exhibit-list.docx.md",
+      "location": "Introductory paragraph",
+      "authority_type": "other",
+      "authority": "Scheduling Order dated August 5, 2024 (Dkt. 47)",
+      "citation_as_written": "Dkt. 47",
+      "pincite": "",
+      "cited_for": "Order under which exhibit list is submitted",
+      "quotes": [],
+      "context": "Pursuant to the Court's Scheduling Order dated August 5, 2024 (Dkt. 47)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe docket order in the matter."
+    },
+    {
+      "ref": 52,
+      "document": "plaintiff-exhibit-list.docx.md",
+      "location": "Reservation of Rights paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 1006",
+      "citation_as_written": "Federal Rule of Evidence 1006",
+      "pincite": "",
+      "cited_for": "Summaries/demonstratives prepared under Rule 1006",
+      "quotes": [],
+      "context": "to offer demonstrative exhibits and summaries prepared pursuant to Federal Rule of Evidence 1006",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 1006 (summaries); Fed. R. Evid. 107 (illustrative/demonstrative aids)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 1006 governs summaries, charts, or calculations offered to prove the content of voluminous admissible writings, so the cite is right for summaries. Under the current Rule 1006(c), however, a summary that serves only as an illustrative aid is governed by Rule 107. Citing Rule 1006 for \"demonstrative exhibits\" is therefore loose.",
+        "evidence_excerpt": "(a) The court may admit as evidence a summary, chart, or calculation offered to prove the content of voluminous admissible writings... (c) A summary, chart, or calculation that functions only as an illustrative aid is governed by Rule 107.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_1006"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "plaintiff-exhibit-list.docx.md",
+      "location": "Reservation of Rights paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure (general)",
+      "citation_as_written": "the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Right to supplement exhibit list",
+      "quotes": [],
+      "context": "Plaintiff reserves the right to supplement this Exhibit List in accordance with the Court's Scheduling Order and the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a general reservation of rights. FRCP 26(e)(1) requires parties to supplement or correct Rule 26(a) disclosures, which include the 26(a)(3) exhibit lists. FRCP 16(b)(3)(B)(i) lets the scheduling order modify the timing of those disclosures. Both support supplementing an exhibit list under the Rules and the scheduling order.",
+        "evidence_excerpt": "Rule 26(e)(1): \"A party who has made a disclosure under Rule 26(a)... must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "supply-agreement.docx.md",
+      "location": "Exhibit A, Specifications table (Testing Method column) and Testing Methods note",
+      "authority_type": "other",
+      "authority": "ASTM test standards (D6869, D1238, D792, D638, D790, D256, D5630, D5668)",
+      "citation_as_written": "ASTM D6869; ASTM D1238; ASTM D792; ASTM D638; ASTM D790; ASTM D256; ASTM D5630; ASTM D5668",
+      "pincite": "",
+      "cited_for": "Industry test methods used to determine the Product specifications; the ASTM method controls in a discrepancy.",
+      "quotes": [],
+      "context": "Moisture Content | Not to exceed 0.08% (by weight) | Karl Fischer Titration (ASTM D6869 or equivalent) ... Melt Flow Index (MFI) | ASTM D1238 ... In the event of a discrepancy between test methods, the ASTM method shall control.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Real ASTM standards are cited as technical test methods (not legal authority).",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "All eight ASTM standards exist. D6869 (Karl Fischer moisture in plastics), D1238 (melt flow rate of thermoplastics), D792 (density/specific gravity of plastics), D638 (tensile properties of plastics), D790 (flexural properties), D256 (Izod impact of plastics) and D5630 (ash content in plastics) all match the parameters they are listed against. The defect is D5668: it is 'Standard Test Methods for Rubber From Synthetic Sources—Volatile Matter,' and it measures moisture plus other volatiles in synthetic rubber. It is not a test for 'volatile content (excluding moisture)' of a thermoplastic resin, so it is mismatched to that row. A lesser point: notched Izod reported in kJ/m2 is the ISO 180 convention, while ASTM D256 reports J/m.",
+        "evidence_excerpt": "D5668: \"This test method covers four test methods: a hot mill method, two oven methods and a press method for the determination of moisture and other volatile matter content in synthetic rubber.\" D5630: \"Standard Test Method for Ash Content in Plastics\"",
+        "source_urls": [
+          "https://store.astm.org/d5668-99r03.html",
+          "https://store.astm.org/d6869-17.html",
+          "https://store.astm.org/d5630-22.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "marchetti-expert-report.docx.md",
+      "location": "Caption / title page and Gerhardt report and plaintiff exhibit list captions",
+      "authority_type": "other",
+      "authority": "Ridgeline Manufacturing Corp. v. Cascade Polymer Solutions, Inc., Case No. 2:24-cv-00118-RW (W.D. Wash.)",
+      "citation_as_written": "Case No. 2:24-cv-00118-RW",
+      "pincite": "",
+      "cited_for": "Caption of the in-universe matter in which the reports and exhibit list are filed.",
+      "quotes": [],
+      "context": "Ridgeline Manufacturing Corp. v. Cascade Polymer Solutions, Inc. Case No. 2:24-cv-00118-RW United States District Court for the Western District of Washington",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario."
+    },
+    {
+      "ref": 56,
+      "document": "plaintiff-exhibit-list.docx.md",
+      "location": "Exhibit entries PX-25, PX-26, PX-27",
+      "authority_type": "other",
+      "authority": "OSHA Citation No. 2023-OR-00487",
+      "citation_as_written": "OSHA Citation No. 2023-OR-00487",
+      "pincite": "",
+      "cited_for": "Regulatory citation issued to Cascade for a serious ventilation violation, offered by plaintiff as exhibit.",
+      "quotes": [],
+      "context": "OSHA Citation No. 2023-OR-00487 — Citation issued by the Occupational Safety and Health Administration to Cascade Polymer Solutions, Inc. for a \"serious\" violation related to inadequate ventilation in the blending room",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe regulatory citation against the fictional party."
+    },
+    {
+      "ref": 57,
+      "document": "defense-strategy-memo.docx.md",
+      "location": "II facts and VI/VIII (Section 5.4 notice-period references)",
+      "authority_type": "other",
+      "authority": "Supply Agreement Section 5.4 (30-day defect notice)",
+      "citation_as_written": "Section 5.4 of the Supply Agreement",
+      "pincite": "",
+      "cited_for": "Contractual 30-day written notice requirement; Ridgeline's notice was seven days late.",
+      "quotes": [],
+      "context": "Section 5.4 of the Supply Agreement requires written notice of any claimed defect within thirty days of discovery",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Contract provision between the fictional parties."
+    },
+    {
+      "ref": 58,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 1, p. 13:7-9",
+      "authority_type": "case",
+      "authority": "Daubert standard (Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "Daubert standard",
+      "pincite": "",
+      "cited_for": "Counsel asks whether the witness's methodology has ever been tested under the Daubert standard in a federal proceeding",
+      "quotes": [],
+      "context": "Q. You have never had your methodology tested under the Daubert standard in any federal proceeding? A. No.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The deposition question correctly refers to the real Daubert standard, the federal Rule 702 gatekeeping test. The witness's answer that her methodology has never been tested under it is a fictional fact.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 1, p. 13:10-13",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Federal Rule of Evidence 702",
+      "pincite": "",
+      "cited_for": "Witness has never had her methodology scrutinized under FRE 702 in federal court",
+      "quotes": [],
+      "context": "Q. And you have never had your methodology subjected to scrutiny under Federal Rule of Evidence 702 in any federal court? A. That is correct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is deposition testimony that refers to FRE 702 by its correct name. The rule exists and governs admissibility of expert testimony in federal court. Whether the witness's methodology was ever scrutinized is a fictional fact, not a legal proposition to check.",
+        "evidence_excerpt": "A witness who is qualified as an expert by knowledge, skill, experience, training, or education may testify in the form of an opinion or otherwise if the proponent demonstrates to the court...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 1, p. 13:14-17",
+      "authority_type": "case",
+      "authority": "Daubert standard",
+      "citation_as_written": "Daubert standard",
+      "pincite": "",
+      "cited_for": "This would be the first time her methodology is scrutinized under the Daubert standard",
+      "quotes": [],
+      "context": "So this would be the first time your methodology would be subjected to scrutiny under the Daubert standard, correct? A. I suppose that's technically correct, yes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a generic reference in a fictional deposition to the Daubert standard, which is real. Daubert assigns the trial judge a Rule 702 gatekeeping duty to screen expert testimony for relevance and reliability. The fact asserted (this would be the first Daubert scrutiny of her methodology) is fictional record testimony, not a legal claim.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 1, p. 13:22-24",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702 as amended",
+      "citation_as_written": "Federal Rule of Evidence 702 as amended",
+      "pincite": "",
+      "cited_for": "Witness is generally familiar with the requirements of amended FRE 702",
+      "quotes": [],
+      "context": "are you familiar with the requirements of Federal Rule of Evidence 702 as amended? A. I am generally familiar, yes.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The deposition question only refers to FRE 702 as amended. The rule exists and was amended effective December 1, 2023 to require that the proponent show admissibility is 'more likely than not.' Whether the witness is familiar with it is a factual matter and not something the rule can confirm; the reference to the rule is accurate.",
+        "evidence_excerpt": "\"...may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 7, p. 115:10-15",
+      "authority_type": "case",
+      "authority": "Daubert (gatekeeping standard)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Whether state-court challenges were under Daubert or similar gatekeeping standard; witness says California motions were under California Evidence Code, not Daubert",
+      "quotes": [],
+      "context": "there were motions to exclude, but they were under California Evidence Code provisions, not Daubert.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The deposition refers generically to the federal Daubert gatekeeping standard for expert testimony. Daubert does establish that gatekeeping role, and the reference is accurate. California applies its own Evidence Code §§ 801–802 standard (Sargon), which matches the witness's distinction between that standard and Daubert.",
+        "evidence_excerpt": "We recognize that, in practice, a gatekeeping role for the judge, no matter how flexible, inevitably on occasion will prevent the jury from learning of authentic insights and innovations.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/",
+          "https://www.courtlistener.com/opinion/821525/sargon-enterprises-inc-v-university-of-southern-california/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 7, p. 115:13-15",
+      "authority_type": "statute",
+      "authority": "California Evidence Code",
+      "citation_as_written": "California Evidence Code provisions",
+      "pincite": "",
+      "cited_for": "State-court motions to exclude her testimony were brought under California Evidence Code provisions",
+      "quotes": [],
+      "context": "In a few of the California matters, there were motions to exclude, but they were under California Evidence Code provisions, not Daubert.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Cal. Evid. Code §§ 801, 802",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The deposition gives only a generic reference to California Evidence Code provisions as the basis for state-court motions to exclude expert testimony. That is accurate: Sargon Enterprises v. USC, 55 Cal. 4th 747 (2012), holds that under Evidence Code sections 801(b) and 802 the California trial court acts as gatekeeper over expert opinion. The statute text itself could not be fetched (leginfo and Justia returned 403); this verification rests on Sargon's description of the provisions.",
+        "evidence_excerpt": "Thus, under Evidence Code sections 801, subdivision (b), and 802, the trial court acts as a gatekeeper to exclude expert opinion testimony that is (1) based on matter of a type on which an expert may not reasonably rely...",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/821525/sargon-enterprises-inc-v-university-of-southern-california/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 7, p. 116:1-3",
+      "authority_type": "court_rule",
+      "authority": "FRE 702",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Witness has never submitted to FRE 702 scrutiny in federal court",
+      "quotes": [],
+      "context": "And you've never submitted to FRE 702 scrutiny in any federal court proceeding — is that correct? A. That is correct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The deposition question only refers to FRE 702 scrutiny, meaning the gatekeeping review of expert testimony. The rule exists and sets that standard. The witness's history is a fact of the scenario that the rule cannot verify; the reference to the rule is accurate.",
+        "evidence_excerpt": "\"A witness who is qualified as an expert by knowledge, skill, experience, training, or education may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Excerpt 9, pp. 138:25-139:3",
+      "authority_type": "case",
+      "authority": "Daubert standard",
+      "citation_as_written": "Daubert standard",
+      "pincite": "",
+      "cited_for": "First time methodology will be subject to Daubert in federal court",
+      "quotes": [],
+      "context": "this is the first time your methodology will be subject to the Daubert standard in federal court — correct? A. Yes, that's correct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "A generic deposition reference to the Daubert standard, which exists. Daubert sets the Rule 702 reliability and relevance gatekeeping standard used in federal court. The claim that this is the first time her methodology faces it is fictional testimony.",
+        "evidence_excerpt": "a gatekeeping role for the judge, no matter how flexible, inevitably on occasion will prevent the jury from learning of authentic insights and innovations.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "marchetti-deposition-excerpts.docx.md",
+      "location": "Closing note after certification",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(e)",
+      "citation_as_written": "Fed. R. Civ. P. 30(e)",
+      "pincite": "",
+      "cited_for": "Witness reserved right to read and sign the transcript",
+      "quotes": [],
+      "context": "The witness has reserved the right to read and sign the transcript pursuant to Fed. R. Civ. P. 30(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(e)(1) gives the deponent, on request made before the deposition is completed, 30 days to review the transcript and to sign a statement listing any changes. A witness \"reserving the right to read and sign\" is the ordinary practice term for making that request.",
+        "evidence_excerpt": "On request by the deponent or a party before the deposition is completed, the deponent must be allowed 30 days after being notified by the officer that the transcript or recording is available in which: (A) to review the transcript or recording; and (B) if there are changes in form or substance, to sign a statement listing the changes",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "task.json.md",
+      "location": "criteria C-002, C-008, C-032 (rubric)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Federal Rule of Evidence 702 / FRE 702",
+      "pincite": "",
+      "cited_for": "Expert testimony admissibility; reputational-harm exclusion; 'sufficient facts or data' requirement; reliable principles and methods",
+      "quotes": [
+        "sufficient facts or data"
+      ],
+      "context": "PASS if the motion argues that Marchetti's reliance on the unverified Cho spreadsheet violates the FRE 702 requirement that expert testimony be based on 'sufficient facts or data'",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"sufficient facts or data\": found verbatim in Rule 702(b).",
+        "explanation": "Rule 702(b) requires that testimony be based on sufficient facts or data, and 702(c)-(d) require reliable principles and methods reliably applied. These are the requirements the rubric criteria invoke. The 2023 committee note confirms that the sufficiency of an expert's basis goes to admissibility under the preponderance standard, not only to weight.",
+        "evidence_excerpt": "(b) the testimony is based on sufficient facts or data; (c) the testimony is the product of reliable principles and methods; and",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "task.json.md",
+      "location": "criterion C-033 (rubric)",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Motion should cite Daubert for gatekeeping/reliability framework",
+      "quotes": [],
+      "context": "PASS if the motion cites Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), or a substantially correct citation to this case.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The citation 509 U.S. 579 (1993) is correct for Daubert. The case is the leading authority for the judge's gatekeeping role and the reliability framework under Rule 702, as the rubric says.",
+        "evidence_excerpt": "I do not doubt that Rule 702 confides to the judge some gatekeeping responsibility in deciding questions of the admissibility of proffered expert testimony.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "task.json.md",
+      "location": "criteria C-032, C-034, C-035 (rubric)",
+      "authority_type": "case",
+      "authority": "Daubert (gatekeeping role and reliability factors)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Trial court gatekeeping role; reliability factors (testability, peer review, known error rate, general acceptance)",
+      "quotes": [],
+      "context": "references the trial court's gatekeeping role under Daubert ... testability, peer review, known error rate, general acceptance",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Daubert describes the trial judge's gatekeeping role under Rule 702. It identifies testability, peer review and publication, the known or potential error rate, and general acceptance as pertinent reliability considerations.",
+        "evidence_excerpt": "Another pertinent consideration is whether the theory or technique has been subjected to peer review and publication... the court ordinarily should consider the known or potential rate of error...; \"a gatekeeping role for the judge, no matter how flexible\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "task.json.md",
+      "location": "criteria C-011, C-012, C-023, C-036 (rubric)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407",
+      "citation_as_written": "FRE 407",
+      "pincite": "",
+      "cited_for": "Subsequent remedial measures (moisture-testing upgrade, desiccant packets) excluded to prove negligence, culpable conduct, defect or need for warning; feasibility exception",
+      "quotes": [
+        "feasibility of precautionary measures"
+      ],
+      "context": "should be excluded under FRE 407 to prove negligence, culpable conduct, a defect, or need for a warning ... 'feasibility of precautionary measures' under the FRE 407 exception",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'feasibility of precautionary measures' found verbatim in the text of FRE 407.",
+        "explanation": "The rule both bars the four listed purposes (negligence, culpable conduct, defect, need for a warning) and contains the exception for proving the feasibility of precautionary measures if disputed. Both match how the rubric describes it.",
+        "evidence_excerpt": "not admissible to prove: negligence; culpable conduct; a defect in a product or its design; or a need for a warning or instruction. But the court may admit this evidence for another purpose, such as impeachment or — if disputed — proving ownership, control, or the feasibility of precautionary measures.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "task.json.md",
+      "location": "criterion C-013, C-015, C-023, C-037 (rubric)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 404(b)",
+      "citation_as_written": "FRE 404(b)",
+      "pincite": "",
+      "cited_for": "OSHA citation is impermissible character/propensity evidence; 'plan or knowledge' exception",
+      "quotes": [
+        "cut corners",
+        "culture of negligence",
+        "plan or knowledge"
+      ],
+      "context": "should be excluded under FRE 404(b) because it constitutes impermissible character evidence — Plaintiff seeks to use it to show Cascade acted in conformity with a propensity to 'cut corners'",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'cut corners' and 'culture of negligence' are quoted from the plaintiff's argument (Solano's email and the defense memo), not from the rule, so the rule is not expected to contain them. 'plan or knowledge' is also the plaintiff's phrase. The rule lists 'plan' and 'knowledge' separately among permitted uses ('preparation, plan, knowledge'). The exact string 'plan or knowledge' does not appear in the rule, but it is not presented as rule text.",
+        "explanation": "Rule 404(b)(1) bars other-act evidence offered to prove character and conduct in conformity with it. Rule 404(b)(2) allows such evidence for other purposes, including plan and knowledge. The rubric's framing (exclude propensity use; rebut the 'plan or knowledge' exception) matches the rule.",
+        "evidence_excerpt": "(1) Prohibited Uses. Evidence of any other crime, wrong, or act is not admissible to prove a person's character in order to show that on a particular occasion the person acted in accordance with the character. (2) Permitted Uses. This evidence may be admissible for another purpose, such as proving motive, opportunity, intent, preparation, plan, knowledge, identity, absence of mistake, or lack of accident.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "task.json.md",
+      "location": "criteria C-014, C-019, C-023, C-037 (rubric)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "OSHA citation and $14.2M damages figure: probative value substantially outweighed by unfair prejudice, confusion, misleading jury",
+      "quotes": [],
+      "context": "substantially outweighed by the danger of unfair prejudice, confusion of the issues, or misleading the jury under FRE 403",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 403",
+        "quote_check": "Not quoted, but the context closely paraphrases the rule's text: \"confusion of the issues\" tracks the pre-2011 wording of what is now \"confusing the issues\".",
+        "explanation": "The rubric's formulation (probative value substantially outweighed by the danger of unfair prejudice, confusion of the issues, or misleading the jury) accurately states the Rule 403 standard.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "task.json.md",
+      "location": "criterion C-023 (rubric)",
+      "authority_type": "other",
+      "authority": "Washington state evidence rules",
+      "citation_as_written": "Washington state evidence rules",
+      "pincite": "",
+      "cited_for": "Distractor: motion must apply FRE, not Washington state evidence rules",
+      "quotes": [],
+      "context": "does not confuse or conflate them with Washington state evidence rules. FAIL if the motion cites or applies Washington state evidence rules",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Washington Rules of Evidence (ER)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Washington Rules of Evidence exist and include their own counterparts to the federal rules (ER 403, ER 407, ER 702). The rubric uses them only as a distractor that the motion should not cite, which is consistent with a federal-court motion governed by the Federal Rules of Evidence. The reference to the rule set is accurate.",
+        "evidence_excerpt": "Washington Courts Rules of Evidence listing: \"ER 702 Testimony by Experts\"; \"ER 403 Exclusion of Relevant Evidence on Grounds of Prejudice, Confusion, or Waste of Time\"; \"ER 407 Subsequent Remedial Measures\"",
+        "source_urls": [
+          "https://www.courts.wa.gov/court_rules/?fa=court_rules.list&group=ga&set=ER"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "task.json.md",
+      "location": "criterion C-019 (rubric)",
+      "authority_type": "other",
+      "authority": "Supply Agreement Section 7.2 (limitation of liability)",
+      "citation_as_written": "Section 7.2",
+      "pincite": "",
+      "cited_for": "Contractual $2,000,000 consequential damages cap",
+      "quotes": [],
+      "context": "subject to the Supply Agreement's $2,000,000 cap (Section 7.2)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe contract between the fictional parties Ridgeline and Cascade."
+    },
+    {
+      "ref": 75,
+      "document": "osha-citation.docx.md",
+      "location": "Citation 1, Item 1 - Regulatory Standard(s) Cited",
+      "authority_type": "regulation",
+      "authority": "29 C.F.R. 1910.94(a)(1)(i) (Ventilation)",
+      "citation_as_written": "29 C.F.R. § 1910.94(a)(1)(i)",
+      "pincite": "(a)(1)(i)",
+      "cited_for": "Cited standard for the ventilation violation",
+      "quotes": [],
+      "context": "Regulatory Standard(s) Cited: 29 C.F.R. § 1910.94(a)(1)(i) — Ventilation; 29 C.F.R. § 1910.1000 (Air Contaminants — Permissible Exposure Limits), Table Z-1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "29 C.F.R. § 1910.94 is titled 'Ventilation,' but paragraph (a) covers abrasive blasting, and (a)(1)(i) is only the definition of the word 'Abrasive.' It imposes no duty to provide adequate airflow to keep particulate exposure below a PEL in a resin dry-blending room. The citation uses a definitional subparagraph of the abrasive-blasting standard as the substantive ventilation standard violated, which it cannot support. No paragraph of § 1910.94 (abrasive blasting; grinding, polishing and buffing; spray finishing; open-surface tanks) obviously covers plastics dry-blending.",
+        "evidence_excerpt": "§ 1910.94 Ventilation. (a) Abrasive blasting —(1) Definitions applicable to this paragraph —(i) Abrasive. A solid substance used in an abrasive blasting operation.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-01-01/title-29.xml?part=1910&section=1910.94",
+          "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XVII/part-1910/subpart-G/section-1910.94"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Finding holds. The eCFR text as of 2023-03-24, before the 3/27/2023 inspection date, reads: '§ 1910.94 Ventilation. (a) Abrasive blasting—(1) Definitions applicable to this paragraph—(i) Abrasive. A solid substance used in an abrasive blasting operation.' So the cited pinpoint is a definition in the abrasive-blasting standard and imposes no duty. The section's other substantive paragraphs are '(b) Grinding, polishing, and buffing operations' and '(c) Spray finishing operations.' Neither covers dry-blending of resin in a blending room. Citing (a)(1)(i) as the ventilation standard violated, for poor airflow causing particulate overexposure, does not support the violation alleged.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2023-03-24/title-29.xml?part=1910&section=1910.94",
+          "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XVII/part-1910/subpart-G/section-1910.94"
+        ]
+      }
+    },
+    {
+      "ref": 76,
+      "document": "osha-citation.docx.md",
+      "location": "Citation 1, Item 1 - Regulatory Standard(s) Cited",
+      "authority_type": "regulation",
+      "authority": "29 C.F.R. 1910.1000, Table Z-1 (Air Contaminants)",
+      "citation_as_written": "29 C.F.R. § 1910.1000, Table Z-1",
+      "pincite": "Table Z-1",
+      "cited_for": "Permissible exposure limits for air contaminants",
+      "quotes": [],
+      "context": "29 C.F.R. § 1910.1000 (Air Contaminants — Permissible Exposure Limits), Table Z-1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "29 C.F.R. § 1910.1000 is titled 'Air contaminants.' Its Table Z-1, 'Limits for Air Contaminants,' sets the permissible exposure limits. The parenthetical description is accurate.",
+        "evidence_excerpt": "Table Z-1—Limits for Air Contaminants Substance CAS No. (c) ppm (a) 1 mg/m 3 (b) 1 Skin designation",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-01-01/title-29.xml?part=1910&section=1910.1000"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "osha-citation.docx.md",
+      "location": "Description of Violation, para. 1",
+      "authority_type": "regulation",
+      "authority": "29 C.F.R. 1910.1000, Table Z-1",
+      "citation_as_written": "29 C.F.R. § 1910.1000, Table Z-1",
+      "pincite": "Table Z-1",
+      "cited_for": "PEL that ventilation failed to keep exposure below",
+      "quotes": [],
+      "context": "below the permissible exposure limit (PEL) established under 29 C.F.R. § 1910.1000, Table Z-1.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "29 C.F.R. § 1910.1000 Table Z-1 does set 8-hour TWA permissible exposure limits for air contaminants, including PNOR, so citing it as the source of the PEL is correct. Caveat for the scenario: the PNOR total-dust PEL in Table Z-1 is 15 mg/m3 (respirable fraction 5 mg/m3). The 12.3 mg/m3 total-dust reading the citation relies on would therefore not exceed the Table Z-1 total-dust PEL. That numeric error is assessed under ref 78.",
+        "evidence_excerpt": "(2) Other substances—8-hour Time Weighted Averages. An employee's exposure to any substance in Table Z-1, the exposure limit of which is not preceded by a \"C\", shall not exceed the 8-hour Time Weighted Average given for that substance...",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-01-01/title-29.xml?part=1910&section=1910.1000",
+          "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XVII/part-1910/subpart-Z/section-1910.1000"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 78,
+      "document": "osha-citation.docx.md",
+      "location": "Description of Violation, item (c)",
+      "authority_type": "regulation",
+      "authority": "29 C.F.R. 1910.1000, Table Z-1",
+      "citation_as_written": "29 C.F.R. § 1910.1000, Table Z-1",
+      "pincite": "Table Z-1",
+      "cited_for": "8-hour TWA PEL of 10 mg/m3 for Particulates Not Otherwise Regulated, exceeded at 12.3 mg/m3",
+      "quotes": [],
+      "context": "exceeds the 8-hour TWA PEL of 10 mg/m³ for Particulates Not Otherwise Regulated (PNOR) as set forth in 29 C.F.R. § 1910.1000, Table Z-1.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "29 C.F.R. § 1910.1000, Table Z-1 (PNOR: total dust 15 mg/m3; respirable fraction 5 mg/m3, 8-hour TWA)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Table Z-1 does list 'Particulates not otherwise regulated (PNOR),' but the limits it sets are 15 mg/m3 for total dust and 5 mg/m3 for the respirable fraction. It sets no 10 mg/m3 PNOR PEL. The document says the reading was 12.3 mg/m3 'total dust,' which is below the actual 15 mg/m3 total-dust PEL. So the cited table does not support the claimed exceedance, and it contradicts the 10 mg/m3 figure. The same 10 mg/m3 figure recurs in the abatement and gravity paragraphs.",
+        "evidence_excerpt": "Particulates not otherwise regulated (PNOR) f . Total dust 15 Respirable fraction 5",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-01-01/title-29.xml?part=1910&section=1910.1000",
+          "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XVII/part-1910/subpart-Z/section-1910.1000"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Finding holds. In the eCFR text of 29 C.F.R. § 1910.1000 as of 2023-03-24, Table Z-1 lists 'Particulates not otherwise regulated (PNOR) f' with 'Total dust ... 15' and 'Respirable fraction ... 5' (mg/m3, 8-hr TWA). Footnote f says PNOR covers inert or nuisance dusts and 'is the same as the inert or nuisance dust limit of Table Z-3.' Table Z-3 lists 'Inert or Nuisance Dust: Respirable fraction ... 5 mg/m3; Total dust ... 15 mg/m3.' The federal table sets no 10 mg/m3 PNOR limit. The 12.3 mg/m3 total-dust reading in the citation falls below the federal 15 mg/m3 total-dust PEL, so the cited table does not support the claimed exceedance. (Oregon is a state-plan state and may use different values, but I did not check that, and it would not cure a citation to the federal 29 C.F.R. table.)",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2023-03-24/title-29.xml?part=1910&section=1910.1000",
+          "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XVII/part-1910/subpart-Z/section-1910.1000"
+        ]
+      }
+    },
+    {
+      "ref": 79,
+      "document": "osha-citation.docx.md",
+      "location": "Penalty Assessment",
+      "authority_type": "other",
+      "authority": "OSHA Field Operations Manual",
+      "citation_as_written": "OSHA Field Operations Manual",
+      "pincite": "",
+      "cited_for": "Proposed $14,502 penalty calculated in accordance with it",
+      "quotes": [],
+      "context": "The proposed penalty was calculated in accordance with the OSHA Field Operations Manual and applicable penalty-adjustment policies",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "OSHA Field Operations Manual, CPL 02-00-164, ch. 6",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The OSHA Field Operations Manual exists (directive CPL 02-00-164), and its Chapter 6 covers penalty calculation. Saying a proposed penalty was calculated under the FOM accurately describes the general reference.",
+        "evidence_excerpt": "Field Operations Manual (FOM) ... CHAPTER 6 - PENALTIES AND DEBT COLLECTION",
+        "source_urls": [
+          "https://www.osha.gov/enforcement/directives/cpl-02-00-164"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "osha-citation.docx.md",
+      "location": "Posting Requirement",
+      "authority_type": "statute",
+      "authority": "Occupational Safety and Health Act of 1970, Section 17(l), 29 U.S.C. 666(l)",
+      "citation_as_written": "Section 17(l) of the Occupational Safety and Health Act of 1970, 29 U.S.C. § 666(l)",
+      "pincite": "",
+      "cited_for": "Additional citations and penalties for failure to comply with posting requirement",
+      "quotes": [],
+      "context": "may result in the issuance of additional citations and penalties under Section 17(l) of the Occupational Safety and Health Act of 1970, 29 U.S.C. § 666(l).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Section 17(i) of the Occupational Safety and Health Act of 1970, 29 U.S.C. § 666(i)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "29 U.S.C. § 666(l) (OSH Act § 17(l)) covers how civil penalties are paid and recovered. Penalties for violating posting requirements are in § 666(i) (§ 17(i)), so the subsection letter is wrong.",
+        "evidence_excerpt": "(i) Violation of posting requirements: Any employer who violates any of the posting requirements, as prescribed under the provisions of this chapter, shall be assessed a civil penalty of up to $7,000 for each violation. ... (l) Procedure for payment of civil penalties: Civil penalties owed under this chapter shall be paid to the Secretary for deposit into the Treasury",
+        "source_urls": [
+          "https:/666"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "Finding holds. 29 U.S.C. § 666(l), OSH Act § 17(l), reads: '(l) Procedure for payment of civil penalties. Civil penalties owed under this chapter shall be paid to the Secretary for deposit into the Treasury ... and may be recovered in a civil action ...' The penalty for violating a posting requirement is in § 666(i), OSH Act § 17(i): '(i) Violation of posting requirements. Any employer who violates any of the posting requirements, as prescribed under the provisions of this chapter, shall be assessed a civil penalty of up to $7,000 for each violation.' The statute is right and only the subsection letter is wrong ((l) for (i)), all within the same section. For that reason I treat it as a garbled citation rather than a mischaracterized authority.",
+        "source_urls": [
+          "https:/666"
+        ]
+      }
+    },
+    {
+      "ref": 81,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "opening paragraph",
+      "authority_type": "court_rule",
+      "authority": "Local Civil Rule 16(b) (W.D. Wash.)",
+      "citation_as_written": "Local Civil Rule 16(b)",
+      "pincite": "16(b)",
+      "cited_for": "Meet-and-confer requirement before motions in limine deadline",
+      "quotes": [],
+      "context": "as required by Judge Whitford's Pretrial Scheduling Order and Local Civil Rule 16(b), in advance of the January 27, 2025 motions in limine deadline.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. LCR 7(d)(4) (version in effect in January 2025; renumbered LCR 7(d)(5) in later versions)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "W.D. Wash. LCR 16(b) covers the court's written scheduling order: discovery deadline, discovery motions, the Daubert-motion deadline, dispositive motions, and modifying the schedule. It contains no meet-and-confer requirement for motions in limine. That requirement is in LCR 7(d)(4), which requires a certification of a good-faith conference held face-to-face or by telephone. The parallel citation to the judge's scheduling order may separately support the requirement.",
+        "evidence_excerpt": "LCR 16(b) Scheduling Order; Exemption of Certain Types of Cases (1) Scheduling Order. The court shall enter a written scheduling order ... LCR 7(d)(4): Any motion in limine must include a certification that the movant has in good faith conferred or attempted to confer with other affected parties",
+        "source_urls": [
+          "https://web.archive.org/web/20250106231336/https://www.wawd.uscourts.gov/sites/wawd/files/020123%20WAWD%20Local%20Civil%20Rules%20CLEAN.pdf",
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWD%20Local%20Civil%20Rules%20(2026)%20-%20Clean.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Finding holds. W.D. Wash. LCR 16(b), 'Scheduling Order; Exemption of Certain Types of Cases,' covers (1) the scheduling order, (2) the discovery deadline, (3) discovery motions, (4) 'Motions to Exclude Expert Testimony ... not later than the deadline to file dispositive motions,' (5) dispositive motions, (6) modifying a schedule, and (7) exemptions. It contains no meet-and-confer requirement. That requirement is in LCR 7(d)(4) of the January 2025 rules (7(d)(5) in the 2026 rules): 'Any motion in limine must include a certification that the movant has in good faith conferred or attempted to confer with other affected parties ... A good faith effort to confer requires a face-to-face meeting or a telephone conference.' Exhibit-objection review and the attorneys' conference appear in LCR 16(j)-(k), not 16(b). Unlike ref 80, where the right statutory section has a one-letter slip, this points to a different rule (LCR 16 rather than LCR 7) for a duty that rule does not impose. So MISCHARACTERIZED fits better than a garbled cite. The judge's scheduling order may separately impose the duty, but I could not check it.",
+        "source_urls": [
+          "https://web.archive.org/web/20250106231336/https://www.wawd.uscourts.gov/sites/wawd/files/020123%20WAWD%20Local%20Civil%20Rules%20CLEAN.pdf",
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWD%20Local%20Civil%20Rules%20(2026)%20-%20Clean.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 82,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section I, para. 3",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407",
+      "citation_as_written": "Federal Rule of Evidence 407",
+      "pincite": "",
+      "cited_for": "Cascade's position that Exhibits 22-24 are barred as subsequent remedial measures",
+      "quotes": [],
+      "context": "I understand your position that these exhibits are barred by Federal Rule of Evidence 407 as evidence of subsequent remedial measures. We disagree.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The email correctly describes FRE 407 as the rule on subsequent remedial measures. It is cited only to state the opposing side's position, and the rule supports that description.",
+        "evidence_excerpt": "Rule 407. Subsequent Remedial Measures ... evidence of the subsequent measures is not admissible to prove: negligence; culpable conduct;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 83,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section I, paras. 4-6",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 407 (feasibility exception)",
+      "citation_as_written": "Rule 407",
+      "pincite": "",
+      "cited_for": "Evidence offered for feasibility of precautionary measures, where controverted; exception 'expressly recognized in Rule 407 itself'",
+      "quotes": [
+        "feasibility of precautionary measures, where controverted",
+        "expressly recognized in Rule 407 itself"
+      ],
+      "context": "Ridgeline offers this evidence for a purpose expressly recognized in Rule 407 itself: to prove the feasibility of precautionary measures, where controverted.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'feasibility of precautionary measures, where controverted': found with differences. 'feasibility of precautionary measures' is verbatim, but the current rule says 'if disputed', not 'where controverted'. The pre-2011 text said 'if controverted', and the 2011 restyling was stylistic only. 'expressly recognized in Rule 407 itself': the email author's own words, not a quotation from the rule, so there is nothing to find.",
+        "explanation": "The rule does expressly allow subsequent-measure evidence to prove the feasibility of precautionary measures when that is disputed, so the substance is supported. The bolded phrase the email presents as the rule's language mixes the rule's wording with an outdated or paraphrased qualifier ('where controverted' instead of the current 'if disputed').",
+        "evidence_excerpt": "But the court may admit this evidence for another purpose, such as impeachment or — if disputed — proving ownership, control, or the feasibility of precautionary measures.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 84,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section II, para. 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 404(b)",
+      "citation_as_written": "Federal Rule of Evidence 404(b)",
+      "pincite": "",
+      "cited_for": "Cascade's position that OSHA citation is impermissible character evidence",
+      "quotes": [],
+      "context": "this evidence is impermissible character evidence under Federal Rule of Evidence 404(b)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the rule.",
+        "explanation": "The email cites Rule 404(b) to describe Cascade's position that the OSHA citation is impermissible character evidence. Rule 404(b)(1) does bar other-act evidence offered to prove character and conduct in conformity with it, so the citation correctly identifies the governing rule.",
+        "evidence_excerpt": "Evidence of any other crime, wrong, or act is not admissible to prove a person's character in order to show that on a particular occasion the person acted in accordance with the character.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 85,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section II, para. 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "Federal Rule of Evidence 403",
+      "pincite": "",
+      "cited_for": "Probative value substantially outweighed by unfair prejudice",
+      "quotes": [],
+      "context": "its probative value is substantially outweighed by the danger of unfair prejudice under Federal Rule of Evidence 403.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 403",
+        "quote_check": "No quotations attributed. The language closely tracks the rule text.",
+        "explanation": "This accurately states the Rule 403 standard: probative value substantially outweighed by the danger of unfair prejudice.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 86,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section II.A",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 404(b)(2)",
+      "citation_as_written": "Rule 404(b)(2)",
+      "pincite": "(b)(2)",
+      "cited_for": "OSHA citation offered for permitted purposes of knowledge and plan",
+      "quotes": [],
+      "context": "Rather, Ridgeline offers this evidence for purposes expressly permitted under Rule 404(b)(2): to demonstrate knowledge and plan.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the rule. The email's statement that knowledge and plan are 'expressly permitted' purposes is accurate; both are listed in (b)(2).",
+        "explanation": "Rule 404(b)(2) expressly names plan and knowledge as permitted purposes. The rule says such evidence 'may be' admissible, not that it must be, but the email describes the rule's structure correctly.",
+        "evidence_excerpt": "This evidence may be admissible for another purpose, such as proving motive, opportunity, intent, preparation, plan, knowledge, identity, absence of mistake, or lack of accident.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 87,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section II.B",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 403",
+      "citation_as_written": "FRE 403",
+      "pincite": "",
+      "cited_for": "Probative value not substantially outweighed by danger of unfair prejudice; limiting instruction",
+      "quotes": [],
+      "context": "B. FRE 403 — The probative value of the OSHA citation is substantial and is not substantially outweighed by the danger of unfair prejudice.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the rule.",
+        "explanation": "Rule 403 lets a court exclude relevant evidence only if its probative value is 'substantially outweighed' by a danger of unfair prejudice and similar harms. The email's argument, that probative value is not substantially outweighed, tracks that standard correctly. The rule says nothing about limiting instructions, which come from FRE 105. The email offers a limiting instruction only as a way to reduce prejudice inside the 403 balance; it does not claim Rule 403 requires one, so the citation is fair.",
+        "evidence_excerpt": "The court may exclude relevant evidence if its probative value is substantially outweighed by a danger of one or more of the following: unfair prejudice, confusing the issues, misleading the jury, undue delay, wasting time, or needlessly presenting cumulative evidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_403"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 88,
+      "document": "solano-trial-strategy-email.eml.md",
+      "location": "Section III Summary",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Evidence (exceptions generally)",
+      "citation_as_written": "Federal Rules of Evidence",
+      "pincite": "",
+      "cited_for": "Both categories of evidence admissible under well-established exceptions",
+      "quotes": [],
+      "context": "are admissible under well-established exceptions to the Federal Rules of Evidence.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The email's summary sentence refers to exceptions in the Federal Rules of Evidence. Those exceptions exist. FRE 407 allows subsequent remedial measures to be admitted for other purposes, such as proving the feasibility of precautionary measures if disputed. FRE 404(b)(2) allows other-act evidence to prove knowledge, plan and similar purposes. The email names both elsewhere. Whether they actually apply here is the advocate's argument and cannot be confirmed from the rules alone.",
+        "evidence_excerpt": "FRE 407: \"But the court may admit this evidence for another purpose, such as impeachment or — if disputed — proving ownership, control, or the feasibility of precautionary measures.\" FRE 404(b)(2): \"This evidence may be admissible for another purpose, such as proving motive, opportunity, intent, preparation, plan, knowledge...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_407",
+          "https://www.law.cornell.edu/rules/fre/rule_404"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 89,
+      "document": "task.json.md",
+      "location": "rubric C-022, C-010, C-029 (criterion text)",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc. (Daubert standard)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Dr. Marchetti has never been qualified as an expert under the Daubert standard in federal court, supporting heightened scrutiny; the arithmetic discrepancy supports the broader Daubert challenge; the introduction previews the Daubert/FRE 702 challenge.",
+      "quotes": [
+        "never been qualified as an expert under the Daubert standard in federal court"
+      ],
+      "context": "PASS if the motion notes that Dr. Marchetti has never been qualified as an expert under the Daubert standard in federal court (all 30 prior engagements were in state courts or arbitrations) and uses this fact to support the argument for heightened scrutiny of her methodology.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "The quoted phrase is the rubric's own wording about the expert's history and is not attributed to the Daubert opinion. It appears verbatim once in task.json.md. The underlying facts (all thirty prior engagements in state court or arbitration; no Daubert testing in federal court) match deposition pp. 12-13 and 138-139.",
+        "explanation": "The rubric refers to the real Daubert standard, the Rule 702 reliability gatekeeping test. The facts it relies on (no prior federal Daubert qualification) come from the fictional record and are consistent with the deposition. The citation does not misstate any law.",
+        "evidence_excerpt": "the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 90,
+      "document": "task.json.md",
+      "location": "rubric C-029, C-035 (criterion titles/text)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "FRE 702",
+      "pincite": "",
+      "cited_for": "Motion's introduction and distinct argument section must present the Daubert/FRE 702 challenge to Marchetti's testimony.",
+      "quotes": [],
+      "context": "Introduction previews Daubert/FRE 702 challenge to Marchetti's testimony ... Distinct argument section for Daubert/FRE 702 challenge to Marchetti",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric criteria name the right rule for a Daubert challenge to an expert. Rule 702 was amended in response to Daubert and codifies the court's gatekeeping role.",
+        "evidence_excerpt": "Rule 702 has been amended in response to Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)... In Daubert the Court charged trial judges with the responsibility of acting as gatekeepers to exclude unreliable expert testimony",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

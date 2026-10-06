@@ -1,0 +1,816 @@
+{
+  "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "doj-preservation-notice.docx.md",
+    "it-migration-memo.eml.md",
+    "records-destruction-confirmation.eml.md",
+    "ridgeline-org-chart.docx.md",
+    "ridgeline-retention-policy.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Cover letter, paragraph 3 (Grand Jury No. 24-GJ-0387 investigation scope)",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b(b)",
+      "pincite": "",
+      "cited_for": "Grand jury investigating potential violations of the Anti-Kickback Statute",
+      "quotes": [],
+      "context": "The federal grand jury is investigating potential violations of the Anti-Kickback Statute, 42 U.S.C. § 1320a-7b(b), and the False Claims Act, 31 U.S.C. §§ 3729–3733, relating to the following matters",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "42 U.S.C. § 1320a-7b(b) is the federal Anti-Kickback Statute ('Illegal remunerations'). Describing a grand jury investigating potential violations of it is accurate.",
+        "evidence_excerpt": "(b) Illegal remunerations ... Whoever knowingly and willfully solicits or receives any remuneration (including any kickback, bribe, or rebate)",
+        "source_urls": [
+          "https:/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Cover letter, paragraph 3",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. §§ 3729–3733",
+      "pincite": "",
+      "cited_for": "Grand jury investigating potential violations of the False Claims Act",
+      "quotes": [],
+      "context": "investigating potential violations of the Anti-Kickback Statute, 42 U.S.C. § 1320a-7b(b), and the False Claims Act, 31 U.S.C. §§ 3729–3733",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "31 U.S.C. §§ 3729–3733 is the correct span of the False Claims Act: § 3729 (false claims), § 3730 (civil actions), § 3731 (procedure), § 3732 (jurisdiction), § 3733 (civil investigative demands). The cite is accurate. The small problem is substantive. The letter says a grand jury is investigating potential FCA violations, but § 3729 imposes civil liability (a civil penalty plus treble damages), and grand juries investigate crimes. The criminal false-claims statute (18 U.S.C. § 287) would fit a grand jury better, though parallel civil and criminal investigations are common.",
+        "evidence_excerpt": "is liable to the United States Government for a civil penalty of not less than $5,000 and not more than $10,000 ... plus 3 times the amount of damages which the Government sustains",
+        "source_urls": [
+          "https:/3729",
+          "https:/subtitle-III/chapter-37/subchapter-III"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Cover letter, paragraph 5 (consequences of non-compliance)",
+      "authority_type": "statute",
+      "authority": "Obstruction of justice - destruction, alteration, or falsification of records in federal investigations",
+      "citation_as_written": "18 U.S.C. § 1519",
+      "pincite": "",
+      "cited_for": "Non-compliance with the Preservation Notice may result in criminal prosecution for obstruction of justice",
+      "quotes": [],
+      "context": "sanctions, adverse inference instructions in any subsequent proceeding, and criminal prosecution for obstruction of justice under 18 U.S.C. § 1519.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1519",
+        "quote_check": "No quotes.",
+        "explanation": "§ 1519 (Destruction, alteration, or falsification of records in Federal investigations and bankruptcy) criminalizes knowing destruction or concealment of records with intent to obstruct a federal investigation. The cover letter says only that non-compliance 'may' lead to prosecution under it, which is accurate.",
+        "evidence_excerpt": "\"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies ... any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... shall be fined under this title, imprisoned not more than 20 years, or both.\"",
+        "source_urls": [
+          "https:/1519"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 2 (Purpose), first mention",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b(b)",
+      "pincite": "",
+      "cited_for": "Investigation concerns potential AKS violations relating to KOL Program, RPAF, and Velcara",
+      "quotes": [],
+      "context": "The investigation concerns potential violations of the Anti-Kickback Statute, 42 U.S.C. § 1320a-7b(b), and the False Claims Act, 31 U.S.C. §§ 3729–3733",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The citation correctly identifies the Anti-Kickback Statute. The notice uses it only to identify the subject of the investigation, which needs no further support.",
+        "evidence_excerpt": "Whoever knowingly and willfully offers or pays any remuneration (including any kickback, bribe, or rebate) directly or indirectly, overtly or covertly, in cash or in kind to any person to induce such person",
+        "source_urls": [
+          "https:/1320a-7b"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 2 (Purpose)",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. §§ 3729–3733",
+      "pincite": "",
+      "cited_for": "Investigation concerns potential FCA violations",
+      "quotes": [],
+      "context": "and the False Claims Act, 31 U.S.C. §§ 3729–3733, relating to: (a) the speaker program activities...",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is the same cite as ref 1, and the section range is accurate. The paragraph describes a 'pending federal grand jury investigation' into potential FCA violations, but the FCA (§ 3729) imposes civil liability. Calling it the subject of a grand jury investigation is loose, though the cite itself is correct.",
+        "evidence_excerpt": "§ 3729. False claims ... § 3730. Civil actions for false claims ... § 3733. Civil investigative demands",
+        "source_urls": [
+          "https:/subtitle-III/chapter-37/subchapter-III",
+          "https:/3729"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 2 (Purpose), last sentence",
+      "authority_type": "statute",
+      "authority": "Obstruction of justice (destruction, alteration, falsification of records)",
+      "citation_as_written": "18 U.S.C. § 1519",
+      "pincite": "",
+      "cited_for": "Destruction, alteration, concealment of potentially relevant documents may constitute obstruction of justice",
+      "quotes": [],
+      "context": "may constitute obstruction of justice in violation of 18 U.S.C. § 1519 and may be subject to criminal prosecution.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1519",
+        "quote_check": "No quotes.",
+        "explanation": "§ 1519 covers knowing destruction, alteration, or concealment of records with intent to impede a matter within federal agency jurisdiction, including 'in relation to or contemplation of' such a matter. The Notice says destroying, altering, or concealing relevant documents 'may constitute' obstruction under § 1519. That is accurate.",
+        "evidence_excerpt": "\"... alters, destroys, mutilates, conceals ... with the intent to impede, obstruct, or influence the investigation or proper administration of any matter within the jurisdiction of any department or agency of the United States ... or in relation to or contemplation of any such matter\"",
+        "source_urls": [
+          "https:/1519"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 10(a) (Relevant Statutes)",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute",
+      "citation_as_written": "42 U.S.C. § 1320a-7b(b)",
+      "pincite": "",
+      "cited_for": "Prohibits knowing and willful offer, payment, solicitation or receipt of remuneration to induce or reward referrals of federal healthcare program items or services",
+      "quotes": [],
+      "context": "The Anti-Kickback Statute, 42 U.S.C. § 1320a-7b(b), which prohibits the knowing and willful offer, payment, solicitation, or receipt of any remuneration to induce or reward the referral of items or services reimbursable by a federal healthcare program;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The summary is a fair paraphrase.",
+        "explanation": "§ 1320a-7b(b)(1) bars knowingly and willfully soliciting or receiving remuneration in return for referrals, and (b)(2) bars offering or paying remuneration to induce them. Both cover items or services payable in whole or in part under a Federal health care program. The phrase 'induce or reward' paraphrases 'to induce' and 'in return for'; the OIG uses the same wording.",
+        "evidence_excerpt": "in return for referring an individual to a person for the furnishing or arranging for the furnishing of any item or service for which payment may be made in whole or in part under a Federal health care program",
+        "source_urls": [
+          "https:/1320a-7b",
+          "https://oig.hhs.gov/fraud/docs/alertsandbulletins/2020/SpecialFraudAlertSpeakerPrograms.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 10(b)",
+      "authority_type": "statute",
+      "authority": "False Claims Act",
+      "citation_as_written": "31 U.S.C. §§ 3729–3733",
+      "pincite": "",
+      "cited_for": "Imposes liability on any person who knowingly submits or causes submission of false or fraudulent claim for payment to the United States",
+      "quotes": [],
+      "context": "The False Claims Act, 31 U.S.C. §§ 3729–3733, which imposes liability on any person who knowingly submits, or causes the submission of, a false or fraudulent claim for payment to the United States;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the paraphrase ('knowingly submits, or causes the submission of') tracks § 3729(a)(1)(A) ('knowingly presents, or causes to be presented').",
+        "explanation": "§ 3729(a)(1)(A) makes liable any person who knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval. The notice's description is a fair paraphrase of the FCA's core liability provision.",
+        "evidence_excerpt": "knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval",
+        "source_urls": [
+          "https:/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 10(c)",
+      "authority_type": "statute",
+      "authority": "Wire fraud",
+      "citation_as_written": "18 U.S.C. § 1343",
+      "pincite": "",
+      "cited_for": "Prohibits use of interstate wire communications in furtherance of a scheme to defraud",
+      "quotes": [],
+      "context": "Wire fraud, 18 U.S.C. § 1343, which prohibits the use of interstate wire communications in furtherance of a scheme to defraud;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1343 (fraud by wire, radio, or television) makes it a crime to transmit wire communications in interstate or foreign commerce to carry out a scheme to defraud. The notice's summary is a fair paraphrase.",
+        "evidence_excerpt": "\"Whoever, having devised or intending to devise any scheme or artifice to defraud ... transmits or causes to be transmitted by means of wire, radio, or television communication in interstate or foreign commerce, any writings, signs, signals, pictures, or sounds for the purpose of executing such scheme or artifice, shall be fined...\"",
+        "source_urls": [
+          "https:/1343"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 10(d)",
+      "authority_type": "statute",
+      "authority": "Conspiracy",
+      "citation_as_written": "18 U.S.C. § 371",
+      "pincite": "",
+      "cited_for": "Prohibits conspiracy to commit any offense against the United States or to defraud the United States",
+      "quotes": [],
+      "context": "Conspiracy, 18 U.S.C. § 371, which prohibits conspiracy to commit any offense against the United States or to defraud the United States.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; paraphrase matches statutory text.",
+        "explanation": "18 U.S.C. § 371 criminalizes conspiracy by two or more persons to commit any offense against the United States or to defraud the United States, plus an overt act. The notice's paraphrase is accurate.",
+        "evidence_excerpt": "If two or more persons conspire either to commit any offense against the United States, or to defraud the United States, or any agency thereof in any manner or for any purpose, and one or more of such persons do any act to effect the object of the conspiracy...",
+        "source_urls": [
+          "https:/371"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 26 (Subject-Matter Area 6)",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute and False Claims Act (by name only)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Internal investigation files relating to potential violations of AKS, FCA or other healthcare fraud statutes must be preserved",
+      "quotes": [],
+      "context": "relating to potential violations of the Anti-Kickback Statute, the False Claims Act, or any other federal or state healthcare fraud statute.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7b(b); 31 U.S.C. §§ 3729-3733",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Both statutes cited by name exist and are federal healthcare fraud enforcement statutes: the AKS at 42 U.S.C. § 1320a-7b(b) and the FCA at 31 U.S.C. § 3729 et seq. The notice uses them only to define the preservation scope, which needs no further support.",
+        "evidence_excerpt": "31 U.S. Code § 3729 - False claims ... knowingly presents, or causes to be presented, a false or fraudulent claim for payment or approval",
+        "source_urls": [
+          "https:/1320a-7b",
+          "https:/3729"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 34 (Consequences of Non-Compliance)",
+      "authority_type": "statute",
+      "authority": "Obstruction of justice (destruction, alteration, or falsification of records in federal investigations)",
+      "citation_as_written": "18 U.S.C. § 1519",
+      "pincite": "",
+      "cited_for": "Non-compliance may result in criminal prosecution for obstruction",
+      "quotes": [],
+      "context": "may result in criminal prosecution for obstruction of justice under 18 U.S.C. § 1519 (destruction, alteration, or falsification of records in federal investigations), contempt of court proceedings, adverse inference instructions",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1519 criminalizes knowingly altering, destroying, concealing or falsifying records with intent to obstruct a federal investigation. That fits the notice's warning that non-compliance may lead to prosecution for obstruction. The notice's parenthetical drops the words 'and bankruptcy' from the official heading, which is harmless here.",
+        "evidence_excerpt": "\"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies, or makes a false entry in any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... of any matter within the jurisdiction of any department or agency of the United States ... shall be fined under this title, imprisoned not more than 20 years, or both.\"",
+        "source_urls": [
+          "https:/1519"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 49 (Spoliation Consequences)",
+      "authority_type": "statute",
+      "authority": "Obstruction of justice",
+      "citation_as_written": "18 U.S.C. § 1519",
+      "pincite": "",
+      "cited_for": "Spoliation remedies include criminal prosecution for obstruction",
+      "quotes": [],
+      "context": "criminal prosecution for obstruction of justice under 18 U.S.C. § 1519 or any other applicable statute",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1519",
+        "quote_check": "No quotes.",
+        "explanation": "§ 1519 makes it a crime, punishable by up to 20 years, to knowingly destroy, alter, or conceal records with intent to impede a federal investigation, including in contemplation of one. Listing it as a possible remedy ('may include') for spoliation is accurate. The paragraph's opening mentions negligent destruction, but § 1519 requires knowing conduct with intent, so it applies only to the intentional cases. The paragraph presents § 1519 as only one of several possible remedies and does not claim negligence alone violates it.",
+        "evidence_excerpt": "\"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies, or makes a false entry in any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... of any matter within the jurisdiction of any department or agency of the United States ... shall be fined under this title, imprisoned not more than 20 years, or both.\"",
+        "source_urls": [
+          "https:/1519"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 48 (Privilege Assertions)",
+      "authority_type": "other",
+      "authority": "Attorney-client privilege and work product doctrine; privilege-log requirement under 'applicable rules and case law' (no specific rule or case identified)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Privilege log must be maintained for items withheld in response to grand jury subpoena or other compulsory process",
+      "quotes": [],
+      "context": "Ridgeline must maintain a privilege log that identifies each withheld item with sufficient detail to permit the government to evaluate the privilege claim, in accordance with applicable rules and case law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "e.g., In re Grand Jury Subpoena, 274 F.3d 563, 575-76 (1st Cir. 2001)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The notice names no specific rule or case. Case law does support a privilege-log requirement for materials withheld from a grand jury subpoena. In re Grand Jury Subpoena, 274 F.3d 563 (1st Cir. 2001), relied on Rule 45(d)(2) and held that failing to produce a privilege log waived the privilege and work-product claims. Caveat: the 9th Cir. in In re Grand Jury Subpoena, 127 F.4th 139 (2025), held that a log cannot be compelled for documents protected under Fisher (Fifth Amendment act-of-production). The general statement is accurate.",
+        "evidence_excerpt": "the intervenors failed without justification to produce a privilege log (thereby waiving the underlying attorney-client and work product privileges)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/199669/in-re-grand-jury-subpoena/",
+          "https://www.courtlistener.com/opinion/10788862/in-re-grand-jury-subpoena-dated-july-21-2023/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 22 (Subject-Matter Area 3)",
+      "authority_type": "other",
+      "authority": "OIG List of Excluded Individuals and Entities (LEIE); GSA Excluded Parties List System (EPLS) / System for Award Management (SAM)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Exclusion-list screening results must be preserved",
+      "quotes": [],
+      "context": "results of exclusion list screening, including checks against the Office of Inspector General's List of Excluded Individuals and Entities (\"OIG LEIE\") and the General Services Administration's Excluded Parties List System (\"GSA EPLS\") or its successor, the System for Award Management (\"SAM\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The HHS-OIG List of Excluded Individuals/Entities (LEIE) is a real list of currently excluded individuals and entities. GSA's Excluded Parties List System (EPLS) was folded into SAM, and its data now sits in SAM as 'Exclusions'. So the notice is right to call SAM the successor to EPLS. The citation is only an identifier for preserving screening results, and it is accurate.",
+        "evidence_excerpt": "OIG: LEIE is \"a list of all currently excluded individuals and entities\"; DFARS PGI 209.105-1: \"The former Excluded Parties List System (EPLS) information is within the Performance Information functional area of SAM, and is maintained as 'Exclusions' data.\"",
+        "source_urls": [
+          "https://oig.hhs.gov/exclusions/",
+          "https://www.acquisition.gov/dfarspgi/pgi-209.105-1-obtaining-information."
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Preservation Notice, ¶ 25 and Exhibit B Category 19 (IRS Form 990)",
+      "authority_type": "other",
+      "authority": "IRS Form 990 filings (tax form)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "RPAF financial records including IRS Form 990 filings must be preserved",
+      "quotes": [],
+      "context": "bank statements, investment records, expenditure reports, and IRS Form 990 filings.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "IRS Form 990, Return of Organization Exempt From Income Tax",
+        "quote_check": "No quotes.",
+        "explanation": "IRS Form 990 is a real annual information return that tax-exempt organizations file under IRC § 6033. Listing it among a 501(c)(3) foundation's financial records to preserve is accurate.",
+        "evidence_excerpt": "\"Tax-exempt organizations, nonexempt charitable trusts, and section 527 political organizations file Form 990 to provide the IRS with the information required by section 6033.\"",
+        "source_urls": [
+          "https://www.irs.gov/forms-pubs/about-form-990"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "doj-preservation-notice.docx.md",
+      "location": "Cover letter para 3; ¶ 4; ¶ 9; ¶ 15 (RPAF description)",
+      "authority_type": "statute",
+      "authority": "Internal Revenue Code section 501(c)(3) (tax-exempt status) (by shorthand)",
+      "citation_as_written": "501(c)(3)",
+      "pincite": "",
+      "cited_for": "RPAF is a 501(c)(3) tax-exempt entity",
+      "quotes": [],
+      "context": "The Ridgeline Patient Access Foundation (\"RPAF\"), a 501(c)(3) entity established and funded by Ridgeline",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "26 U.S.C. § 501(c)(3)",
+        "quote_check": "No quotes.",
+        "explanation": "§ 501(c)(3) exists and names tax-exempt charitable organizations, with exemption granted by § 501(a). The shorthand '501(c)(3) tax-exempt entity' is accurate usage.",
+        "evidence_excerpt": "\"An organization described in subsection (c) or (d) or section 401(a) shall be exempt from taxation under this subtitle\"",
+        "source_urls": [
+          "https:/501"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "ridgeline-org-chart.docx.md",
+      "location": "Section 2 (RPAF box), Section 4 (Tax Status), Section 1.2 equivalent",
+      "authority_type": "statute",
+      "authority": "Internal Revenue Code section 501(c)(3) (by shorthand)",
+      "citation_as_written": "501(c)(3)",
+      "pincite": "",
+      "cited_for": "RPAF is an independent 501(c)(3) tax-exempt organization with separate governance",
+      "quotes": [],
+      "context": "Ridgeline Patient Access Foundation (\"RPAF\") (Independent 501(c)(3) entity with a separate board of directors, two of whom are independent of Ridgeline)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "26 U.S.C. § 501(c)(3)",
+        "quote_check": "No quotes.",
+        "explanation": "IRC § 501(c)(3) exists. It describes charitable organizations that are exempt from tax under § 501(a). Here it is used as a shorthand label for the fictional RPAF's tax status, which is accurate usage. Separate governance is a fact of the scenario, not something the statute says.",
+        "evidence_excerpt": "\"Corporations, and any community chest, fund, or foundation, organized and operated exclusively for religious, charitable, scientific ... purposes ... no part of the net earnings of which inures to the benefit of any private shareholder or individual\"",
+        "source_urls": [
+          "https:/501"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "ridgeline-org-chart.docx.md",
+      "location": "Section 4 (Board Composition) and Footnote 2",
+      "authority_type": "other",
+      "authority": "HHS Office of Inspector General (OIG) guidance / Advisory Opinion guidance on independent charitable patient assistance programs (no specific opinion number cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Independent RPAF directors were appointed per OIG guidance requiring pharmaceutical company-funded patient assistance programs to maintain operational independence",
+      "quotes": [
+        "OIG Advisory Opinion guidance requiring that pharmaceutical company-funded patient assistance programs maintain operational independence from the sponsoring company"
+      ],
+      "context": "The two independent RPAF board members were appointed to comply with OIG Advisory Opinion guidance requiring that pharmaceutical company-funded patient assistance programs maintain operational independence from the sponsoring company.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "OIG Special Advisory Bulletin on Patient Assistance Programs for Medicare Part D Enrollees, 70 Fed. Reg. 70623 (Nov. 22, 2005); Supplemental Special Advisory Bulletin: Independent Charity Patient Assistance Programs, 79 Fed. Reg. 31120 (May 30, 2014)",
+        "quote_check": "The quoted string is the org chart's own description (Footnote 2), not language attributed to an OIG source. No verbatim match in either OIG bulletin. The substance matches the bulletins' 'not ... exert any direct or indirect influence or control over the charity' standard.",
+        "explanation": "The general proposition holds. OIG guidance says charitable PAPs funded by manufacturers must be independent of the donor manufacturer: bona fide independent charities unaffiliated with manufacturers, and no direct or indirect donor influence or control. Defects: (1) No specific authority is cited. The guidance is in the 2005 and 2014 Special Advisory Bulletins plus individual advisory opinions, not a single 'Advisory Opinion'. (2) The guidance does not call for appointing a set number of independent directors. Under the 2005 bulletin, a PAP 'directly or indirectly operated or controlled in any manner' by a manufacturer or its officers is a manufacturer PAP. So a foundation where 3 of 5 directors are Ridgeline officers would not meet the independence standard the footnote invokes. That is a tension in the fictional facts, not a misstatement of what OIG requires.",
+        "evidence_excerpt": "2005 SAB: \"cost-sharing subsidies provided by bona fide, independent charities unaffiliated with pharmaceutical manufacturers should not raise anti-kickback concerns, even if the charities receive manufacturer contributions\"; \"a pharmaceutical manufacturer PAP includes any PAP that is directly or indirectly operated or controlled in any manner by a pharmaceutical manufacturer or its affiliates (including ... officer ...)\". 2014 Supp. SAB: \"pharmaceutical manufacturers and their affiliates should not exert any direct or indirect influence or control over the charity or its assistance program.\"",
+        "source_urls": [
+          "https://www.oig.hhs.gov/documents/special-advisory-bulletins/880/2005PAPSpecialAdvisoryBulletin.pdf",
+          "https://www.oig.hhs.gov/documents/special-advisory-bulletins/879/independent-charity-bulletin.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Retention Schedule Category G (Section 3.2 table)",
+      "authority_type": "regulation",
+      "authority": "FDA promotional materials requirements",
+      "citation_as_written": "21 C.F.R. Part 202",
+      "pincite": "",
+      "cited_for": "FDA requirements for promotional materials basis for 5-year retention of marketing materials",
+      "quotes": [],
+      "context": "FDA requirements for promotional materials under 21 C.F.R. Part 202",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "21 C.F.R. Part 202 ('Prescription Drug Advertising', sole section § 202.1) exists and sets content requirements for prescription-drug advertisements, a category of promotional material. It contains no record-retention requirement or retention period; a text search of § 202.1 for 'retain', 'retention', 'maintain', 'keep', 'preserve' and 'years' found nothing relevant. Part 202 can support keeping promotional materials to show compliance, but it does not supply the 5-year period. The retention schedule's 'regulatory basis' label is therefore loose.",
+        "evidence_excerpt": "PRESCRIPTION DRUG ADVERTISING ... § 202.1 Prescription-drug advertisements ... must present a true statement of information in brief summary relating to side effects, contraindications",
+        "source_urls": [
+          "https:/part-202",
+          "https:/202.1"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Section 5.2(b) Destruction Methods",
+      "authority_type": "other",
+      "authority": "NIST Special Publication 800-88, Guidelines for Media Sanitization",
+      "citation_as_written": "NIST Special Publication 800-88",
+      "pincite": "",
+      "cited_for": "Electronic records secure deletion must comply with NIST SP 800-88",
+      "quotes": [],
+      "context": "Secure deletion using methods compliant with NIST Special Publication 800-88, Guidelines for Media Sanitization.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "NIST Special Publication 800-88, Guidelines for Media Sanitization (Rev. 2, Sept. 2025; Rev. 1 withdrawn Sept. 26, 2025)",
+        "quote_check": "No quotes. The title 'Guidelines for Media Sanitization' is correct.",
+        "explanation": "NIST SP 800-88, 'Guidelines for Media Sanitization', exists and is the standard guidance for securely deleting data from media. The policy cites it without a revision number, which is fine. Rev. 1 was superseded by Rev. 2 in September 2025, and the title did not change.",
+        "evidence_excerpt": "\"Media sanitization refers to a process that renders access to target data on the media infeasible for a given level of effort.\" Rev. 1: \"Withdrawn on September 26, 2025. Superseded by SP 800-88 Rev. 2.\"",
+        "source_urls": [
+          "https://csrc.nist.gov/pubs/sp/800/88/r1/final",
+          "https://csrc.nist.gov/pubs/sp/800/88/r2/final"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Section 8.4 (Financial and Accounting Records)",
+      "authority_type": "regulation",
+      "authority": "SEC Rules 17a-3 and 17a-4 under the Securities Exchange Act of 1934",
+      "citation_as_written": "Rules 17a-3 and 17a-4 under the Securities Exchange Act of 1934",
+      "pincite": "",
+      "cited_for": "Financial records subject to extended retention under applicable SEC rules 'to the extent applicable'",
+      "quotes": [],
+      "context": "Financial records are subject to extended retention periods under applicable SEC rules (including, to the extent applicable, Rules 17a-3 and 17a-4 under the Securities Exchange Act of 1934) and IRS regulations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. §§ 240.17a-3, 240.17a-4",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rules 17a-3 and 17a-4 under the Exchange Act are real SEC record-keeping rules. Rule 17a-3 says which records must be made and Rule 17a-4 says how long they must be kept: at least 6 years for some records, with the first two years in an easily accessible place. Both apply only to exchange members, brokers and dealers. The policy's hedge 'to the extent applicable' accounts for that limit, so citing them for extended retention of financial records holds up.",
+        "evidence_excerpt": "§ 240.17a-4: \"Every member, broker or dealer subject to § 240.17a-3 must preserve for a period of not less than 6 years, the first two years in an easily accessible place, all records required to be made pursuant to § 240.17a-3(a)(1) through (3)...\"",
+        "source_urls": [
+          "https:/240.17a-4",
+          "https:/240.17a-3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Section 8.2 (Speaker Program and HCP Engagement Records)",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute and Physician Payments Sunshine Act (by name only)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Regulatory sensitivity of HCP engagement activities under the AKS and Sunshine Act justifies compliance reviews of KOL Program records",
+      "quotes": [],
+      "context": "Given the regulatory sensitivity of HCP engagement activities under the Anti-Kickback Statute and the Physician Payments Sunshine Act, the Compliance Department conducts periodic reviews of KOL Program records",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7b(b); 42 U.S.C. § 1320a-7h",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The AKS reaches remuneration that induces referrals, and OIG's 2020 Special Fraud Alert singles out speaker programs. The Physician Payments Sunshine Act (42 U.S.C. § 1320a-7h, enacted as ACA § 6002) requires applicable manufacturers to report payments and transfers of value to covered recipients. Calling HCP engagement 'regulatorily sensitive' under both is accurate. The LII page does not itself print the 'Sunshine Act' popular name, though the name is in common use.",
+        "evidence_excerpt": "any applicable manufacturer that provides a payment or other transfer of value to a covered recipient ... shall submit to the Secretary ... the following information",
+        "source_urls": [
+          "https:/1320a-7h",
+          "https:/1320a-7b",
+          "https://oig.hhs.gov/fraud/docs/alertsandbulletins/2020/SpecialFraudAlertSpeakerPrograms.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Retention Schedule Category L (Section 3.2 table), notes column",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute (by name only)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Basis for 6-year speaker program record retention",
+      "quotes": [],
+      "context": "Anti-Kickback Statute considerations; OIG guidance",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7b(b)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The cite names the AKS only, as a 'consideration' behind a 6-year retention period for speaker-program records. The AKS and OIG guidance do bear on speaker programs: OIG issued a Special Fraud Alert on Speaker Programs on Nov. 16, 2020. Neither source mandates a 6-year retention period, but the policy does not claim that. It says only that the period reflects these considerations, which is a reasonable compliance rationale.",
+        "evidence_excerpt": "The anti-kickback statute makes it a criminal offense to knowingly and willfully solicit, receive, offer, or pay any remuneration to induce or reward referrals ... (OIG Special Fraud Alert: Speaker Programs, Nov. 2020, as summarized in search results)",
+        "source_urls": [
+          "https:/1320a-7b",
+          "https://oig.hhs.gov/fraud/docs/alertsandbulletins/2020/SpecialFraudAlertSpeakerPrograms.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Section 1.1 Purpose; Retention Schedule Categories B, C, I, K; Sections 2.2, 8.1",
+      "authority_type": "other",
+      "authority": "General regulatory recordkeeping references: FDA, SEC, IRS, OIG compliance program guidance for pharmaceutical manufacturers; EEOC, DOL (no specific provisions cited)",
+      "citation_as_written": "OIG Compliance Program Guidance for Pharmaceutical Manufacturers",
+      "pincite": "",
+      "cited_for": "Retention periods aligned with SEC, IRS, OIG compliance program guidance, EEOC/DOL requirements",
+      "quotes": [],
+      "context": "consistent with the OIG Compliance Program Guidance for Pharmaceutical Manufacturers.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "OIG Compliance Program Guidance for Pharmaceutical Manufacturers, 68 Fed. Reg. 23731 (May 5, 2003)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The OIG Compliance Program Guidance for Pharmaceutical Manufacturers is real (68 Fed. Reg. 23731, May 5, 2003). It recommends keeping compliance-related records, such as training records and records of reported prices and of efforts to comply with federal health care program requirements. It does not set a specific number of years, so the policy's 6-year period is a company choice that is 'consistent with' the guidance rather than required by it. That fits the policy's 'consistent with' wording. The generic SEC, IRS, EEOC and DOL references cite no specific provision and could not be checked.",
+        "evidence_excerpt": "The company should retain adequate records of its training of employees, including attendance logs, descriptions of the training sessions, and copies of the material distributed at training sessions.",
+        "source_urls": [
+          "https://www.oig.hhs.gov/documents/compliance-guidance/799/050503FRCPGPharmac.pdf",
+          "https://www.federalregister.gov/documents/2003/05/05/03-10949/oig-compliance-program-guidance-for-pharmaceutical-manufacturers"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "ridgeline-retention-policy.docx.md",
+      "location": "Section 6.1 (Triggering Events) and 6.5",
+      "authority_type": "other",
+      "authority": "General spoliation/duty-to-preserve principles (no case or rule cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Duty to preserve arises on reasonable notice of potential claims or investigations; spoliation inferences and obstruction exposure for destruction under a hold",
+      "quotes": [],
+      "context": "The duty to preserve arises when the Company has reasonable notice of pending or potential claims, proceedings, or investigations, even if no formal legal process has been served.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; no authority cited.",
+        "explanation": "The policy cites no authority, but the principles it states are accurate general law. Zubulake v. UBS Warburg LLC, 220 F.R.D. 212, 218 (S.D.N.Y. 2003) holds that a party that reasonably anticipates litigation must suspend routine destruction and put a litigation hold in place. 18 U.S.C. § 1519 criminalizes destroying records with intent to obstruct a federal investigation, including 'in relation to or contemplation of' such a matter. Together these support the duty to preserve on reasonable notice, even before formal process, and the spoliation and obstruction exposure the policy describes.",
+        "evidence_excerpt": "Once a party reasonably anticipates litigation, it must suspend its routine document retention/destruction policy and put in place a \"litigation hold\" to ensure the preservation of relevant documents.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8754508/zubulake-v-ubs-warburg-llc/",
+          "https:/1519"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "task.json.md",
+      "location": "rubric C-025 (ISSUE_010 match_criteria)",
+      "authority_type": "case",
+      "authority": "Zubulake v. UBS Warburg",
+      "citation_as_written": "Zubulake v. UBS Warburg",
+      "pincite": "",
+      "cited_for": "Preservation of backup tapes is disfavored when the same data exists in accessible form (proportionality of backup tape preservation)",
+      "quotes": [],
+      "context": "including reference to the general principle (or case law such as Zubulake v. UBS Warburg) that preservation of backup tapes is disfavored when the same data exists in accessible form.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Zubulake v. UBS Warburg LLC, 220 F.R.D. 212, 218 (S.D.N.Y. 2003) (Zubulake IV)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The cite gives only the case name, with no reporter, year or pin. That is ambiguous because Zubulake is a series of opinions. The proposition matches Zubulake IV at 218. There the court held that a litigation hold generally does not reach inaccessible disaster-recovery backup tapes. Even key-player tapes need to be kept only if the information on them is not otherwise available. The rubric's wording ('disfavored when the same data exists in accessible form') is a fair paraphrase. The only defect is the incomplete citation.",
+        "evidence_excerpt": "\"As a general rule, that litigation hold does not apply to inaccessible backup tapes (e.g., those typically maintained solely for the purpose of disaster recovery), which may continue to be recycled ... the tapes storing the documents of 'key players' ... should be preserved if the information contained on those tapes is not otherwise available.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8737783/zubulake-v-ubs-warburg-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "task.json.md",
+      "location": "rubric C-021 (ISSUE_008 match_criteria)",
+      "authority_type": "other",
+      "authority": "Fourth Amendment (U.S. Constitution)",
+      "citation_as_written": "Fourth Amendment",
+      "pincite": "",
+      "cited_for": "Potential Fourth Amendment issues with forensic imaging of employees' personal devices",
+      "quotes": [],
+      "context": "raises employee privacy concerns, including potential Fourth Amendment issues, state privacy law issues, or the need for employee consent or a court order.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Fourth Amendment protects against unreasonable searches and seizures. It does not reach a private party's search on its own initiative, but it does apply when the private party acts as an instrument or agent of the Government (Skinner v. Railway Labor Executives' Ass'n, 489 U.S. 602, 614 (1989)). Here the employer would forensically image employees' personal devices because a DOJ preservation notice demands it. Flagging 'potential Fourth Amendment issues' is therefore a reasonable, appropriately hedged proposition, not a definitive rule.",
+        "evidence_excerpt": "Although the Fourth Amendment does not apply to a search or seizure, even an arbitrary one, effected by a private party on his own initiative, the Amendment protects against such intrusions if the private party acted as an instrument or agent of the Government.",
+        "source_urls": [
+          "https://www.law.cornell.edu/constitution/fourth_amendment",
+          "https://www.courtlistener.com/opinion/112219/skinner-v-railway-labor-executives-assn/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "task.json.md",
+      "location": "rubric C-046; tags",
+      "authority_type": "statute",
+      "authority": "Anti-Kickback Statute and False Claims Act (by name only)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Memo should reference AKS and/or FCA as basis for investigation",
+      "quotes": [],
+      "context": "PASS if the memo references the Anti-Kickback Statute and/or the False Claims Act as the basis for the investigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "42 U.S.C. § 1320a-7b(b); 31 U.S.C. §§ 3729-3733",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a rubric criterion asking whether the memo names the AKS and/or FCA as the basis of the investigation. Both statutes exist, and the DOJ notice in the record cites them at 42 U.S.C. § 1320a-7b(b) and 31 U.S.C. §§ 3729-3733.",
+        "evidence_excerpt": "Whoever knowingly and willfully solicits or receives any remuneration ... ; 31 U.S. Code § 3729 - False claims",
+        "source_urls": [
+          "https:/1320a-7b",
+          "https:/3729"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

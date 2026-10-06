@@ -1,0 +1,2264 @@
+{
+  "task": "draft-interrogatories",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "ashcroft-forensics-report.docx.md",
+    "cmt-internal-emails.eml.md",
+    "first-amended-complaint.docx.md",
+    "litigation-hold-letter.docx.md",
+    "oshiro-nda-agreement.docx.md",
+    "scheduling-order.docx.md",
+    "task.json.md",
+    "tro-order.docx.md",
+    "veridian-press-release.docx.md",
+    "yilmaz-preliminary-report.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Introduction, para. 6",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, exemplary damages",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "§ 1836(b)(3)(C)",
+      "cited_for": "Exemplary damages of up to two times actual damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "plus exemplary damages for willful and malicious misappropriation under the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C), of up to two times actual damages",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of not more than 2 times the damages awarded under subparagraph (B) when a trade secret is willfully and maliciously misappropriated. The complaint calls the base 'actual damages', a fair paraphrase: subparagraph (B) damages cover actual loss and unjust enrichment, or alternatively a reasonable royalty.",
+        "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B);",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Jurisdiction, para. 21",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. §§ 1836 et seq.",
+      "pincite": "",
+      "cited_for": "DTSA creates a federal civil cause of action for trade secret misappropriation",
+      "quotes": [],
+      "context": "original federal question jurisdiction over CMT's claims under the Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. §§ 1836 et seq., pursuant to 28 U.S.C. § 1331",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836(b)(1), as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153), creates a private federal civil action for misappropriation of a trade secret related to a product or service in interstate or foreign commerce. That supports federal-question jurisdiction under 28 U.S.C. § 1331. Using '§§' with 'et seq.' is a trivial style point.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Jurisdiction, para. 21",
+      "authority_type": "statute",
+      "authority": "Federal question jurisdiction",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Original federal question jurisdiction over DTSA claims",
+      "quotes": [],
+      "context": "pursuant to 28 U.S.C. § 1331, as the DTSA creates a federal civil cause of action for trade secret misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1331 confers original jurisdiction over civil actions arising under federal law; a DTSA claim (18 U.S.C. § 1836) arises under federal law, so § 1331 supports federal-question jurisdiction (DTSA § 1836(c) also separately grants original jurisdiction).",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https:/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Jurisdiction, para. 22",
+      "authority_type": "statute",
+      "authority": "Supplemental jurisdiction",
+      "citation_as_written": "28 U.S.C. § 1367(a)",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state-law claims forming part of the same case or controversy",
+      "quotes": [],
+      "context": "supplemental jurisdiction over CMT's state-law claims under 28 U.S.C. § 1367(a), as those claims are so related to the federal DTSA claim that they form part of the same case or controversy under Article III",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The complaint's paraphrase tracks the statute's 'form part of the same case or controversy under Article III' language.",
+        "explanation": "28 U.S.C. § 1367(a) grants supplemental jurisdiction over claims so related to claims within the court's original jurisdiction that they form part of the same Article III case or controversy.",
+        "evidence_excerpt": "\"the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\"",
+        "source_urls": [
+          "https:/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Jurisdiction, para. 22",
+      "authority_type": "other",
+      "authority": "U.S. Constitution, Article III",
+      "citation_as_written": "Article III of the United States Constitution",
+      "pincite": "",
+      "cited_for": "Same case or controversy standard for supplemental jurisdiction",
+      "quotes": [],
+      "context": "form part of the same case or controversy under Article III of the United States Constitution",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the phrase \"form part of the same case or controversy under Article III of the United States Constitution\" matches 28 U.S.C. § 1367(a) verbatim.",
+        "explanation": "Article III, § 2 extends the judicial power to \"cases\" and \"controversies.\" Section 1367(a) grants supplemental jurisdiction over claims that form part of the same case or controversy under Article III. The paragraph cites § 1367(a) and correctly paraphrases its Article III standard.",
+        "evidence_excerpt": "28 U.S.C. § 1367(a): \"... so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.\" Art. III § 2: \"The judicial power shall extend to all cases, in law and equity, arising under this Constitution, the laws of the United States ...\"",
+        "source_urls": [
+          "https:/1367",
+          "https://www.law.cornell.edu/constitution/articleiii"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Jurisdiction, para. 23",
+      "authority_type": "statute",
+      "authority": "Diversity jurisdiction",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Alternative original jurisdiction based on diversity of citizenship; amount in controversy exceeds $75,000",
+      "quotes": [],
+      "context": "Alternatively, this Court has original jurisdiction under 28 U.S.C. § 1332(a) based on diversity of citizenship.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1332(a)(1) grants district courts original jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000, exclusive of interest and costs. The complaint's paragraph 23 tracks this language.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Venue, para. 26",
+      "authority_type": "statute",
+      "authority": "General venue statute",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper because a substantial part of the events or omissions occurred in the district",
+      "quotes": [],
+      "context": "Venue is proper in the Western District of Texas, Austin Division, under 28 U.S.C. § 1391(b)(2) because a substantial part of the events or omissions giving rise to CMT's claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1391(b)(2) provides venue in a judicial district where a substantial part of the events or omissions giving rise to the claim occurred, which is exactly what the complaint invokes.",
+        "evidence_excerpt": "\"a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated\"",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Damages, para. 77",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, exemplary damages",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Exemplary damages up to two times actual damages (up to $164 million) for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "CMT is entitled to exemplary damages under the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C), in an amount not exceeding two times any award of actual damages",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The statute caps exemplary damages at 2 times the subparagraph (B) damages when misappropriation is willful and malicious. Doubling the claimed $82 million in actual damages gives the $164 million cap, which is correct arithmetic.",
+        "evidence_excerpt": "award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Damages, para. 78",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, attorneys' fees",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Recovery of reasonable attorneys' fees and costs",
+      "quotes": [],
+      "context": "CMT is also entitled to recover its reasonable attorneys' fees and costs under 18 U.S.C. § 1836(b)(3)(D) and applicable state law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1836(b)(3)(D) authorizes a court to award reasonable attorney's fees to the prevailing party where, among other grounds, the trade secret was willfully and maliciously misappropriated, which the complaint alleges. The fee claim is supported. The DTSA provision does not mention costs. The complaint pairs it with 'applicable state law', and costs ordinarily follow under Rule 54(d), so this is not a real defect. Fees are conditional: the plaintiff must prevail and show willful and malicious misappropriation.",
+        "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith ... or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count I heading",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. §§ 1836 ET SEQ.",
+      "pincite": "",
+      "cited_for": "Count I: misappropriation of trade secrets under the DTSA",
+      "quotes": [],
+      "context": "COUNT I: MISAPPROPRIATION OF TRADE SECRETS UNDER THE DEFEND TRADE SECRETS ACT, 18 U.S.C. §§ 1836 ET SEQ.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Count I's heading correctly identifies the DTSA civil cause of action codified at 18 U.S.C. § 1836 et seq. (§ 1836(b)(1)).",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection ...",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count I, para. 81",
+      "authority_type": "statute",
+      "authority": "DTSA definition of trade secret",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "The three technologies are 'trade secrets' within the meaning of the DTSA; paragraph paraphrases the statutory definition",
+      "quotes": [],
+      "context": "each constitute \"trade secrets\" within the meaning of the Defend Trade Secrets Act, 18 U.S.C. § 1839(3). Each is a form of scientific, technical, or engineering information",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Only the defined term \"trade secrets\" is quoted; it appears in § 1839(3).",
+        "explanation": "§ 1839(3) defines a trade secret as all forms and types of financial, business, scientific, technical, economic, or engineering information, provided the owner takes reasonable measures to keep it secret and it derives independent economic value from not being generally known. The complaint's paraphrase of the definition is accurate.",
+        "evidence_excerpt": "the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information, including patterns, plans, compilations, program devices, formulas, designs, prototypes, methods, techniques, processes, procedures, programs, or codes",
+        "source_urls": [
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count I, para. 83",
+      "authority_type": "statute",
+      "authority": "DTSA definition of misappropriation",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "",
+      "cited_for": "Oshiro misappropriated the trade secrets by improper acquisition, disclosure and use",
+      "quotes": [],
+      "context": "Oshiro misappropriated the CMT Trade Secrets within the meaning of 18 U.S.C. § 1839(5) by: (a) acquiring the CMT Trade Secrets through improper means",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1839(5) defines misappropriation in two branches. Branch (A) covers acquisition of a trade secret by a person who knows or has reason to know it was acquired by improper means. Branch (B) covers disclosure or use without express or implied consent by a person who, among other things, used improper means to acquire it or owed a duty of secrecy. The complaint's three theories of improper acquisition, unauthorized disclosure and unauthorized use fit these branches.",
+        "evidence_excerpt": "(A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who—(i) used improper means to acquire knowledge of the trade secret;",
+        "source_urls": [
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count I, para. 84",
+      "authority_type": "statute",
+      "authority": "DTSA definition of misappropriation",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "",
+      "cited_for": "Veridian misappropriated by acquiring, using or disclosing with knowledge or reason to know of improper acquisition",
+      "quotes": [],
+      "context": "Veridian misappropriated the CMT Trade Secrets within the meaning of 18 U.S.C. § 1839(5) by acquiring, using, and/or disclosing the CMT Trade Secrets knowing, or having reason to know",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1839(5) defines misappropriation as (A) acquisition by a person who knows or has reason to know the secret was acquired by improper means, or (B) disclosure or use without consent by a person who used improper means or knew or had reason to know of the improper derivation. The complaint's paraphrase (acquiring, using, and/or disclosing knowing or having reason to know) fairly tracks the definition.",
+        "evidence_excerpt": "the term 'misappropriation' means—(A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who—",
+        "source_urls": [
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count I, para. 86",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, exemplary damages",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Exemplary damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "CMT is entitled to exemplary damages under 18 U.S.C. § 1836(b)(3)(C) in an amount not exceeding two times any award of actual damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is the same provision as refs 0 and 7. The statute authorizes exemplary damages of no more than twice the subparagraph (B) damages for willful and malicious misappropriation.",
+        "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B);",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II heading",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act",
+      "citation_as_written": "TEX. CIV. PRAC. & REM. CODE §§ 134A.001 ET SEQ.",
+      "pincite": "",
+      "cited_for": "Count II: misappropriation of trade secrets under TUTSA",
+      "quotes": [],
+      "context": "COUNT II: MISAPPROPRIATION OF TRADE SECRETS UNDER THE TEXAS UNIFORM TRADE SECRETS ACT, TEX. CIV. PRAC. & REM. CODE §§ 134A.001 ET SEQ.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations.",
+        "explanation": "Chapter 134A of the Tex. Civ. Prac. & Rem. Code is the Texas Uniform Trade Secrets Act. Section 134A.001 gives the short title, and the chapter defines and provides remedies for misappropriation.",
+        "evidence_excerpt": "Sec. 134A.001. SHORT TITLE. This chapter may be cited as the Texas Uniform Trade Secrets Act.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II, para. 89",
+      "authority_type": "statute",
+      "authority": "TUTSA definition of trade secret",
+      "citation_as_written": "Tex. Civ. Prac. & Rem. Code § 134A.002(6)",
+      "pincite": "§ 134A.002(6)",
+      "cited_for": "The three technologies are trade secrets under TUTSA; paraphrases the definition",
+      "quotes": [],
+      "context": "\"trade secrets\" within the meaning of the Texas Uniform Trade Secrets Act (\"TUTSA\"), Tex. Civ. Prac. & Rem. Code § 134A.002(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the paraphrase is not presented as a quotation.",
+        "explanation": "Section 134A.002(6) defines \"trade secret\" as listed types of information where the owner took reasonable measures to keep it secret and it gets independent economic value from not being generally known or readily ascertainable through proper means. The complaint's paraphrase uses the older UTSA-style wording (\"efforts that are reasonable under the circumstances to maintain its secrecy\"; \"other persons\") rather than the post-2017 text (\"owner ... has taken reasonable measures\"; \"another person\"). The two elements are substantively the same, so the citation supports the proposition.",
+        "evidence_excerpt": "(6) \"Trade secret\" means all forms and types of information ... if: (A) the owner of the trade secret has taken reasonable measures under the circumstances to keep the information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to, and not being readily ascertainable through proper means by, another person",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.002"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II, para. 90",
+      "authority_type": "statute",
+      "authority": "TUTSA definition of misappropriation",
+      "citation_as_written": "TUTSA § 134A.002(3)",
+      "pincite": "§ 134A.002(3)",
+      "cited_for": "Defendants' conduct constitutes misappropriation",
+      "quotes": [],
+      "context": "Defendants' conduct constitutes \"misappropriation\" under TUTSA § 134A.002(3)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed (the defined term \"misappropriation\" appears verbatim in the statute).",
+        "explanation": "Section 134A.002(3) defines \"misappropriation\" as acquisition by improper means, or disclosure or use without consent by someone who used improper means or knew the knowledge came from a person who used improper means or owed a duty of secrecy. The complaint's theories (a) through (e) line up with those prongs.",
+        "evidence_excerpt": "(3) \"Misappropriation\" means: (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent by a person who: (i) used improper means to acquire knowledge of the trade secret",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.002"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II, para. 91",
+      "authority_type": "statute",
+      "authority": "TUTSA damages",
+      "citation_as_written": "TUTSA § 134A.004",
+      "pincite": "",
+      "cited_for": "Damages for actual loss, unjust enrichment, alternatively reasonable royalty",
+      "quotes": [],
+      "context": "CMT is entitled to damages under TUTSA § 134A.004, including damages for the actual loss caused by the misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 134A.004(a)",
+        "quote_check": "No quotations.",
+        "explanation": "Section 134A.004(a) allows recovery of actual loss, plus unjust enrichment not taken into account in computing actual loss. In lieu of damages measured by any other method, it allows a reasonable royalty. The complaint's paragraph 91 tracks this closely, including the 'alternatively, a reasonable royalty.' The shorthand 'TUTSA § 134A.004' is an acceptable informal form.",
+        "evidence_excerpt": "Damages can include both the actual loss caused by misappropriation and the unjust enrichment caused by misappropriation that is not taken into account in computing actual loss. In lieu of damages measured by any other methods, the damages caused by misappropriation may be measured by imposition of liability for a reasonable royalty",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II, para. 92",
+      "authority_type": "statute",
+      "authority": "TUTSA exemplary damages",
+      "citation_as_written": "TUTSA § 134A.004(b)",
+      "pincite": "§ 134A.004(b)",
+      "cited_for": "Exemplary damages not exceeding two times damages under Section 134A.004(a)",
+      "quotes": [],
+      "context": "entitling CMT to exemplary damages under TUTSA § 134A.004(b) in an amount not exceeding two times any award of damages under Section 134A.004(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; \"two times\" accurately paraphrases the statute's \"twice.\"",
+        "explanation": "Section 134A.004(b) allows exemplary damages up to twice the award under subsection (a) if willful and malicious misappropriation is proven by clear and convincing evidence. The complaint alleges willful and malicious misappropriation and states the cap correctly.",
+        "evidence_excerpt": "(b) If willful and malicious misappropriation is proven by clear and convincing evidence, the fact finder may award exemplary damages in an amount not exceeding twice any award made under Subsection (a).",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.004"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II, para. 93",
+      "authority_type": "statute",
+      "authority": "TUTSA injunctive relief",
+      "citation_as_written": "TUTSA § 134A.003",
+      "pincite": "",
+      "cited_for": "Injunctive relief to prevent actual or threatened misappropriation",
+      "quotes": [],
+      "context": "CMT seeks injunctive relief under TUTSA § 134A.003 to prevent actual or threatened misappropriation of the CMT Trade Secrets.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 134A.003(a) authorizes enjoining actual or threatened misappropriation, subject to a general-knowledge carve-out. That supports the request for injunctive relief.",
+        "evidence_excerpt": "(a) Actual or threatened misappropriation may be enjoined if the order does not prohibit a person from using general knowledge, skill, and experience that person acquired during employment.",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.003"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Prayer for Relief, item 2",
+      "authority_type": "statute",
+      "authority": "DTSA and TUTSA exemplary damages",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C) and/or Tex. Civ. Prac. & Rem. Code § 134A.004(b)",
+      "pincite": "",
+      "cited_for": "Exemplary damages for willful and malicious misappropriation not exceeding two times actual damages",
+      "quotes": [],
+      "context": "Exemplary damages under 18 U.S.C. § 1836(b)(3)(C) and/or Tex. Civ. Prac. & Rem. Code § 134A.004(b) for willful and malicious misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both provisions authorize exemplary damages of up to twice the compensatory award for willful and malicious misappropriation. The federal provision is 18 U.S.C. § 1836(b)(3)(C), and the Texas provision is Tex. Civ. Prac. & Rem. Code § 134A.004(b). The Texas statute also requires that willful and malicious misappropriation be proven by clear and convincing evidence, a standard the prayer for relief does not mention. Leaving out the burden of proof is not a defect in a prayer for relief.",
+        "evidence_excerpt": "TUTSA § 134A.004(b): \"If willful and malicious misappropriation is proven by clear and convincing evidence, the fact finder may award exemplary damages in an amount not exceeding twice any award made under Subsection (a).\"",
+        "source_urls": [
+          "https:/1836",
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.004"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Prayer for Relief, item 4",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, attorneys' fees",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Attorneys' fees and costs",
+      "quotes": [],
+      "context": "Reasonable attorneys' fees and costs incurred by CMT in this action under 18 U.S.C. § 1836(b)(3)(D) and/or applicable state law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is the same provision as ref 8, here cited in the prayer for relief. Section 1836(b)(3)(D) authorizes reasonable attorney's fees for a prevailing party where misappropriation was willful and malicious. Costs are claimed together with 'and/or applicable state law', and the DTSA subsection itself does not mention costs.",
+        "evidence_excerpt": "or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "ashcroft-forensics-report.docx.md",
+      "location": "IV.C. Analysis Steps (closing paragraph)",
+      "authority_type": "other",
+      "authority": "NIST Special Publication 800-86, Guide to Integrating Forensic Techniques into Incident Response",
+      "citation_as_written": "NIST Special Publication 800-86",
+      "pincite": "",
+      "cited_for": "Forensic work performed in accordance with its guidelines",
+      "quotes": [],
+      "context": "All work was performed in accordance with the guidelines set forth in NIST Special Publication 800-86, Guide to Integrating Forensic Techniques into Incident Response",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The title in the report matches NIST's official title exactly.",
+        "explanation": "NIST SP 800-86, 'Guide to Integrating Forensic Techniques into Incident Response' (August 2006), exists and is a guide to computer and network forensic practice. The citation is accurate. Whether the fictional expert actually followed the guidelines is a factual claim about the scenario that this check cannot test.",
+        "evidence_excerpt": "Title: \"Guide to Integrating Forensic Techniques into Incident Response\" ... Date Published: August 2006",
+        "source_urls": [
+          "https://csrc.nist.gov/pubs/sp/800/86/final"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "yilmaz-preliminary-report.docx.md",
+      "location": "II. Expert Qualifications, para. 3",
+      "authority_type": "other",
+      "authority": "U.S. Patent Nos. 9,814,227; 10,342,615; and 11,027,488 (Yilmaz's patents)",
+      "citation_as_written": "U.S. Patent Nos. 9,814,227; 10,342,615; and 11,027,488",
+      "pincite": "",
+      "cited_for": "Three patents held by the expert relating to real-time feedback and control in robotic surgical guidance",
+      "quotes": [],
+      "context": "I hold three United States patents related to robotic surgical guidance systems, specifically U.S. Patent Nos. 9,814,227; 10,342,615; and 11,027,488",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "All three patent numbers are real, but none is held by Dr. Lena Yilmaz and none concerns real-time feedback or control in robotic surgical guidance. US 9,814,227 B2 is a dual nozzle spray gun (Kenneth D. Crenshaw). US 10,342,615 B2 covers tissue ablation and cautery with optical energy carried in a fluid stream (Aljuri and Perkins, AquaBeam LLC). US 11,027,488 B2 covers a three-dimensional laminating and shaping apparatus (Niitani and Fujita, TRAFAM). The expert's claimed patents as described do not exist under these numbers.",
+        "evidence_excerpt": "US9814227B2 - Dual nozzle spray gun (Kenneth D. Crenshaw); US10342615B2 - Tissue ablation and cautery with optical energy carried in fluid stream (Nikolai Aljuri, Rodney C. Perkins, AquaBeam LLC); US11027488B2 - Three-dimensional laminating and shaping apparatus ... (Haruhiko Niitani, Yoshihito Fujita, TRAFAM)",
+        "source_urls": [
+          "https://patents.google.com/patent/US9814227B2/en",
+          "https://patents.google.com/patent/US10342615B2/en",
+          "https://patents.google.com/patent/US11027488B2/en"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+        "explanation": "I could not refute this. I checked each patent on Google Patents. US 9,814,227 B2 is titled \"Dual nozzle spray gun\"; the inventor is Kenneth D. Crenshaw and there is no corporate assignee. US 10,342,615 B2 is \"Tissue ablation and cautery with optical energy carried in fluid stream\"; the inventors are Nikolai Aljuri and Rodney C. Perkins, assigned to AquaBeam LLC. US 11,027,488 B2 is \"Three-dimensional laminating and shaping apparatus...\"; the inventors are Haruhiko Niitani and Yoshihito Fujita, assigned to TRAFAM. None of the three names Dr. Yilmaz, and none concerns real-time feedback or control in robotic surgical guidance. The AquaBeam patent is surgical, but it covers waterjet tissue ablation, not guidance-feedback control, and it is not hers. The numbers are real but belong to unrelated patents, so the patent-number analogue of CITATION_POINTS_TO_DIFFERENT_CASE fits. The citation appears in the supplied fictional expert report (yilmaz-preliminary-report.docx.md line 33).",
+        "source_urls": [
+          "https://patents.google.com/patent/US9814227B2/en",
+          "https://patents.google.com/patent/US10342615B2/en",
+          "https://patents.google.com/patent/US11027488B2/en"
+        ]
+      }
+    },
+    {
+      "ref": 24,
+      "document": "yilmaz-preliminary-report.docx.md",
+      "location": "III.B. Materials Reviewed, item 1",
+      "authority_type": "other",
+      "authority": "Castillo Medical Technologies, Inc. v. Oshiro et al., Case No. 1:24-cv-03841-RLH (W.D. Tex.) (First Amended Complaint)",
+      "citation_as_written": "Castillo Medical Technologies, Inc. v. Oshiro et al., Case No. 1:24-cv-03841-RLH (W.D. Tex.)",
+      "pincite": "",
+      "cited_for": "The operative First Amended Complaint (filed July 22, 2024) reviewed by the expert",
+      "quotes": [],
+      "context": "First Amended Complaint, Castillo Medical Technologies, Inc. v. Oshiro et al., Case No. 1:24-cv-03841-RLH (W.D. Tex.), filed July 22, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption and docket in the fictional scenario"
+    },
+    {
+      "ref": 25,
+      "document": "yilmaz-preliminary-report.docx.md",
+      "location": "III.B. Materials Reviewed, item 10",
+      "authority_type": "other",
+      "authority": "Order Granting in Part Plaintiff's Motion for Temporary Restraining Order (Aug. 2, 2024) (Hightower, J.)",
+      "citation_as_written": "Order Granting in Part Plaintiff's Motion for Temporary Restraining Order, dated August 2, 2024",
+      "pincite": "",
+      "cited_for": "The TRO order in the matter, reviewed by the expert",
+      "quotes": [],
+      "context": "Order Granting in Part Plaintiff's Motion for Temporary Restraining Order, dated August 2, 2024 (Hon. Rebecca L. Hightower).",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe order in the fictional matter"
+    },
+    {
+      "ref": 26,
+      "document": "tro-order.docx.md",
+      "location": "I. Introduction, para. 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Cause of action (1) asserted in the Verified Complaint: DTSA misappropriation",
+      "quotes": [],
+      "context": "(1) misappropriation of trade secrets under the Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The TRO correctly identifies the DTSA misappropriation claim as arising under 18 U.S.C. § 1836 et seq. Section 1836(b)(1) supplies the private civil action.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection ...",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "tro-order.docx.md",
+      "location": "I. Introduction, para. 1",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act",
+      "citation_as_written": "Tex. Civ. Prac. & Rem. Code § 134A.001 et seq.",
+      "pincite": "",
+      "cited_for": "Cause of action (2) asserted in the Verified Complaint: TUTSA misappropriation",
+      "quotes": [],
+      "context": "(2) misappropriation of trade secrets under the Texas Uniform Trade Secrets Act (\"TUTSA\"), Tex. Civ. Prac. & Rem. Code § 134A.001 et seq.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations.",
+        "explanation": "This correctly identifies TUTSA as Tex. Civ. Prac. & Rem. Code § 134A.001 et seq., the statutory basis for a trade secret misappropriation claim.",
+        "evidence_excerpt": "Sec. 134A.001. SHORT TITLE. This chapter may be cited as the Texas Uniform Trade Secrets Act.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "tro-order.docx.md",
+      "location": "III. Legal Standard, para. 1",
+      "authority_type": "case",
+      "authority": "Holland American Insurance Co. v. Succession of Roy",
+      "citation_as_written": "Holland Am. Ins. Co. v. Succession of Roy, 777 F.2d 992, 997 (5th Cir. 1985)",
+      "pincite": "997",
+      "cited_for": "A TRO is an extraordinary remedy that should not be granted unless the movant clearly establishes entitlement to relief",
+      "quotes": [],
+      "context": "A temporary restraining order is an extraordinary remedy that should not be granted unless the movant clearly establishes its entitlement to relief. See Holland Am. Ins. Co. v. Succession of Roy, 777 F.2d 992, 997 (5th Cir. 1985).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At page 997 the Fifth Circuit describes injunctive relief under Rule 65 as an extraordinary and drastic remedy, available only when the movant carries the burden of persuasion by a clear showing. That supports the TRO proposition. The case name is a standard short form of 'Holland America Insurance Co. v. Succession of Shepherd J. Roy'. CourtListener's name-similarity warning reflects only that abbreviation.",
+        "evidence_excerpt": "*997 ... Injunctive relief is an extraordinary and drastic remedy, not to be granted routinely, but only when the movant, by a clear showing, carries the burden of persuasion.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/461238/holland-america-insurance-company-v-succession-of-shepherd-j-roy-the/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "tro-order.docx.md",
+      "location": "III. Legal Standard, para. 1",
+      "authority_type": "case",
+      "authority": "Janvey v. Alguire",
+      "citation_as_written": "Janvey v. Alguire, 647 F.3d 585, 595 (5th Cir. 2011)",
+      "pincite": "595",
+      "cited_for": "Four-factor TRO test: likelihood of success, irreparable injury, balance of harms, public interest",
+      "quotes": [],
+      "context": "To obtain a TRO, the movant must demonstrate: (1) a substantial likelihood of success on the merits; (2) a substantial threat of irreparable injury ... See Janvey v. Alguire, 647 F.3d 585, 595 (5th Cir. 2011)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The four-factor language in the order's context tracks the opinion's text at 595.",
+        "explanation": "Right after the *595 marker, Janvey sets out the four preliminary-injunction elements: likelihood of success, irreparable injury, balance of harms, and public interest. It also states that the movant bore the burden on each. The order applies this standard to a TRO, which is standard Fifth Circuit practice.",
+        "evidence_excerpt": "The four elements a plaintiff must establish to secure a preliminary injunction are: (1) a substantial likelihood of success on the merits, (2) a substantial threat of irreparable injury if the injunction is not issued, (3) that the threatened injury if the injunction is denied outweighs any harm that will result if the injunction is granted, and (4) that the grant of an injunction will not disserve the public interest.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/221659/janvey-v-alguire/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "tro-order.docx.md",
+      "location": "III. Legal Standard, para. 1",
+      "authority_type": "case",
+      "authority": "Nichols v. Alcatel USA, Inc.",
+      "citation_as_written": "Nichols v. Alcatel USA, Inc., 532 F.3d 364, 372 (5th Cir. 2008)",
+      "pincite": "372",
+      "cited_for": "Four-factor TRO test",
+      "quotes": [],
+      "context": "Nichols v. Alcatel USA, Inc., 532 F.3d 364, 372 (5th Cir. 2008).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Nichols states the same four-factor preliminary-injunction test, and the passage falls after the *372 marker and before *373. The case name is a short form of 'Nichols ex rel. Alcatel Network Systems Salaried Retirees Benefit Program v. Alcatel USA, Inc.'",
+        "evidence_excerpt": "Plaintiffs seeking a preliminary injunction must show: (1) a substantial likelihood of success on the merits, (2) a substantial threat that plaintiffs will suffer irreparable harm if the injunction is not granted, (3) that the threatened injury outweighs any damage that the injunction might cause the defendant, and (4) that the injunction will not disserve the public interest.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/62392/nichols-ex-rel-alcatel-network-systems-salaried-retirees-benefit-program/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "tro-order.docx.md",
+      "location": "III. Legal Standard, para. 1",
+      "authority_type": "case",
+      "authority": "Speaks v. Kruse",
+      "citation_as_written": "Speaks v. Kruse, 445 F.3d 396, 399–400 (5th Cir. 2006)",
+      "pincite": "399–400",
+      "cited_for": "The movant bears the burden of establishing each of the four elements",
+      "quotes": [],
+      "context": "The movant bears the burden of establishing each of these four elements. See Speaks v. Kruse, 445 F.3d 396, 399–400 (5th Cir. 2006).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "At 399–400 Speaks says a preliminary injunction should issue 'if the movant establishes' the four elements, with the list spanning the *400 page break. That reasonably supports the proposition that the movant must establish each element. The opinion never uses the word 'burden', so the support is by fair implication rather than express statement.",
+        "evidence_excerpt": "A preliminary injunction should issue if the movant establishes: (1) a substantial likelihood of success on the merits, (2) a substantial threat of irreparable injury if the injunction is not issued, (3) that the threatened injury if the injunction is denied outweighs any *400 harm that will result if the injunction is granted, and (4) that the grant of an injunction will not disserve the public interest.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/41439/speaks-v-kruse/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "tro-order.docx.md",
+      "location": "III. Legal Standard, para. 2",
+      "authority_type": "statute",
+      "authority": "DTSA injunctive relief",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(A)",
+      "pincite": "",
+      "cited_for": "DTSA injunctive relief may not prevent a person from entering an employment relationship; conditions must be based on evidence of threatened misappropriation",
+      "quotes": [
+        "prevent a person from entering into an employment relationship",
+        "conditions placed on such employment shall be based on evidence of threatened misappropriation and not merely on the information the person knows"
+      ],
+      "context": "provided that such relief does not \"prevent a person from entering into an employment relationship\" and that \"conditions placed on such employment shall be based on evidence of threatened misappropriation and not merely on the information the person knows.\" 18 U.S.C. § 1836(b)(3)(A).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(3)(A)(i)(I) (more precise pin)",
+        "quote_check": "Both quotes are verbatim in § 1836(b)(3)(A)(i)(I): \"prevent a person from entering into an employment relationship\" and \"conditions placed on such employment shall be based on evidence of threatened misappropriation and not merely on the information the person knows\".",
+        "explanation": "§ 1836(b)(3)(A) authorizes an injunction against actual or threatened misappropriation, provided the order does not prevent a person from entering into an employment relationship and that any conditions on employment rest on evidence of threatened misappropriation. Both quotes come from clause (i)(I), which sits inside the cited subparagraph (A), so the citation is acceptable.",
+        "evidence_excerpt": "provided the order does not—(I) prevent a person from entering into an employment relationship, and that conditions placed on such employment shall be based on evidence of threatened misappropriation and not merely on the information the person knows",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "tro-order.docx.md",
+      "location": "IV.A. Likelihood of Success, Trade Secret Misappropriation",
+      "authority_type": "statute",
+      "authority": "DTSA definitions",
+      "citation_as_written": "18 U.S.C. § 1839(3), (5)",
+      "pincite": "§ 1839(3), (5)",
+      "cited_for": "CMT must show information is a trade secret and was misappropriated",
+      "quotes": [],
+      "context": "See 18 U.S.C. § 1839(3), (5); Tex. Civ. Prac. & Rem. Code § 134A.002(3), (6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1839(3) defines trade secret and § 1839(5) defines misappropriation. Together they are the two elements the plaintiff has to show, so the 'see' cite for that proposition is correct.",
+        "evidence_excerpt": "the term 'trade secret' means all forms and types of ... scientific, technical, economic, or engineering information ...; the term 'misappropriation' means—(A) acquisition of a trade secret of another by a person who knows or has reason to know",
+        "source_urls": [
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "tro-order.docx.md",
+      "location": "IV.A. Likelihood of Success, Trade Secret Misappropriation",
+      "authority_type": "statute",
+      "authority": "TUTSA definitions",
+      "citation_as_written": "Tex. Civ. Prac. & Rem. Code § 134A.002(3), (6)",
+      "pincite": "§ 134A.002(3), (6)",
+      "cited_for": "CMT must show information is a trade secret and was misappropriated",
+      "quotes": [],
+      "context": "See 18 U.S.C. § 1839(3), (5); Tex. Civ. Prac. & Rem. Code § 134A.002(3), (6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Subdivisions (3) and (6) of § 134A.002 define \"misappropriation\" and \"trade secret,\" which are the two elements the TRO order says CMT must show. The \"See\" signal is apt.",
+        "evidence_excerpt": "(3) \"Misappropriation\" means: ... (6) \"Trade secret\" means all forms and types of information ...",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_134a.002"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "tro-order.docx.md",
+      "location": "IV.B. Irreparable Injury",
+      "authority_type": "case",
+      "authority": "Texas Advanced Optoelectronic Solutions, Inc. v. Renesas Electronics America, Inc.",
+      "citation_as_written": "Tex. Advanced Optoelectronic Sols., Inc. v. Renesas Elecs. Am., Inc., 895 F.3d 1304, 1315 (Fed. Cir. 2018)",
+      "pincite": "1315",
+      "cited_for": "Trade secret misappropriation causes irreparable harm because disclosed secrets cannot be 'unlearned' (applying Fifth Circuit law)",
+      "quotes": [],
+      "context": "once trade secrets are disclosed, they cannot be \"unlearned\" or restored to their former state of secrecy. See Tex. Advanced Optoelectronic Sols., Inc. v. Renesas Elecs. Am., Inc., 895 F.3d 1304, 1315 (Fed. Cir. 2018) (applying Fifth Circuit law)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation. The word \"unlearned\" (or \"unlearn\") does not appear anywhere in the opinion; CourtListener search returned 0 matches.",
+        "explanation": "The case is real and the reporter cite is correct: TAOS v. Renesas, 895 F.3d 1304 (Fed. Cir. May 1, 2018). Page 1315 deals with something else. It holds that the parties' Confidentiality Agreement permitted Intersil's 'Build vs. Buy' use, so that use could not ground trade secret misappropriation liability. The opinion never says that disclosed trade secrets cannot be 'unlearned,' and it does not treat trade secret misappropriation as irreparable harm in itself. Its only irreparable-harm discussion is at 1331-32, under eBay, about a permanent injunction on the patent claim, where the court vacated and remanded the denial of an injunction. The 'applying Fifth Circuit law' parenthetical is also loose; the opinion says no controlling Fifth Circuit precedent was identified on the jury question. The proposition is not in the cited authority.",
+        "evidence_excerpt": "*1315 reposed in [Intersil] by [TAOS] in disclosing the secret to [Intersil].\" ... To obtain a permanent injunction, TAOS, having succeeded on the merits of its patent-infringement claim, had to show (1) irreparable injury in the absence of an injunction...",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8410824/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. 895 F.3d 1304 is TAOS v. Renesas (Fed. Cir. 2018), CourtListener opinion 8410824. The text at *1315 is about the Confidentiality Agreement: \"that use was contractually permitted and therefore not a proper basis of liability for trade secret misappropriation ... Intersil's use did not 'constitute[ ] a breach of confidence *1315 reposed in [Intersil] by [TAOS]...'\" I searched the reported opinion (8410824), the slip opinion (4292404) and the 888 F.3d 1322 version (4271421): \"unlearn\" and \"former state\" each return 0 matches. The only irreparable-harm discussion is at 1331-32, under eBay, about the denied permanent injunction on the patent claim (\"Irreparable harm, not adequately compensable at law, may exist even if...\"). It says nothing about misappropriation inherently causing irreparable harm. The opinion is real, but it does not hold what the TRO cites it for.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8410824/",
+          "https://www.courtlistener.com/opinion/4292404/"
+        ]
+      }
+    },
+    {
+      "ref": 36,
+      "document": "tro-order.docx.md",
+      "location": "IV.B. Irreparable Injury",
+      "authority_type": "case",
+      "authority": "FMC Corp. v. Taiwan Taiyo Yuden Co.",
+      "citation_as_written": "FMC Corp. v. Taiwan Taiyo Yuden Co., 743 F.2d 1470, 1473 (Fed. Cir. 1984)",
+      "pincite": "1473",
+      "cited_for": "Trade secret misappropriation causes irreparable harm (cited with Renesas); case name/cite should be verified (possible fabricated or garbled authority)",
+      "quotes": [],
+      "context": "*See Tex. Advanced Optoelectronic Sols., Inc. v. Renesas Elecs. Am., Inc.*, 895 F.3d 1304, 1315 (Fed. Cir. 2018) (applying Fifth Circuit law); *FMC Corp. v. Taiwan Taiyo Yuden Co.*, 743 F.2d 1470, 1473 (Fed. Cir. 1984).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "FMC Corp. v. Taiwan Tainan Giant Indus. Co., 730 F.2d 61, 63 (2d Cir. 1984) (per curiam)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No case named 'FMC Corp. v. Taiwan Taiyo Yuden Co.' exists in CourtListener. The reporter cite 743 F.2d 1470 resolves to an unrelated criminal appeal, United States v. Esle (1984), so the name, volume, page, and court (Fed. Cir.) are all garbled. The evident intended authority is FMC Corp. v. Taiwan Tainan Giant Industrial Co., 730 F.2d 61 (2d Cir. 1984), which at page 63 holds that loss of trade secrets cannot be measured in money damages. That supports the irreparable-harm proposition, but the citation as written is wrong in nearly every element. This could alternatively be classed as CITATION_POINTS_TO_DIFFERENT_CASE, since the reporter cite belongs to Esle.",
+        "evidence_excerpt": "The district court correctly found that the information in question is of great value to FMC, and it is clear that the loss of trade secrets cannot be measured in money damages. [730 F.2d at *63]; CourtListener: 743 F.2d 1470 — United States v. Ricardo R. Esle ... (1984-09-26)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/433035/fmc-corporation-v-taiwan-tainan-giant-industrial-co-ltd-and/",
+          "https://www.courtlistener.com/opinion/441827/united-states-v-ricardo-r-esle-roberto-diaz-gomez-aka-robert/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. CourtListener's citation lookup resolves 743 F.2d 1470 to United States v. Esle, 743 F.2d 1465 (11th Cir. 1984), and flags the name mismatch: \"similarity 0.17 ... Possible hallucinated citation.\" Page 1470 falls inside the Esle opinion. Keyword searches for \"Taiyo Yuden\" with FMC, and for case names containing FMC and Taiwan, find only FMC Corp. v. Taiwan Tainan Giant Industrial Co., 730 F.2d 61 (2d Cir. 1984) (per curiam). At page 63 that case says \"it is clear that the loss of trade secrets cannot be measured in money damages ... A trade secret once lost is, of course, lost forever.\" So a real case supports the proposition, but the cited party name, volume, page and court (Fed. Cir.) are garbled. WRONG_CITATION_REAL_CASE is the best fit; CITATION_POINTS_TO_DIFFERENT_CASE is a defensible alternative. Correct cite: FMC Corp. v. Taiwan Tainan Giant Indus. Co., 730 F.2d 61, 63 (2d Cir. 1984).",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/433035/fmc-corporation-v-taiwan-tainan-giant-industrial-co-ltd-and/",
+          "https://www.courtlistener.com/opinion/441827/united-states-v-ricardo-r-esle-roberto-diaz-gomez-aka-robert/"
+        ]
+      }
+    },
+    {
+      "ref": 37,
+      "document": "tro-order.docx.md",
+      "location": "IV.C. Balance of Hardships",
+      "authority_type": "statute",
+      "authority": "DTSA injunctive relief limitation",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(A)(i)(I)",
+      "pincite": "",
+      "cited_for": "DTSA injunctive relief shall not prevent a person from entering into an employment relationship; court will not impose a non-compete",
+      "quotes": [
+        "prevent a person from entering into an employment relationship"
+      ],
+      "context": "See 18 U.S.C. § 1836(b)(3)(A)(i)(I) (injunctive relief under DTSA shall not \"prevent a person from entering into an employment relationship\").",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"prevent a person from entering into an employment relationship\" found verbatim in § 1836(b)(3)(A)(i)(I).",
+        "explanation": "The statute provides that an injunctive order may not prevent a person from entering into an employment relationship. That supports the court's refusal to impose what would amount to a non-compete.",
+        "evidence_excerpt": "on such terms as the court deems reasonable, provided the order does not—(I) prevent a person from entering into an employment relationship",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "tro-order.docx.md",
+      "location": "V.B. Document Preservation Requirement",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(e)",
+      "pincite": "",
+      "cited_for": "Failure to preserve may result in sanctions including adverse inference instructions",
+      "quotes": [],
+      "context": "Failure to comply with this preservation requirement may result in sanctions under Federal Rule of Civil Procedure 37(e), including adverse inference instructions",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(e) permits sanctions for failure to preserve ESI, including adverse-inference instructions upon a finding of intent to deprive. The order's 'may result in sanctions ... including adverse inference instructions' is consistent. Caveat: 37(e) covers ESI only and the adverse inference requires an intent finding; violation of a court preservation order could also be sanctioned under Rule 37(b)/inherent power. 'Monetary sanctions' are not expressly listed but fee awards are available as curative measures.",
+        "evidence_excerpt": "Only upon finding that the party acted with the intent to deprive another party of the information's use in the litigation may: ... (B) instruct the jury that it may or must presume the information was unfavorable to the party",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "tro-order.docx.md",
+      "location": "V.C. TRO Denied in Part",
+      "authority_type": "statute",
+      "authority": "DTSA injunctive relief limitation",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(A)(i)(I)",
+      "pincite": "",
+      "cited_for": "Denial of request to enjoin Oshiro's employment; statute directs injunction shall not prevent employment",
+      "quotes": [
+        "prevent a person from entering into an employment relationship"
+      ],
+      "context": "The DTSA itself provides that injunctive relief shall not \"prevent a person from entering into an employment relationship,\" and the Court is guided by that statutory directive. See 18 U.S.C. § 1836(b)(3)(A)(i)(I).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"prevent a person from entering into an employment relationship\" found verbatim in § 1836(b)(3)(A)(i)(I).",
+        "explanation": "The statute's proviso bars an injunction that prevents a person from entering into an employment relationship. That supports denying the request to enjoin Oshiro's employment.",
+        "evidence_excerpt": "provided the order does not—(I) prevent a person from entering into an employment relationship",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "tro-order.docx.md",
+      "location": "V.E. Duration and Bond, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 65(b)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 65(b)(2)",
+      "pincite": "",
+      "cited_for": "TRO lasts 14 days unless extended for good cause",
+      "quotes": [],
+      "context": "unless extended by the Court for good cause shown pursuant to Federal Rule of Civil Procedure 65(b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 65(b)(2) provides that a TRO expires at the time the court sets, not to exceed 14 days, unless the court for good cause extends it for a like period. Strictly the expiration rule is framed for TROs issued without notice, but courts routinely apply it to TROs generally; the cite supports the proposition.",
+        "evidence_excerpt": "The order expires at the time after entry—not to exceed 14 days—that the court sets, unless before that time the court, for good cause, extends it for a like period or the adverse party consents to a longer extension.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_65"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "tro-order.docx.md",
+      "location": "V.E. Duration and Bond, para. 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 65(c)",
+      "citation_as_written": "Federal Rule of Civil Procedure 65(c)",
+      "pincite": "",
+      "cited_for": "Plaintiff must post $500,000 bond as security for costs and damages if wrongfully enjoined",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 65(c), Plaintiff Castillo Medical Technologies, Inc. shall post a bond in the amount of $500,000.00",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 65(c) requires the movant to give security in an amount the court considers proper to pay costs and damages of a party found wrongfully enjoined or restrained; the bond amount is within the court's discretion.",
+        "evidence_excerpt": "The court may issue a preliminary injunction or a temporary restraining order only if the movant gives security in an amount that the court considers proper to pay the costs and damages sustained by any party found to have been wrongfully enjoined or restrained.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_65"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "first-amended-complaint.docx.md",
+      "location": "Count II, para. 92",
+      "authority_type": "statute",
+      "authority": "TUTSA damages, subsection (a) (short-form Section reference)",
+      "citation_as_written": "Section 134A.004(a)",
+      "pincite": "",
+      "cited_for": "Exemplary damages under TUTSA are capped at two times any award of damages under Section 134A.004(a)",
+      "quotes": [],
+      "context": "Defendants' misappropriation was willful and malicious, entitling CMT to exemplary damages under TUTSA § 134A.004(b) in an amount not exceeding two times any award of damages under Section 134A.004(a).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations.",
+        "explanation": "Section 134A.004(b) allows exemplary damages of up to twice any award under Subsection (a), but only if willful and malicious misappropriation is proven by clear and convincing evidence. The complaint's statement of the 2x cap tied to § 134A.004(a) is accurate; it leaves out the clear-and-convincing standard, which is acceptable in a pleading.",
+        "evidence_excerpt": "(b) If willful and malicious misappropriation is proven by clear and convincing evidence, the fact finder may award exemplary damages in an amount not exceeding twice any award made und[er Subsection (a)]",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "task.json.md",
+      "location": "rubric C-016",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "FRCP 26(e)",
+      "pincite": "26(e)",
+      "cited_for": "Responding party's continuing duty to supplement interrogatory responses",
+      "quotes": [],
+      "context": "PASS if the Instructions section references or describes the responding party's continuing duty to supplement responses under FRCP 26(e) or otherwise states that responses must be supplemented",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(e)(1) expressly requires a party that has responded to an interrogatory to supplement or correct its response in a timely manner if it learns the response is materially incomplete or incorrect. That is the continuing duty to supplement.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "task.json.md",
+      "location": "rubric C-019",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(1)",
+      "citation_as_written": "FRCP 33(a)(1)",
+      "pincite": "33(a)(1)",
+      "cited_for": "25-interrogatory limit counting discrete subparts",
+      "quotes": [],
+      "context": "counting discrete subparts as separate interrogatories where they ask for different categories of information (consistent with FRCP 33(a)(1)), does not exceed 25",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(1) limits a party to 25 written interrogatories, including all discrete subparts. The rubric's gloss that subparts asking for different categories of information count separately comes from case-law interpretation, not the rule's text. It is a reasonable reading of 'discrete subparts' and is consistent with the rule.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "task.json.md",
+      "location": "rubric C-032 (title and match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(2)",
+      "citation_as_written": "FRCP 33(a)(2)",
+      "pincite": "33(a)(2)",
+      "cited_for": "Court may defer responses to contention interrogatories",
+      "quotes": [],
+      "context": "Contention interrogatories either absent, deferred per FRCP 33(a)(2), or framed as factual inquiries ... (b) includes such interrogatories but expressly references FRCP 33(a)(2) or states that the court may defer the response",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 33(a)(2) makes contention interrogatories permissible and lets the court order that they need not be answered until designated discovery is complete, or until a pretrial conference or some other time. That supports the rubric's statement that the court may defer contention responses.",
+        "evidence_excerpt": "An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact, but the court may order that the interrogatory need not be answered until designated discovery is complete, or until a pretrial conference or some other time.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "task.json.md",
+      "location": "rubric C-044",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33",
+      "citation_as_written": "FRCP 33 or Fed. R. Civ. P. 33",
+      "pincite": "",
+      "cited_for": "Requirement that the interrogatories reference Rule 33",
+      "quotes": [],
+      "context": "PASS if the document references Federal Rule of Civil Procedure 33 (FRCP 33 or Fed. R. Civ. P. 33) in the instructions, definitions, or interrogatories.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 33 is the federal rule governing interrogatories to parties. The rubric only requires the draft to reference Rule 33, and that rule is the correct authority.",
+        "evidence_excerpt": "Rule 33. Interrogatories to Parties",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "oshiro-nda-agreement.docx.md",
+      "location": "Section 2.3",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act",
+      "citation_as_written": "Texas Uniform Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Trade secret confidentiality obligations continue as long as information remains a trade secret",
+      "quotes": [
+        "trade secret"
+      ],
+      "context": "To the extent that any Confidential Information constitutes a \"trade secret\" under applicable law, including the Texas Uniform Trade Secrets Act or the Defend Trade Secrets Act of 2016 (18 U.S.C. § 1836 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"trade secret\": found verbatim. It is a defined term in § 134A.002(6).",
+        "explanation": "The NDA cites TUTSA only as a source of the legal definition of 'trade secret.' The provision that obligations continue while the information remains a trade secret is a contract term, not a claim about what the statute says. TUTSA does define 'trade secret' in § 134A.002(6), and § 134A.003(a-1) ties injunctions to the trade secret's continued existence, which fits the clause. The reference is accurate.",
+        "evidence_excerpt": "(6) \"Trade secret\" means all forms and types of information, including business, scientific, technical, economic, or engineering information ... if: (A) the owner of the trade secret has taken reasonable measures ...",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "oshiro-nda-agreement.docx.md",
+      "location": "Section 2.3",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Trade secret confidentiality obligations continue as long as information remains a trade secret",
+      "quotes": [],
+      "context": "the Defend Trade Secrets Act of 2016 (18 U.S.C. § 1836 et seq.), Employee's obligations with respect to such trade secret shall continue for so long as such information remains a trade secret",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153, May 11, 2016) amended 18 U.S.C. § 1836 to add the private civil action, and it is correctly cited as 18 U.S.C. § 1836 et seq. The NDA cites the DTSA only to define what counts as a 'trade secret.' The rule that obligations last as long as the information remains a trade secret comes from the contract, not the statute, and the NDA does not attribute it to the DTSA. The reference is therefore accurate for its limited purpose.",
+        "evidence_excerpt": "the amendments by Pub. L. 114–153 (May 11, 2016) substantially revised this section, adding the private civil action provisions",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "oshiro-nda-agreement.docx.md",
+      "location": "Section 4.5",
+      "authority_type": "statute",
+      "authority": "Copyright Act of 1976, 17 U.S.C. § 101",
+      "citation_as_written": "17 U.S.C. § 101",
+      "pincite": "",
+      "cited_for": "Definition of works made for hire",
+      "quotes": [
+        "works made for hire"
+      ],
+      "context": "such works are \"works made for hire\" as defined under the Copyright Act of 1976 (17 U.S.C. § 101)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"works made for hire\" found with a minor difference: the statute defines the singular \"work made for hire\" in 17 U.S.C. § 101, and the plural is ordinary grammatical usage.",
+        "explanation": "17 U.S.C. § 101 is the Copyright Act's definitions section and defines 'work made for hire.' Clause (1) covers works prepared by an employee within the scope of employment. The NDA correctly cites it as the source of the definition. Whether a particular invention qualifies depends on the facts, and the NDA's backup assignment clause addresses that.",
+        "evidence_excerpt": "(1) a work prepared by an employee within the scope of his or her employment; or (2) a work specially ordered or commissioned ...",
+        "source_urls": [
+          "https:/101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "scheduling-order.docx.md",
+      "location": "I. Preamble, para 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)",
+      "citation_as_written": "Rule 16(b) of the Federal Rules of Civil Procedure",
+      "pincite": "16(b)",
+      "cited_for": "Scheduling conference held pursuant to Rule 16(b)",
+      "quotes": [],
+      "context": "the Court held a scheduling conference pursuant to Rule 16(b) of the Federal Rules of Civil Procedure",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b), headed 'Scheduling,' requires the judge to issue a scheduling order. It contemplates doing so after receiving the parties' report or after consulting with the parties at a scheduling conference. A conference held 'pursuant to Rule 16(b)' is therefore a correct reference.",
+        "evidence_excerpt": "(b) Scheduling. (1) Scheduling Order. Except in categories of actions exempted by local rule, the district judge—or a magistrate judge when authorized by local rule—must issue a scheduling order:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "scheduling-order.docx.md",
+      "location": "I. Preamble, para 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "26(f)",
+      "cited_for": "Joint report of parties' planning meeting",
+      "quotes": [],
+      "context": "Joint Report of the Parties' Planning Meeting filed pursuant to Rule 26(f) on August 23, 2024",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) governs the parties' discovery-planning conference. It requires them to submit to the court a written report outlining the discovery plan within 14 days after the conference, which is the joint report the order refers to.",
+        "evidence_excerpt": "submitting to the court within 14 days after the conference a written report outlining the plan",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "scheduling-order.docx.md",
+      "location": "I. Preamble, para 2",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Claims asserted include trade secret misappropriation under DTSA",
+      "quotes": [],
+      "context": "trade secret misappropriation under the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq. (\"DTSA\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The scheduling order correctly identifies the DTSA claim and its codification at 18 U.S.C. § 1836 et seq., which creates a private civil action for trade secret misappropriation.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection ...",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "scheduling-order.docx.md",
+      "location": "I. Preamble, para 2",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act",
+      "citation_as_written": "Tex. Civ. Prac. & Rem. Code § 134A.001 et seq.",
+      "pincite": "",
+      "cited_for": "Claims asserted include trade secret misappropriation under TUTSA",
+      "quotes": [],
+      "context": "and the Texas Uniform Trade Secrets Act, Tex. Civ. Prac. & Rem. Code § 134A.001 et seq. (\"TUTSA\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations.",
+        "explanation": "The citation and short form are correct: Tex. Civ. Prac. & Rem. Code § 134A.001 et seq. is TUTSA, which provides the misappropriation cause of action.",
+        "evidence_excerpt": "Sec. 134A.001. SHORT TITLE. This chapter may be cited as the Texas Uniform Trade Secrets Act.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "scheduling-order.docx.md",
+      "location": "I. Preamble, para 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)",
+      "pincite": "16(b)",
+      "cited_for": "Court enters Scheduling Order pursuant to Rule 16(b)",
+      "quotes": [],
+      "context": "the Court hereby enters the following Scheduling Order pursuant to Fed. R. Civ. P. 16(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b) governs scheduling orders and directs the district judge (or an authorized magistrate judge) to issue one. That fits a court entering a scheduling order under Rule 16(b).",
+        "evidence_excerpt": "Except in categories of actions exempted by local rule, the district judge—or a magistrate judge when authorized by local rule—must issue a scheduling order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "scheduling-order.docx.md",
+      "location": "II.A General Discovery Period",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "16(b)(4)",
+      "cited_for": "Extensions of discovery period only on good cause",
+      "quotes": [],
+      "context": "Extensions of the discovery period will be granted only upon a showing of good cause pursuant to Fed. R. Civ. P. 16(b)(4)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) allows a schedule, including the discovery deadline, to be modified only for good cause. That supports allowing extensions of the discovery period only on good cause.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "scheduling-order.docx.md",
+      "location": "II.B.1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 33(a)(1)",
+      "pincite": "33(a)(1)",
+      "cited_for": "25 interrogatories including discrete subparts per party",
+      "quotes": [
+        "twenty-five (25) interrogatories, including all discrete subparts"
+      ],
+      "context": "each party is limited to twenty-five (25) interrogatories, including all discrete subparts, directed to any other party, pursuant to Fed. R. Civ. P. 33(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is the scheduling order's own wording. Rule 33(a)(1) says \"no more than 25 written interrogatories, including all discrete subparts.\" The substance matches; the wording differs slightly.",
+        "explanation": "Rule 33(a)(1) limits each party to 25 written interrogatories, including all discrete subparts, served on any other party, unless the parties stipulate or the court orders otherwise. The scheduling order's 25-per-party limit follows the rule.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "scheduling-order.docx.md",
+      "location": "II.B.2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(b)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 33(b)(2)",
+      "pincite": "33(b)(2)",
+      "cited_for": "Interrogatory responses due 30 days after service",
+      "quotes": [],
+      "context": "Responses shall be due thirty (30) days after service, consistent with Fed. R. Civ. P. 33(b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 33(b)(2) requires the responding party to serve its answers and objections within 30 days after being served, which matches the order's 30-day deadline.",
+        "evidence_excerpt": "The responding party must serve its answers and any objections within 30 days after being served with the interrogatories.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "scheduling-order.docx.md",
+      "location": "II.B.3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Proportionality of discovery",
+      "quotes": [],
+      "context": "considering the importance of the issues at stake in the action, the amount in controversy ... Fed. R. Civ. P. 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The paraphrased proportionality factors in the context closely track the rule's text.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter that is relevant and proportional to the needs of the case. It lists the same factors the order recites: importance of the issues at stake, amount in controversy, and so on.",
+        "evidence_excerpt": "proportional to the needs of the case, considering the importance of the issues at stake in the action, the amount in controversy, the parties' relative access to relevant information, the parties' resources",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "scheduling-order.docx.md",
+      "location": "II.C",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34",
+      "citation_as_written": "Fed. R. Civ. P. 34",
+      "pincite": "",
+      "cited_for": "Requests for production service deadline",
+      "quotes": [],
+      "context": "Requests for production of documents pursuant to Fed. R. Civ. P. 34 shall be served no later than January 2, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34 governs requests for production. The order cites it only to identify the kind of request; the January 2, 2025 service deadline is set by the court's scheduling order, not by the rule, and the order does not claim otherwise.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b):",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "scheduling-order.docx.md",
+      "location": "II.C",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36",
+      "citation_as_written": "Fed. R. Civ. P. 36",
+      "pincite": "",
+      "cited_for": "Requests for admission service deadline",
+      "quotes": [],
+      "context": "Requests for admission pursuant to Fed. R. Civ. P. 36 shall be served no later than March 1, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36 governs requests for admission. The order cites it only to identify the kind of request; the March 1, 2025 service deadline is set by the court's scheduling order.",
+        "evidence_excerpt": "A party may serve on any other party a written request to admit, for purposes of the pending action only, the truth of any matters within the scope of Rule 26(b)(1)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "scheduling-order.docx.md",
+      "location": "II.C",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(g)",
+      "citation_as_written": "Fed. R. Civ. P. 26(g)",
+      "pincite": "26(g)",
+      "cited_for": "Certification that discovery requests are not for improper purpose and not unduly burdensome",
+      "quotes": [],
+      "context": "obligations under Fed. R. Civ. P. 26(g) to certify that all discovery requests and responses are consistent with the Federal Rules of Civil Procedure, are not interposed for any improper purpose",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The order's paraphrase closely tracks Rule 26(g)(1)(B)(i)-(iii).",
+        "explanation": "Under Rule 26(g)(1)(B), signing a discovery request, response, or objection certifies that it is consistent with the rules, not interposed for an improper purpose, and not unreasonable or unduly burdensome. The order's description matches the rule almost word for word.",
+        "evidence_excerpt": "(ii) not interposed for any improper purpose, such as to harass, cause unnecessary delay, or needlessly increase the cost of litigation; and (iii) neither unreasonable nor unduly burdensome or expensive, considering the needs of the case, prior discovery in the case, the amount in controversy, and the importance of the issues at stake in the action",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "scheduling-order.docx.md",
+      "location": "II.D Depositions",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 30(a)(2)(A)(i) and 30(d)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 30(a)(2)(A)(i) and 30(d)(1)",
+      "pincite": "30(a)(2)(A)(i), 30(d)(1)",
+      "cited_for": "Ten depositions per side, seven hours each",
+      "quotes": [],
+      "context": "Each side shall be limited to ten (10) depositions of seven (7) hours each, consistent with Fed. R. Civ. P. 30(a)(2)(A)(i) and 30(d)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(a)(2)(A)(i) requires leave of court for more than 10 depositions by the plaintiffs, or by the defendants, which is effectively a per-side limit of ten. Rule 30(d)(1) limits a deposition to 1 day of 7 hours. A cap of ten seven-hour depositions per side is consistent with both provisions.",
+        "evidence_excerpt": "the deposition would result in more than 10 depositions being taken under this rule or Rule 31 by the plaintiffs, or by the defendants, or by the third-party defendants ... a deposition is limited to 1 day of 7 hours",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "scheduling-order.docx.md",
+      "location": "II.E Expert Discovery",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "26(a)(2)(B)",
+      "cited_for": "Expert report requirements (plaintiff's initial and defendants' responsive reports)",
+      "quotes": [],
+      "context": "Plaintiff's initial expert reports, complying in all respects with the requirements of Fed. R. Civ. P. 26(a)(2)(B) ... Defendants' responsive expert reports, also complying with Rule 26(a)(2)(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2)(B), titled 'Witnesses Who Must Provide a Written Report', lists what a retained expert's report must contain: (i) opinions and their bases, (ii) facts or data considered, (iii) exhibits, (iv) qualifications, (v) prior testimony, and (vi) compensation. It is the right rule to cite for expert-report content requirements. Disclosure timing falls under 26(a)(2)(D), which the court may set by order.",
+        "evidence_excerpt": "Witnesses Who Must Provide a Written Report. ... the disclosure must be accompanied by a written report—prepared and signed by the witness ... The report must contain: (i) a complete statement of all opinions the witness will express and the basis and reasons for them",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "scheduling-order.docx.md",
+      "location": "III. Preliminary Injunction Hearing",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Expedited PI discovery subject to proportionality",
+      "quotes": [],
+      "context": "subject to the proportionality requirements of this Order and Fed. R. Civ. P. 26(b)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) defines the scope of discovery as relevant, nonprivileged matter that is 'proportional to the needs of the case.' The order makes expedited PI discovery subject to that proportionality requirement, which the rule supports.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "scheduling-order.docx.md",
+      "location": "IV. Dispositive Motions",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Fed. R. Civ. P. 56",
+      "pincite": "",
+      "cited_for": "Summary judgment motions deadline",
+      "quotes": [],
+      "context": "All dispositive motions, including motions for summary judgment pursuant to Fed. R. Civ. P. 56, shall be filed no later than June 30, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 56 governs summary judgment motions and expressly allows the court to set a different filing deadline by order, consistent with a scheduling order setting a dispositive-motion deadline.",
+        "evidence_excerpt": "Rule 56. Summary Judgment ... (b) Unless a different time is set by local rule or the court orders otherwise, a party may file a motion for summary judgment at any time until 30 days after the close of all discovery.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "scheduling-order.docx.md",
+      "location": "IV. Dispositive Motions",
+      "authority_type": "court_rule",
+      "authority": "Local Rules of the Western District of Texas (page limitations)",
+      "citation_as_written": "the Local Rules of this Court",
+      "pincite": "",
+      "cited_for": "Briefing must comply with page limitations",
+      "quotes": [],
+      "context": "All briefing shall comply with the page limitations set forth in the Local Rules of this Court.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Tex. Local Rule CV-7(c)(2), (d)(3), (e)(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Western District of Texas Local Rules do set page limits for briefing. Local Rule CV-7 caps motions at 20 pages (10 for discovery and case-management motions), responses at 20 pages (10), and replies at 10 pages (5). The general reference is accurate.",
+        "evidence_excerpt": "(2) Page Limits. Unless otherwise authorized by the court, discovery and case management motions are limited to 10 pages, and other motions are limited to 20 pages.",
+        "source_urls": [
+          "https://www.txwd.uscourts.gov/wp-content/uploads/Documents/Local%20Court%20Rules/Civil/CV-7%20-%20Pleadings%20Allowed;%20Form%20of%20Motions.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "scheduling-order.docx.md",
+      "location": "V. Pretrial Conference and Trial",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 38",
+      "citation_as_written": "Fed. R. Civ. P. 38",
+      "pincite": "",
+      "cited_for": "Jury demand",
+      "quotes": [],
+      "context": "any jury demand filed in accordance with Fed. R. Civ. P. 38",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 38 is 'Right to a Jury Trial; Demand' and governs the procedure for serving and filing a jury demand.",
+        "evidence_excerpt": "Rule 38. Right to a Jury Trial; Demand ... a party may demand a jury trial by: (1) serving the other parties with a written demand ... and (2) filing the demand in accordance with Rule 5(d).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_38"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "scheduling-order.docx.md",
+      "location": "VI. Preservation of Evidence, para 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(e)",
+      "citation_as_written": "Fed. R. Civ. P. 37(e)",
+      "pincite": "37(e)",
+      "cited_for": "Sanctions for failure to preserve ESI",
+      "quotes": [],
+      "context": "Failure to preserve relevant ESI may result in sanctions under Fed. R. Civ. P. 37(e), including, where appropriate, adverse inference instructions, preclusion of evidence",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(e) authorizes remedies when ESI is lost because a party failed to take reasonable steps to preserve it. Under (e)(1), on a finding of prejudice, the court may order measures no greater than necessary to cure it; preclusion of evidence plausibly falls here. Under (e)(2), only on a finding of intent to deprive, the court may use adverse-inference presumptions or jury instructions, or dismiss or enter default. The order's 'where appropriate' qualifier is a fair summary, though it does not mention that an adverse inference requires a finding of intent to deprive.",
+        "evidence_excerpt": "(2) only upon finding that the party acted with the intent to deprive another party of the information's use in the litigation may: ... (B) instruct the jury that it may or must presume the information was unfavorable to the party",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "scheduling-order.docx.md",
+      "location": "VIII. Discovery Disputes, para 1",
+      "authority_type": "court_rule",
+      "authority": "W.D. Tex. Local Rule CV-7(h)",
+      "citation_as_written": "Local Rule CV-7(h) of the Western District of Texas",
+      "pincite": "CV-7(h)",
+      "cited_for": "Meet-and-confer requirement before discovery motions",
+      "quotes": [],
+      "context": "as required by Local Rule CV-7(h) of the Western District of Texas and Fed. R. Civ. P. 37(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Tex. Local Rule CV-7(g)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The current W.D. Tex. Rule CV-7 (2021 version, linked from the court's local-rules page and in force at the scenario's 2024 dates) puts the conference requirement in subsection (g), \"Conference Required,\" and has no subsection (h). Some older versions did place the conference requirement at CV-7(h); Anzures v. Prologis (W.D. Tex. 2012) quotes it as \"L.R. CV-7(h).\" A 2013 W.D. Tex. opinion (Guerrero), however, cites CV-7(h) for oral hearings. So \"CV-7(h)\" is an outdated subsection designation. The substance is right: the rule requires counsel to confer in good faith before a nondispositive motion, which includes discovery motions.",
+        "evidence_excerpt": "(g) Conference Required. The court may refuse to hear or may deny a nondispositive motion unless the movant advises the court within the body of the motion that counsel for the parties have conferred in a good-faith attempt to resolve the matter by agreement and certifies the specific reason that no agreement could be made.",
+        "source_urls": [
+          "https://www.txwd.uscourts.gov/wp-content/uploads/Documents/Local-Court-Rules/Civil/CV-7-Pleadings-Allowed-Form-of-Motions.pdf",
+          "https://www.txwd.uscourts.gov/court-information/lcr-civil-rules/",
+          "https://www.courtlistener.com/opinion/8771132/anzures-v-prologis-texas-i-llc/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "The factual point stands, but the severity is overstated. I downloaded the current W.D. Tex. Rule CV-7 PDF and extracted its text. It runs only from (a) through (g) and has no subsection (h). The conference requirement is in (g): \"(g) Conference Required. The court may refuse to hear or may deny a nondispositive motion unless the movant advises the court within the body of the motion that counsel for the parties have conferred in a good-faith attempt to resolve the matter by agreement...\" The scheduling order is dated September 4, 2024, so the 2021 numbering applies and \"CV-7(h)\" is a stale subsection designation. Still, the rule, the court and the substance (meet and confer before a nondispositive or discovery motion) are all correct. A wrong subsection is closer to a wrong pin cite than to a garbled citation. So VERIFIED_MINOR_DEFECT fits better than WRONG_CITATION_REAL_CASE. Correct cite: W.D. Tex. Local Rule CV-7(g).",
+        "source_urls": [
+          "https://www.txwd.uscourts.gov/wp-content/uploads/Documents/Local-Court-Rules/Civil/CV-7-Pleadings-Allowed-Form-of-Motions.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 70,
+      "document": "scheduling-order.docx.md",
+      "location": "VIII. Discovery Disputes, para 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 37(a)(1)",
+      "pincite": "37(a)(1)",
+      "cited_for": "Meet-and-confer certification before discovery motions",
+      "quotes": [],
+      "context": "as required by Local Rule CV-7(h) of the Western District of Texas and Fed. R. Civ. P. 37(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(a)(1) requires a motion to compel to include a certification that the movant conferred, or tried to confer, in good faith before seeking court action. That supports the meet-and-confer certification requirement. The order also cites Local Rule CV-7(h); that rule was not checked here.",
+        "evidence_excerpt": "The motion must include a certification that the movant has in good faith conferred or attempted to confer with the person or party failing to make disclosure or discovery in an effort to obtain it without court action.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "scheduling-order.docx.md",
+      "location": "VIII. Discovery Disputes, para 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Discovery disputes evaluated under proportionality; burdens on movant and resisting party",
+      "quotes": [],
+      "context": "The Court will evaluate all discovery disputes through the lens of Fed. R. Civ. P. 26(b)(1) proportionality.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rule is cited only to set the proportionality 'lens' for discovery disputes, and Rule 26(b)(1) sets out the proportionality standard and its factors. The burden allocation that follows (movant shows relevance and proportionality; resisting party shows undue burden) is the court's own direction and is not stated in the rule's text. It is not attributed to the rule, so the citation is not mischaracterized.",
+        "evidence_excerpt": "proportional to the needs of the case, considering the importance of the issues at stake in the action, the amount in controversy, the parties' relative access to relevant information, the parties' resources, the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "scheduling-order.docx.md",
+      "location": "IX. Amendments to Pleadings",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "16(b)(4)",
+      "cited_for": "Good cause standard for late amendment/joinder, focusing on diligence",
+      "quotes": [],
+      "context": "permitted only upon a showing of good cause under Fed. R. Civ. P. 16(b)(4) and, where applicable, the standards of Fed. R. Civ. P. 15(a)(2)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) sets the good-cause standard for modifying the schedule, which covers a late amendment or joinder after the scheduling-order deadline. The 1983 Advisory Committee Note ties good cause to the diligence of the party seeking the extension. The separate Rule 15(a)(2) reference was not part of this check.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent. ... the court may modify the schedule on a showing of good cause if it cannot reasonably be met despite the diligence of the party seeking the extension.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 73,
+      "document": "scheduling-order.docx.md",
+      "location": "IX. Amendments to Pleadings",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 15(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 15(a)(2)",
+      "pincite": "15(a)(2)",
+      "cited_for": "Standard for amending pleadings",
+      "quotes": [],
+      "context": "and, where applicable, the standards of Fed. R. Civ. P. 15(a)(2)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 15(a)(2) sets the standard for amending pleadings outside the matter-of-course window: amendment requires the opposing party's written consent or the court's leave, which should be freely given when justice so requires.",
+        "evidence_excerpt": "In all other cases, a party may amend its pleading only with the opposing party's written consent or the court's leave. The court should freely give leave when justice so requires.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_15"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "scheduling-order.docx.md",
+      "location": "XI. Modification of This Order",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "16(b)(4)",
+      "cited_for": "Scheduling order modified only on good cause",
+      "quotes": [],
+      "context": "This Scheduling Order may be modified only upon a showing of good cause pursuant to Fed. R. Civ. P. 16(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rule text says this directly: a schedule may be modified only for good cause and with the judge's consent.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "litigation-hold-letter.docx.md",
+      "location": "I. Introduction, para 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Anticipated trade secret misappropriation claim under DTSA",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under both the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and the Texas Uniform Trade Secrets Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The hold letter correctly cites the DTSA at 18 U.S.C. § 1836 et seq. as the basis for an anticipated federal trade secret misappropriation claim. Section 1836(b)(1) creates the private civil action.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection ...",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 76,
+      "document": "litigation-hold-letter.docx.md",
+      "location": "I. Introduction, para 1",
+      "authority_type": "statute",
+      "authority": "Texas Uniform Trade Secrets Act",
+      "citation_as_written": "Texas Uniform Trade Secrets Act",
+      "pincite": "",
+      "cited_for": "Anticipated trade secret misappropriation claim under TUTSA",
+      "quotes": [],
+      "context": "under both the Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq., and the Texas Uniform Trade Secrets Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations.",
+        "explanation": "The statute is named without a section cite. TUTSA (Tex. Civ. Prac. & Rem. Code ch. 134A) exists and provides a cause of action for misappropriation, so the anticipated claim is properly grounded.",
+        "evidence_excerpt": "This chapter may be cited as the Texas Uniform Trade Secrets Act.",
+        "source_urls": [
+          "https://tcss.legis.texas.gov/resources/CP/pdf/CP.134A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "litigation-hold-letter.docx.md",
+      "location": "III. Legal Obligation to Preserve, para 1",
+      "authority_type": "other",
+      "authority": "Common-law duty to preserve evidence (uncited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Once litigation is reasonably anticipated a party must preserve relevant documents, ESI and tangible things",
+      "quotes": [],
+      "context": "once a party reasonably anticipates litigation, it has a duty under the common law to preserve all documents, ESI, and tangible things that may be relevant to that litigation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No authority cited; supporting authority: Zubulake v. UBS Warburg LLC, 220 F.R.D. 212, 218 (S.D.N.Y. 2003)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The letter states the common-law preservation duty without citing anything. The proposition accurately states the established rule: Zubulake IV holds that once a party reasonably anticipates litigation, it must suspend routine destruction and preserve relevant evidence. Zubulake also notes that the duty does not extend to every document (for example, inaccessible backup tapes), so the letter's 'all documents ... that may be relevant' is somewhat broad, but this is acceptable advocacy in a hold letter.",
+        "evidence_excerpt": "Once a party reasonably anticipates litigation, it must suspend its routine document retention/destruetion policy and put in place a \"litigation hold\" to ensure the preservation of relevant documents.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8754508/zubulake-v-ubs-warburg-llc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 78,
+      "document": "litigation-hold-letter.docx.md",
+      "location": "III. Legal Obligation to Preserve, para 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(e)",
+      "citation_as_written": "Rule 37(e) of the Federal Rules of Civil Procedure",
+      "pincite": "37(e)",
+      "cited_for": "Remedies for loss of ESI: curative measures, adverse inference, dismissal or default on intent to deprive",
+      "quotes": [],
+      "context": "Under Rule 37(e) of the Federal Rules of Civil Procedure, if ESI that should have been preserved in the anticipation or conduct of litigation is lost because a party failed to take reasonable steps to preserve it",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed. The letter's paraphrase closely tracks the rule's opening clause.",
+        "explanation": "Rule 37(e) applies when ESI that should have been preserved in anticipation or conduct of litigation is lost because a party failed to take reasonable steps, and it cannot be restored or replaced. On prejudice, the court may order curative measures; on intent to deprive, it may use an adverse inference or dismiss or enter a default judgment. The letter's description matches the rule's structure.",
+        "evidence_excerpt": "If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost because a party failed to take reasonable steps to preserve it, and it cannot be restored or replaced through additional discovery, the court: (1) upon finding prejudice ... may order measures no greater than necessary to cure the prejudice; or (2) only upon finding that the party acted with the intent to deprive ... (C) dismiss the action or enter a default judgment.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "litigation-hold-letter.docx.md",
+      "location": "VI. Consequences of Non-Compliance",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(e)",
+      "citation_as_written": "Rule 37(e) of the Federal Rules of Civil Procedure",
+      "pincite": "37(e)",
+      "cited_for": "CMT will seek sanctions under Rule 37(e) if evidence destroyed",
+      "quotes": [],
+      "context": "CMT will not hesitate to seek sanctions under Rule 37(e) of the Federal Rules of Civil Procedure, including adverse inference instructions, monetary sanctions",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(e) authorizes curative measures where ESI that should have been preserved is lost, and upon a finding of intent to deprive permits adverse-inference presumptions/instructions or dismissal/default. The letter's threat to seek Rule 37(e) sanctions including adverse inference and dispositive sanctions for intentional conduct fits the rule. Caveat: Rule 37(e) reaches only ESI (loss of physical documents falls under inherent authority), and 'monetary sanctions' are not listed expressly (though fee awards are commonly imposed as curative measures under (e)(1)); advocacy looseness, not a citation defect.",
+        "evidence_excerpt": "If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost ... (2) only upon finding that the party acted with the intent to deprive ... (B) instruct the jury that it may or must presume the information was unfavorable to the party; or (C) dismiss the action or enter a default judgment.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "scheduling-order.docx.md",
+      "location": "II.E Expert Discovery",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)(B) (short-form second reference)",
+      "citation_as_written": "Rule 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Defendants' responsive expert reports must also comply with the expert report requirements",
+      "quotes": [],
+      "context": "Defendants' responsive expert reports, also complying with Rule 26(a)(2)(B), shall be served no later than April 15, 2025.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a short-form second reference to Rule 26(a)(2)(B). The report requirements apply to any retained expert, so they cover defendants' responsive experts too.",
+        "evidence_excerpt": "Witnesses Who Must Provide a Written Report.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 81,
+      "document": "scheduling-order.docx.md",
+      "location": "IX. Amendments to Pleadings",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4) (short-form second reference)",
+      "citation_as_written": "Rule 16(b)(4)",
+      "pincite": "",
+      "cited_for": "The good cause standard under Rule 16(b)(4) focuses primarily on the diligence of the party seeking modification",
+      "quotes": [],
+      "context": "The parties are reminded that the good cause standard under Rule 16(b)(4) focuses primarily on the diligence of the party seeking modification, and that a lack of diligence will weigh heavily against any request to amend pleadings or join parties after the deadline set by this Order.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rule text sets the good-cause standard. The 1983 Advisory Committee Note to Rule 16 explains that good cause exists when the schedule cannot reasonably be met despite the diligence of the party seeking the extension. That supports a reasonable paraphrase that the standard focuses mainly on diligence. The word 'primarily' comes from case-law gloss, not the rule itself, but it fairly describes the rule.",
+        "evidence_excerpt": "the court may modify the schedule on a showing of good cause if it cannot reasonably be met despite the diligence of the party seeking the extension.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

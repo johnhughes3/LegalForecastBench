@@ -1,0 +1,1612 @@
+{
+  "task": "compare-document-production-against-discovery-requests",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "answer-counterclaim.docx.md",
+    "complaint.docx.md",
+    "meet-confer-emails.eml.md",
+    "meridian-rfp-responses.docx.md",
+    "privilege-log.xlsx.md",
+    "production-index.xlsx.md",
+    "rfps-first-set.docx.md",
+    "scheduling-order.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "complaint.docx.md",
+      "location": "III.A, para. 9",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction based on complete diversity and amount in controversy exceeding $75,000",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332(a) because there is complete diversity of citizenship between the parties and the amount in controversy exceeds $75,000, exclusive of interest and costs.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1332(a) confers jurisdiction where the parties are diverse and the amount in controversy exceeds $75,000, exclusive of interest and costs. This matches the proposition exactly.",
+        "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "complaint.docx.md",
+      "location": "III.B, para. 10",
+      "authority_type": "statute",
+      "authority": "California long-arm statute (unspecified section)",
+      "citation_as_written": "California's long-arm statute",
+      "pincite": "",
+      "cited_for": "Personal jurisdiction over Meridian (general and specific jurisdiction)",
+      "quotes": [],
+      "context": "Meridian's contacts with California are sufficient to satisfy both general and specific jurisdiction requirements under California's long-arm statute and the Due Process Clause of the Fourteenth Amendment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Cal. Code Civ. Proc. § 410.10",
+        "quote_check": "No quotations attributed.",
+        "explanation": "California's long-arm statute, Code Civ. Proc. § 410.10, permits jurisdiction on any basis consistent with the state and federal constitutions, so it reaches as far as due process allows. That supports the jurisdictional allegation. The only defect is that the complaint does not give the section number. Whether Meridian's contacts actually support general jurisdiction is a factual question, not a citation problem.",
+        "evidence_excerpt": "A court of this state may exercise jurisdiction on any basis not inconsistent with the Constitution of this state or of the United States.",
+        "source_urls": [
+          "https://california.public.law/codes/ca_civ_proc_code_section_410.10"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "complaint.docx.md",
+      "location": "III.B, para. 10",
+      "authority_type": "other",
+      "authority": "Due Process Clause of the Fourteenth Amendment, U.S. Constitution",
+      "citation_as_written": "Due Process Clause of the Fourteenth Amendment",
+      "pincite": "",
+      "cited_for": "Personal jurisdiction over Meridian satisfies due process",
+      "quotes": [],
+      "context": "sufficient to satisfy both general and specific jurisdiction requirements under California's long-arm statute and the Due Process Clause of the Fourteenth Amendment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "U.S. Const. amend. XIV, § 1",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Fourteenth Amendment's Due Process Clause is the constitutional limit on a state court's personal jurisdiction, and California's long-arm statute expressly incorporates it. It is properly invoked for the personal-jurisdiction allegation.",
+        "evidence_excerpt": "nor shall any State deprive any person of life, liberty, or property, without due process of law",
+        "source_urls": [
+          "https://www.law.cornell.edu/constitution/amendmentxiv"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "complaint.docx.md",
+      "location": "III.C, para. 11",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper in C.D. Cal. because a substantial part of the events occurred in the district",
+      "quotes": [],
+      "context": "Venue is proper in the Central District of California pursuant to 28 U.S.C. § 1391(b)(2) because a substantial part of the events and omissions giving rise to the claims asserted herein occurred in this district",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1391(b)(2) allows venue in a district where a substantial part of the events or omissions giving rise to the claim occurred. This matches the proposition.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "complaint.docx.md",
+      "location": "VI. Second Cause of Action (Fraud), para. 78",
+      "authority_type": "statute",
+      "authority": "California Civil Code § 3294",
+      "citation_as_written": "California Civil Code § 3294",
+      "pincite": "",
+      "cited_for": "Punitive damages for willful, malicious, and oppressive fraudulent conduct",
+      "quotes": [],
+      "context": "Meridian's fraudulent conduct was willful, malicious, and oppressive within the meaning of California Civil Code § 3294.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Cal. Civ. Code § 3294(a) allows punitive damages in noncontract actions on clear and convincing proof of oppression, fraud, or malice; subdivision (c) defines malice to include despicable conduct carried on with willful and conscious disregard of others' rights, and defines oppression. Invoking it for willful, malicious, and oppressive fraud is accurate.",
+        "evidence_excerpt": "where it is proven by clear and convincing evidence that the defendant has been guilty of oppression, fraud, or malice, the plaintiff, in addition to the actual damages, may recover damages for the sake of example and by way of punishing the defendant.",
+        "source_urls": [
+          "https://law.justia.com/codes/california/code-civ/division-4/part-1/chapter-2/article-3/section-3294/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "rfps-first-set.docx.md",
+      "location": "I. Introductory Paragraph, para. 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure 26(b) and 34",
+      "citation_as_written": "Federal Rules of Civil Procedure 26(b) and 34",
+      "pincite": "",
+      "cited_for": "Requests for production propounded pursuant to FRCP 26(b) and 34",
+      "quotes": [],
+      "context": "hereby propounds its First Set of Requests for Production of Documents (Nos. 1 through 27) upon Defendant Meridian Logistics Corp. (\"Meridian\"), pursuant to Federal Rules of Civil Procedure 26(b) and 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(a) authorizes requests for production served on any other party within the scope of Rule 26(b). Citing Rules 26(b) and 34 for document requests is correct.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b):",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "rfps-first-set.docx.md",
+      "location": "I. Introductory Paragraph, para. 2",
+      "authority_type": "court_rule",
+      "authority": "Local Rules of the Central District of California (general)",
+      "citation_as_written": "the Local Rules of the Central District of California",
+      "pincite": "",
+      "cited_for": "Requests are timely under federal and local rules",
+      "quotes": [],
+      "context": "are propounded within the time permitted by the Federal Rules of Civil Procedure and the Local Rules of the Central District of California.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Local Rules of the Central District of California are real and current. Chapter I, the Local Civil Rules, was last amended June 1, 2026. The citation is a general reference with no pin cite, used for a boilerplate statement that the requests were served on time. That is a fair use of a general reference. Note that Local Civil Rule 26 itself sets no deadline for serving document requests. It covers the Rule 26(f) conference and report (L.R. 26-1) and the filing of discovery documents (L.R. 26-2). In practice, timing comes from Fed. R. Civ. P. 26(d) and 34 and the scheduling order's discovery cutoff, which the same sentence also cites. Whether the requests were actually timely is a fact of the fictional scenario and cannot be checked against the rules. Nothing in the Local Rules contradicts the statement.",
+        "evidence_excerpt": "\"V. DISCLOSURES AND DISCOVERY ... L.R. 26-1 Conference of Parties; Report. At the conference of parties held pursuant to F.R.Civ.P. 26(f), the parties shall discuss the following matters...\" (C.D. Cal. L.R., 6/1/2026, Chapter I); court site: \"links to the four chapters of the Local Rules for the United States District Court for the Central District of California.\"",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/court-procedures/local-rules",
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "rfps-first-set.docx.md",
+      "location": "I. Introductory Paragraph, para. 4 (privilege log)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "citation_as_written": "Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Privilege log requirements for withheld documents",
+      "quotes": [],
+      "context": "Meridian shall provide a privilege log in compliance with Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure identifying, for each document or communication withheld",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(5)(A) requires a party withholding privileged material to expressly make the claim and describe the nature of the withheld documents so other parties can assess the claim. That is the basis for the privilege log requirement. The rule does not use the words 'privilege log' or list the specific fields the request demands, but it is fairly cited as the governing rule.",
+        "evidence_excerpt": "the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "rfps-first-set.docx.md",
+      "location": "II. Definitions, No. 3 (\"Document\")",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Rule 34(a) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "\"Document\" given the broadest meaning permitted under Rule 34(a)",
+      "quotes": [],
+      "context": "\"Document\" shall be given the broadest meaning permitted under Rule 34(a) of the Federal Rules of Civil Procedure and includes, without limitation, all writings, drawings, graphs, charts, photographs",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The definition's list closely tracks Rule 34(a)(1)(A).",
+        "explanation": "Rule 34(a)(1)(A) defines the documents and ESI a party may request in broad terms. The request's definition closely tracks that language: writings, drawings, graphs, charts, photographs, sound recordings, images, and data compilations in any medium.",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "rfps-first-set.docx.md",
+      "location": "III. Instructions, No. 3 (Continuing Obligation)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Rule 26(e) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Continuing duty to supplement responses and production",
+      "quotes": [],
+      "context": "Pursuant to Rule 26(e) of the Federal Rules of Civil Procedure, Meridian has a continuing obligation to supplement its responses and production in a timely manner",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(e)(1) requires a party that has responded to a request for production to supplement or correct its response in a timely manner if it learns the response is incomplete or incorrect in some material respect. That supports the continuing duty to supplement.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "rfps-first-set.docx.md",
+      "location": "III. Instructions, No. 4 (Organization of Production)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(E)(i)",
+      "citation_as_written": "Rule 34(b)(2)(E)(i) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Documents produced as kept in usual course of business or organized and labeled by request category",
+      "quotes": [],
+      "context": "Documents shall be produced as they are kept in the usual course of business or organized and labeled to correspond with the categories in each Request, pursuant to Rule 34(b)(2)(E)(i)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the instruction closely tracks the rule text.",
+        "explanation": "Rule 34(b)(2)(E)(i) requires documents to be produced as kept in the usual course of business or organized and labeled to correspond to the categories in the request.",
+        "evidence_excerpt": "\"A party must produce documents as they are kept in the usual course of business or must organize and label them to correspond to the categories in the request\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "rfps-first-set.docx.md",
+      "location": "III. Instructions, No. 5 (ESI)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(E)(ii)",
+      "citation_as_written": "Rule 34(b)(2)(E)(ii)",
+      "pincite": "",
+      "cited_for": "ESI to be produced in a reasonably usable form where no format specified",
+      "quotes": [],
+      "context": "or if no format is specified for a particular category of ESI, in a reasonably usable form pursuant to Rule 34(b)(2)(E)(ii).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(b)(2)(E)(ii) provides that if no ESI form is specified, a party must produce ESI in the form in which it is ordinarily maintained or in a reasonably usable form. The instruction cites the reasonably-usable alternative, which is accurate.",
+        "evidence_excerpt": "\"If a request does not specify a form for producing electronically stored information, a party must produce it in a form or forms in which it is ordinarily maintained or in a reasonably usable form or forms\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "rfps-first-set.docx.md",
+      "location": "III. Instructions, No. 6 (Privilege Log)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "citation_as_written": "Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Privilege log must comply with federal rule",
+      "quotes": [],
+      "context": "Meridian shall provide a privilege log that complies with Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure and Local Rule 26 of the Central District of California.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(5)(A) is the federal rule governing how a party describes withheld privileged material, so a privilege log that 'complies with' it is a proper reference. The Local Rule 26 reference was not checked here.",
+        "evidence_excerpt": "When a party withholds information otherwise discoverable by claiming that the information is privileged ... the party must: (i) expressly make the claim; and (ii) describe the nature of the documents",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "rfps-first-set.docx.md",
+      "location": "III. Instructions, No. 6 (Privilege Log)",
+      "authority_type": "court_rule",
+      "authority": "Local Rule 26, Central District of California",
+      "citation_as_written": "Local Rule 26 of the Central District of California",
+      "pincite": "",
+      "cited_for": "Privilege log must comply with local rule",
+      "quotes": [],
+      "context": "a privilege log that complies with Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure and Local Rule 26 of the Central District of California.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "C.D. Cal. Local Rule 26 exists, but it has only three parts: L.R. 26-1 (topics for the Rule 26(f) conference and report), L.R. 26-2 (filing discovery documents), and L.R. 26-3 (numbering of discovery exhibits). It sets no privilege-log requirement. A full-text search of the 2024 and June 2026 Chapter I local rules found 'privilege' only in the mediation-confidentiality and e-filing rules. The privilege-log requirement comes from FRCP 26(b)(5)(A), which the same sentence also cites.",
+        "evidence_excerpt": "L.R. 26-1 Conference of Parties; Report. At the conference of parties held pursuant to F.R.Civ.P. 26(f), the parties shall discuss the following matters ... L.R. 26-2 Discovery Documents - Filing. ... L.R. 26-3 Exhibits in Discovery",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf",
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2024%20June%20LRs%20Chap%201.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I downloaded the official C.D. Cal. Chapter I Local Rules (6/1/2026) and searched the full text. L.R. 26 has three parts: L.R. 26-1 'Conference of Parties; Report' ('At the conference of parties held pursuant to F.R.Civ.P. 26(f), the parties shall discuss the following matters...'), L.R. 26-2 'Discovery Documents - Filing', and L.R. 26-3 'Exhibits in Discovery' (26-3.1 to 26-3.5, on numbering exhibits). None of them mentions privilege or privilege logs. The word 'privilege' appears in the rules only in the mediation-confidentiality provision ('privilege or rule of evidence designed to protect mediation...') and the e-filing provision ('E-filing privileges will be restored...'). The local rule is real but imposes no privilege-log requirement; that requirement comes from FRCP 26(b)(5)(A), which the same sentence also cites. The finding holds.",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 14,
+      "document": "rfps-first-set.docx.md",
+      "location": "III. Instructions, No. 8 (Objections)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(C)",
+      "citation_as_written": "Rule 34(b)(2)(C)",
+      "pincite": "",
+      "cited_for": "If objecting to part of a request, must specify the part and produce the remainder",
+      "quotes": [],
+      "context": "Pursuant to Rule 34(b)(2)(C), if Meridian objects to part of a Request, it must specify the part to which it objects and produce the remainder.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the instruction accurately paraphrases the rule.",
+        "explanation": "Rule 34(b)(2)(C) requires an objection to part of a request to specify the part and permit inspection of the rest. The instruction's 'produce the remainder' is a fair paraphrase.",
+        "evidence_excerpt": "\"An objection to part of a request must specify the part and permit inspection of the rest.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "rfps-first-set.docx.md",
+      "location": "IV. Request for Production No. 18",
+      "authority_type": "other",
+      "authority": "ASC 842 (FASB lease accounting standard)",
+      "citation_as_written": "ASC 842",
+      "pincite": "",
+      "cited_for": "Lease accounting analyses and right-of-use assets/lease liabilities",
+      "quotes": [],
+      "context": "any analyses performed under ASC 842 or other applicable accounting standards",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ASC 842 is the FASB lease accounting standard. It requires lessees to recognize right-of-use assets and lease liabilities, which matches the description.",
+        "evidence_excerpt": "A lessee should recognize in the statement of financial position a liability to make lease payments (the lease liability) and a right-of-use asset representing its right to use the underlying asset for the lease term.",
+        "source_urls": [
+          "https://storage.fasb.org/ASU%202016-02_Section%20A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "rfps-first-set.docx.md",
+      "location": "IV. Request for Production No. 18",
+      "authority_type": "other",
+      "authority": "ASC 840 (FASB lease accounting standard, superseded) and ASC 842",
+      "citation_as_written": "ASC 840 to ASC 842",
+      "pincite": "",
+      "cited_for": "Documents relating to transition from ASC 840 to ASC 842 and restatement of lease liabilities",
+      "quotes": [],
+      "context": "This Request includes all Documents reflecting or relating to the transition from ASC 840 to ASC 842 and any restatement or adjustment of lease liabilities resulting from such transition.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "FASB ASU 2016-02 created ASC Topic 842 (Leases), which supersedes Topic 840. A transition from ASC 840 to ASC 842 is therefore real. The new standard requires lessees to recognize lease liabilities, so the request's reference to resulting adjustments of lease liabilities fits. Here the reference only describes documents being requested in discovery.",
+        "evidence_excerpt": "The guidance in this Update supersedes Topic 840, Leases.",
+        "source_urls": [
+          "https://storage.fasb.org/ASU%202016-02_Section%20A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "Preliminary Statement",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26 and 34",
+      "citation_as_written": "Rules 26 and 34 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Objections and responses are made pursuant to these rules",
+      "quotes": [],
+      "context": "These Objections and Responses are made pursuant to Rules 26 and 34 of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 34 governs written responses and objections to document requests, and Rule 26 governs the scope of discovery and related obligations. Both are the correct rules for RFP responses.",
+        "evidence_excerpt": "Rule 34(b)(2)(A): 'The party to whom the request is directed must respond in writing within 30 days after being served'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "General Objection No. 1 (Scope and Overbreadth)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Rule 26(b)(1) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Proportionality to the needs of the case",
+      "quotes": [],
+      "context": "overly broad, unduly burdensome, or not proportional to the needs of this case as required by Rule 26(b)(1) of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) limits discoverable matter to what is relevant and proportional to the needs of the case, weighing burden or expense against likely benefit. It is the right authority for a proportionality and overbreadth objection.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case ... and whether the burden or expense of the proposed discovery outweighs its likely benefit.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "General Objection No. 4 (Privilege)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "citation_as_written": "Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Withheld privileged documents will be identified on a privilege log",
+      "quotes": [],
+      "context": "will identify documents withheld on privilege grounds on a privilege log in accordance with Rule 26(b)(5)(A) of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Identifying withheld privileged documents on a log is the standard way to comply with Rule 26(b)(5)(A)'s requirement to expressly claim privilege and describe what was withheld.",
+        "evidence_excerpt": "(ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "General Objection No. 6 (Third-Party Privacy)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 5.2",
+      "citation_as_written": "Rule 5.2 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Redaction of personal identifiers",
+      "quotes": [],
+      "context": "Meridian will redact personal identifiers, including Social Security numbers, taxpayer identification numbers, dates of birth, driver's license numbers, and financial account numbers, consistent with Rule 5.2 of the Federal Rules of Civil Procedure and the Protective Order.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 5.2(a) governs redaction of personal identifiers in filings with the court, not discovery productions. It requires only partial redaction: the last four digits of SSNs, TINs, and financial-account numbers may remain, as may the year of birth. Its text does not cover driver's license numbers, though the committee note says protecting them may sometimes be necessary. Because the document says only 'consistent with' Rule 5.2, treating the rule as a loose analogy for privacy redactions is reasonable. But the identifier list and the full-redaction approach go beyond what the rule actually requires.",
+        "evidence_excerpt": "\"in an electronic or paper filing with the court that contains an individual's social-security number, taxpayer-identification number, or birth date, the name of an individual known to be a minor, or a financial-account number, a party or nonparty making the filing may include only: (1) the last four digits ...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_5.2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "General Objection No. 8 (\"All Documents\" requests)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Rule 34(a) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Construing 'all documents' requests as documents sufficient to show the requested information",
+      "quotes": [],
+      "context": "Meridian will construe such requests to require the production of documents sufficient to show the requested information, pursuant to Rule 34(a) of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a) only sets the scope of what a party may request: designated documents, ESI, and tangible things in the responding party's possession, custody, or control. It says nothing that lets a responding party unilaterally read 'all documents' requests as calling only for documents 'sufficient to show' the information. Responses and objections are governed by Rule 34(b)(2)(B) and (C), which require objections to be stated with specificity and require the responding party to say whether responsive materials are being withheld. The cited rule does not support the limiting construction.",
+        "evidence_excerpt": "A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control: (A) any designated documents",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The LII text of FRCP 34(a) reads: 'A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party ... to inspect, copy, test, or sample ... (A) any designated documents or electronically stored information...'. It defines what a requesting party may ask for. Nothing in it lets a responding party construe 'all documents' requests as calling only for documents 'sufficient to show' the information. The phrase 'sufficient to show' does not appear anywhere in Rule 34. Objections and partial responses fall under Rule 34(b)(2)(B)-(C): the response must 'state with specificity the grounds for objecting.' The breadth or particularity point belongs to 34(b)(1)(A) ('reasonable particularity'), not 34(a). Here the citation is offered as authority for a unilateral limiting construction, which the rule does not contain. The finding holds.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ]
+      }
+    },
+    {
+      "ref": 22,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "Objections to Request for Production No. 7",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Rule 34(a)",
+      "pincite": "",
+      "cited_for": "Will produce documents sufficient to show fleet composition",
+      "quotes": [],
+      "context": "Meridian will produce documents sufficient to show its fleet composition during the relevant period, pursuant to Rule 34(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(a) gives the requesting party the right to obtain designated documents. It gives the responding party no authority to narrow production to documents 'sufficient to show' fleet composition. Producing documents generally happens under Rule 34, so citing it for production is loosely defensible, but citing it as the basis for the narrowed 'sufficient to show' production is not supported. Any limitation must be stated as an objection under Rule 34(b)(2)(B) and (C), including whether materials are being withheld.",
+        "evidence_excerpt": "to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control: (A) any designated documents",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The cited text is 'Meridian will produce documents sufficient to show its fleet composition during the relevant period, pursuant to Rule 34(a).' FRCP 34(a) (LII) allows a request to produce 'any designated documents'. It contains no 'sufficient to show' or summary-production mechanism. A narrowed production must rest on a specific objection under 34(b)(2)(B)-(C). One forgiving reading is that 'pursuant to Rule 34(a)' just names the rule under which any production happens. But the sentence ends an objection paragraph and uses the rule to justify substituting a narrower set of documents, which 34(a) does not support. I keep MISCHARACTERIZED with moderate confidence; the defect is in what the rule is invoked to authorize, not in the rule's existence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ]
+      }
+    },
+    {
+      "ref": 23,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "Objections to Request for Production No. 10",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Rule 34(a)",
+      "pincite": "",
+      "cited_for": "Will produce documents sufficient to show maintenance history",
+      "quotes": [],
+      "context": "Meridian will produce documents sufficient to show the maintenance history of vehicles assigned to the Pacific Corridor account, pursuant to Rule 34(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 34(b)(2)(B)-(C) (governs responses and objections)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(a) defines what a requesting party may demand: production of 'any designated documents' within the scope of Rule 26(b). It does not authorize a responding party to replace the requested documents with documents 'sufficient to show' maintenance history. The phrase 'sufficient to show' does not appear anywhere in Rule 34. Responses and partial objections are governed by Rule 34(b)(2)(B)-(C), which requires the responding party to specify the objected-to part, produce the rest, and state whether anything is being withheld. Citing 34(a) as the source of a unilateral narrowing gives the rule a function it does not have. A forgiving reading is that the citation simply names the rule under which production happens; that reading is why confidence is medium rather than high.",
+        "evidence_excerpt": "Rule 34(a): \"A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party ... to inspect, copy, test, or sample ... (A) any designated documents or electronically stored information\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The cited text is 'Meridian will produce documents sufficient to show the maintenance history of vehicles assigned to the Pacific Corridor account, pursuant to Rule 34(a).' It appears in the objections paragraph. As the LII text shows, Rule 34(a) gives the requesting party the right to 'any designated documents' and gives the responding party no authority to replace them with documents sufficient to show maintenance history. Partial objections fall under Rule 34(b)(2)(C) ('An objection to part of a request must specify the part and permit inspection of the rest'). The same forgiving reading as refs 22 and 25 applies: the cite may simply name the production rule. On a fair reading, though, it is offered as authority for the narrowing. The finding holds with moderate confidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ]
+      }
+    },
+    {
+      "ref": 24,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "Objections to Request for Production No. 16, objection (b)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Rule 26(b)(1) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Proportionality objection to board presentations and management reports",
+      "quotes": [],
+      "context": "Meridian objects on proportionality grounds under Rule 26(b)(1) of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter relevant to a claim or defense and proportional to the needs of the case, which is the proper basis for a proportionality objection.",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "meridian-rfp-responses.docx.md",
+      "location": "Response to Request for Production No. 17",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)",
+      "citation_as_written": "Rule 34(a) of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Will produce documents sufficient to show capitalized maintenance expenses",
+      "quotes": [],
+      "context": "Meridian will produce responsive documents sufficient to show the requested information, pursuant to Rule 34(a) of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 34(b)(2)(B)-(C)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The response cites Rule 34(a) as the basis for producing 'documents sufficient to show the requested information', specifically summary documentation of capitalized maintenance totals. Rule 34(a) gives the requesting party the right to designated documents; it contains no 'sufficient to show' or summary-production mechanism. Any narrowing must be made by a specific objection under 34(b)(2)(B)-(C), stating whether materials are withheld and producing the rest. The rule does not support the narrowing it is cited for.",
+        "evidence_excerpt": "\"(C) Objections. An objection must state whether any responsive materials are being withheld on the basis of that objection. An objection to part of a request must specify the part and permit inspection of the rest.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The cited text is 'Meridian will produce responsive documents sufficient to show the requested information, pursuant to Rule 34(a) ... Specifically, Meridian will produce summary documentation reflecting capitalized maintenance expense totals.' Rule 34(a) (LII text) covers requests for 'any designated documents or electronically stored information' and has no summary or 'sufficient to show' substitution mechanism. Responses and objections are governed by 34(b)(2)(B)-(C). Of the three production sentences this one, placed in the Response section, comes closest to a generic 'production under Rule 34' reading. Even so, the rule is cited for producing a summary in place of the requested documents, which it does not authorize. The finding holds with moderate confidence.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ]
+      }
+    },
+    {
+      "ref": 26,
+      "document": "answer-counterclaim.docx.md",
+      "location": "II.A, Answer para. 3",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "",
+      "cited_for": "Subject-matter jurisdiction based on complete diversity and amount in controversy over $75,000",
+      "quotes": [],
+      "context": "Meridian admits that this Court has subject-matter jurisdiction over this action pursuant to 28 U.S.C. § 1332(a), based on complete diversity of citizenship between the parties and an amount in controversy that exceeds the sum of $75,000.00",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1332(a) supports jurisdiction based on diversity of citizenship plus an amount in controversy over $75,000.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "answer-counterclaim.docx.md",
+      "location": "II.A, Answer para. 4",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "",
+      "cited_for": "Venue is proper in the Central District of California",
+      "quotes": [],
+      "context": "Meridian admits that venue is proper in the Central District of California pursuant to 28 U.S.C. § 1391(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1391(b) is the general federal venue provision. It lists the districts where a civil action may be brought, which supports an admission that venue is proper.",
+        "evidence_excerpt": "(b) Venue in General.—A civil action may be brought in— (1) a judicial district in which any defendant resides... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "answer-counterclaim.docx.md",
+      "location": "III, First Affirmative Defense (Failure to State a Claim)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(6)",
+      "citation_as_written": "Federal Rule of Civil Procedure 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Each cause of action should be dismissed for failure to state a claim",
+      "quotes": [],
+      "context": "Each cause of action is deficient in one or more respects and should be dismissed pursuant to Federal Rule of Civil Procedure 12(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(6) is the defense of failure to state a claim upon which relief can be granted. It is properly pleaded in an answer, because Rule 12(h)(2)(A) allows it to be raised in any pleading under Rule 7(a). Technically, dismissal 'pursuant to 12(b)(6)' comes on motion, or on a 12(c) motion once the answer is filed, but this is standard boilerplate for an affirmative defense.",
+        "evidence_excerpt": "\"(6) failure to state a claim upon which relief can be granted\"; Rule 12(h)(2): \"may be raised: (A) in any pleading allowed or ordered under Rule 7(a); (B) by a motion under Rule 12(c); or (C) at trial.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "task.json.md",
+      "location": "rubric C-031 (ISSUE_012)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(3)",
+      "citation_as_written": "FRCP 26(b)(3)",
+      "pincite": "",
+      "cited_for": "Work product doctrine requires materials prepared in anticipation of litigation or for trial; pre-litigation insurer communications do not qualify",
+      "quotes": [
+        "in anticipation of litigation or for trial"
+      ],
+      "context": "the work product doctrine under FRCP 26(b)(3) requires materials prepared 'in anticipation of litigation or for trial,' and that communications with an insurer about policy changes and coverage levels in 2020–2021 ... are routine business communications",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'in anticipation of litigation or for trial' found verbatim in Rule 26(b)(3)(A).",
+        "explanation": "Rule 26(b)(3)(A) protects documents prepared in anticipation of litigation or for trial, including those prepared by or for a party's insurer. That supports the threshold requirement. The conclusion that the 2020-2021 insurer communications were routine business records is the rubric applying the rule to the scenario's facts, which is a reasonable reading. Note that the rule does expressly cover insurers, so the point turns on whether litigation was anticipated, not on who the recipient was.",
+        "evidence_excerpt": "Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial by or for another party or its representative (including the other party's attorney, consultant, surety, indemnitor, insurer, or agent).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "meet-confer-emails.eml.md",
+      "location": "Email of Aug. 19, 2024 (Nakamura), opening paragraph",
+      "authority_type": "court_rule",
+      "authority": "C.D. Cal. Local Rule 37",
+      "citation_as_written": "Local Rule 37",
+      "pincite": "",
+      "cited_for": "Court's meet-and-confer requirements before discovery motion",
+      "quotes": [],
+      "context": "require discussion pursuant to the Court's meet-and-confer requirements under Local Rule 37 and Judge Okonkwo's scheduling order dated April 22, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "C.D. Cal. L.R. 37-1 (Local Rule 37 generally)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "C.D. Cal. Local Rule 37 (L.R. 37-1 through 37-4) governs discovery motions; L.R. 37-1 requires a prefiling conference of counsel before any discovery motion. Citing 'Local Rule 37' for the court's meet-and-confer requirements is accurate.",
+        "evidence_excerpt": "L.R. 37-1 Prefiling Conference of Counsel. Before filing any motion relating to discovery under F.Rs.Civ.P. 26-37, counsel for the parties must confer in a good-faith effort to eliminate the necessity for hearing the motion or to eliminate as many of the disputes as possible.",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "meet-confer-emails.eml.md",
+      "location": "Email of Sept. 2, 2024 (Farouk), General section",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(e)",
+      "citation_as_written": "FRCP 26(e)",
+      "pincite": "",
+      "cited_for": "Duty to supplement production under ongoing obligations",
+      "quotes": [],
+      "context": "will supplement as appropriate under its ongoing obligations pursuant to FRCP 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(e)(1) imposes a continuing duty to supplement or correct responses to requests for production when they turn out to be incomplete or incorrect. That supports the email's reference to ongoing supplementation obligations.",
+        "evidence_excerpt": "who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "meet-confer-emails.eml.md",
+      "location": "Email of Sept. 9, 2024 (Nakamura), item 1",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(b)(6)",
+      "citation_as_written": "Rule 30(b)(6)",
+      "pincite": "",
+      "cited_for": "Possible deposition of Meridian on subcontractor practices and fleet capacity representations",
+      "quotes": [],
+      "context": "reserves the right to pursue this issue through a motion to compel and/or a Rule 30(b)(6) deposition on Meridian's subcontractor practices and fleet capacity representations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(b)(6) lets a party name an organization as the deponent and describe the matters for examination. A deposition of Meridian on its subcontractor practices and fleet capacity representations fits that rule.",
+        "evidence_excerpt": "a party may name as the deponent a public or private corporation ... and must describe with reasonable particularity the matters for examination.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "meet-confer-emails.eml.md",
+      "location": "Email of Sept. 9, 2024 (Nakamura), item 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(e)",
+      "citation_as_written": "FRCP 37(e)",
+      "pincite": "",
+      "cited_for": "Discovery obligations include reasonable steps to preserve ESI relevant to anticipated or pending litigation; missing dispatch logs raise preservation concerns",
+      "quotes": [],
+      "context": "Meridian's discovery obligations under FRCP 37(e) include taking reasonable steps to preserve electronically stored information that may be relevant to anticipated or pending litigation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(e) provides remedies when ESI that should have been preserved is lost because a party failed to take reasonable steps to preserve it. It therefore assumes a duty to take reasonable steps. The 2015 Committee Note says the rule rests on the common-law duty and does not create a new one. Describing the obligation as arising 'under FRCP 37(e)' is a loose framing, but the substance is correct and fits the preservation concern raised in the email.",
+        "evidence_excerpt": "If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost because a party failed to take reasonable steps to preserve it ... / Committee Note: \"Rule 37(e) is based on this common-law duty; it does not attempt to create a new duty to preserve.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "scheduling-order.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)",
+      "citation_as_written": "Rule 16(b)",
+      "pincite": "",
+      "cited_for": "Scheduling conference held April 22, 2024",
+      "quotes": [],
+      "context": "the Court held a Rule 16(b) scheduling conference with counsel for both parties present.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(1)(B) provides for a scheduling order issued after the court consults with counsel at a scheduling conference, so calling it a 'Rule 16(b) scheduling conference' is accurate. The conference date is a fictional fact of the scenario.",
+        "evidence_excerpt": "must issue a scheduling order: ... (B) after consulting with the parties' attorneys and any unrepresented parties at a scheduling conference.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "scheduling-order.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Court considered the parties' Joint Rule 26(f) Report",
+      "quotes": [],
+      "context": "the parties' Joint Rule 26(f) Report filed on April 15, 2024",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) requires the parties to confer and submit a written report outlining the discovery plan within 14 days after the conference. A court considering the parties' Joint Rule 26(f) Report is consistent with that.",
+        "evidence_excerpt": "submit to the court \"within 14 days after the conference a written report outlining the plan.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 1 Jurisdiction and Parties",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction based on complete diversity",
+      "quotes": [],
+      "context": "The Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332, as there is complete diversity of citizenship between the parties.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1332(a)(1) gives district courts original jurisdiction over civil actions between citizens of different States where the amount in controversy exceeds $75,000. That supports diversity jurisdiction. Citing § 1332 without the subsection is acceptable.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.1 Fact Discovery Period",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34(b)(2)(A)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(b)(2)(A)",
+      "pincite": "",
+      "cited_for": "Responses to requests for production are due within 30 days of service",
+      "quotes": [],
+      "context": "under Federal Rule of Civil Procedure 34(b)(2)(A), responses to requests for production of documents are due within 30 days of service.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34(b)(2)(A) requires a written response within 30 days after service. It has an exception for requests delivered early under Rule 26(d)(2), which run from the first Rule 26(f) conference. The general statement in the order is accurate.",
+        "evidence_excerpt": "The party to whom the request is directed must respond in writing within 30 days after being served or — if the request was delivered under Rule 26(d)(2) — within 30 days after the parties' first Rule 26(f) conference.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.2 Written Discovery Limits",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33",
+      "citation_as_written": "Federal Rule of Civil Procedure 33",
+      "pincite": "",
+      "cited_for": "Up to 25 interrogatories including discrete subparts",
+      "quotes": [],
+      "context": "Each party may serve up to twenty-five (25) interrogatories, including all discrete subparts, in accordance with Federal Rule of Civil Procedure 33.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 33(a)(1) caps interrogatories at 25, including all discrete subparts, unless the parties stipulate or the court orders otherwise. That matches the order exactly.",
+        "evidence_excerpt": "a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.2 Written Discovery Limits",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Federal Rule of Civil Procedure 34",
+      "pincite": "",
+      "cited_for": "No numerical limit on requests for production; reasonableness and proportionality expected",
+      "quotes": [],
+      "context": "There is no numerical limit imposed on requests for production of documents under Federal Rule of Civil Procedure 34",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 34 governs requests for production and sets no numerical cap on how many may be served, so the order's statement that it imposes no limit is accurate. The proportionality expectation comes from the general scope rules, not from Rule 34 itself, but the order does not attribute it to Rule 34.",
+        "evidence_excerpt": "Rule 34(b)(2)(A): \"The party to whom the request is directed must respond in writing within 30 days after being served...\" (no numerical cap appears in Rule 34).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.2 Written Discovery Limits",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 36",
+      "citation_as_written": "Federal Rule of Civil Procedure 36",
+      "pincite": "",
+      "cited_for": "Up to 30 requests for admission",
+      "quotes": [],
+      "context": "Each party may serve up to thirty (30) requests for admission under Federal Rule of Civil Procedure 36.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 36 authorizes requests for admission and sets no numerical limit of its own. The 30-request cap is a court-imposed limit on requests served 'under' Rule 36, which is a proper reference to the rule.",
+        "evidence_excerpt": "\"A party may serve on any other party a written request to admit, for purposes of the pending action only...\" (no numerical cap in the rule)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.3 Depositions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(d)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 30(d)(1)",
+      "pincite": "",
+      "cited_for": "Seven-hour limit per deposition",
+      "quotes": [],
+      "context": "Each deposition shall not exceed seven (7) hours of examination on the record, consistent with Federal Rule of Civil Procedure 30(d)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(d)(1) limits a deposition to 1 day of 7 hours unless the parties stipulate or the court orders otherwise. The order's seven-hour limit matches.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, a deposition is limited to 1 day of 7 hours.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.3 Depositions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 45",
+      "citation_as_written": "Federal Rule of Civil Procedure 45",
+      "pincite": "",
+      "cited_for": "Non-party depositions by subpoena",
+      "quotes": [],
+      "context": "Non-party depositions shall be conducted pursuant to subpoenas issued under Federal Rule of Civil Procedure 45.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 45 governs subpoenas, including subpoenas commanding a person to attend and testify at a deposition. That is the mechanism for compelling a non-party deposition.",
+        "evidence_excerpt": "A subpoena commanding attendance at a deposition must state the method for recording the testimony.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.4(c) ESI Protocol, Redactions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 5.2",
+      "citation_as_written": "Federal Rule of Civil Procedure 5.2",
+      "pincite": "",
+      "cited_for": "Redaction of personal identifying information permitted",
+      "quotes": [],
+      "context": "personal identifying information subject to Federal Rule of Civil Procedure 5.2, including but not limited to Social Security numbers, taxpayer identification numbers, dates of birth",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 5.2(a) limits Social Security and taxpayer-identification numbers, birth dates, minors' names, and financial-account numbers to redacted forms. The order uses those categories to define which PII may be redacted. Strictly, Rule 5.2 governs court filings, not discovery production, so the authority to redact in production comes from the order itself, which refers to Rule 5.2 only to identify the categories. The citation is accurate for that purpose.",
+        "evidence_excerpt": "in an electronic or paper filing with the court that contains an individual's social-security number, taxpayer-identification number, or birth date, the name of an individual known to be a minor, or a financial-account number, a party or nonparty making the filing may include only:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_5.2"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 2.5 Privilege Logs",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "pincite": "",
+      "cited_for": "Privilege log must be produced with the production containing withheld documents",
+      "quotes": [],
+      "context": "shall produce a privilege log in compliance with Federal Rule of Civil Procedure 26(b)(5)(A) no later than the date on which the document production containing the withheld documents is served.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(5)(A) sets what a privilege claim must contain: the party must expressly make the claim and describe what was withheld. The rule itself sets no timing. The deadline (the log is due with the production that withholds the documents) comes from the court's order, and the order cites the rule only for content compliance, which is accurate.",
+        "evidence_excerpt": "the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 3 Meet-and-Confer Requirements",
+      "authority_type": "court_rule",
+      "authority": "C.D. Cal. Local Rule 37-1",
+      "citation_as_written": "Local Rule 37-1 of the Central District of California",
+      "pincite": "",
+      "cited_for": "No discovery motion without prior meaningful meet-and-confer",
+      "quotes": [],
+      "context": "Pursuant to Local Rule 37-1 of the Central District of California and Federal Rule of Civil Procedure 37(a)(1), no discovery motion may be filed unless the moving party has first engaged in a meaningful meet-and-confer effort",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "L.R. 37-1 requires counsel to confer in good faith before filing any discovery motion, and Fed. R. Civ. P. 37(a)(1) requires a good-faith conferral certification. The order's 'meaningful meet-and-confer' wording is a fair paraphrase.",
+        "evidence_excerpt": "Before filing any motion relating to discovery under F.Rs.Civ.P. 26-37, counsel for the parties must confer in a good-faith effort to eliminate the necessity for hearing the motion (L.R. 37-1); FRCP 37(a)(1): 'certification that the movant has in good faith conferred or attempted to confer'",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf",
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 3 Meet-and-Confer Requirements",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(a)(1)",
+      "pincite": "",
+      "cited_for": "Meet-and-confer prerequisite for discovery motions",
+      "quotes": [],
+      "context": "Pursuant to Local Rule 37-1 of the Central District of California and Federal Rule of Civil Procedure 37(a)(1), no discovery motion may be filed unless",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(a)(1) requires a motion to compel to include a certification that the movant conferred or tried in good faith to confer. That supports a meet-and-confer prerequisite. The order's stricter terms (no motion without a meet-and-confer, direct communication, 14 days) come from the order itself and from C.D. Cal. L.R. 37-1, which it also cites; L.R. 37-1 covers any discovery motion under FRCP 26-37.",
+        "evidence_excerpt": "The motion must include a certification that the movant has in good faith conferred or attempted to confer with the person or party failing to make disclosure or discovery in an effort to obtain it without court action.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37",
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 4.1 Motions to Compel",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(a)",
+      "pincite": "",
+      "cited_for": "Motions to compel discovery; filing deadlines",
+      "quotes": [],
+      "context": "Motions to compel discovery under Federal Rule of Civil Procedure 37(a) shall be filed no later than forty-five (45) days after the service of the document production",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 37(a) authorizes motions for an order compelling disclosure or discovery. The 45-day filing deadline is the court's own scheduling provision and is not attributed to the rule's text. Rule 37(a) has no deadline of its own.",
+        "evidence_excerpt": "Motion for an Order Compelling Disclosure or Discovery ... \"On notice to other parties and all affected persons, a party may move for an order compelling disclosure or discovery.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 4.2 Sanctions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 37(b)–(c)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(b)–(c)",
+      "pincite": "",
+      "cited_for": "Sanctions for failure to comply with discovery obligations",
+      "quotes": [],
+      "context": "The Court may impose sanctions under Federal Rule of Civil Procedure 37(b)–(c) for failure to comply with discovery obligations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(b) authorizes sanctions for disobeying a discovery order: issue establishment, preclusion, striking pleadings, default or dismissal, contempt, and expenses including attorney's fees. Rule 37(c) authorizes sanctions for failing to disclose or supplement, including preclusion, fees, and an instruction to the jury about the failure. Together they support sanctions for failing to meet discovery obligations. Sanctions for violating the scheduling order itself would more precisely fall under Rule 16(f), but the cited proposition holds.",
+        "evidence_excerpt": "fails to obey an order to provide or permit discovery, including an order under Rule 26(f), 35, or 37(a), the court where the action is pending may issue further just orders.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 5 Expert Discovery, intro and (a)-(b)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2) and 26(a)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2); Rule 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Expert disclosures and full expert reports schedule",
+      "quotes": [],
+      "context": "Expert witness disclosures under Federal Rule of Civil Procedure 26(a)(2) shall be served ... including full expert reports compliant with Rule 26(a)(2)(B), shall be due by December 15, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2) governs expert-witness disclosures. Rule 26(a)(2)(B) requires a written report from retained experts. The specific deadlines come from the court's order, which Rule 26(a)(2)(D) contemplates. The citation correctly identifies the rules being applied.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, this disclosure must be accompanied by a written report—prepared and signed by the witness—if the witness is one retained or specially employed to provide expert testimony in the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 6 Dispositive Motions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 56",
+      "citation_as_written": "Federal Rule of Civil Procedure 56",
+      "pincite": "",
+      "cited_for": "Summary judgment motions deadline",
+      "quotes": [],
+      "context": "All dispositive motions, including motions for summary judgment under Federal Rule of Civil Procedure 56, shall be filed no later than June 15, 2026.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 56 governs summary judgment motions. Rule 56(b) lets the court set a different filing deadline, which supports a court-ordered deadline for dispositive motions.",
+        "evidence_excerpt": "Unless a different time is set by local rule or the court orders otherwise, a party may file a motion for summary judgment at any time until 30 days after the close of all discovery.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 7 Pretrial Conference and Trial",
+      "authority_type": "court_rule",
+      "authority": "C.D. Cal. Local Rule 16-4",
+      "citation_as_written": "Local Rule 16-4",
+      "pincite": "",
+      "cited_for": "Joint pretrial conference statement compliance",
+      "quotes": [],
+      "context": "The parties shall file a joint pretrial conference statement no later than fourteen (14) days before the conference, in compliance with Local Rule 16-4.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "C.D. Cal. L.R. 16-4 exists, but it governs each party's separately filed Memorandum of Contentions of Fact and Law, due 21 days before the Final Pretrial Conference. It says nothing about a joint pretrial conference statement or a 14-day deadline. The phrase 'joint pretrial conference statement' does not appear anywhere in the C.D. Cal. Chapter I Local Civil Rules (June 1, 2026 version). Joint pretrial filings in that district are made under L.R. 16-6.1 (Joint Exhibit List) and L.R. 16-7 (Final Pretrial Conference Order).",
+        "evidence_excerpt": "L.R. 16-4 Memorandum of Contentions of Fact and Law. Not later than twenty-one (21) days before the Final Pretrial Conference, each party shall serve and file a Memorandum of Contentions of Fact and Law.",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/court-procedures/local-rules",
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Official C.D. Cal. Local Rules (6/1/2026), L.R. 16-4: 'Memorandum of Contentions of Fact and Law. Not later than twenty-one (21) days before the Final Pretrial Conference, each party shall serve and file a Memorandum of Contentions of Fact and Law.' That is a separate filing by each party, due 21 days before the conference. A text search of the whole Chapter I document found no 'joint pretrial conference statement' and no 14-day pretrial-statement deadline tied to L.R. 16-4. The only 'fourteen (14) days before' language in the 16-series refers to the trial commencement date, not a joint statement. The rule is real but does not govern the filing it is cited for. The finding holds.",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/sites/default/files/documents/2026-June-LRs-Chap-1.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 52,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 8 Amendments to Pleadings",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Good cause required for late amendment or joinder",
+      "quotes": [],
+      "context": "may be permitted only upon a showing of good cause under Federal Rule of Civil Procedure 16(b)(4)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Under Rule 16(b)(3)(A), the scheduling order must set deadlines for joining parties and amending pleadings. Under Rule 16(b)(4), the schedule may be modified only for good cause. Requiring good cause for a late amendment or joinder therefore matches the rule.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 8 Amendments to Pleadings",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 15(a)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 15(a)(2)",
+      "pincite": "",
+      "cited_for": "Proposed amendment must satisfy applicable standard",
+      "quotes": [],
+      "context": "the movant must also demonstrate that the proposed amendment satisfies the applicable standard under Federal Rule of Civil Procedure 15(a)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 15(a)(2) is the leave-to-amend standard that applies after the time to amend as a matter of course has passed. The order uses it correctly: a movant who first shows good cause under Rule 16(b)(4) must also satisfy Rule 15(a)(2).",
+        "evidence_excerpt": "In all other cases, a party may amend its pleading only with the opposing party's written consent or the court's leave. The court should freely give leave when justice so requires.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_15"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 10 Modifications to This Order",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Order modified only on good cause with leave of Court",
+      "quotes": [],
+      "context": "This Scheduling Order may be modified only upon a showing of good cause and with leave of Court pursuant to Federal Rule of Civil Procedure 16(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) allows a schedule to be modified only for good cause and with the judge's consent. 'With leave of Court' is a faithful paraphrase of 'with the judge's consent.'",
+        "evidence_excerpt": "Modifying a Schedule. A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 11 Cooperation and Civility",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 1",
+      "citation_as_written": "Federal Rule of Civil Procedure 1",
+      "pincite": "",
+      "cited_for": "Discovery should advance the just, speedy, and inexpensive determination of the action",
+      "quotes": [],
+      "context": "consistent with Federal Rule of Civil Procedure 1",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed; the phrase 'just, speedy, and inexpensive determination' tracks the rule verbatim.",
+        "explanation": "Rule 1 directs that the rules be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action.",
+        "evidence_excerpt": "\"They should be construed, administered, and employed by the court and the parties to secure the just, speedy, and inexpensive determination of every action and proceeding.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "scheduling-order.docx.md",
+      "location": "§ 11 Cooperation and Civility",
+      "authority_type": "other",
+      "authority": "Central District of California Civility and Professionalism Guidelines",
+      "citation_as_written": "Central District of California's Civility and Professionalism Guidelines adopted by General Order",
+      "pincite": "",
+      "cited_for": "Counsel expected to comply with civility guidelines",
+      "quotes": [],
+      "context": "The Court expects all counsel and parties to comply with the Central District of California's Civility and Professionalism Guidelines adopted by General Order.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The C.D. Cal. Civility and Professionalism Guidelines exist (last amended 1/10/2022) and are posted on the court's website. The court's page does not say that they were adopted by General Order, so I could not confirm that detail. The guidelines describe themselves as voluntary and say they may not be a basis for sanctions. The order's statement that the court 'expects' compliance is consistent with that.",
+        "evidence_excerpt": "Civility and Professionalism Guidelines (last amended 1/10/2022) ... We expect that judges and lawyers will voluntarily adhere to these standards ... These guidelines shall not be used as a basis for litigation or for sanctions or penalties.",
+        "source_urls": [
+          "https://www.cacd.uscourts.gov/attorneys/admissions/civility-and-professionalism-guidelines"
+        ],
+        "confidence": "medium"
+      }
+    }
+  ]
+}

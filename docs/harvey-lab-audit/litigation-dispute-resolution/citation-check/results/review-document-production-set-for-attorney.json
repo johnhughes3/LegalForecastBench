@@ -1,0 +1,2120 @@
+{
+  "task": "review-document-production-set-for-attorney",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "board-audit-committee-deck.pptx.md",
+    "bridger-to-cascade-counsel.eml.md",
+    "competitive-market-analysis.docx.md",
+    "draft-privilege-log.xlsx.md",
+    "emmerich-forward-to-moritani.eml.md",
+    "emmerich-reformulation-email.eml.md",
+    "first-rfp-set.docx.md",
+    "frey-personal-email-notes.eml.md",
+    "inadvertent-production-clawback.docx.md",
+    "litigation-hold-notice.docx.md",
+    "litigation-strategy-memo.docx.md",
+    "nandakumar-legal-risk-email.eml.md",
+    "pemberton-invoice-june2021.docx.md",
+    "pemberton-opinion-letter.docx.md",
+    "privilege-review-protocol.docx.md",
+    "rennick-handwritten-note.docx.md",
+    "rennick-tsao-labeling-email.eml.md",
+    "slack-product-reformulation.txt.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "RE line and Section I Executive Summary",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK (N.D. Cal., San Jose Division)",
+      "pincite": "",
+      "cited_for": "The matter at hand: putative consumer class action over the 'Natural' labeling claim, pending before Hon. Robert L. Kirkwood",
+      "quotes": [],
+      "context": "RE: Huang v. Greenleaf Consumer Products, Inc., Case No. 5:24-cv-04187-RLK (N.D. Cal., San Jose Division) — Preliminary Defense Strategy Assessment",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The caption of the fictional matter itself."
+    },
+    {
+      "ref": 1,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section I Executive Summary, paragraph 2",
+      "authority_type": "statute",
+      "authority": "California Unfair Competition Law (UCL), Cal. Bus. & Prof. Code § 17200 et seq.",
+      "citation_as_written": "Cal. Bus. & Prof. Code § 17200 et seq.",
+      "pincite": "",
+      "cited_for": "Plaintiff alleges the '100% Natural' labeling violates the UCL",
+      "quotes": [],
+      "context": "California's Unfair Competition Law (\"UCL,\" Cal. Bus. & Prof. Code § 17200 et seq.), California's False Advertising Law (\"FAL,\" Cal. Bus. & Prof. Code § 17500 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Cited only to identify the statute the plaintiff pleads. Cal. Bus. & Prof. Code § 17200 et seq. is the Unfair Competition Law and reaches 'unfair, deceptive, untrue or misleading advertising', so a mislabeling claim is properly described as a UCL claim. Citation form is correct. Source note: leginfo and Justia returned 403; statute text read via FindLaw (through the fetch tool) and corroborated by the California Supreme Court's quotation of § 17200 in Kwikset Corp. v. Superior Court, 51 Cal.4th 310, 320 (2011).",
+        "evidence_excerpt": "FindLaw § 17200: 'As used in this chapter, unfair competition shall mean and include any unlawful, unfair or fraudulent business act or practice and unfair, deceptive, untrue or misleading advertising and any act prohibited by Chapter 1 (commencing with Section 17500) of Part 3 of Division 7 of the Business and Professions Code.' Kwikset: 'which it defines as \"any unlawful, unfair or fraudulent business act or practice.\" (§ 17200.)'",
+        "source_urls": [
+          "https://codes.findlaw.com/ca/business-and-professions-code/bpc-sect-17200/",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section I Executive Summary, paragraph 2",
+      "authority_type": "statute",
+      "authority": "California False Advertising Law (FAL), Cal. Bus. & Prof. Code § 17500 et seq.",
+      "citation_as_written": "Cal. Bus. & Prof. Code § 17500 et seq.",
+      "pincite": "",
+      "cited_for": "Plaintiff alleges the labeling violates the FAL",
+      "quotes": [],
+      "context": "California's False Advertising Law (\"FAL,\" Cal. Bus. & Prof. Code § 17500 et seq.), and analogous consumer protection statutes in multiple states.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The citation is accurate: the California Supreme Court in Kwikset cites the false advertising law as \"Bus. & Prof. Code, § 17500 et seq.\" § 17500 prohibits untrue or misleading statements made to sell goods, and § 17535 lets a person who suffered injury in fact and lost money or property sue, so it fits an allegation that a \"100% Natural\" label is false and misleading. What the fictional plaintiff actually alleges is not checkable. The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset and Williams v. Gerber on CourtListener.",
+        "evidence_excerpt": "Bus. & Prof. Code § 17500: \"It is unlawful for any person, firm, corporation or association ... to make or disseminate ... any statement, concerning that real or personal property ... which is untrue or misleading, and which is known, or which by the exercise of reasonable care should be known, to be untrue or misleading\". Kwikset: \"a fourth brought under the false advertising law (Bus. & Prof.. Code, § 17500 et seq.)\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17500",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17535",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section I Executive Summary, paragraph 2",
+      "authority_type": "statute",
+      "authority": "California Consumer Legal Remedies Act (CLRA)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Plaintiff alleges the labeling violates the CLRA (named without a code cite)",
+      "quotes": [],
+      "context": "in violation of California's Consumer Legal Remedies Act (\"CLRA\"), California's Unfair Competition Law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consumers Legal Remedies Act, Cal. Civ. Code § 1750 et seq.",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The CLRA exists; the memo names it without a code citation (while giving code cites for the UCL and FAL in the same sentence) and uses the common variant 'Consumer Legal Remedies Act' rather than the official 'Consumers Legal Remedies Act' in § 1750. The reference only reports what the fictional plaintiff alleges, and a false or misleading labeling claim is within the Act's prohibition on unfair or deceptive acts or practices (§ 1770). The omitted code cite is supplied in correct_citation.",
+        "evidence_excerpt": "This title may be cited as the Consumers Legal Remedies Act. [Cal. Civ. Code § 1750] / California's Consumer Legal Remedies Act (\"CLRA\") prohibits \"unfair methods of competition and unfair or deceptive acts or practices.\" Cal. Civ.Code § 1770. [Williams v. Gerber]",
+        "source_urls": [
+          "https://codes.findlaw.com/ca/civil-code/civ-sect-1750/",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section II.B The Plaintiff's Allegations",
+      "authority_type": "statute",
+      "authority": "California Unfair Competition Law (UCL), Cal. Bus. & Prof. Code § 17200 et seq.",
+      "citation_as_written": "Cal. Bus. & Prof. Code § 17200 et seq.",
+      "pincite": "",
+      "cited_for": "Complaint's second count (restatement of claims alleged)",
+      "quotes": [],
+      "context": "(ii) California's Unfair Competition Law (\"UCL,\" Cal. Bus. & Prof. Code § 17200 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same statute as ref 1, cited only as a restatement of the complaint's second count. Cal. Bus. & Prof. Code § 17200 et seq. is the Unfair Competition Law; the citation is accurate and nothing further is attributed to it. Source note: leginfo and Justia returned 403; statute text read via FindLaw (through the fetch tool) and corroborated by Kwikset Corp. v. Superior Court, 51 Cal.4th 310, 320 (2011).",
+        "evidence_excerpt": "Kwikset: 'The UCL prohibits, and provides civil remedies for, unfair competition, which it defines as \"any unlawful, unfair or fraudulent business act or practice.\" (§ 17200.)'",
+        "source_urls": [
+          "https://codes.findlaw.com/ca/business-and-professions-code/bpc-sect-17200/",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section II.B The Plaintiff's Allegations",
+      "authority_type": "statute",
+      "authority": "California False Advertising Law (FAL), Cal. Bus. & Prof. Code § 17500 et seq.",
+      "citation_as_written": "Cal. Bus. & Prof. Code § 17500 et seq.",
+      "pincite": "",
+      "cited_for": "Complaint's third count (restatement of claims alleged)",
+      "quotes": [],
+      "context": "(iii) California's False Advertising Law (\"FAL,\" Cal. Bus. & Prof. Code § 17500 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Same citation as ref 2, restating the complaint's third count. Bus. & Prof. Code § 17500 et seq. is the False Advertising Law and the cite is accurate. It prohibits untrue or misleading advertising, and § 17535 provides a private action, so it can ground a labeling count; real \"natural\" food-label complaints plead exactly this count (Ham v. Hain Celestial; Wilson v. Frito-Lay). The fictional complaint's contents are not checkable. The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset on CourtListener.",
+        "evidence_excerpt": "Kwikset: \"The state's false advertising law (§ 17500 et seq.) is equally comprehensive within the narrower field of false and misleading advertising.\" Wilson v. Frito-Lay: \"Plaintiffs assert claims under California's Unfair Competition Law (\"UCL\"), Cal. Bus. & Prof. Code § 17200 et seq., California's False Advertising Law (\"FAL\"), Cal. Bus. & Prof. Code § 17500 et seq., and the Consumers Legal Remedies Act (\"CLRA\"), Cal. Civ. Code § 1750 et seq.\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17500",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://www.courtlistener.com/opinion/7326229/wilson-v-frito-lay-north-america-inc/",
+          "https://www.courtlistener.com/opinion/7310810/ham-v-hain-celestial-group-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section II.B The Plaintiff's Allegations",
+      "authority_type": "statute",
+      "authority": "California Consumer Legal Remedies Act (CLRA)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Complaint's first count",
+      "quotes": [],
+      "context": "(i) the California Consumer Legal Remedies Act (\"CLRA\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consumers Legal Remedies Act, Cal. Civ. Code § 1750 et seq.",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The memo names the CLRA without a code cite, as the first count of the fictional complaint. The statute exists: Civ. Code § 1750 gives the short title, § 1770 prohibits unfair or deceptive practices, and § 1780(a) gives a damaged consumer a private action, so it is a proper vehicle for a mislabeling count. The official title is \"Consumers Legal Remedies Act\"; the memo's \"Consumer Legal Remedies Act\" is a common variant that the Ninth Circuit itself uses in Williams v. Gerber, 552 F.3d 934, so I treat it as tolerated, not a defect. The contents of the fictional complaint are not checkable. The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset v. Superior Court, 51 Cal.4th 310, and Williams on CourtListener.",
+        "evidence_excerpt": "Civ. Code § 1750: \"This title may be cited as the Consumers Legal Remedies Act.\" Williams v. Gerber: \"California's Consumer Legal Remedies Act (\"CLRA\") prohibits \"unfair methods of competition and unfair or deceptive acts or practices.\" Cal. Civ.Code § 1770.\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_civ_code_section_1750",
+          "https://california.public.law/codes/ca_civ_code_section_1780",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section III.B, Preemption arguments",
+      "authority_type": "statute",
+      "authority": "Federal Food, Drug, and Cosmetic Act and Nutrition Labeling and Education Act",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Possible federal preemption defenses to plaintiff's claims",
+      "quotes": [],
+      "context": "there may be federal preemption defenses under the Federal Food, Drug, and Cosmetic Act and the Nutrition Labeling and Education Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Federal Food, Drug, and Cosmetic Act § 403A, 21 U.S.C. § 343-1 (added by the Nutrition Labeling and Education Act of 1990, Pub. L. 101-535, § 6(a), 104 Stat. 2362)",
+        "quote_check": "No attributed quotation.",
+        "explanation": "Both acts exist, and the memo names them without a section cite. The FDCA's express food-labeling preemption provision, § 403A (21 U.S.C. § 343-1), was added by the NLEA and bars states from establishing food labeling requirements 'not identical to' the enumerated federal requirements. That supports the memo's hedged statement that there 'may be' federal preemption defenses under the two acts. I checked only the statutory text; I did not check the memo's separate remark about Ninth Circuit precedent or whether preemption would actually reach a '100% Natural' claim.",
+        "evidence_excerpt": "no State or political subdivision of a State may directly or indirectly establish under any authority or continue in effect as to any food in interstate commerce ... (June 25, 1938, ch. 675, § 403A, as added Pub. L. 101–535, § 6(a), Nov. 8, 1990, 104 Stat. 2362",
+        "source_urls": [
+          "https:/343-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section IV.A Rule 23(a) Requirements",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(a) (numerosity, commonality, typicality, adequacy)",
+      "citation_as_written": "Rule 23(a)",
+      "pincite": "",
+      "cited_for": "Class certification prerequisites assessed: numerosity, commonality, typicality, adequacy",
+      "quotes": [],
+      "context": "A. Rule 23(a) Requirements — Numerosity. This requirement is easily satisfied.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 23(a) sets out the four prerequisites the memo assesses under that heading: numerosity, commonality, typicality and adequacy of representation.",
+        "evidence_excerpt": "\"(a) Prerequisites. One or more members of a class may sue or be sued as representative parties on behalf of all members only if: (1) the class is so numerous that joinder of all members is impracticable; (2) there are questions of law or fact common to the class; (3) the claims or defenses of the representative parties are typical ... and (4) the representative parties will fairly and adequately protect the interests of the class.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section IV.B Rule 23(b) Predominance and Superiority",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(b)(3)",
+      "citation_as_written": "Rule 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Predominance and superiority required for certification; individualized reliance defeats predominance",
+      "quotes": [],
+      "context": "Plaintiff will almost certainly seek certification under Rule 23(b)(3), which requires that common issues predominate over individual issues",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 23(b)(3) requires a finding that common questions predominate over individual ones and that a class action is superior to other available methods, matching the memo's description. That individualized reliance defeats predominance is the memo's defense argument applying the predominance requirement, not something attributed to the rule text.",
+        "evidence_excerpt": "\"(3) the court finds that the questions of law or fact common to class members predominate over any questions affecting only individual members, and that a class action is superior to other available methods for fairly and efficiently adjudicating the controversy.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section VII.B Pre-Class Certification Strategy, Motion to dismiss",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Rule 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Recommended motion to dismiss for failure to state a claim",
+      "quotes": [],
+      "context": "We recommend filing a motion to dismiss on preemption grounds and for failure to state a claim under Rule 12(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Fed. R. Civ. P. 12(b)(6) authorizes asserting by motion the defense of failure to state a claim upon which relief can be granted, which is exactly what the memo cites it for.",
+        "evidence_excerpt": "\"But a party may assert the following defenses by motion: ... (6) failure to state a claim upon which relief can be granted;\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section VII.C Class Certification Defense, Attack predominance",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(b)(3)",
+      "citation_as_written": "Rule 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Argue individual reliance defeats predominance",
+      "quotes": [],
+      "context": "defeating the predominance requirement under Rule 23(b)(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 23(b)(3) contains the predominance requirement the memo refers to. The contention that varying reliance and purchasing motivations defeat predominance is strategy advice framed as an argument, consistent with the rule's requirement that common questions predominate over questions affecting only individual members.",
+        "evidence_excerpt": "\"(3) the court finds that the questions of law or fact common to class members predominate over any questions affecting only individual members, and that a class action is superior to other available methods for fairly and efficiently adjudicating the controversy.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section VII.C Class Certification Defense, Daubert challenge",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.), named without cite",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Daubert motion to exclude or limit plaintiff's damages expert testimony",
+      "quotes": [],
+      "context": "Consider filing a Daubert motion to exclude or limit plaintiff's damages expert testimony if the proposed methodology is speculative",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The memo names Daubert without a reporter cite, as shorthand for a motion to exclude or limit expert testimony. CourtListener confirms Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993). The opinion holds that Rule 702 makes the trial judge a gatekeeper who must ensure expert testimony is reliable and relevant, and it discusses the 'fit' requirement that testimony be 'sufficiently tied to the facts of the case' (quoting Downing). That matches the memo's use: a motion to exclude a damages expert whose methodology is speculative or insufficiently tied to the alleged misrepresentation. No citation defect, since no cite was given.",
+        "evidence_excerpt": "\"General acceptance\" is not a necessary precondition to the admissibility of scientific evidence under the Federal Rules of Evidence, but the Rules of Evidence— especially Rule 702—do assign to the trial judge the task of ensuring that an expert's testimony both rests on a reliable foundation and is relevant to the task at hand.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section VII.C Class Certification Defense, Interlocutory appeal",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23(f)",
+      "citation_as_written": "Rule 23(f)",
+      "pincite": "",
+      "cited_for": "Interlocutory appeal of a class certification grant",
+      "quotes": [],
+      "context": "If class certification is granted, seek immediate interlocutory appeal under Rule 23(f).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 23(f) permits a court of appeals to allow an appeal from an order granting or denying class certification, on a petition filed within 14 days of the order. The appeal is discretionary rather than of right, which is consistent with the memo's advice to \"seek\" immediate interlocutory appeal.",
+        "evidence_excerpt": "\"(f) Appeals. A court of appeals may permit an appeal from an order granting or denying class-action certification under this rule, but not from an order under Rule 23(e)(1). A party must file a petition for permission to appeal with the circuit clerk within 14 days after the order is entered\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.A FDA Guidance on Natural Claims",
+      "authority_type": "other",
+      "authority": "FDA Docket No. FDA-2014-N-1207 (2015 request for comment on 'natural')",
+      "citation_as_written": "Docket No. FDA-2014-N-1207",
+      "pincite": "",
+      "cited_for": "FDA opened public comment on use of 'natural' in food labeling; received over 7,600 comments; no final rule",
+      "quotes": [],
+      "context": "In November 2015, the FDA opened a public comment period requesting input on the use of the term \"natural\" in food labeling, under Docket No. FDA-2014-N-1207.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Use of the Term \"Natural\" in the Labeling of Human Food Products; Request for Information and Comments, 80 Fed. Reg. 69905 (Nov. 12, 2015) (Docket No. FDA-2014-N-1207); comment period extended to May 10, 2016, 80 Fed. Reg. 80718 (Dec. 28, 2015)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Each element is supported. FDA published the request for information and comments on the term 'natural' in food labeling on November 12, 2015, under Docket No. FDA-2014-N-1207. The comment period was extended from February 10 to May 10, 2016. The regulations.gov API returns 7,687 comments for the docket, consistent with 'more than 7,600'. FDA's page, fetched today, shows no final rule or formal definition. The '2014' in the docket number is correct even though the notice issued in 2015.",
+        "evidence_excerpt": "SUMMARY: The Food and Drug Administration (FDA or we) is announcing the establishment of a docket to receive information and comments on the use of the term ``natural'' in the labeling of human food products ... [regulations.gov API, comments filtered to docketId FDA-2014-N-1207:] 'totalElements': 7687",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.govinfo.gov/content/pkg/FR-2015-12-28/html/2015-32471.htm",
+          "https://api.regulations.gov/v4/comments?filter[docketId]=FDA-2014-N-1207",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.A, processing aids paragraph",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. § 101.100",
+      "citation_as_written": "21 C.F.R. § 101.100",
+      "pincite": "",
+      "cited_for": "Processing aids may be treated differently under ingredient declaration requirements",
+      "quotes": [],
+      "context": "may be treated differently under certain FDA regulatory frameworks, such as the ingredient declaration requirements of 21 C.F.R. § 101.100.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "21 C.F.R. § 101.100 (\"Food; exemptions from labeling\") exists. Paragraph (a)(3) exempts 'incidental additives' present at insignificant levels with no technical or functional effect in the food from the ingredient-declaration requirement of FDCA § 403(i)(2), and (a)(3)(ii) expressly defines 'processing aids' as one category. That supports the statement that processing aids may be treated differently under the ingredient declaration requirements. The more precise pin is § 101.100(a)(3)(ii); the letter cites the section generally, which is accurate.",
+        "evidence_excerpt": "(3) Incidental additives that are present in a food at insignificant levels and do not have any technical or functional effect in that food. For the purposes of this paragraph (a)(3), incidental additives are: ... (ii) Processing aids, which are as follows: ... (c) Substances that are added to a food for their technical or functional effect in the processing but are present in the finished food at insignificant levels and do not have any technical or functional effect in that food.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-02/title-21.xml?part=101&section=101.100",
+          "https://www.ecfr.gov/current/title-21/section-101.100"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.B FTC Enforcement Trends",
+      "authority_type": "statute",
+      "authority": "Section 5 of the FTC Act, 15 U.S.C. § 45",
+      "citation_as_written": "15 U.S.C. § 45",
+      "pincite": "",
+      "cited_for": "FTC authority to challenge deceptive advertising, including 'natural' claims on food",
+      "quotes": [
+        "unfair or deceptive acts or practices in or affecting commerce"
+      ],
+      "context": "under Section 5 of the FTC Act, 15 U.S.C. § 45, which prohibits \"unfair or deceptive acts or practices in or affecting commerce.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 45(a)(1) (quoted language); § 45(a)(2) (FTC enforcement power)",
+        "quote_check": "\"unfair or deceptive acts or practices in or affecting commerce\": found verbatim in 15 U.S.C. § 45(a)(1).",
+        "explanation": "Section 5 of the FTC Act is codified at 15 U.S.C. § 45. Subsection (a)(1) declares unlawful the quoted 'unfair or deceptive acts or practices in or affecting commerce', and (a)(2) empowers and directs the Commission to prevent them. That supports the letter's statement that the FTC has independent authority to challenge deceptive advertising claims, which would include 'natural' claims on food. The statute does not mention 'natural' claims specifically; that is the letter's application, not a quotation. A pin to § 45(a)(1) would be more precise but the section cite is correct.",
+        "evidence_excerpt": "(1) Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are hereby declared unlawful. (2) The Commission is hereby empowered and directed to prevent persons, partnerships, or corporations ...",
+        "source_urls": [
+          "https:/45"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.C State Attorney General and State Consumer Protection Enforcement",
+      "authority_type": "statute",
+      "authority": "California UCL, Cal. Bus. & Prof. Code §§ 17200 et seq.",
+      "citation_as_written": "Cal. Bus. & Prof. Code §§ 17200 et seq.",
+      "pincite": "",
+      "cited_for": "Invoked by California AG and private litigants against 'natural' claims; reasonable consumer standard",
+      "quotes": [],
+      "context": "California's Unfair Competition Law (\"UCL\"), Cal. Bus. & Prof. Code §§ 17200 et seq., False Advertising Law (\"FAL\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The UCL exists at Cal. Bus. & Prof. Code § 17200 et seq. and defines unfair competition to include unlawful, unfair or fraudulent business practices and deceptive or misleading advertising. § 17204 authorizes actions by the Attorney General and by private persons who lost money or property, so both classes of plaintiff named in the letter can invoke it. The 'reasonable consumer' standard is attributed in the letter to 'California courts', not to the statute text, and Williams v. Gerber Products Co., 552 F.3d 934, 938 (9th Cir. 2008) confirms it for UCL/CLRA claims in a private suit over an 'all natural ingredients' food label. Not independently checked: the letter's factual assertion that the California AG's office itself has brought 'natural' food-label cases (only the AG's statutory authority was confirmed). Source note: leginfo.legislature.ca.gov and law.justia.com both returned 403, so statute text was read via FindLaw and public.law (through the fetch tool) and corroborated against opinions quoting the same text.",
+        "evidence_excerpt": "Kwikset (quoting § 17200): 'The UCL prohibits, and provides civil remedies for, unfair competition, which it defines as \"any unlawful, unfair or fraudulent business act or practice.\" (§ 17200.)' Williams v. Gerber: 'Appellants' claims under these California statutes are governed by the \"reasonable consumer\" test.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/",
+          "https://codes.findlaw.com/ca/business-and-professions-code/bpc-sect-17200/",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17204"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.C",
+      "authority_type": "statute",
+      "authority": "California FAL, Cal. Bus. & Prof. Code §§ 17500 et seq.",
+      "citation_as_written": "Cal. Bus. & Prof. Code §§ 17500 et seq.",
+      "pincite": "",
+      "cited_for": "Invoked against 'natural' claims on food products",
+      "quotes": [],
+      "context": "False Advertising Law (\"FAL\"), Cal. Bus. & Prof. Code §§ 17500 et seq., and Consumer Legal Remedies Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The citation is accurate: the False Advertising Law is Bus. & Prof. Code § 17500 et seq., and § 17500 makes untrue or misleading advertising statements unlawful. Private litigants have invoked it against \"natural\" food claims: Ham v. Hain Celestial (\"All Natural\" waffles containing a synthetic substance) and Wilson v. Frito-Lay (\"Made with All Natural Ingredients\") both plead FAL claims alongside the UCL and CLRA. § 17535 also authorizes the Attorney General to sue under the FAL. I did not look for a specific Attorney General \"natural\" food enforcement action, so that half of the letter's sentence is a factual assertion left unchecked; the statute itself supports what it is cited for. The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset and Williams v. Gerber.",
+        "evidence_excerpt": "Ham v. Hain Celestial: \"Ham alleges causes of action for (i) violations of California's deceptive advertising practices laws (\"FAL\"), Cal. Bus. & Prof. Code § 17500, et seq.; (ii) violations of the Consumers Legal Remedies Act (\"CLRA\"), Cal. Civ. Code § 1750, et seq.\" Williams v. Gerber: \"The false advertising law prohibits any \"unfair, deceptive, untrue, or misleading advertising.\" Cal. Bus. and Prof.Code § 17500.\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17500",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17535",
+          "https://www.courtlistener.com/opinion/7310810/ham-v-hain-celestial-group-inc/",
+          "https://www.courtlistener.com/opinion/7326229/wilson-v-frito-lay-north-america-inc/",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.C",
+      "authority_type": "statute",
+      "authority": "California CLRA, Cal. Civ. Code §§ 1750 et seq.",
+      "citation_as_written": "Cal. Civ. Code §§ 1750 et seq.",
+      "pincite": "",
+      "cited_for": "Invoked against 'natural' claims on food products",
+      "quotes": [],
+      "context": "Consumer Legal Remedies Act (\"CLRA\"), Cal. Civ. Code §§ 1750 et seq., have all been invoked by the California Attorney General's office",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consumers Legal Remedies Act, Cal. Civ. Code § 1750 et seq.",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Cal. Civ. Code § 1750 exists and begins the CLRA; the code cite is correct. The statutory short title is 'Consumers Legal Remedies Act' (plural); the letter's 'Consumer Legal Remedies Act' is a common variant the Ninth Circuit itself uses, so it is not treated as a defect. The proposition that the CLRA (with the UCL and FAL) has been invoked in cases challenging 'natural' claims on food is supported: Williams v. Gerber Products Co., 552 F.3d 934 (9th Cir. 2008), involved UCL and CLRA claims over packaging stating 'fruit juice and other all natural ingredients,' with an amicus brief from the California Attorney General. Caveat: I verified private-litigant use of the CLRA; I did not locate an Attorney General enforcement action pleaded under the CLRA itself (the sentence attributes use of the three statutes collectively to the AG and private litigants).",
+        "evidence_excerpt": "This title may be cited as the Consumers Legal Remedies Act. [Cal. Civ. Code § 1750] / California's Consumer Legal Remedies Act (\"CLRA\") prohibits \"unfair methods of competition and unfair or deceptive acts or practices.\" Cal. Civ.Code § 1770. [Williams v. Gerber]",
+        "source_urls": [
+          "https://codes.findlaw.com/ca/civil-code/civ-sect-1750/",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section IV.A, First point (processing aid characterization)",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. § 101.100",
+      "citation_as_written": "21 C.F.R. § 101.100",
+      "pincite": "",
+      "cited_for": "Processing aid characterization may be relevant to ingredient declaration but gives no basis to exempt from 'natural' analysis",
+      "quotes": [],
+      "context": "while potentially relevant to ingredient declaration requirements under 21 C.F.R. § 101.100, does not provide a clear basis for exempting these substances",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Same regulation as ref 15. Section 101.100(a) is solely an exemption from the ingredient-declaration requirement of FDCA § 403(i)(2); (a)(3)(ii) covers processing aids. Nothing in the section addresses 'natural' claims, so the letter's statement that the processing-aid characterization is relevant to ingredient declaration but gives no clear basis for exemption from a 'natural' claims analysis is consistent with the text. The second half of the proposition is the author's legal conclusion rather than something the regulation states; the regulation does not contradict it.",
+        "evidence_excerpt": "(a) The following foods are exempt from compliance with the requirements of section 403(i)(2) of the act (requiring a declaration on the label of the common or usual name of each ingredient when the food is fabricated from two or more ingredients). ... (ii) Processing aids, which are as follows:",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2024-01-02/title-21.xml?part=101&section=101.100",
+          "https://www.ecfr.gov/current/title-21/section-101.100"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section IV.B Risk Assessment (FDA Enforcement Risk)",
+      "authority_type": "other",
+      "authority": "FDA Docket No. FDA-2014-N-1207",
+      "citation_as_written": "Docket No. FDA-2014-N-1207",
+      "pincite": "",
+      "cited_for": "Ongoing FDA review of 'natural' framework has not produced finalized guidance",
+      "quotes": [],
+      "context": "The agency's ongoing review of the \"natural\" labeling framework (Docket No. FDA-2014-N-1207) has not resulted in finalized guidance.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Use of the Term \"Natural\" in the Labeling of Human Food Products; Request for Information and Comments, 80 Fed. Reg. 69905 (Nov. 12, 2015) (Docket No. FDA-2014-N-1207); comment period extended, 80 Fed. Reg. 80718 (Dec. 28, 2015)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Docket No. FDA-2014-N-1207 is the real FDA docket for the 'natural' labeling request for information, as the Federal Register notice header and the regulations.gov docket record both show. FDA's web page, fetched today (content current as of 10/22/2018), still says the agency has not engaged in rulemaking to establish a formal definition and reports only that the comment period closed May 10, 2016. That supports the statement that the review had produced no finalized guidance as of the June 2021 letter. The regulations.gov record classifies the docket as 'Nonrulemaking'.",
+        "evidence_excerpt": "[Docket No. FDA-2014-N-1207] Use of the Term ``Natural'' in the Labeling of Human Food Products; Request for Information and Comments ... ACTION: Notification of request for comments.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://api.regulations.gov/v4/dockets/FDA-2014-N-1207"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Header",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK",
+      "pincite": "",
+      "cited_for": "The matter to which the protocol applies",
+      "quotes": [],
+      "context": "Huang v. Greenleaf Consumer Products, Inc. Case No. 5:24-cv-04187-RLK United States District Court for the Northern District of California, San Jose Division Hon. Robert L. Kirkwood",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The caption of the fictional matter itself."
+    },
+    {
+      "ref": 23,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 3.1 Core Elements, Corporate context",
+      "authority_type": "case",
+      "authority": "Upjohn Co. v. United States",
+      "citation_as_written": "449 U.S. 383 (1981)",
+      "pincite": "",
+      "cited_for": "Communications from corporate employees to counsel are privileged when made at direction of superiors to enable counsel to give legal advice to the corporation and employees know the purpose",
+      "quotes": [],
+      "context": "Under Upjohn Co. v. United States, 449 U.S. 383 (1981), communications from corporate employees to counsel are privileged when made at the direction of corporate superiors",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The citation is correct: Upjohn Co. v. United States, 449 U.S. 383 (1981), confirmed in CourtListener. The proposition closely tracks the Court's reasoning at 394-95. The communications were made by employees to counsel acting as such, at the direction of corporate superiors, to secure legal advice for the company, and the employees were aware they were being questioned for that purpose. The Court held those communications protected. The protocol omits two further factors the Court noted (the matters were within the employees' corporate duties and the communications were kept confidential), but what it states is accurate. No pin cite was given; the relevant pages are 394-95.",
+        "evidence_excerpt": "\"The communications at issue were made by Upjohn employees to counsel for Upjohn acting as such, at the direction of corporate superiors in order to secure legal advice from counsel. ... the employees themselves were sufficiently aware that they were being questioned in order that the corporation could obtain legal advice.\" (449 U.S. at 394)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 4.1 Core Elements (work product)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(3)",
+      "pincite": "",
+      "cited_for": "Codifies the work product doctrine protecting documents prepared in anticipation of litigation",
+      "quotes": [],
+      "context": "The work product doctrine, codified in Fed. R. Civ. P. 26(b)(3), protects documents and tangible things prepared in anticipation of litigation or for trial",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The paraphrase tracks Rule 26(b)(3)(A) nearly word for word (\"documents and tangible things ... prepared in anticipation of litigation or for trial by or for [a] party or its representative\").",
+        "explanation": "Rule 26(b)(3) (\"Trial Preparation: Materials\") protects documents and tangible things prepared in anticipation of litigation or for trial by or for a party or its representative, discoverable only on a showing of substantial need and undue hardship, with (b)(3)(B) protecting mental impressions and opinions. The 1970 Advisory Committee Note on the same page ties the provision to \"the work-product doctrine of Hickman v. Taylor,\" so describing the doctrine as \"codified\" in 26(b)(3) is a fair, conventional characterization (strictly a partial codification, since Hickman still covers intangible work product).",
+        "evidence_excerpt": "(3) Trial Preparation: Materials. (A) Documents and Tangible Things. Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial by or for another party or its representative (including the other party's attorney, consultant, surety, indemnitor, insurer, or agent).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 6 Inadvertent Disclosure and Claw-Back Procedures, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 502(b)",
+      "citation_as_written": "FRE 502(b)",
+      "pincite": "",
+      "cited_for": "Inadvertent disclosure does not waive privilege if (1) inadvertent, (2) reasonable steps to prevent, (3) prompt reasonable steps to rectify",
+      "quotes": [],
+      "context": "FRE 502(b) governs inadvertent disclosure in federal proceedings. Under FRE 502(b), inadvertent disclosure does not waive privilege if: (1) the disclosure was inadvertent",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The three-element paraphrase matches FRE 502(b)(1)-(3) closely.",
+        "explanation": "FRE 502(b) provides that a disclosure made in a federal proceeding does not operate as a waiver if (1) it is inadvertent, (2) the holder took reasonable steps to prevent disclosure, and (3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Rule 26(b)(5)(B). The protocol states all three elements accurately. It omits only the words \"(if applicable)\" and the rule's limit to attorney-client privilege and work-product protection, neither of which changes the meaning.",
+        "evidence_excerpt": "(b) Inadvertent Disclosure. When made in a federal proceeding or to a federal office or agency, the disclosure does not operate as a waiver in a federal or state proceeding if: (1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26 (b)(5)(B).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 6, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(B)",
+      "pincite": "",
+      "cited_for": "Procedure for rectifying inadvertent production of privileged material",
+      "quotes": [],
+      "context": "promptly took reasonable steps to rectify the error, including following Fed. R. Civ. P. 26(b)(5)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(5)(B) (\"Information Produced\") is the claw-back procedure for privileged or protected material already produced: the claiming party notifies the recipient, who must promptly return, sequester, or destroy it and not use it until the claim is resolved. FRE 502(b)(3) itself cross-references it as a step to rectify an inadvertent disclosure, so the protocol's reference is accurate.",
+        "evidence_excerpt": "(B) Information Produced. If information produced in discovery is subject to a claim of privilege or of protection as trial-preparation material, the party making the claim may notify any party that received the information of the claim and the basis for it. After being notified, a party must promptly return, sequester, or destroy the specified information and any copies it has; must not use or disclose the information until the claim is resolved",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 6, Practical guidance",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(B) and FRE 502(b)",
+      "citation_as_written": "Rule 26(b)(5)(B) and FRE 502(b)",
+      "pincite": "",
+      "cited_for": "Claw-back notice should reference these provisions",
+      "quotes": [],
+      "context": "who will issue a claw-back notice to opposing counsel (Redstone Liang LLP, Jennifer Okafor-Liang) referencing Rule 26(b)(5)(B) and FRE 502(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Both provisions exist and are the correct ones for a claw-back notice. Rule 26(b)(5)(B) supplies the notice-and-return mechanism for produced privileged material, and FRE 502(b) supplies the non-waiver standard for inadvertent disclosure and expressly points to Rule 26(b)(5)(B) as a rectifying step.",
+        "evidence_excerpt": "(3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26 (b)(5)(B).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 9 Board of Directors communications",
+      "authority_type": "case",
+      "authority": "Upjohn (Upjohn Co. v. United States, 449 U.S. 383 (1981)), short form",
+      "citation_as_written": "Upjohn",
+      "pincite": "",
+      "cited_for": "Communications between counsel and the Board for legal oversight are typically privileged",
+      "quotes": [],
+      "context": "Under Upjohn, communications between counsel and the Board for purposes of legal oversight are typically privileged.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Upjohn Co. v. United States, 449 U.S. 383, 389-95 (1981)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Upjohn exists and supports the proposition only by inference. It confirms that the attorney-client privilege applies to a corporate client and protects communications made to counsel to secure legal advice for the corporation. It does not specifically address communications between counsel and a board of directors or \"legal oversight\". Its holding rejected the control-group test and extended the privilege to lower-level employees. Communications with senior management were treated as covered even under the narrower test the Court rejected, so privilege for board-counsel legal-advice communications follows a fortiori. The attribution is loose rather than wrong, and the protocol's hedge (\"typically privileged\") is appropriate.",
+        "evidence_excerpt": "\"Admittedly complications in the application of the privilege arise when the client is a corporation, which in theory is an artificial creature of the law, and not an individual; but this Court has assumed that the privilege applies when the client is a corporation\" (449 U.S. at 389-90)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "draft-privilege-log.xlsx.md",
+      "location": "Sheet Instructions, cells A2:B4 (Matter Name, Case No., Judge)",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "5:24-cv-04187-RLK (N.D. Cal., San Jose Division)",
+      "pincite": "",
+      "cited_for": "The matter for which the privilege log is prepared",
+      "quotes": [],
+      "context": "Matter Name: Huang v. Greenleaf Consumer Products, Inc. / Case No.: 5:24-cv-04187-RLK (N.D. Cal., San Jose Division)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The caption of the fictional matter itself."
+    },
+    {
+      "ref": 30,
+      "document": "first-rfp-set.docx.md",
+      "location": "Caption",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK",
+      "pincite": "",
+      "cited_for": "Caption of the fictional action in which the RFPs are served",
+      "quotes": [],
+      "context": "VICTORIA HUANG, individually and on behalf of all others similarly situated, Plaintiff, v. GREENLEAF CONSUMER PRODUCTS, INC., Defendant. Case No. 5:24-cv-04187-RLK",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The caption of the fictional matter itself."
+    },
+    {
+      "ref": 31,
+      "document": "first-rfp-set.docx.md",
+      "location": "Introductory Paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26 and 34",
+      "citation_as_written": "Federal Rules of Civil Procedure Rules 26 and 34",
+      "pincite": "",
+      "cited_for": "Basis for requests for production of documents and ESI",
+      "quotes": [],
+      "context": "pursuant to Federal Rules of Civil Procedure Rules 26 and 34",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(a) authorizes a party to serve requests, within the scope of Rule 26(b), to produce designated documents or electronically stored information, and Rule 26(b)(1) defines that scope of discovery. Together they are the correct basis for requests for production of documents and ESI. The RFP's 30-day response demand also matches Rule 34(b)(2)(A).",
+        "evidence_excerpt": "Rule 34(a): \"A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party or its representative to inspect, copy, test, or sample ... (A) any designated documents or electronically stored information\". Rule 34(b)(2)(A): \"The party to whom the request is directed must respond in writing within 30 days after being served\". Rule 26(b)(1): \"Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "first-rfp-set.docx.md",
+      "location": "Section I Definitions, 'Document'",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a) and the Federal Rules of Evidence",
+      "citation_as_written": "Fed. R. Civ. P. 34(a)",
+      "pincite": "",
+      "cited_for": "Definition of 'Document' follows Rule 34(a) and the FRE",
+      "quotes": [],
+      "context": "is defined broadly, consistent with Fed. R. Civ. P. 34(a) and the Federal Rules of Evidence",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The definition's list (\"writings, drawings, graphs, charts, photographs, sound recordings, images ... and other data or data compilations in any medium from which information can be obtained\") tracks Rule 34(a)(1)(A) almost verbatim.",
+        "explanation": "Rule 34(a)(1)(A) describes documents and electronically stored information in the same terms the RFP definition borrows. The reference to \"the Federal Rules of Evidence\" carries no rule number; the likely referent is FRE 1001, which defines \"writing,\" \"recording,\" and \"photograph\" broadly and is consistent with the definition. The additions for drafts, non-identical copies, and metadata are not in Rule 34(a), but the definition claims only to be \"consistent with\" it, which is accurate.",
+        "evidence_excerpt": "(A) any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium from which information can be obtained either directly or, if necessary, after translation by the responding party into a reasonably usable form",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34",
+          "https://www.law.cornell.edu/rules/fre/rule_1001"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "first-rfp-set.docx.md",
+      "location": "Section II Instructions, No. 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Fed. R. Civ. P. 26(e)",
+      "pincite": "",
+      "cited_for": "Duty to supplement responses",
+      "quotes": [],
+      "context": "Defendant shall supplement its responses as additional responsive documents are identified, pursuant to Fed. R. Civ. P. 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(e)(1) imposes a duty on a party who has responded to a request for production to supplement or correct the response in a timely manner on learning it is materially incomplete or incorrect. That supports the instruction that the defendant must supplement its responses as further responsive documents are identified. The precise subdivision is 26(e)(1)(A).",
+        "evidence_excerpt": "(e) Supplementing Disclosures and Responses. (1) In General. A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "first-rfp-set.docx.md",
+      "location": "Section II Instructions, No. 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(b)(2)(E)",
+      "citation_as_written": "Fed. R. Civ. P. 34(b)(2)(E)",
+      "pincite": "",
+      "cited_for": "Form of production: as kept in usual course or organized by request",
+      "quotes": [],
+      "context": "Documents shall be produced as they are kept in the usual course of business, or organized and labeled to correspond to each category of request, pursuant to Fed. R. Civ. P. 34(b)(2)(E).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The instruction closely paraphrases Rule 34(b)(2)(E)(i).",
+        "explanation": "Rule 34(b)(2)(E)(i) provides that, unless otherwise stipulated or ordered, a party must produce documents as they are kept in the usual course of business or organize and label them to correspond to the categories in the request. The instruction restates that rule accurately; the exact subparagraph is (E)(i).",
+        "evidence_excerpt": "(E) Producing the Documents or Electronically Stored Information. Unless otherwise stipulated or ordered by the court, these procedures apply to producing documents or electronically stored information: (i) A party must produce documents as they are kept in the usual course of business or must organize and label them to correspond to the categories in the request;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "first-rfp-set.docx.md",
+      "location": "Section II Instructions, No. 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "pincite": "",
+      "cited_for": "Privilege log requirements for withheld documents",
+      "quotes": [],
+      "context": "Defendant shall provide a privilege log pursuant to Fed. R. Civ. P. 26(b)(5)(A)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(5)(A) requires a party withholding otherwise discoverable information as privileged or as trial-preparation material to expressly make the claim and describe the withheld items so other parties can assess the claim. That is the standard source of the privilege-log obligation. The rule does not use the term \"privilege log\" or prescribe the seven fields (a)-(g) listed in the RFP instruction, but the instruction cites the rule only as the basis for the log, which it is.",
+        "evidence_excerpt": "(A) Information Withheld. When a party withholds information otherwise discoverable by claiming that the information is privileged or subject to protection as trial-preparation material, the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed—and do so in a manner that, without revealing information itself privileged or protected, will enable other parties to assess the claim.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "first-rfp-set.docx.md",
+      "location": "Section IV Reservation of Rights",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure (general)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Plaintiff reserves rights including motion to compel production",
+      "quotes": [],
+      "context": "Plaintiff reserves all rights under the Federal Rules of Civil Procedure, including the right to move to compel production",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 37(a)(3)(B)(iv) (the document cites the Federal Rules of Civil Procedure only generally)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The document cites the Federal Rules of Civil Procedure generally for the right to move to compel production. The Rules provide that right: Rule 37(a)(1) authorizes a motion for an order compelling discovery, and Rule 37(a)(3)(B)(iv) specifically covers a party's failure to produce documents requested under Rule 34. No specific rule number was given, so there is nothing to be mis-cited.",
+        "evidence_excerpt": "A party seeking discovery may move for an order compelling an answer, designation, production, or inspection. This motion may be made if: ... (iv) a party fails to produce documents or fails to respond that inspection will be permitted—or fails to permit inspection—as requested under Rule 34.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "litigation-hold-notice.docx.md",
+      "location": "RE line and Section 1",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK",
+      "pincite": "",
+      "cited_for": "The matter to which the litigation hold relates",
+      "quotes": [],
+      "context": "LITIGATION HOLD NOTICE — Huang v. Greenleaf Consumer Products, Inc., Case No. 5:24-cv-04187-RLK (U.S. District Court, Northern District of California, San Jose Division)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The caption of the fictional matter itself."
+    },
+    {
+      "ref": 38,
+      "document": "task.json.md",
+      "location": "rubric C-031 and C-032 (ISSUE_009)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 502(b)",
+      "citation_as_written": "FRE 502(b)",
+      "pincite": "",
+      "cited_for": "Inadvertent disclosure analysis; factors: inadvertent, reasonable steps to prevent, prompt steps to rectify",
+      "quotes": [],
+      "context": "PASS if the report references FRE 502(b) (or equivalent federal rule regarding inadvertent disclosure) in connection with DOC_016's inadvertent production analysis.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation. The rubric's three paraphrased factors track Rule 502(b)(1)-(3) nearly word for word.",
+        "explanation": "Fed. R. Evid. 502(b) is the federal inadvertent-disclosure rule. It provides that a disclosure made in a federal proceeding does not operate as a waiver if (1) it is inadvertent, (2) the holder took reasonable steps to prevent disclosure, and (3) the holder promptly took reasonable steps to rectify the error. That matches the three factors the rubric lists.",
+        "evidence_excerpt": "(b) Inadvertent Disclosure. When made in a federal proceeding or to a federal office or agency, the disclosure does not operate as a waiver in a federal or state proceeding if: (1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "task.json.md",
+      "location": "rubric C-046 (ISSUE_003)",
+      "authority_type": "case",
+      "authority": "Clark v. United States",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Example authority for crime-fraud exception legal standard / in camera review",
+      "quotes": [],
+      "context": "or references in camera review as the procedural mechanism for resolving such claims (e.g., under Clark v. United States or In re Grand Jury Subpoena or similar authority)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Clark v. United States, 289 U.S. 1, 15 (1933)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric names the case without a reporter cite; the full cite is 289 U.S. 1 (1933). Clark is a juror-contempt case, but at p. 15 Justice Cardozo reasons by analogy to the attorney-client privilege and states the crime-fraud rule and the prima facie evidence requirement; the Ninth Circuit in In re Napster quotes this passage as the foundation of the exception. Clark therefore supports the 'legal standard' half of the rubric's disjunction. It does not support the 'in camera review' half: the phrase 'in camera' does not appear anywhere in the opinion (0 matches). That mechanism comes from United States v. Zolin, 491 U.S. 554, 572 (1989). Because the rubric offers Clark only as an 'e.g.' for a two-part disjunction, I treat this as support rather than a defect, but a reader who attaches the parenthetical only to in camera review would call it a loose parenthetical.",
+        "evidence_excerpt": "'A client who consults an attorney for advice that will serve him in the commission of a fraud will have no help from the law. He must let the truth be told. ... To drive the privilege away, there must be \"something to give colour to the charge;\" there must be \"prima facie evidence that it has some foundation in fact.\" ... When that evidence is supplied, the seal of secrecy is broken.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/102061/clark-v-united-states/",
+          "https://www.courtlistener.com/opinion/112308/united-states-v-zolin/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "task.json.md",
+      "location": "rubric C-046 (ISSUE_003)",
+      "authority_type": "case",
+      "authority": "In re Grand Jury Subpoena",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Example authority for crime-fraud exception legal standard / in camera review",
+      "quotes": [],
+      "context": "(e.g., under Clark v. United States or In re Grand Jury Subpoena or similar authority)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "The reference is a bare case name with no reporter cite and matches many opinions. One on-point example: In re Grand Jury Subpoena 92-1(SJ), 31 F.3d 826, 829-31 (9th Cir. 1994). The governing in camera standard is United States v. Zolin, 491 U.S. 554, 572 (1989).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The rubric offers 'In re Grand Jury Subpoena' only as an example ('e.g., ... or similar authority') for the crime-fraud standard and in camera review. The name is generic and belongs to many real opinions, so no single intended case can be identified. Real opinions under that name do address exactly this point: the Ninth Circuit's In re Grand Jury Subpoena 92-1(SJ) applies the Zolin two-step test for in camera review under the crime-fraud exception and limits the exception to communications in furtherance of ongoing or intended crime or fraud. Other opinions with the same name also discuss the exception (e.g., 223 F.3d 213 (3d Cir. 2000); 745 F.3d 681 (3d Cir. 2014)), though I read only the Ninth Circuit one. The reference is supported as an example, but incomplete as a citation.",
+        "evidence_excerpt": "\"the Supreme Court held that a district court may, in appropriate circumstances, conduct in camera review of privileged documents to assess whether they fall within this crime-fraud exception.\" ... \"Attorney-client communications concerning past or completed crimes do not come within the crime-fraud exception to the attorney-client privilege.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/675819/in-re-grand-jury-subpoena-92-1sj-appeal-of-the-corporation/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 3.1 Core Elements, opening paragraph",
+      "authority_type": "other",
+      "authority": "Federal common law of privilege (federal privilege law applicable to federal-question and supplemental state-law claims)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Federal common law of privilege governs federal-question claims and supplemental state-law claims; sets out the elements of attorney-client privilege.",
+      "quotes": [],
+      "context": "This case is in the Northern District of California. Federal common law of privilege applies to federal-question claims and supplemental state-law claims. The elements of attorney-client privilege are:",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Evid. 501; Agster v. Maricopa County, 422 F.3d 836, 839 (9th Cir. 2005) (rule for mixed federal-question and pendent state claims); United States v. Graf, 610 F.3d 1148, 1156 (9th Cir. 2010) (elements of attorney-client privilege). The document itself gives no citation.",
+        "quote_check": "No quotation attributed.",
+        "explanation": "CAVEAT ON APPLICATION: the stated rule is correct law, but it may not fit this case. Elsewhere in the production the complaint is described as pleading only state-law claims (CLRA, UCL, FAL and analogous state consumer statutes; the hold notice says 'state consumer protection statutes'), with no federal-question claim. Under the second sentence of Rule 501, state law governs privilege for a claim or defense for which state law supplies the rule of decision, so California privilege law, not federal common law, would likely govern a pure state-law diversity/CAFA case. The protocol does not address this.\n\nAs a statement of law, the proposition is supported. Rule 501 makes federal common law the default; the Senate note to Rule 501 and the Ninth Circuit in Agster say federal privilege law applies where federal-question claims and pendent state-law claims are both present. The four listed elements (communication, between privileged persons, in confidence, for the purpose of legal advice) are a fair condensation of the Ninth Circuit's eight-part test in Graf (they track the Restatement formulation rather than the Ninth Circuit's wording).",
+        "evidence_excerpt": "Agster: \"Where there are federal question claims and pendent state law claims present, the federal law of privilege applies. Fed.R.Evid. 501 advisory committee note\". Rule 501: \"But in a civil case, state law governs privilege regarding a claim or defense for which state law supplies the rule of decision.\" Graf: \"(1) Where legal advice of any kind is sought (2) from a professional legal adviser in his capacity as such, (3) the communications relating to that purpose, (4) made in confidence (5) by the client ...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_501",
+          "https://www.courtlistener.com/opinion/791845/agster-v-maricopa-county/",
+          "https://www.courtlistener.com/opinion/150182/united-states-v-graf/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section on crime-fraud exception (reviewer guidance)",
+      "authority_type": "other",
+      "authority": "Crime-fraud exception to attorney-client privilege",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Attorney-client privilege does not protect communications in furtherance of a crime or fraud; challenger must make a prima facie showing; court may conduct in camera review.",
+      "quotes": [],
+      "context": "Attorney-client privilege does not protect communications made in furtherance of a crime or fraud. Under the crime-fraud exception, a party challenging privilege must make a prima facie showing that (a) the client was engaged in or planning criminal or fraudulent activity and (b) the attorney's assistance was obtained in furtherance of that activity. The court may conduct in camera review to determine whether the exception applies.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Clark v. United States, 289 U.S. 1, 15 (1933); United States v. Zolin, 491 U.S. 554, 572 (1989); In re Napster, Inc. Copyright Litig., 479 F.3d 1078, 1090 (9th Cir. 2007); In re Grand Jury Proceedings, 87 F.3d 377, 381 (9th Cir. 1996)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The protocol cites no authority; each of its three statements is supported. (1) Privilege does not protect communications in furtherance of crime or fraud: Clark at 15; Zolin describes the 'exception to that privilege for communications in furtherance of future illegal conduct'. (2) Two-part prima facie showing: Napster at 1090 states the Ninth Circuit two-part test (client 'engaged in or planning a criminal or fraudulent scheme' when it sought advice; communications 'in furtherance of' the illegality), and In re Grand Jury Proceedings, 87 F.3d 377, states the 'prima facie showing' burden and, in a footnote, quotes an Eleventh Circuit formulation that matches the protocol's wording nearly verbatim. (3) In camera review: Zolin at 572 sets the threshold showing and leaves the decision to the district court's discretion. One refinement for this N.D. Cal. civil matter: Napster at 1094-95 holds that in a civil case the party seeking outright disclosure must prove the exception by a preponderance of the evidence, and says the phrase 'prima facie case' is 'not inconsistent with' that standard. The protocol's 'prima facie showing' language is therefore traditional and acceptable but understates the operative Ninth Circuit civil burden.",
+        "evidence_excerpt": "Napster: 'A party seeking to vitiate the attorney-client privilege under the crime-fraud exception must satisfy a two-part test. First, the party must show that \"the client was engaged in or planning a criminal or fraudulent scheme when it sought the advice of counsel to further the scheme.\"' Zolin: 'Before engaging in in camera review to determine the applicability of the crime-fraud exception, \"the judge should require a showing of a factual basis adequate to support a good faith belief by a reasonable person,\" ... that in camera review of the materials may reveal evidence to establish the claim that the crime-fraud exception applies.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/797128/in-re-napster-inc-copyright-litigation/",
+          "https://www.courtlistener.com/opinion/112308/united-states-v-zolin/",
+          "https://www.courtlistener.com/opinion/720617/in-re-grand-jury-proceedings-appeal-of-the-corporation/",
+          "https://www.courtlistener.com/opinion/102061/clark-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 5 Common Interest Doctrine, N.D. Cal. note",
+      "authority_type": "other",
+      "authority": "Common interest (joint defense) doctrine; Ninth Circuit precedent on written agreement requirement",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Common interest doctrine permits sharing of privileged communications among parties with shared legal interest; Ninth Circuit has not imposed a strict written-agreement requirement.",
+      "quotes": [],
+      "context": "The Ninth Circuit has not imposed a strict requirement for a written agreement but has emphasized that the parties must demonstrate a common legal interest, not merely a shared desire to prevail in the same litigation.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "In re Pacific Pictures Corp., 679 F.3d 1121, 1129 (9th Cir. 2012) (CourtListener caption: Pacific Pictures Corp. v. United States District Court)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The protocol cites no authority, but both halves of its sentence track the Ninth Circuit's opinion in Pacific Pictures at p. 1129 almost word for word: (1) no strict written-agreement requirement, since the agreement may be 'written or unwritten'; and (2) a shared desire for the same outcome is not enough, since the parties must be pursuing a joint legal strategy. The opinion also describes the doctrine as an exception to waiver rules allowing attorneys for different clients pursuing a common legal strategy to communicate, which supports the protocol's general description of the doctrine.",
+        "evidence_excerpt": "'However, a shared desire to see the same outcome in a legal matter is insufficient to bring a communication between two parties within this exception. Id. Instead, the parties must make the communication in pursuit of a joint strategy in accordance with some form of agreement — whether written or unwritten.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/799675/pacific-pictures-corp-v-united-states-district-court/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section III.A, 'The 100% Natural claim is absolute' paragraph",
+      "authority_type": "other",
+      "authority": "Unnamed N.D. Cal. and Ninth Circuit food-labeling decisions on absolute 'natural' claims",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Courts in N.D. Cal. and the Ninth Circuit have repeatedly held absolute claims create a higher standard for the defendant, and trace departures may be actionable.",
+      "quotes": [],
+      "context": "In food labeling litigation, courts in the Northern District of California and the Ninth Circuit have repeatedly held that absolute claims create a higher standard for the defendant to meet, and even trace-level departures from literal truth may be actionable.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The memo cites no case. Only half the proposition is supported by the N.D. Cal. and Ninth Circuit decisions I read. Supported: trace-level departures from a \"100% Natural\" claim can be actionable at the pleading stage. Organic Consumers Ass'n v. Sanderson Farms, 284 F. Supp. 3d 1005, 1014-15 (N.D. Cal. 2018), denied dismissal and rejected the argument that a reasonable consumer would not be surprised by trace synthetic residues. Janney v. General Mills, 944 F. Supp. 2d 806 (N.D. Cal. 2013), also let \"100% Natural\" claims proceed in part. Not supported: I found no decision holding that an absolute claim creates \"a higher standard for the defendant to meet\"; the cases apply the ordinary reasonable-consumer test. \"Repeatedly held\" also overstates a mixed record: Yu v. Dr Pepper Snapple Group, No. 5:18-cv-06664-BLF (N.D. Cal. Oct. 6, 2020), dismissed a trace-pesticide \"Natural\" claim with prejudice. It followed In re General Mills Glyphosate Litig. (D. Minn.), which found it implausible that \"100% Natural\" oats could not contain trace glyphosate. Tran v. Sioux Honey (C.D. Cal.), a \"100% Pure\" trace-glyphosate case, ended in summary judgment for the defendant per the Yu order and secondary reports. The search was not exhaustive, and the advisor review was unavailable (rate-limited), so confidence is low. A reader could fairly treat this as a loose but partly supported generalization rather than a mischaracterization.",
+        "evidence_excerpt": "Organic Consumers: \"Sanderson contends a reasonable consumer would not interpret 'natural' as stringently as the plaintiffs propose or be surprised to learn that Sanderson's products have trace amounts of synthetic materials like antibiotics. ... this argument also is unpersuasive.\" Yu v. Dr Pepper Snapple: \"Plaintiff has failed to plausibly allege that a reasonable consumer would believe that the Products labeled natural are free of any trace pesticides whatsoever.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7327941/organic-consumers-assn-v-sanderson-farms-inc/",
+          "https://www.courtlistener.com/docket/8127271/66/yu-v-dr-pepper-snapple-group-inc/",
+          "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
+        ],
+        "confidence": "low"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The first reviewer's finding holds, though it is a soft call: the memo names no case and states an overbroad generalization. Partial support: McGinity v. Procter & Gamble Co., 69 F.4th 1093 (9th Cir. 2023), contrasts an ambiguous label with absolute ones: 'Unlike a label declaring that a product is \"100% natural\" or \"all natural,\" the front \"Nature Fusion\" label does not promise that the product is wholly natural.' Organic Consumers v. Sanderson Farms (N.D. Cal. 2018), cited by the first reviewer, also let a trace-residue 'natural' theory survive dismissal. I found no Ninth Circuit or N.D. Cal. decision holding that an absolute claim creates 'a higher standard for the defendant to meet'. The cases apply the ordinary reasonable-consumer test. 'Repeatedly held' also overstates a mixed record. In Moore v. Trader Joe's Co., 4 F.4th 874 (9th Cir. 2021), as described in Panelli v. Target (9th Cir. 2026) and McGinity, the court held that a '100% New Zealand Manuka Honey' label was 'not likely to deceive a reasonable consumer into believing that the product contained only honey from the Manuka flower', and that '100%' was ambiguous. That cuts directly against the idea that '100%' claims make trace departures actionable as a rule. Yu v. Dr Pepper (N.D. Cal. 2020), cited by the first reviewer, also dismissed a trace-pesticide 'natural' claim. MISCHARACTERIZED remains the best fit, although a lenient reader might treat it as a loose, partly supported generalization.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/9405364/sean-mcginity-v-the-procter-gamble-company/",
+          "https://www.courtlistener.com/?q=Panelli+v.+Target+Corporation",
+          "https://www.courtlistener.com/opinion/7327941/organic-consumers-assn-v-sanderson-farms-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 45,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section IV.B, individualized reliance paragraph",
+      "authority_type": "other",
+      "authority": "Ninth Circuit presumption of reliance under UCL and CLRA",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "In the Ninth Circuit, consumer fraud plaintiffs under the UCL and CLRA can often invoke a presumption of reliance based on materiality.",
+      "quotes": [],
+      "context": "in the Ninth Circuit, plaintiffs in consumer fraud cases brought under the UCL and CLRA can often invoke a presumption of reliance based on the materiality of the alleged misrepresentation",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No citation given in the document. Supporting authority: Stearns v. Ticketmaster Corp., 655 F.3d 1013, 1020-23 (9th Cir. 2011); Mazza v. American Honda Motor Co., 666 F.3d 581, 595-96 (9th Cir. 2012) (limiting the presumption).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The memo's statement is an accurate summary of Ninth Circuit law applying California substantive law. Stearns holds that UCL relief is available without individualized proof of reliance, and that for the CLRA an inference of classwide reliance arises when material misrepresentations were made to the entire class. Mazza recognizes the same presumption but holds it does not arise where many class members were never exposed to the statements. That limit is why the memo's hedge ('can often invoke') is right. The memo calls it a Ninth Circuit presumption; strictly it is a California-law doctrine that the Ninth Circuit applies, which is a labeling nuance and not an error.",
+        "evidence_excerpt": "Stearns: \"relief under the UCL is available without individualized proof of deception, reliance and injury\" and \"Causation, on a classwide basis, may be established by materiality. If the trial court finds that material misrepresentations have been made to the entire class, an inference of reliance arises as to the class.\" Mazza: \"A presumption of reliance does not arise when class members 'were exposed to quite disparate information from various representatives of the defendant.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/223712/stearns-v-ticketmaster-corp/",
+          "https://www.courtlistener.com/opinion/620819/mazza-v-american-honda-motor-co-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "litigation-strategy-memo.docx.md",
+      "location": "Section on damages/fees, Attorneys' fees paragraph",
+      "authority_type": "statute",
+      "authority": "California consumer protection statutes (fee-shifting)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Under California consumer protection statutes, a prevailing plaintiff class is entitled to recover reasonable attorneys' fees.",
+      "quotes": [],
+      "context": "Under California consumer protection statutes, a prevailing plaintiff class is entitled to recover reasonable attorneys' fees.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Cal. Civ. Code § 1780(e) (CLRA, mandatory fees to prevailing plaintiff); Cal. Code Civ. Proc. § 1021.5 (discretionary private-attorney-general fees, the route for UCL claims); see Davis v. Ford Motor Credit Co. LLC, 179 Cal.App.4th 581, 600 (2009); Zhang v. Superior Court, 57 Cal.4th 364 (2013) (fn. 4)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "No authority is cited in the memo. The proposition is accurate for the CLRA, which the complaint pleads: Civ. Code § 1780(e) makes a fee award to a prevailing plaintiff mandatory ('shall award'). It is overstated as a description of 'California consumer protection statutes' generally: the UCL contains no fee provision, and a prevailing UCL plaintiff can only seek fees under Code Civ. Proc. § 1021.5, which is discretionary ('may award') and conditioned on public-benefit findings. So 'entitled' is right for the CLRA count and too strong for the UCL count. I did not separately confirm the position under the FAL. Source note: leginfo and Justia returned 403; statute text read via FindLaw (through the fetch tool) and corroborated by Court of Appeal opinions quoting it.",
+        "evidence_excerpt": "Valdez: '(§ 1780, subd. (e) [\"The court shall award court costs and attorney's fees to a prevailing plaintiff in litigation filed pursuant to this section.\"].)' Davis: 'the UCL does not provide for attorney fees, and relief is generally limited to injunctive relief and restitution.' Zhang fn. 4: 'Although the UCL does not provide for attorney fees, a prevailing plaintiff may seek attorney fees as a private attorney general under Code of Civil Procedure section 1021.5.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/6240361/valdez-v-seidner-miller-inc/",
+          "https://www.courtlistener.com/opinion/2256435/davis-v-ford-motor-credit-co-llc/",
+          "https://www.courtlistener.com/opinion/1036210/zhang-v-superior-court/",
+          "https://www.courtlistener.com/opinion/2831713/benson-v-southern-california-auto-sales-inc/",
+          "https://codes.findlaw.com/ca/civil-code/civ-sect-1780/",
+          "https://codes.findlaw.com/ca/code-of-civil-procedure/ccp-sect-1021-5/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "pemberton-opinion-letter.docx.md",
+      "location": "Section III.A, FDA informal 'natural' policy paragraph",
+      "authority_type": "other",
+      "authority": "FDA informal 1993 policy on 'natural' (not codified in CFR)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "FDA's informal policy dating to 1993 treats 'natural' as meaning nothing artificial or synthetic has been added; never codified.",
+      "quotes": [],
+      "context": "The agency's position on the term \"natural\" is rooted in an informal policy that dates to 1993, under which FDA has considered the term \"natural\" to mean that nothing artificial or synthetic ... has been included in, or has been added to, a food that would not normally be expected to be in that food.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "58 Fed. Reg. 2302, 2407 (Jan. 6, 1993) (final-rule preamble maintaining the informal 'natural' policy), recited in 80 Fed. Reg. 69905, 69906 (Nov. 12, 2015)",
+        "quote_check": "No quotes formally attributed. The letter's wording tracks FDA's formulation almost verbatim: it says 'including color additives regardless of source' where FDA says 'including all color additives regardless of source'. Its 'in that food' matches FDA's web page; the Federal Register recitation says 'in the food'.",
+        "explanation": "Supported. FDA's 2015 notice recites that in the January 1993 final-rule preamble the agency declined to engage in rulemaking to define 'natural' and said it would maintain its policy of interpreting the term as the letter describes. FDA's web page confirms there has been no rulemaking to establish a formal definition, so the policy is not codified in the C.F.R. FDA first articulated the policy in its 1991 proposed-rule preamble (56 FR 60421, 60466), so 'dates to 1993' refers to the restatement usually cited; I treat that as a note, not a defect. I read the 1993 wording as recited by FDA in 80 FR 69906, not in the original 58 FR page.",
+        "evidence_excerpt": "We further stated that we would maintain our policy to interpret the term ``natural'' as meaning that ``nothing artificial or synthetic (including all color additives regardless of source) has been included in, or has been added to, a food that would not normally be expected to be in the food'' (58 FR 2302 at 2407).",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "privilege-review-protocol.docx.md",
+      "location": "Section 4.1 Core Elements (work product)",
+      "authority_type": "other",
+      "authority": "Work product doctrine (fact vs. opinion work product)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Work product doctrine protects materials prepared in anticipation of litigation, with fact and opinion tiers.",
+      "quotes": [],
+      "context": "The work product doctrine, codified in Fed. R. Civ. P. 26(b)(3), protects documents and tangible things prepared in anticipation of litigation or for trial",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(b)(3)(A)-(B); see also Upjohn Co. v. United States, 449 U.S. 383, 399-402 (1981)",
+        "quote_check": "No quotation attributed. The protocol's paraphrase closely tracks the rule text (\"documents and tangible things ... prepared in anticipation of litigation or for trial by or for another party or its representative\"; \"substantial need\"; \"undue hardship\"; \"mental impressions, conclusions, opinions, or legal theories\").",
+        "explanation": "Rule 26(b)(3)(A) protects documents and tangible things prepared in anticipation of litigation or for trial by or for a party or its representative. They are discoverable only on a showing of substantial need and inability to obtain the substantial equivalent without undue hardship. Rule 26(b)(3)(B) requires the court to protect against disclosure of an attorney's mental impressions, conclusions, opinions, or legal theories. That matches the protocol's two tiers of fact and opinion work product. Upjohn, 449 U.S. at 399-402, confirms the heightened protection for opinion work product: it cannot be obtained on the ordinary substantial-need showing, though the Court declined to call the protection absolute. That is consistent with the protocol's \"near-absolute\".",
+        "evidence_excerpt": "Rule 26(b)(3)(A): \"Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial by or for another party or its representative ... (ii) the party shows that it has substantial need for the materials to prepare its case and cannot, without undue hardship, obtain their substantial equivalent by other means.\" (B): \"it must protect against disclosure of the mental impressions, conclusions, opinions, or legal theories of a party's attorney or other representative concerning the litigation.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Claw-back letter, Re line",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Fed. R. Evid. 502(b)",
+      "pincite": "",
+      "cited_for": "Basis for demand for return of inadvertently produced privileged documents",
+      "quotes": [],
+      "context": "Re: Huang v. Greenleaf Consumer Products, Inc., Case No. 5:24-cv-04187-RLK (N.D. Cal.) — Inadvertent Production of Privileged Documents — Demand for Return Pursuant to Fed. R. Evid. 502(b) and Fed. R. Civ. P. 26(b)(5)(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation at this location (the Re line).",
+        "explanation": "Fed. R. Evid. 502(b) governs inadvertent disclosure of privileged material in a federal proceeding and provides that it is not a waiver if the three conditions are met. Strictly, 502(b) is a non-waiver rule and the return obligation comes from Fed. R. Civ. P. 26(b)(5)(B), which the letter cites alongside it and which 502(b)(3) itself references. Citing the two together as the basis for a claw-back demand is accurate.",
+        "evidence_excerpt": "(b) Inadvertent Disclosure. When made in a federal proceeding or to a federal office or agency, the disclosure does not operate as a waiver in a federal or state proceeding if: (1) the disclosure is inadvertent;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Claw-back letter, Re line",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(5)(B)",
+      "pincite": "",
+      "cited_for": "Basis for demand for return of inadvertently produced privileged documents",
+      "quotes": [],
+      "context": "Demand for Return Pursuant to Fed. R. Evid. 502(b) and Fed. R. Civ. P. 26(b)(5)(B)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation at this location (the Re line).",
+        "explanation": "Fed. R. Civ. P. 26(b)(5)(B) is the claw-back procedure. It lets a party claiming privilege over produced information notify the recipient, who must then promptly return, sequester, or destroy it. It is a proper basis for a demand for return of inadvertently produced privileged documents.",
+        "evidence_excerpt": "(B) Information Produced. If information produced in discovery is subject to a claim of privilege or of protection as trial-preparation material, the party making the claim may notify any party that received the information of the claim and the basis for it. After being notified, a party must promptly return, sequester, or destroy the specified information and any copies it has",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Claw-back letter, 'Legal Basis' paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Federal Rule of Evidence 502(b)",
+      "pincite": "",
+      "cited_for": "Inadvertent disclosure in a federal proceeding is not a waiver if inadvertent, reasonable steps to prevent, and prompt reasonable steps to rectify",
+      "quotes": [
+        "(1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B)."
+      ],
+      "context": "Federal Rule of Evidence 502(b) provides that an inadvertent disclosure made in a federal proceeding does not operate as a waiver if: \"(1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B).\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted subparts (1)-(3) are found verbatim in Fed. R. Evid. 502(b)(1)-(3), including the closing reference to Federal Rule of Civil Procedure 26(b)(5)(B). The unquoted lead-in is a fair paraphrase: the rule reads 'When made in a federal proceeding or to a federal office or agency, the disclosure does not operate as a waiver in a federal or state proceeding if:'.",
+        "explanation": "Rule 502(b) says what the letter says it does. An inadvertent disclosure made in a federal proceeding does not operate as a waiver if the three enumerated conditions are met. The letter's lead-in omits 'or to a federal office or agency' and 'in a federal or state proceeding', which does not change the meaning.",
+        "evidence_excerpt": "When made in a federal proceeding or to a federal office or agency, the disclosure does not operate as a waiver in a federal or state proceeding if: (1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Claw-back letter, 'Legal Basis' paragraph (inside 502(b) quote)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(5)(B)",
+      "pincite": "",
+      "cited_for": "Referenced within Rule 502(b)(3) as the clawback procedure",
+      "quotes": [],
+      "context": "including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The phrase 'including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B)' is found verbatim in Fed. R. Evid. 502(b)(3).",
+        "explanation": "Rule 502(b)(3) does cross-reference Fed. R. Civ. P. 26(b)(5)(B) as the procedure for rectifying an inadvertent disclosure, and Rule 26(b)(5)(B) is the notice-and-return procedure for produced privileged information.",
+        "evidence_excerpt": "(3) the holder promptly took reasonable steps to rectify the error, including (if applicable) following Federal Rule of Civil Procedure 26(b)(5)(B).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Claw-back letter, paragraph after 'Each element is satisfied here'",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(5)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(5)(B)",
+      "pincite": "",
+      "cited_for": "Receiving party must promptly return, sequester, or destroy specified information and not use or disclose it until the claim is resolved",
+      "quotes": [
+        "promptly return, sequester, or destroy the specified information and any copies it has",
+        "must not use or disclose the information until the claim is resolved"
+      ],
+      "context": "Pursuant to Federal Rule of Civil Procedure 26(b)(5)(B), upon receiving this notification, your firm is obligated to \"promptly return, sequester, or destroy the specified information and any copies it has\" and \"must not use or disclose the information until the claim is resolved.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "Quote 1, 'promptly return, sequester, or destroy the specified information and any copies it has': found verbatim in Rule 26(b)(5)(B), second sentence. Quote 2, 'must not use or disclose the information until the claim is resolved': found verbatim in the same sentence.",
+        "explanation": "Rule 26(b)(5)(B) imposes exactly the obligations the letter describes on a party notified of a privilege claim over produced information. The rule also lets the receiving party present the information to the court under seal for a determination, which is consistent with the letter's reference to court resolution.",
+        "evidence_excerpt": "After being notified, a party must promptly return, sequester, or destroy the specified information and any copies it has; must not use or disclose the information until the claim is resolved; must take reasonable steps to retrieve the information if the party disclosed it before being notified; and may promptly present the information to the court under seal for a determination of the claim.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Memorandum, Part V Recommendations, item 2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(d)",
+      "citation_as_written": "FRE 502(d)",
+      "pincite": "",
+      "cited_for": "Recommend seeking a 502(d) order governing inadvertent production, none currently in place",
+      "quotes": [],
+      "context": "No stipulated protective order or FRE 502(d) order governing inadvertent production is currently in place in this matter. I recommend that the firm seek entry of such an order at the earliest opportunity",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to Rule 502(d).",
+        "explanation": "Fed. R. Evid. 502(d) exists and does what the memo assumes: it lets a federal court order that privilege or work-product protection is not waived by disclosure connected with the pending litigation, with that order controlling in other federal and state proceedings. Recommending that the firm seek a 502(d) order to protect against future inadvertent disclosures is an accurate use of the rule. (Whether such an order is in fact in place is a fact of the fictional matter, not something the rule can confirm.)",
+        "evidence_excerpt": "(d) Controlling Effect of a Court Order. A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "inadvertent-production-clawback.docx.md",
+      "location": "Caption / Re line / Exhibit A header",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK (N.D. Cal.)",
+      "pincite": "",
+      "cited_for": "The matter at hand (underlying class action)",
+      "quotes": [],
+      "context": "Victoria Huang, individually and on behalf of all others similarly situated v. Greenleaf Consumer Products, Inc. Case No. 5:24-cv-04187-RLK",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario."
+    },
+    {
+      "ref": 56,
+      "document": "nandakumar-legal-risk-email.eml.md",
+      "location": "FDA GUIDANCE ANALYSIS, para. 1",
+      "authority_type": "other",
+      "authority": "FDA 1991 advisory opinion / informal policy on 'natural'",
+      "citation_as_written": "1991 advisory opinion",
+      "pincite": "",
+      "cited_for": "FDA informal policy that 'natural' means nothing artificial or synthetic has been added that would not normally be expected in the food",
+      "quotes": [],
+      "context": "the agency has maintained a longstanding informal policy — dating to its 1991 advisory opinion and reiterated in subsequent enforcement actions — that it considers \"natural\" to mean that nothing artificial or synthetic has been included in, or has been added to, a food",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Food Labeling: Nutrient Content Claims, General Principles, Petitions, Definition of Terms, 56 Fed. Reg. 60421, 60466 (Nov. 27, 1991) (proposed-rule preamble); policy maintained in the final-rule preamble, 58 Fed. Reg. 2302, 2407 (Jan. 6, 1993); both recited in 80 Fed. Reg. 69905, 69906 (Nov. 12, 2015)",
+        "quote_check": "No quotes formally attributed. The email's paraphrase ('nothing artificial or synthetic has been included in, or has been added to, a food that would not normally be expected to be in that food') tracks the 1993 wording as FDA recites it, not the 1991 wording ('is included in, or has been added to, the product that would not normally be expected to be there').",
+        "explanation": "The substance is accurate: FDA has no formal definition and has a longstanding informal policy with this meaning. The defect is the label and date. FDA's own account (80 FR 69906) says it stated the policy in the preamble to a 1991 proposed rule and maintained it in the 1993 final-rule preamble. The 1991 document is a proposed-rule preamble, not a document styled an 'advisory opinion'. The label is technically defensible, because 21 C.F.R. 10.85(d)(1) provides that a policy statement in a Federal Register preamble 'will constitute an advisory opinion'. But it is an unusual description, the wording the email gives is the 1993 formulation, and the other documents in this set date the policy to 1993. The '1991 advisory opinion' reference is therefore loose, not fabricated. I read the 1991 and 1993 wording only as FDA recites it in the 2015 notice, not in the original 56 FR and 58 FR pages. I did not verify from a primary source the email's further statement that the policy was 'reiterated in subsequent enforcement actions'.",
+        "evidence_excerpt": "In the preamble of a proposed rule we published in the Federal Register (56 FR 60421, November 27, 1991), we stated ... Further, we said that we have considered ``natural'' to mean that nothing artificial or synthetic (including colors regardless of source) is included in, or has been added to, the product that would not normally be expected to be there (56 FR 60421 at 60466).",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https:/10.85",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "nandakumar-legal-risk-email.eml.md",
+      "location": "LITIGATION RISK FACTORS, First",
+      "authority_type": "statute",
+      "authority": "California Unfair Competition Law, Bus. & Prof. Code § 17200",
+      "citation_as_written": "Bus. & Prof. Code § 17200",
+      "pincite": "",
+      "cited_for": "Broad private right of action against 'natural' labeling claims",
+      "quotes": [],
+      "context": "California's Unfair Competition Law (Bus. & Prof. Code § 17200), the False Advertising Law (§ 17500), and the Consumers Legal Remedies Act provide broad private rights of action.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 17200 is the UCL's definitional section and is the conventional shorthand cite for the statute. The private right of action itself sits in § 17204 (UCL), § 17535 (FAL) and Civ. Code § 1780(a) (CLRA), all of which do authorize private suits, so the email's statement that the three statutes 'provide broad private rights of action' is supported. Two qualifications worth knowing: (1) since Proposition 64 (2004), UCL/FAL private standing is limited to a person who 'has suffered injury in fact and has lost money or property'; (2) UCL private remedies are generally limited to injunction and restitution. 'Broad' is therefore a loose but not inaccurate characterization. A more precise cite would be Cal. Bus. & Prof. Code §§ 17200, 17204.",
+        "evidence_excerpt": "Kwikset: 'under the UCL, standing extends to \"a person who has suffered injury in fact and has lost money or property as a result of the unfair competition\" (§ 17204), while under the false advertising law, in materially identical language, standing extends to \"any person who has suffered injury in fact and has lost money or property as a result of a violation of this chapter\" (§ 17535).'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17204",
+          "https://codes.findlaw.com/ca/business-and-professions-code/bpc-sect-17200/",
+          "https://www.courtlistener.com/opinion/6240361/valdez-v-seidner-miller-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "nandakumar-legal-risk-email.eml.md",
+      "location": "LITIGATION RISK FACTORS, First",
+      "authority_type": "statute",
+      "authority": "California False Advertising Law, Bus. & Prof. Code § 17500",
+      "citation_as_written": "§ 17500",
+      "pincite": "",
+      "cited_for": "Broad private right of action against 'natural' labeling claims",
+      "quotes": [],
+      "context": "the False Advertising Law (§ 17500)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "\"§ 17500\" follows \"Bus. & Prof. Code § 17200\" in the same sentence, so it reads as Bus. & Prof. Code § 17500, the False Advertising Law; that is correct. A private right of action exists, though it sits in § 17535 and not in § 17500 itself: suit may be brought \"by any person who has suffered injury in fact and has lost money or property as a result of a violation of this chapter\". Kwikset explains that Proposition 64 (2004) narrowed this from the former \"any person acting for the interests of ... the general public\" standing. \"Broad\" is therefore a characterization, somewhat generous after Proposition 64, but not contradicted; the FAL is routinely used against \"natural\" food labels (Ham v. Hain Celestial; Wilson v. Frito-Lay). The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset.",
+        "evidence_excerpt": "Bus. & Prof. Code § 17535: \"Actions for injunction under this section may be prosecuted by the Attorney General or any district attorney ... or by any person who has suffered injury in fact and has lost money or property as a result of a violation of this chapter.\" Kwikset: \"now standing is limited to \"any person who has suffered injury in fact and has lost money or property as a result of a violation of this chapter\" (§ 17535, as amended by Prop. 64, § 5).\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17535",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17500",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://www.courtlistener.com/opinion/7310810/ham-v-hain-celestial-group-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "nandakumar-legal-risk-email.eml.md",
+      "location": "LITIGATION RISK FACTORS, First",
+      "authority_type": "statute",
+      "authority": "California Consumers Legal Remedies Act",
+      "citation_as_written": "Consumers Legal Remedies Act",
+      "pincite": "",
+      "cited_for": "Broad private right of action against 'natural' labeling claims",
+      "quotes": [],
+      "context": "and the Consumers Legal Remedies Act provide broad private rights of action.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consumers Legal Remedies Act, Cal. Civ. Code § 1750 et seq. (private action at § 1780(a))",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The email names the Act correctly but gives no code cite. § 1780(a) gives \"any consumer who suffers any damage\" from a practice made unlawful by § 1770 a private action for actual damages (minimum $1,000 total in a class action), injunction, restitution, punitive damages and other relief. That supports \"broad private right of action\". \"Natural\" food-label suits are in fact pleaded under it: Ham v. Hain Celestial, 70 F. Supp. 3d 1188 (N.D. Cal. 2014), and Wilson v. Frito-Lay, 260 F. Supp. 3d 1202 (N.D. Cal. 2017). The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror; Kwikset, 51 Cal.4th 310, fn. 22, confirms § 1780(a) is the CLRA standing provision.",
+        "evidence_excerpt": "Civ. Code § 1780(a): \"Any consumer who suffers any damage as a result of the use or employment by any person of a method, act, or practice declared to be unlawful by Section 1770 may bring an action against that person to recover or obtain any of the following: (1) Actual damages, but in no case shall the total award of damages in a class action be less than one thousand dollars ($1,000).\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_civ_code_section_1780",
+          "https://california.public.law/codes/ca_civ_code_section_1750",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://www.courtlistener.com/opinion/7310810/ham-v-hain-celestial-group-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "nandakumar-legal-risk-email.eml.md",
+      "location": "LITIGATION RISK FACTORS, First",
+      "authority_type": "statute",
+      "authority": "New York General Business Law §§ 349-350",
+      "citation_as_written": "GBL §§ 349-350",
+      "pincite": "",
+      "cited_for": "Similar consumer protection private rights of action in New York",
+      "quotes": [],
+      "context": "New York's GBL §§ 349-350 similarly.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "N.Y. Gen. Bus. Law §§ 349(h), 350, 350-e(3) (the private right of action for § 350 false advertising sits in § 350-e(3))",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Both sections exist and support the point that New York, like California, gives consumers a private right of action. § 349(a) declares deceptive acts or practices unlawful and § 349(h) lets any injured person sue for an injunction and damages. § 350 declares false advertising unlawful; its private right of action is in § 350-e(3), so '§§ 349-350' is the usual shorthand rather than a precise pin. I could not retrieve the full verbatim text of § 350-e(3), only its opening words and a summary of its remedies. The current § 349(a) text on the Senate site reads 'Unfair, deceptive, or abusive acts or practices', which does not affect the proposition.",
+        "evidence_excerpt": "§ 349(h): \"In addition to the right of action granted to the attorney general pursuant to this section, any person who has been injured by reason of any deceptive act or deceptive practice made unlawful by this section may bring an action in such person's own name to enjoin such deceptive act or deceptive practice, an action to recover such person's actual damages or fifty dollars, whichever is greater, or both such actions.\" § 350: \"False advertising in the conduct of any business, trade or commerce or in the furnishing of any service in this state is hereby declared unlawful.\" § 350-e(3): \"Any person who has been injured by reason of any violation of section three hundred fifty or three hundred fifty-a...\"",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/GBS/349",
+          "https://www.nysenate.gov/legislation/laws/GBS/350",
+          "https://www.nysenate.gov/legislation/laws/GBS/350-E"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "emmerich-forward-to-moritani.eml.md",
+      "location": "Forwarded Nandakumar email, 'FDA Guidance on Natural Claims'",
+      "authority_type": "other",
+      "authority": "FDA 1993 guidance on 'natural'; Nov. 2015 request for public comments",
+      "citation_as_written": "1993 guidance",
+      "pincite": "",
+      "cited_for": "FDA informal policy defining 'natural'; no formal regulation; 2015 request for comments not finalized",
+      "quotes": [],
+      "context": "FDA's longstanding informal policy — dating to its 1993 guidance — holds that the term \"natural\" means nothing artificial or synthetic has been included in, or added to, a food that would not normally be expected to be in that food.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "58 Fed. Reg. 2302, 2407 (Jan. 6, 1993) (final-rule preamble maintaining the informal 'natural' policy); Use of the Term \"Natural\" in the Labeling of Human Food Products; Request for Information and Comments, 80 Fed. Reg. 69905 (Nov. 12, 2015) (Docket No. FDA-2014-N-1207)",
+        "quote_check": "No quotes formally attributed. The paraphrase tracks FDA's recitation of 58 FR 2407 with trivial differences ('added to' for 'has been added to'; 'that food' for 'the food'; the color-additive parenthetical is omitted).",
+        "explanation": "All three parts check out. (1) FDA's 2015 notice recites that in the 1993 final-rule preamble it would maintain its policy to interpret 'natural' as meaning nothing artificial or synthetic has been included in or added to a food that would not normally be expected to be there. (2) FDA said then it would not engage in rulemaking to define the term, and FDA's web page still says it 'has not engaged in rulemaking to establish a formal definition'. (3) The request for comments was published November 12, 2015, and FDA's page, fetched today (content current as of 10/22/2018), reports no finalized rule. Calling the 1993 preamble statement 'guidance' is a loose but common label for what FDA calls a longstanding policy; I treat that as a note, not a defect. FDA first stated the policy in its 1991 proposed-rule preamble, and 1993 is the restatement usually cited. I read the 1993 wording as recited by FDA in 80 FR 69906, not in the original 58 FR page.",
+        "evidence_excerpt": "We stated that at that time we would not be engaging in rulemaking to define ``natural,'' ... We further stated that we would maintain our policy to interpret the term ``natural'' as meaning that ``nothing artificial or synthetic (including all color additives regardless of source) has been included in, or has been added to, a food that would not normally be expected to be in the food'' (58 FR 2302 at 2407).",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "emmerich-forward-to-moritani.eml.md",
+      "location": "Forwarded email, 'Litigation Risk Assessment', paragraph on California",
+      "authority_type": "statute",
+      "authority": "California CLRA, UCL, FAL",
+      "citation_as_written": "Consumer Legal Remedies Act, Unfair Competition Law (UCL), and False Advertising Law (FAL)",
+      "pincite": "",
+      "cited_for": "California claims evaluated under a 'reasonable consumer' standard",
+      "quotes": [
+        "reasonable consumer"
+      ],
+      "context": "claims under the Consumer Legal Remedies Act, Unfair Competition Law (UCL), and False Advertising Law (FAL) are evaluated under a \"reasonable consumer\" standard",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consumers Legal Remedies Act, Cal. Civ. Code § 1750 et seq.; Unfair Competition Law, Cal. Bus. & Prof. Code § 17200 et seq.; False Advertising Law, Cal. Bus. & Prof. Code § 17500 et seq.",
+        "quote_check": "\"reasonable consumer\": found verbatim in Williams v. Gerber Products Co., 552 F.3d 934, 938 (9th Cir. 2008) (claims under these statutes 'are governed by the \"reasonable consumer\" test'). The phrase is a judicial standard and does not appear in the statutes themselves; the email attributes it to how the claims 'are evaluated,' which is accurate.",
+        "explanation": "The statutes exist (the email uses the common variant 'Consumer Legal Remedies Act'; the official short title is 'Consumers Legal Remedies Act'). The proposition that CLRA, UCL and FAL claims are evaluated under a 'reasonable consumer' standard is squarely supported by Ninth Circuit authority applying California law.",
+        "evidence_excerpt": "Appellants' claims under these California statutes are governed by the \"reasonable consumer\" test. ... Under the reasonable consumer standard, Appellants must \"show that 'members of the public are likely to be deceived.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/",
+          "https://codes.findlaw.com/ca/civil-code/civ-sect-1750/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "board-audit-committee-deck.pptx.md",
+      "location": "Slide 7",
+      "authority_type": "statute",
+      "authority": "California CLRA, FAL, UCL",
+      "citation_as_written": "Consumers Legal Remedies Act (CLRA), False Advertising Law (FAL), and Unfair Competition Law (UCL)",
+      "pincite": "",
+      "cited_for": "Statutory claims alleged by plaintiff",
+      "quotes": [],
+      "context": "Plaintiff alleges violations of California's Consumers Legal Remedies Act (CLRA), False Advertising Law (FAL), and Unfair Competition Law (UCL)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Consumers Legal Remedies Act, Cal. Civ. Code § 1750 et seq.; False Advertising Law, Cal. Bus. & Prof. Code § 17500 et seq.; Unfair Competition Law, Cal. Bus. & Prof. Code § 17200 et seq.",
+        "quote_check": "No quotation attributed.",
+        "explanation": "All three California statutes exist and are correctly named on the slide (it uses the official plural 'Consumers Legal Remedies Act'). The slide only reports what the fictional plaintiff alleges and gives no code sections; the statutes are the standard trio pleaded in California food-labeling suits, as Williams v. Gerber Products Co., 552 F.3d 934, 938 (9th Cir. 2008) shows. Code citations supplied for completeness.",
+        "evidence_excerpt": "California's Unfair Competition Law (\"UCL\") prohibits any \"unlawful, unfair or fraudulent business act or practice.\" Cal. Bus. and Prof.Code § 17200. The false advertising law prohibits any \"unfair, deceptive, untrue, or misleading advertising.\" Cal. Bus. and Prof.Code § 17500.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/",
+          "https://codes.findlaw.com/ca/civil-code/civ-sect-1750/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "board-audit-committee-deck.pptx.md",
+      "location": "Slide 7",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 23(b)(3)",
+      "citation_as_written": "Rule 23(b)(3)",
+      "pincite": "",
+      "cited_for": "Uniform label favors class certification; common questions predominate",
+      "quotes": [],
+      "context": "which favors certification under Rule 23(b)(3) — common questions predominate because each class member saw the same label",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotation. The deck's phrase 'common questions predominate' paraphrases the rule's predominance language.",
+        "explanation": "Fed. R. Civ. P. 23(b)(3) permits a class action where the court finds that common questions of law or fact predominate over individual ones and that a class action is superior. The deck correctly identifies this as the predominance provision. Its statement that a uniform label favors certification is a prediction of the plaintiff's argument, not a claim about the rule's text, and is consistent with the rule.",
+        "evidence_excerpt": "(3) the court finds that the questions of law or fact common to class members predominate over any questions affecting only individual members, and that a class action is superior to other available methods for fairly and efficiently adjudicating the controversy.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "board-audit-committee-deck.pptx.md",
+      "location": "Slide 12",
+      "authority_type": "other",
+      "authority": "ASC 450 (Contingencies)",
+      "citation_as_written": "ASC 450",
+      "pincite": "",
+      "cited_for": "Litigation loss classified 'reasonably possible', no accrual required",
+      "quotes": [],
+      "context": "ASC 450 (Contingencies) analysis: Litigation loss classified as 'reasonably possible' — no accrual required at this stage",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "FASB ASC 450-20-25-2 (accrual conditions); ASC 450-20-50-3 (disclosure when loss is reasonably possible)",
+        "quote_check": "No quotation attributed to the authority. The term 'reasonably possible' is the Codification's own defined term (ASC 450-20 glossary).",
+        "explanation": "ASC 450 (Contingencies) exists; the operative subtopic is ASC 450-20 (Loss Contingencies). Under 450-20-25-2 a loss is accrued only if it is probable and reasonably estimable; a loss that is only 'reasonably possible' is not accrued but must be disclosed under 450-20-50-3. The slide's statement ('reasonably possible' — no accrual required) accurately reflects the standard; it omits the accompanying disclosure requirement but does not misstate the rule. The FASB Codification site (asc.fasb.org) returned HTTP 403, so the text was read as reproduced in Deloitte's DART Roadmap, retrieved through a fetch tool that returns model-extracted text; treat the excerpt as reproduced rather than independently byte-checked.",
+        "evidence_excerpt": "An estimated loss from a loss contingency shall be accrued by a charge to income if both of the following conditions are met: 1. Information available before the financial statements are issued or are available to be issued indicates that it is probable that an asset had been impaired or a liability had been incurred at the date of the financial statements. 2. The amount of loss can be reasonably estimated. ... Reasonably Possible: The chance of the future event or events occurring is more than remote but less than likely.",
+        "source_urls": [
+          "https://dart.deloitte.com/USDART/home/codification/liabilities/asc450-10/deloitte-s-roadmap-contingencies-loss-recoveries/chapter-2-loss-contingencies-commitments/2-3-recognition",
+          "https://dart.deloitte.com/USDART/home/codification/liabilities/asc450-10/deloitte-s-roadmap-contingencies-loss-recoveries/chapter-2-loss-contingencies-commitments/2-8-disclosures"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "board-audit-committee-deck.pptx.md",
+      "location": "Slides 2, 6",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK (N.D. Cal.)",
+      "pincite": "",
+      "cited_for": "The pending litigation",
+      "quotes": [],
+      "context": "Consumer class action filed October 8, 2024: Huang v. Greenleaf Consumer Products, Inc., Case No. 5:24-cv-04187-RLK (N.D. Cal.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario."
+    },
+    {
+      "ref": 67,
+      "document": "bridger-to-cascade-counsel.eml.md",
+      "location": "Paragraph 2",
+      "authority_type": "statute",
+      "authority": "California UCL, CLRA, FAL",
+      "citation_as_written": "UCL, CLRA, and FAL",
+      "pincite": "",
+      "cited_for": "Claims asserted in the complaint on behalf of nationwide class",
+      "quotes": [],
+      "context": "The complaint asserts claims under the UCL, CLRA, and FAL on behalf of a proposed nationwide class.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCL: Cal. Bus. & Prof. Code § 17200 et seq.; CLRA: Cal. Civ. Code § 1750 et seq.; FAL: Cal. Bus. & Prof. Code § 17500 et seq.",
+        "quote_check": "No attributed quotations.",
+        "explanation": "The email uses the three acronyms without code cites. All three statutes exist and each gives a private plaintiff a claim for misleading labeling: UCL § 17200 with standing at § 17204, FAL § 17500 with standing at § 17535, and CLRA § 1770 with the private action at § 1780(a). The trio is the standard pleading in \"natural\" food-label class actions; Ham v. Hain Celestial pleads all three and seeks both a California class and a nationwide class. Whether the fictional complaint asserts these claims for a nationwide class is a fact of the scenario and not checkable; whether California law can be applied to a nationwide class is a separate question the email does not assert. The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset and Williams v. Gerber.",
+        "evidence_excerpt": "Kwikset: \"The UCL prohibits, and provides civil remedies for, unfair competition, which it defines as \"any unlawful, unfair or fraudulent business act or practice.\" (§ 17200.)\" Ham v. Hain Celestial: \"She seeks to represent two different classes: (i) residents of California ... and (ii) residents of the United States who purchased the same products.\"",
+        "source_urls": [
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17200",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17204",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17535",
+          "https://california.public.law/codes/ca_civ_code_section_1780",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://www.courtlistener.com/opinion/7310810/ham-v-hain-celestial-group-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "bridger-to-cascade-counsel.eml.md",
+      "location": "Paragraph 1 and 4",
+      "authority_type": "case",
+      "authority": "Huang v. Greenleaf Consumer Products, Inc.",
+      "citation_as_written": "Case No. 5:24-cv-04187-RLK",
+      "pincite": "",
+      "cited_for": "The matter at hand",
+      "quotes": [],
+      "context": "Huang v. Greenleaf Consumer Products, Inc., Case No. 5:24-cv-04187-RLK, currently pending before Judge Kirkwood in the Northern District of California",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter's own caption in the fictional scenario."
+    },
+    {
+      "ref": 69,
+      "document": "frey-personal-email-notes.eml.md",
+      "location": "Research reminders",
+      "authority_type": "statute",
+      "authority": "California UCL, CLRA, FAL",
+      "citation_as_written": "UCL, CLRA, FAL",
+      "pincite": "",
+      "cited_for": "Claims re 'natural' labeling needing research",
+      "quotes": [],
+      "context": "UCL, CLRA, FAL claims re \"natural\" labeling — need a fresh brush-up",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "UCL: Cal. Bus. & Prof. Code § 17200 et seq.; CLRA: Cal. Civ. Code § 1750 et seq.; FAL: Cal. Bus. & Prof. Code § 17500 et seq.",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This is a research reminder using the three acronyms; it asserts no holding. All three statutes exist and are the standard claims in \"natural\" labeling suits: Wilson v. Frito-Lay (\"Made with All Natural Ingredients\" on products containing citric acid and other synthetic ingredients) and Ham v. Hain Celestial (\"All Natural\" waffles) both plead UCL, FAL and CLRA claims, and Williams v. Gerber applies the reasonable-consumer test to them. The official legislature site and Justia returned 403, so statute text was read on the california.public.law mirror and cross-checked against Kwikset and Williams on CourtListener.",
+        "evidence_excerpt": "Wilson v. Frito-Lay: \"the \"Made with All Natural Ingredients\" label is misleading because the challenged products contain artificial and synthetic ingredients, such as yeast extract, caramel color, citric acid, maltodextrin, and chemical preservatives. ... Plaintiffs assert claims under California's Unfair Competition Law (\"UCL\"), Cal. Bus. & Prof. Code § 17200 et seq., California's False Advertising Law (\"FAL\"), Cal. Bus. & Prof. Code § 17500 et seq., and the Consumers Legal Remedies Act (\"CLRA\"), Cal. Civ. Code § 1750 et seq.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7326229/wilson-v-frito-lay-north-america-inc/",
+          "https://www.courtlistener.com/opinion/7310810/ham-v-hain-celestial-group-inc/",
+          "https://www.courtlistener.com/opinion/1243130/williams-v-gerber-products-co/",
+          "https://www.courtlistener.com/opinion/5608107/kwikset-corp-v-superior-court/",
+          "https://california.public.law/codes/ca_bus_and_prof_code_section_17200",
+          "https://california.public.law/codes/ca_civ_code_section_1750"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "frey-personal-email-notes.eml.md",
+      "location": "Defense angles, Federal preemption",
+      "authority_type": "other",
+      "authority": "Federal preemption doctrine (FDA labeling)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Possible but probably weak preemption defense because FDA hasn't defined 'natural'",
+      "quotes": [],
+      "context": "Federal preemption — FDA hasn't defined \"natural\" with real specificity. Possible preemption arg but probably weak.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "No citation given in the document. Supporting authority: Holk v. Snapple Beverage Corp., 575 F.3d 329, 340-42 (3d Cir. 2009); see also Astiana v. Hain Celestial Group, Inc., 783 F.3d 753, 757-59 (9th Cir. 2015) (cosmetics).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Both halves of the informal note check out. (1) FDA itself says it has not engaged in rulemaking to establish a formal definition of 'natural'; it has only a longstanding informal policy. (2) Preemption arguments against state-law 'natural' labeling claims have been rejected precisely because that informal policy lacks the force of law: Holk (a food/beverage 'All Natural' case) held there was no FDA policy with which state law could conflict. The Ninth Circuit in Astiana likewise held the FDCA does not expressly preempt California claims over 'natural' labels, though that case concerned cosmetics. 'Possible ... but probably weak' is an accurate, appropriately hedged assessment.",
+        "evidence_excerpt": "Holk: \"We believe that neither the FDA policy statement regarding the use of the term 'natural' nor the FDA's letter indicating that some forms of HFCS may be classified as 'natural' have the force of law required to preempt conflicting state law. ... As a result, there is no conflict in this case because there is no FDA policy with which state law could conflict.\" FDA: \"Although the FDA has not engaged in rulemaking to establish a formal definition for the term 'natural,'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1213488/holk-v-snapple-beverage-corp/",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://www.courtlistener.com/opinion/2792929/skye-astiana-v-the-hain-celestial-group/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "bridger-to-cascade-counsel.eml.md",
+      "location": "Paragraph 4 (class certification analysis)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 23 class certification requirements (numerosity, commonality, typicality, adequacy, predominance)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Preliminary class certification analysis applying the Rule 23 prerequisites (numerosity, commonality, predominance, typicality, adequacy) to plaintiff's putative class",
+      "quotes": [],
+      "context": "Numerosity is almost certainly satisfied given nationwide distribution over a multi-year period... On commonality and predominance, I expect plaintiff will argue that common questions control... Typicality looks strong for the plaintiff... I don't see obvious adequacy challenges with Huang or Redstone Liang.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The email never names Rule 23; the citation is implicit in its walk through numerosity, commonality, typicality, adequacy and predominance. Those are the Rule 23(a)(1)-(4) prerequisites and the Rule 23(b)(3) predominance requirement, so the analysis tracks the rule accurately. The views on how each factor applies are counsel's assessment, not claims about the rule text.",
+        "evidence_excerpt": "Rule 23(a): \"(1) the class is so numerous that joinder of all members is impracticable; (2) there are questions of law or fact common to the class; (3) the claims or defenses of the representative parties are typical of the claims or defenses of the class; and (4) the representative parties will fairly and adequately protect the interests of the class.\" Rule 23(b)(3): \"questions of law or fact common to class members predominate over any questions affecting only individual members\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_23"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "board-audit-committee-deck.pptx.md",
+      "location": "Slide 8",
+      "authority_type": "other",
+      "authority": "FDA guidance on 'natural' claims",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Greenleaf contends its processing-aid use is consistent with FDA guidance on 'natural' claims; no formal FDA definition of 'natural'",
+      "quotes": [],
+      "context": "Synthetic citric acid and calcium stearate were used as processing aids at de minimis concentrations (0.45% total), which Greenleaf contends is consistent with FDA guidance on 'natural' claims",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "FDA informal 'natural' policy, 58 Fed. Reg. 2302, 2407 (Jan. 6, 1993), as recited in 80 Fed. Reg. 69905, 69906 (Nov. 12, 2015); 21 C.F.R. § 101.100(a)(3) (processing-aid exemption from ingredient declaration only)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a close call and could fairly be graded VERIFIED_MINOR_DEFECT. The slide makes two points. The second, that there is no formal FDA definition of 'natural', is accurate: FDA's page says it 'has not engaged in rulemaking to establish a formal definition'. The first, that de minimis processing-aid use (0.45% total) is 'consistent with FDA guidance on natural claims', is not supported by the FDA text. The policy treats 'natural' as meaning nothing artificial or synthetic has been included in or added to the food, with no de minimis level and no processing-aid exception. The only processing-aid provision, 21 C.F.R. 101.100(a)(3), concerns ingredient declaration, has no percentage threshold, and does not mention 'natural'. I graded it the same as ref 73 because the underlying legal proposition is the same and the authority does not support it. The slide, however, presents this only as what 'Greenleaf contends', a litigating position, and does not itself assert that FDA guidance contains such a rule. No specific guidance document is cited.",
+        "evidence_excerpt": "Although the FDA has not engaged in rulemaking to establish a formal definition for the term 'natural,' ... The FDA has considered the term 'natural' to mean that nothing artificial or synthetic (including all color additives regardless of source) has been included in, or has been added to, a food that would not normally be expected to be in that food.",
+        "source_urls": [
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https:/101.100"
+        ],
+        "confidence": "low"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The 'no formal FDA definition' clause is accurate. The FDA page says: 'Although the FDA has not engaged in rulemaking to establish a formal definition for the term \"natural,\" we do have a longstanding policy.' The central claim is not supported: that de minimis (0.45%) processing-aid use is 'consistent with FDA guidance on natural claims'. FDA's policy is that 'nothing artificial or synthetic ... has been included in, or has been added to, a food that would not normally be expected to be in that food'. The FDA page and the 2015 Federal Register notice (80 Fed. Reg. 69905) contain no processing-aid exception and no de minimis or percentage threshold; a text search of the notice for 'processing aid', 'incidental' and 'de minimis' returned no hits. FDA enforcement points the other way. A 2001 warning letter quoted in Janney v. General Mills, 944 F. Supp. 2d 806, 812-13 (N.D. Cal. 2013), states: 'the addition of calcium chloride and citric acid to these products preclude use of the term \"natural\".' The slide frames this as what 'Greenleaf contends', which softens it, but it still presents FDA guidance as supporting the position. The in-universe Pemberton opinion letter itself says the guidance contains no such exemption or threshold. Finding upheld.",
+        "source_urls": [
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.courtlistener.com/opinion/8725229/janney-v-mills/",
+          "https:/101.100"
+        ]
+      }
+    },
+    {
+      "ref": 73,
+      "document": "emmerich-reformulation-email.eml.md",
+      "location": "Paragraph 5 (legal question to Rennick)",
+      "authority_type": "other",
+      "authority": "FDA guidance documents on 'natural' claims",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Regulatory Affairs reads FDA guidance as not requiring disclosure of processing aids below 0.5% and not affecting the '100% Natural' claim",
+      "quotes": [],
+      "context": "whether that 0.45% total synthetic additive concentration creates any issues with FDA guidance on \"natural\" claims. Our team's reading of the relevant FDA guidance documents is that processing aids at concentrations below 0.5% may not require specific labeling disclosure",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. § 101.100(a)(3) (incidental additives and processing aids exempt from ingredient declaration; no numeric threshold); FDA informal 'natural' policy, 58 Fed. Reg. 2302, 2407 (Jan. 6, 1993), as recited in 80 Fed. Reg. 69905, 69906 (Nov. 12, 2015)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "No specific document is cited, only 'the relevant FDA guidance documents'. The FDA materials I read do not say what the email attributes to them. (a) The only FDA provision on processing-aid disclosure, 21 C.F.R. 101.100(a)(3), exempts incidental additives present at 'insignificant levels' that have no technical or functional effect in the finished food. It has no 0.5% or other percentage threshold, governs ingredient declaration only, and does not mention 'natural'. (b) FDA's 'natural' policy covers anything artificial or synthetic 'included in, or ... added to, a food', with no processing-aid carve-out and no de minimis level. (c) The 2015 notice's remark that the policy did not 'explicitly address food processing or manufacturing methods' concerns methods such as pasteurization and irradiation, not added substances. The email also describes the additives as an acidity regulator and preservative aid for shelf life, which is a functional effect in the finished food and falls outside 101.100(a)(3)(ii)(c)'s own definition. The email frames this as the team's 'reading' and asks counsel to confirm, so it is a hedged internal position, not a firm statement of law. I cannot rule out some other FDA document with a 0.5% figure, but none appears in the texts read.",
+        "evidence_excerpt": "(3) Incidental additives that are present in a food at insignificant levels and do not have any technical or functional effect in that food. ... (ii) Processing aids, which are as follows: ... (c) Substances that are added to a food for their technical or functional effect in the processing but are present in the finished food at insignificant levels and do not have any technical or functional effect in that food.",
+        "source_urls": [
+          "https:/101.100",
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "No FDA guidance document I located says that processing aids below 0.5% need no disclosure or leave a '100% Natural' claim unaffected. The only processing-aid provision, 21 C.F.R. 101.100(a)(3), exempts incidental additives present at 'insignificant levels' from ingredient declaration. It has no numerical percentage threshold (the only number in the section is a separate 10 ppm sulfite rule in (a)(4)) and does not mention 'natural'. The FDA 'natural' policy page and the 2015 Federal Register notice contain no processing-aid carve-out and no threshold. FDA warning letters quoted in Janney v. General Mills, 944 F. Supp. 2d at 812-13, treat added citric acid as precluding 'natural' / '100% NATURAL'. The source documents themselves concede the point: the Rennick email calls the 0.5% figure 'an internal standard rather than a published FDA bright line', and the Pemberton letter says it 'does not appear in any published FDA guidance'. The email hedges ('our team's reading') and asks counsel to confirm, but it still attributes to FDA guidance content that guidance does not contain. Finding upheld.",
+        "source_urls": [
+          "https:/101.100",
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
+        ]
+      }
+    },
+    {
+      "ref": 74,
+      "document": "rennick-tsao-labeling-email.eml.md",
+      "location": "Rennick original message, paragraphs 3-4",
+      "authority_type": "other",
+      "authority": "FDA informal policy on 'natural' and treatment of processing aids",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "FDA has never issued a formal regulation defining 'natural'; informal guidance and enforcement discretion treat incidental processing aids differently from characterizing ingredients",
+      "quotes": [],
+      "context": "FDA has never issued a formal regulation defining \"natural\" for food labeling purposes. What we have is informal policy guidance and a history of enforcement discretion... FDA's informal guidance has historically treated incidental processing aids differently",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "FDA, Use of the Term \"Natural\" in the Labeling of Human Food Products; Request for Information and Comments, 80 Fed. Reg. 69905 (Nov. 12, 2015) (restating policy from 58 Fed. Reg. 2302, 2407 (Jan. 6, 1993)); the processing-aid concept comes from 21 C.F.R. 101.100(a)(3)(ii), an ingredient-declaration exemption, not the \"natural\" policy",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The email names no specific source, only FDA \"informal policy guidance.\" Clause 1 is accurate: FDA confirms it has not engaged in rulemaking to define \"natural\" and relies on a longstanding informal policy. Clause 2 is not supported: the policy as FDA states it is that \"nothing artificial or synthetic\" has been included in or added to the food, with no carve-out for incidental processing aids and no \"characterizing ingredient\" distinction. The terms \"processing aid\" and \"incidental\" do not appear in the 2015 Federal Register notice restating the policy, and FDA says the policy did not explicitly address processing or manufacturing methods. The processing-aid distinction exists in 21 C.F.R. 101.100(a)(3)(ii), but that is a formal regulation exempting incidental additives from ingredient declaration, not informal guidance on \"natural\" claims. FDA's enforcement history cuts the other way: 2001 warning letters quoted in Janney v. Mills, 944 F. Supp. 2d 806, 812-13 (N.D. Cal. 2013), said added citric acid precluded \"natural\" / \"100% natural\" claims. Those letters were read as quoted in the opinion, not from FDA originals.",
+        "evidence_excerpt": "FDA page: \"Although the FDA has not engaged in rulemaking to establish a formal definition for the term 'natural,' we do have a longstanding policy ... The FDA has considered the term 'natural' to mean that nothing artificial or synthetic (including all color additives regardless of source) has been included in, or has been added to, a food that would not normally be expected to be in that food.\" Janney v. Mills quoting FDA's Aug. 29, 2001 Hirzel letter: \"the addition of calcium chloride and citric acid to these products preclude use of the term 'natural' to describe this product.\"",
+        "source_urls": [
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://www.federalregister.gov/documents/2015/11/12/2015-28779/use-of-the-term-natural-in-the-labeling-of-human-food-products-request-for-information-and-comments",
+          "https:/101.100",
+          "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "Clause 1 is accurate. FDA: 'the FDA has not engaged in rulemaking to establish a formal definition for the term \"natural,\" [but has] a longstanding policy.' Clause 2 is not supported: that FDA's informal guidance 'has historically treated incidental processing aids differently' from characterizing ingredients. The informal policy covers anything artificial or synthetic 'included in, or ... added to' a food. FDA says the policy does not address 'food processing or manufacturing methods, such as thermal technologies, pasteurization, or irradiation'; those are methods, not added substances. A text search of the 2015 notice found no 'processing aid' or 'incidental'. The incidental-additive and processing-aid distinction exists only in 21 C.F.R. 101.100(a)(3), a binding ingredient-declaration rule that does not mention 'natural'. FDA's enforcement history cuts the other way: a 2001 warning letter quoted in Janney v. General Mills, 944 F. Supp. 2d at 812-13, said 'the addition of calcium chloride and citric acid to these products preclude use of the term \"natural\"'. I did not check whether some other informal FDA correspondence draws a processing-aid distinction, but nothing in the official policy statements I read supports it. Finding upheld.",
+        "source_urls": [
+          "https://www.fda.gov/food/nutrition-food-labeling-and-critical-foods/use-term-natural-food-labeling",
+          "https://www.govinfo.gov/content/pkg/FR-2015-11-12/html/2015-28779.htm",
+          "https:/101.100",
+          "https://www.courtlistener.com/opinion/8725229/janney-v-mills/"
+        ]
+      }
+    },
+    {
+      "ref": 75,
+      "document": "frey-personal-email-notes.eml.md",
+      "location": "Defense angles, Standing / injury-in-fact; Research reminders",
+      "authority_type": "other",
+      "authority": "Article III standing / injury-in-fact and Ninth Circuit class certification standards",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Standing/injury-in-fact for repeat purchaser and Ninth Circuit class cert standards for consumer labeling cases",
+      "quotes": [],
+      "context": "Standing / injury-in-fact — can Huang show actual economic injury? ... But Ninth Circuit has been skeptical of that reasoning in consumer cases.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed and no specific authority cited.",
+        "explanation": "This is an informal note-to-self that names doctrines, not a citation. The doctrines are real and accurately invoked at the level of generality used: (1) in Ninth Circuit consumer-labeling cases, economic injury is adequately alleged where the plaintiff would not have bought, or would have paid less, absent the misrepresentation, and a previously deceived consumer who still wants to buy the product can retain Article III standing (Davidson v. Kimberly-Clark Corp., 889 F.3d 956 (9th Cir. 2018)); (2) Ninth Circuit class certification standards for consumer labeling exist, e.g. Briseno v. ConAgra Foods, Inc., 844 F.3d 1121 (9th Cir. 2017), affirming certification in a '100% Natural' labeling case under Rule 23. Not verified: the specific aside that the Ninth Circuit 'has been skeptical' of the argument that continued repurchase undercuts reliance. Keyword and semantic searches of Ninth Circuit opinions found no decision squarely on that point; Davidson is consistent in direction but addresses injunctive standing, not reliance on past repeat purchases. Low confidence reflects that gap and the absence of any cited authority to check.",
+        "evidence_excerpt": "We hold that a previously deceived consumer may have standing to seek an injunction against false advertising or labeling, even though the consumer now knows or suspects that the advertising was false at the time of the original purchase",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/9022504/davidson-v-kimberly-clark-corp/",
+          "https://www.courtlistener.com/opinion/4335593/robert-briseno-v-conagra-foods-inc/"
+        ],
+        "confidence": "low"
+      }
+    }
+  ]
+}

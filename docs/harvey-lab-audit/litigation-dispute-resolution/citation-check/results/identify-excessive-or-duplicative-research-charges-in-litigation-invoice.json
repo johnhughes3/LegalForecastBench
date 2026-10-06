@@ -1,0 +1,1117 @@
+{
+  "task": "identify-excessive-or-duplicative-research-charges-in-litigation-invoice",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "doe-matter-july-2024-summary.docx.md",
+    "engagement-letter-cascade.docx.md",
+    "hl-july-2024-invoice.xlsx.md",
+    "hl-june-2024-invoice-summary.docx.md",
+    "holt-email-research-concerns.eml.md",
+    "task.json.md",
+    "terraverde-billing-guidelines.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 1 (07/01/2024, K. Takahashi), cell I2",
+      "authority_type": "statute",
+      "authority": "Washington MTCA, Section 70.105D.040 (RCW 70.105D.040)",
+      "citation_as_written": "Section 70.105D.040",
+      "pincite": "",
+      "cited_for": "Research on whether MTCA liability provisions apply to remediation contractors versus property owners",
+      "quotes": [],
+      "context": "Research Washington MTCA liability standards for property owners vs. contractors; analyze applicability of Section 70.105D.040 to remediation contractors.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.040 (formerly RCW 70.105D.040; recodified by Laws of 2020, ch. 20, § 2030)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The section is the MTCA \"Standard of liability\" provision and is the right place to research whether liability reaches remediation contractors as opposed to property owners: it lists owners/operators and the other liable classes, and \"operator\" turns on control over the facility. Taliesen Corp. v. Razore Land Co. applied RCW 70.105D.040 to exactly that contractor-versus-operator question. Defects are minor: the July 2024 entry uses the pre-2020 section number (recodified as RCW 70A.305.040), and it gives a bare \"Section 70.105D.040\" with no code designation.",
+        "evidence_excerpt": "\"Standard of liability — Settlement. (1) Except as provided in subsection (3) of this section, the following persons are liable with respect to a facility: (a) The owner or operator of the facility; ...\" History: \"[ 2020 c 20 s 1308; ... 1989 c 2 s 4 (Initiative Measure No. 97, approved November 8, 1988). Formerly RCW 70.105D.040.]\" Taliesen: \"Under the Act, any person who 'operated the facility at the time of disposal or release of the hazardous substances' is liable for cleanup costs under the Act. RCW 70.105D.040.\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70.105D.040",
+          "https://www.courtlistener.com/opinion/2585991/taliesen-corp-v-razore-land-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 6 (07/02/2024, K. Takahashi), cell I7",
+      "authority_type": "statute",
+      "authority": "CERCLA (federal analogs to MTCA strict liability)",
+      "citation_as_written": "federal CERCLA analogs",
+      "pincite": "",
+      "cited_for": "Research on federal CERCLA analogs to MTCA strict liability framework",
+      "quotes": [],
+      "context": "Continue MTCA contractor liability research; Westlaw research on federal CERCLA analogs to MTCA strict liability framework.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Comprehensive Environmental Response, Compensation, and Liability Act of 1980 (CERCLA), 42 U.S.C. §§ 9601-9675; liability provision at CERCLA § 107(a), 42 U.S.C. § 9607(a)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "A time-entry description, not a legal proposition: research on \"federal CERCLA analogs to MTCA strict liability framework.\" CERCLA exists and its liability section (§ 107(a), 42 U.S.C. § 9607(a)) is the federal counterpart to MTCA's liability section. MTCA (RCW 70A.305.040(2), formerly RCW 70.105D.040) expressly makes liable persons \"strictly liable, jointly and severally\"; the Washington Supreme Court in Pope Resources v. DNR, 190 Wn.2d 744 (2018), calls CERCLA \"the parent statute to MTCA\" and says MTCA \"was heavily patterned after CERCLA\"; the Ninth Circuit en banc in Carson Harbor Village v. Unocal, 270 F.3d 863 (2001), states CERCLA \"generally imposes strict liability on owners and operators.\" The premise that CERCLA is a federal analog to MTCA's strict-liability scheme is accurate. Side note outside this ref: the invoice documents elsewhere cite the MTCA section as 70.105D.040, which was recodified as RCW 70A.305.040 in 2020.",
+        "evidence_excerpt": "Pope Resources: \"Because MTCA was heavily patterned after CERCLA, Washington courts have recognized 'federal cases interpreting similar 'owner or operator' language in the federal act are persuasive authority...'\"; Carson Harbor: \"CERCLA 'generally imposes strict liability on owners and operators of facilities at which hazardous substances were disposed.'\"; RCW 70A.305.040(2): \"Each person who is liable under this section is strictly liable, jointly and severally, for all remedial action costs...\"",
+        "source_urls": [
+          "https:/9607",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
+          "https://www.courtlistener.com/opinion/4500878/pope-res-lp-v-wash-state-dept-of-natural-res/",
+          "https://www.courtlistener.com/opinion/775487/carson-harbor-village-ltd-v-unocal-corporation/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 15 (07/05/2024, K. Takahashi), cell I17",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)",
+      "citation_as_written": "FRCP 26(a)(2)",
+      "pincite": "26(a)(2)",
+      "cited_for": "Expert disclosure requirements, deadlines and scope",
+      "quotes": [],
+      "context": "Research expert disclosure requirements under FRCP 26(a)(2); analyze deadlines and scope of initial disclosures.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 26(a)(2) is the expert-disclosure rule: (A) identity of expert witnesses, (B) written report contents, (C) non-report witnesses, (D) time to disclose (court order, or default 90 days before trial / 30 days for rebuttal). That supports 'expert disclosure requirements' and 'deadlines and scope.' Note: the entry's second clause says 'initial disclosures,' which is the Rule 26(a)(1) term; 26(a)(2) governs expert disclosures 'in addition to the disclosures required by Rule 26(a)(1).' That is a loose label in the billing narrative (and overlaps the June 26(a)(1) research entry), not a citation error, so the cite is treated as accurate for the proposition it is cited for.",
+        "evidence_excerpt": "(2) Disclosure of Expert Testimony. (A) In General. In addition to the disclosures required by Rule 26(a)(1), a party must disclose to the other parties the identity of any witness it may use at trial to present evidence under Federal Rule of Evidence 702, 703, or 705. ... (D) Time to Disclose Expert Testimony. A party must make these disclosures at the times and in the sequence that the court orders. Absent a stipulation or a court order, the disclosures must be made: (i) at least 90 days before the date set for trial or for the case to be ready for trial",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 19 (07/08/2024, S. Ortega), cell I20",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 30(b)(6)",
+      "citation_as_written": "FRCP 30(b)(6)",
+      "pincite": "30(b)(6)",
+      "cited_for": "Deposition procedures for corporate representative; scope limitations",
+      "quotes": [],
+      "context": "Research deposition procedures for corporate representative under FRCP 30(b)(6); analyze scope limitations and protective order standards.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 30(b)(6) governs depositions of organizations through designated representatives. It sets the procedure (notice or subpoena naming the entity, designation of witnesses, meet-and-confer) and the scope limits (matters described 'with reasonable particularity'; testimony about information 'known or reasonably available to the organization'). That supports 'deposition procedures for corporate representative' and 'scope limitations.' The 'protective order standards' mentioned in the entry come from Rule 26(c), not 30(b)(6), but the entry does not attribute them to 30(b)(6).",
+        "evidence_excerpt": "In its notice or subpoena, a party may name as the deponent a public or private corporation, a partnership, an association, a governmental agency, or other entity and must describe with reasonable particularity the matters for examination. The named organization must designate one or more officers, directors, or managing agents, or designate other persons who consent to testify on its behalf ... The persons designated must testify about information known or reasonably available to the organization.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 20 (07/08/2024, A. Osei), cell I21",
+      "authority_type": "case",
+      "authority": "Hadley v. Baxendale",
+      "citation_as_written": "Hadley v. Baxendale",
+      "pincite": "",
+      "cited_for": "Foreseeability framework for consequential damages in Washington commercial contract disputes",
+      "quotes": [],
+      "context": "Research Washington consequential damages law in commercial contract disputes; analyze foreseeability requirements and Hadley v. Baxendale framework; begin drafting research memo.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Hadley v. Baxendale, 9 Ex. 341, 156 Eng. Rep. 145 (Ex. 1854)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Hadley v. Baxendale is a real 1854 Court of Exchequer decision and the foundational foreseeability rule for consequential contract damages: recoverable losses are those arising naturally from the breach or those reasonably in the contemplation of both parties at contracting. Washington courts follow it. The Washington Supreme Court quoted it as 'the general rule as to damages growing out of a breach of contract' in Dally v. Isaacson, 40 Wn.2d 574 (1952), and the Court of Appeals said it 'is still followed in substance in most states, including Washington' and 'lays down a general standard of foreseeability' in King Logging Co. v. Scalzo, 16 Wn. App. 918 (1977). The invoice gives the case name only, with no reporter cite, which is normal for a billing narrative; the full cite is supplied above. The Hadley opinion itself was read only through a WebFetch summary of a course-reader page and through the Washington opinions quoting it, not from the English Reports directly.",
+        "evidence_excerpt": "King Logging Co. v. Scalzo: \"The rule of Hadley v. Baxendale, supra, governing the recovery of damages for breach of contract is still followed in substance in most states, including Washington\". Dally v. Isaacson: \"The general rule as to damages growing out of a breach of contract is stated in the early English case, Hadley v. Baxendale (1854), 9 Ex. 341, 354, 156 Eng. Rep. 151, as follows: 'Where two parties have made a contract which one of them has broken, the damages which the other party ought to receive ... should be such as may fairly and reasonably be considered either arising naturally ... or such as may reasonably be supposed to have been in the contemplation of both parties, at the time they made the contract, as the probable result of the breach of it.'\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1433582/king-logging-co-v-scalzo/",
+          "https://www.courtlistener.com/opinion/1361760/dally-v-isaacson/",
+          "https://sites.oxy.edu/whitney/xaccess/ec357/cases/contract/hadley_v_baxendale.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 25 (07/09/2024, K. Takahashi), cell I26",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "FRCP 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Proportionality analysis for ESI discovery requests",
+      "quotes": [],
+      "context": "Research proportionality analysis for ESI discovery requests under FRCP 26(b)(1); review W.D. Wash. local rules on ESI protocols.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 26(b)(1) defines the scope of discovery and contains the proportionality standard and its six factors. It applies to all discovery, including requests for electronically stored information, so it is the correct rule for a proportionality analysis of ESI requests. (The ESI-specific undue-burden limit is in 26(b)(2)(B), but proportionality itself is in 26(b)(1) as cited.)",
+        "evidence_excerpt": "(1) Scope in General. Unless otherwise limited by court order, the scope of discovery is as follows: Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, considering the importance of the issues at stake in the action, the amount in controversy, the parties' relative access to relevant information, the parties' resources, the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 25 (07/09/2024, K. Takahashi), cell I26",
+      "authority_type": "court_rule",
+      "authority": "W.D. Wash. local rules on ESI protocols",
+      "citation_as_written": "W.D. Wash. local rules on ESI protocols",
+      "pincite": "",
+      "cited_for": "Local rules governing ESI protocols",
+      "quotes": [],
+      "context": "review W.D. Wash. local rules on ESI protocols.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. Local Civil Rule 26(f)(1)(I)-(J) (ESI topics for the Rule 26(f) conference; Model ESI Agreement) and LCR 26(f)(6) (ESI cost apportionment)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "The W.D. Wash. Local Civil Rules do contain ESI-protocol provisions: LCR 26(f)(1)(I)-(J) requires the parties to address preservation and production of ESI and whether they adopt the court's Model Agreement Regarding Discovery of Electronically Stored Information, and LCR 26(f) also addresses apportioning ESI discovery costs with reference to the Fed. R. Civ. P. 26(b)(2)(C) factors. The time entry names no rule number, so the reference is generic but accurate. Caveat: I read the current (2026) clean edition of the Local Civil Rules, not the edition in force in July 2024; the ESI provisions are longstanding but the 2024 text itself was not checked.",
+        "evidence_excerpt": "(I) whether the case will involve the preservation and production of Electronically Stored Information (\"ESI\") and, if so: (i) the nature, location, and scope of discoverable ESI; and (ii) whether the parties agree to adopt the Model Agreement Regarding Discovery of Electronically Stored Information in Civil Litigation (the \"Model ESI Agreement,\" which can be found under \"Forms\" on the court's website) or a modified version thereof",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWD%20Local%20Civil%20Rules%20%282026%29%20-%20Clean.pdf",
+          "https://www.wawd.uscourts.gov/local-rules-and-orders"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 36 (07/11/2024, P. Vogel), cell I37",
+      "authority_type": "court_rule",
+      "authority": "W.D. Wash. local rules (e-filing format)",
+      "citation_as_written": "W.D. Wash. local rules",
+      "pincite": "",
+      "cited_for": "Formatting compliance of reply brief for e-filing",
+      "quotes": [],
+      "context": "Prepare reply brief for e-filing; verify formatting compliance with W.D. Wash. local rules; file with court.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. LCR 10(d)-(e) (size and format of filings); LCR 7(e) (length of motions and briefs); LCR 5(d) (electronic filing)",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "Generic reference with no pin cite. The W.D. Wash. Local Civil Rules do impose formatting requirements a reply brief must meet before e-filing: LCR 10(d)-(e) sets page size, margins, 12-point text, double spacing, footnote size, title, bottom notation and line numbering; LCR 7(e) sets length limits for motions and briefs; and LCR 5(d) requires counsel to file electronically and comply with the district's electronic filing procedures. The entry's description (verifying formatting compliance with the local rules before filing) is accurate. Checked against the currently posted rules, not a July 2024 snapshot.",
+        "evidence_excerpt": "LCR 10(e)(1): \"All other margins must be at least one inch wide ... The text of any typed or printed brief must be 12 point or larger and must, with the exception of quotations, be double spaced or exactly 24 points. Footnotes must be 10 point or larger and may be single spaced.\" / LCR 5(d): \"all counsel are required to electronically file documents through the court's electronic filing system and to comply with the electronic filing procedures for the district.\"",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWDAllLocalCivilRules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 41 (07/15/2024, N. Briggs), cell I42",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Rule 56",
+      "pincite": "",
+      "cited_for": "Ninth Circuit standards for Rule 56 motions in environmental cases; analogous CERCLA summary judgment decisions",
+      "quotes": [],
+      "context": "Research Ninth Circuit standards for Rule 56 motions in environmental cases; review analogous CERCLA summary judgment decisions for reply brief.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 56",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 56 is the summary judgment rule; 56(a) states the standard (no genuine dispute of material fact and entitlement to judgment as a matter of law). The entry cites it only as the rule governing 'Rule 56 motions' whose Ninth Circuit and CERCLA case law was being researched for a reply brief. No specific holding or case is attributed to the rule, so there is nothing further to check.",
+        "evidence_excerpt": "Rule 56. Summary Judgment. (a) Motion for Summary Judgment or Partial Summary Judgment. A party may move for summary judgment, identifying each claim or defense — or the part of each claim or defense — on which summary judgment is sought. The court shall grant summary judgment if the movant shows that there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 41 (07/15/2024, N. Briggs), cell I42",
+      "authority_type": "statute",
+      "authority": "CERCLA (summary judgment decisions)",
+      "citation_as_written": "CERCLA",
+      "pincite": "",
+      "cited_for": "Analogous CERCLA summary judgment decisions for reply brief",
+      "quotes": [],
+      "context": "review analogous CERCLA summary judgment decisions for reply brief.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Comprehensive Environmental Response, Compensation, and Liability Act of 1980 (CERCLA), 42 U.S.C. §§ 9601-9675",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "A time-entry description (\"review analogous CERCLA summary judgment decisions for reply brief\"), naming no specific decision. CERCLA exists, and Ninth Circuit CERCLA decisions reviewing summary judgment on § 9607(a) liability exist; for example, Carson Harbor Village, Ltd. v. Unocal Corp., 270 F.3d 863 (9th Cir. 2001) (en banc), affirmed summary judgment for the Partnership Defendants on the CERCLA claim and reversed it as to other defendants. Because MTCA is patterned on CERCLA (Pope Resources, 190 Wn.2d 744), such decisions are fairly called \"analogous.\" Nothing in the entry is checkable beyond the existence and relevance of the body of law, which is confirmed.",
+        "evidence_excerpt": "\"We review de novo the district court's grant of summary judgment. ... Thus, on the CERCLA claim, we affirm the district court's grant of summary judgment for the Partnership Defendants.\" (Carson Harbor Village, Ltd. v. Unocal Corp., 270 F.3d 863 (9th Cir. 2001) (en banc))",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/775487/carson-harbor-village-ltd-v-unocal-corporation/",
+          "https://www.courtlistener.com/opinion/4500878/pope-res-lp-v-wash-state-dept-of-natural-res/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 42 (07/15/2024, T. Wendt), cell I43",
+      "authority_type": "statute",
+      "authority": "Washington MTCA (amendments and regulatory guidance)",
+      "citation_as_written": "MTCA amendments",
+      "pincite": "",
+      "cited_for": "Familiarization with MTCA amendments and recent regulatory guidance (background research)",
+      "quotes": [],
+      "context": "Research background on Washington environmental regulatory framework; familiarize with MTCA amendments and recent regulatory guidance.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "Generic reference with no specific provision cited. The MTCA (ch. 70A.305 RCW) has in fact been amended repeatedly, including by 2019 c 422 and the 2020 c 20 recodification from ch. 70.105D RCW, and Ecology's implementing cleanup regulations (ch. 173-340 WAC) were amended by WSR 23-17-159, filed 8/23/23 and effective 1/1/24, which was recent as of the July 2024 time entry. The reference to \"MTCA amendments and recent regulatory guidance\" therefore corresponds to real authority. Because the entry identifies no particular amendment or guidance document, nothing more specific can be checked.",
+        "evidence_excerpt": "[Statutory Authority: Chapters 70A.305 and 70A.355 RCW. WSR 23-17-159 (Order 18-09), § 173-340-540, filed 8/23/23, effective 1/1/24.] ; RCW 70A.305.050 history: [ 2020 c 20 s 1309 ; 2019 c 422 s 402 ; 2013 2nd sp.s. c 1 s 8 ; ... Formerly RCW 70.105D.050 .]",
+        "source_urls": [
+          "https://app.leg.wa.gov/WAC/default.aspx?cite=173-340-540",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.050",
+          "https://app.leg.wa.gov/RCW/dispo.aspx?cite=70.105D"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 46 (07/16/2024, K. Takahashi), cell I47",
+      "authority_type": "court_rule",
+      "authority": "W.D. Wash. Local Civil Rule 26(f)",
+      "citation_as_written": "W.D. Wash. Local Civil Rule 26(f)",
+      "pincite": "26(f)",
+      "cited_for": "Privilege log requirements",
+      "quotes": [],
+      "context": "Research privilege log requirements under W.D. Wash. Local Civil Rule 26(f); analyze best practices for environmental investigation privilege claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "W.D. Wash. Local Civil Rule 26(f) exists, but it is the \"Conference of the Parties; Planning for Discovery\" rule. It lists topics counsel must discuss before the joint status report and sets ESI-planning obligations. It contains no privilege log requirement; the phrase \"privilege log\" does not appear anywhere in the court's posted Local Civil Rules (text search of the full 148-page PDF returned no hits). The nearest content is LCR 26(f)(1)(H), which makes inadvertent-production and FRE 502(d)/(e) privilege-waiver procedures a conference topic, and LCR 26(f)(1)(I)(ii), which points to the court's separate Model ESI Agreement form. So the rule is related to privilege handling in discovery planning, but it is not a source of privilege log requirements as the time entry describes. I did not read the Model ESI Agreement itself, so I make no finding on what it requires. Checked against the version of the rules currently posted on the court's site, not a July 2024 snapshot.",
+        "evidence_excerpt": "\"(f) Conference of the Parties; Planning for Discovery ... (1) Prior to the initial status conference with the court, if any, or prior to submitting their joint status report, counsel and any pro se parties shall meet and discuss ... the topics set forth in Fed. R. Civ. P. 26(f) and the following issues: ... (H) procedures for handling inadvertent production of privileged information and other privilege waiver issues pursuant to Rule 502(d) or (e) of the Federal Rules of Evidence;\"",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWDAllLocalCivilRules.pdf"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "The first check is right about the rule's own text. In the court's posted Local Civil Rules, LCR 26(f) is the discovery-conference rule, and the only privilege language in it is (1)(H): \"procedures for handling inadvertent production of privileged information and other privilege waiver issues pursuant to Rule 502(d) or (e)\". The phrase \"privilege log\" does not appear in it. But the first check stopped short of the Model ESI Agreement, and that is where the privilege-log rules are. LCR 26(f)(1)(I)(ii) makes it a conference topic \"whether the parties agree to adopt the Model Agreement Regarding Discovery of Electronically Stored Information ... (the 'Model ESI Agreement' ...)\". I read the version dated 2/1/23, which was the one in effect in July 2024. Its Section E (\"Privilege\") reads: \"[The parties should confer regarding the nature and scope of privilege logs for the case ...] 1. A producing party shall create a privilege log of all documents fully withheld from production ... Privilege logs shall include a unique identification number for each document and the basis for the claim ...\" It also covers metadata-based logs, deadlines for producing logs, redactions that need not be logged, and an exemption for post-complaint privileged material. So LCR 26(f) leads directly, through the form it names, to the court's standard privilege-log terms. The time entry only describes a research topic. Read fairly, \"privilege log requirements under W.D. Wash. LCR 26(f)\" is a loose but defensible pointer, not a citation to a rule that has nothing on the subject. The defect is that the operative requirements sit in the Model ESI Agreement, Section E, which LCR 26(f)(1)(I)(ii) incorporates (along with FRCP 26(b)(5)), not in the text of LCR 26(f) itself. That is a minor imprecision, not a mischaracterization.",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWDAllLocalCivilRules.pdf",
+          "https://www.wawd.uscourts.gov/sites/wawd/files/ModelESIAgreement_CLEAN_2.1.23.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 12,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 51 (07/17/2024, D. Hargrove), cell I52",
+      "authority_type": "case",
+      "authority": "Thompson v. Pacific Envtl. Corp. (Wash. Supreme Court)",
+      "citation_as_written": "Thompson v. Pacific Envtl. Corp.",
+      "pincite": "",
+      "cited_for": "Recent Washington Supreme Court decision on remediation contractor standard of care (strategic implications)",
+      "quotes": [],
+      "context": "Research strategic implications of recent Washington Supreme Court decision in Thompson v. Pacific Envtl. Corp. on remediation contractor standard of care.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "NOT_FOUND_LIKELY_FABRICATED",
+        "authority_exists": "no",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "No Washington Supreme Court decision (or any decision) captioned Thompson v. Pacific Envtl. Corp. / Pacific Environmental Corp. could be located. The document gives no reporter cite, year, or docket number. CourtListener searches returned zero results for: caseName Thompson + \"Pacific Environmental\"; case_name \"Thompson Pacific Envtl\"; \"Thompson\" + \"Pacific Environmental\" limited to the Washington Supreme Court and Court of Appeals; caseName Thompson AND (Envtl OR Environmental) in Washington courts; and case_name \"Thompson v. Pacific\" with remediation-contractor terms in all courts. An unfiltered search for \"Pacific Environmental Corp\" returned only unrelated cases (Kahue v. Pacific Environmental Corp., D. Haw. 2011; Tufco, Inc. v. Pacific Environmental Corp., Alaska 2005). Washington Supreme Court opinions with Thompson in the caption since 2019 were only State v. Thompson (2025) and Henderson v. Thompson (2022). A semantic search for a Washington Supreme Court decision on a remediation contractor's standard of care surfaced no such case, and web searches on the exact name variants found nothing.",
+        "evidence_excerpt": "CourtListener search results: {\"count\": 0, \"results\": []} for caseName:(Thompson \"Pacific Environmental\"); unfiltered \"Pacific Environmental Corp\" search returned \"Kahue v. Pacific Environmental Corp.\" (D. Hawaii 2011) and \"Tufco, Inc. v. Pacific Environmental Corp.\" (Alaska 2005) but no Thompson case.",
+        "source_urls": [
+          "https://www.courtlistener.com/?q=caseName%3A(Thompson+%22Pacific+Environmental%22)&type=o",
+          "https://www.courtlistener.com/?q=%22Pacific+Environmental+Corp%22+OR+%22Pacific+Envtl.+Corp%22&type=o",
+          "https://www.courtlistener.com/opinion/8711850/kahue-v-pacific-environmental-corp/",
+          "https://www.courtlistener.com/opinion/2570261/tufco-inc-v-pacific-environmental-corp/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "NOT_FOUND_LIKELY_FABRICATED",
+        "explanation": "I could not find any such case. On CourtListener, a search for Thompson AND \"Pacific Environmental\" returned only unrelated Ninth Circuit and D. Or. environmental cases with no Thompson party. A caption search for \"Pacific Environmental\" / \"Pac. Envtl.\" / \"Pacific Envtl\" returned only Kahue v. Pacific Environmental Corp., 834 F. Supp. 2d 1039 (D. Haw. 2011), and Tufco, Inc. v. Pacific Environmental Corp., 113 P.3d 668 (Alaska 2005). Washington Supreme Court and Court of Appeals opinions with Thompson in the caption filed January 2022 to August 2024 were only Henderson v. Thompson (Wash. 2022), Thompson v. Amazon.com (Wash. Ct. App. 2023), and State v. Thompson (Wash. Ct. App. 2023), none of which involves a remediation contractor. A web search for \"Thompson v. Pacific Environmental\" Washington also found nothing. The entry gives no reporter, year, or docket number. The first finding holds.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/8695037/kahue-v-pacific-environmental-corp/",
+          "https://www.courtlistener.com/opinion/2570261/tufco-inc-v-pacific-environmental-corp/",
+          "https://www.courtlistener.com/opinion/11264606/henderson-v-thompson/"
+        ]
+      }
+    },
+    {
+      "ref": 13,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 64 (07/22/2024, S. Ortega), cell I65",
+      "authority_type": "court_rule",
+      "authority": "Washington Rules of Professional Conduct (RPC)",
+      "citation_as_written": "Washington RPC",
+      "pincite": "",
+      "cited_for": "Deponent preparation requirements and ethical obligations; coaching limitations",
+      "quotes": [],
+      "context": "Research deponent preparation requirements and ethical obligations under Washington RPC; analyze coaching limitations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The Washington Rules of Professional Conduct exist and are published by the Washington Courts. They contain the provision that governs witness and deponent preparation limits: RPC 3.4(b) bars a lawyer from counselling or assisting a witness to testify falsely, and RPC 3.4(a) bars obstructing access to evidence. A time entry on ethical obligations and coaching limits in deponent preparation under the Washington RPC is therefore supported. The entry names no specific rule, so there is no pin cite to test.",
+        "evidence_excerpt": "\"RPC 3.4 FAIRNESS TO OPPOSING PARTY. A lawyer shall not: ... (b) falsify evidence, counsel or assist a witness to testify falsely, or offer an inducement to a witness that is prohibited by law;\"",
+        "source_urls": [
+          "https://www.courts.wa.gov/court_rules/pdf/RPC/GA_RPC_03_04_00.pdf",
+          "https://www.courts.wa.gov/court_rules/?fa=court_rules.list&group=ga&set=RPC"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 74 (07/24/2024, N. Briggs), cell I75",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37",
+      "citation_as_written": "FRCP 37",
+      "pincite": "37",
+      "cited_for": "Ninth Circuit standards for sanctions; failure to preserve ESI",
+      "quotes": [],
+      "context": "Research Ninth Circuit standards for FRCP 37 sanctions; analyze case law on failure to preserve electronically stored information.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 37 is titled 'Failure to Make Disclosures or to Cooperate in Discovery; Sanctions,' and subdivision (e) specifically addresses 'Failure to Preserve Electronically Stored Information.' The rule is the correct authority for sanctions research on failure to preserve ESI. The rule text does not itself state 'Ninth Circuit standards'; the entry describes case-law research applying the rule, which is a reasonable use of the citation.",
+        "evidence_excerpt": "(e) Failure to Preserve Electronically Stored Information. If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost because a party failed to take reasonable steps to preserve it, and it cannot be restored or replaced through additional discovery, the court: (1) upon finding prejudice to another party from loss of the information, may order measures no greater than necessary to cure the prejudice",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 87 (07/29/2024, T. Wendt), cell I88",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(e)",
+      "citation_as_written": "FRCP 37(e)",
+      "pincite": "37(e)",
+      "cited_for": "Safe harbor provisions; sanctions standards for ESI spoliation",
+      "quotes": [],
+      "context": "Research sanctions standards for ESI spoliation in W.D. Wash.; review FRCP 37(e) safe harbor provisions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The phrase 'safe harbor' does not appear in the current rule text or its committee notes on the LII page.",
+        "explanation": "Fed. R. Civ. P. 37(e) exists and is the governing rule for ESI spoliation sanctions, so the cite supports 'sanctions standards for ESI spoliation.' The defect is the 'safe harbor provisions' label. That describes the 2006 version of 37(e) (no sanctions for ESI lost through 'routine, good-faith operation of an electronic information system'), which the December 1, 2015 amendment replaced. The rule in force in July 2024 has no safe-harbor provision; it sets a 'reasonable steps' threshold, prejudice-based curative measures, and an intent-to-deprive requirement for the severest sanctions. The 2015 committee note says routine good-faith operation is now only 'a relevant factor.' The characterization is outdated and loose rather than a wrong citation.",
+        "evidence_excerpt": "LII, 2015 Committee Note: \"Present Rule 37(e), adopted in 2006, provides: 'Absent exceptional circumstances, a court may not impose sanctions under these rules on a party for failing to provide electronically stored information lost as a result of the routine, good-faith operation of an electronic information system.' ... New Rule 37(e) replaces the 2006 rule.\" CAT3, LLC v. Black Lineage, Inc., 164 F. Supp. 3d 488 (S.D.N.Y. 2016): \"Previously, the rule consisted entirely of a modest safe harbor provision that protected against the imposition of sanctions where ESI was lost as the result of routine computer functions such as automatic deletion. The amended rule is much more comprehensive.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37",
+          "https://www.courtlistener.com/opinion/7318553/cat3-llc-v-black-lineage-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 97 (07/31/2024, K. Takahashi), cell I98",
+      "authority_type": "case",
+      "authority": "Daubert standards (Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "Daubert standards",
+      "pincite": "",
+      "cited_for": "Standards for expert testimony; exclusion grounds for plaintiff's damages expert",
+      "quotes": [],
+      "context": "Research Daubert standards for expert testimony in environmental remediation cases; analyze exclusion grounds for plaintiff's damages expert.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "A time-entry description (\"Research Daubert standards for expert testimony ...; analyze exclusion grounds for plaintiff's damages expert\"). Daubert, 509 U.S. 579 (1993), exists and sets the federal standard for admitting expert testimony under Rule 702: the trial judge must ensure the testimony is reliable and relevant, with \"a gatekeeping role for the judge.\" That standard supplies the grounds on which an expert may be excluded, so the description is accurate. Daubert itself addressed \"scientific\" testimony (footnote 8 notes Rule 702 also covers technical or other specialized knowledge); whether a damages expert falls within it is an application question the entry does not assert.",
+        "evidence_excerpt": "\"'General acceptance' is not a necessary precondition to the admissibility of scientific evidence under the Federal Rules of Evidence, but the Rules of Evidence— especially Rule 702 — do assign to the trial judge the task of ensuring that an expert's testimony both rests on a reliable foundation and is relevant to the task at hand.\" Also: \"a gatekeeping role for the judge, no matter how flexible, inevitably on occasion will prevent the jury from learning of authentic insights and innovations.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 121 (07/11/2024, A. Osei), cell I122",
+      "authority_type": "court_rule",
+      "authority": "W.D. Wash. local rules on meet-and-confer",
+      "citation_as_written": "local rules on meet-and-confer requirements for discovery motions",
+      "pincite": "",
+      "cited_for": "Meet-and-confer requirements for discovery motions",
+      "quotes": [],
+      "context": "Assist with drafting meet-and-confer letter; research local rules on meet-and-confer requirements for discovery motions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. Local Civil Rule 37(a)(1) (meet and confer requirement); see also LCR 1(c)(6) (definition of \"Meet and Confer\")",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "The W.D. Wash. Local Civil Rules impose a meet-and-confer requirement on discovery motions: LCR 37(a)(1) requires a certification of good-faith conferral (date, manner, participants) in any motion to compel and requires a face-to-face meeting or telephone conference; LCR 1(c)(6) defines \"Meet and Confer.\" The time entry names no rule number and says only \"local rules\" (the W.D. Wash. court is identified elsewhere in the invoice), so the reference is generic but accurate. Caveat: I read the current (2026) clean edition, not the edition in force in July 2024.",
+        "evidence_excerpt": "(1) Meet and Confer Requirement. Any motion for an order compelling disclosure or discovery must include a certification, in the motion or in a declaration or affidavit, that the movant has in good faith conferred or attempted to confer with the person or party failing to make disclosure or discovery in an effort to resolve the dispute without court action. The certification must list the date, manner, and participants to the conference.",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWD%20Local%20Civil%20Rules%20%282026%29%20-%20Clean.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 133 (07/19/2024, S. Ortega), cell I134",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)",
+      "citation_as_written": "FRCP 26(a)(1)",
+      "pincite": "26(a)(1)",
+      "cited_for": "Supplemental initial disclosures",
+      "quotes": [],
+      "context": "Draft supplemental initial disclosures under FRCP 26(a)(1); update witness and document lists.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(a)(1) (initial disclosures); the duty to supplement them is Fed. R. Civ. P. 26(e)(1)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "Rule 26(a)(1) exists and governs initial disclosures, including the witness list (26(a)(1)(A)(i)) and document list (26(a)(1)(A)(ii)), which matches the entry's \"update witness and document lists.\" The duty to supplement is technically imposed by Rule 26(e)(1), which applies to \"a disclosure under Rule 26(a),\" so describing the work as \"supplemental initial disclosures under FRCP 26(a)(1)\" is ordinary and accurate usage: the disclosures being supplemented are the 26(a)(1) disclosures. No defect worth a downgrade.",
+        "evidence_excerpt": "\"(1) Initial Disclosure. (A) In General. ... a party must, without awaiting a discovery request, provide to the other parties: (i) the name and, if known, the address and telephone number of each individual likely to have discoverable information ... (ii) a copy—or a description by category and location—of all documents, electronically stored information, and tangible things ...\"; \"(e) Supplementing Disclosures and Responses. (1) In General. A party who has made a disclosure under Rule 26(a) ... must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect ...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, Line 154 (07/30/2024, P. Vogel), cell I155",
+      "authority_type": "court_rule",
+      "authority": "W.D. Wash. local rules (motion for protective order filing)",
+      "citation_as_written": "local rules",
+      "pincite": "",
+      "cited_for": "Compliance of protective order motion e-filing with local rules",
+      "quotes": [],
+      "context": "Prepare motion for protective order for e-filing; verify compliance with local rules; coordinate service on opposing counsel.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. LCR 26(c) (protective orders; meet-and-confer certification); LCR 7 (form and scheduling of motions); LCR 5(d) (electronic filing)",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "Generic reference to \"local rules\" with no pin cite; in context (Case No. 2:24-cv-00318-RSL, W.D. Wash.) these are the W.D. Wash. Local Civil Rules. They do contain compliance requirements specific to a motion for protective order: LCR 26(c)(1) requires a certification of a good-faith meet-and-confer conference listing date, manner and participants, failing which the court may deny the motion; LCR 26(c)(2) addresses stipulated protective orders and the district's model order; LCR 7 governs motion form, noting dates and length; and LCR 5(d) requires electronic filing. The entry's description is accurate. Checked against the currently posted rules, not a July 2024 snapshot.",
+        "evidence_excerpt": "LCR 26(c)(1): \"Any motion for a protective order must include a certification, in the motion or in a declaration or affidavit, that the movant has engaged in a good faith meet and confer conference with other affected parties in an effort to resolve the dispute without court action. The certification must list the date, manner, and participants to the conference. If the movant fails to include such a certification, the court may deny the motion without addressing the merits of the dispute.\"",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWDAllLocalCivilRules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 4.A, June 3, 2024 entry (T. Wendt)",
+      "authority_type": "statute",
+      "authority": "Washington MTCA, Section 70.105D.040",
+      "citation_as_written": "MTCA Section 70.105D.040",
+      "pincite": "",
+      "cited_for": "Contractor liability under MTCA; scope of 'potentially liable person' as applied to remediation contractors",
+      "quotes": [
+        "potentially liable person"
+      ],
+      "context": "analyze case law on contractor liability under MTCA Section 70.105D.040; review Ninth Circuit authority on statutory interpretation of MTCA strict liability provisions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.040 (formerly RCW 70.105D.040; recodified by Laws of 2020, ch. 20, § 2030). \"Potentially liable person\" is defined at RCW 70A.305.020(26) (formerly in RCW 70.105D.020).",
+        "quote_check": "\"potentially liable person\": found verbatim. The phrase appears in RCW 70A.305.040(4)(a) (\"any potentially liable person\"), and the defined term is in RCW 70A.305.020(26), which points back to .040. The entry calls it the \"'potentially liable person' definition\", so strictly the definition sits in .020, not .040.",
+        "explanation": "The authority is real and is the MTCA liability section: it lists the liable persons and makes them strictly, jointly and severally liable. A time entry about researching contractor liability and the reach of \"potentially liable person\" under this section is a fair use of it. Taliesen Corp. v. Razore Land Co., 144 P.3d 1185 (Wash. Ct. App. 2006), confirms that contractor/consultant liability as an \"operator\" under RCW 70.105D.040 is a genuinely litigated question. Defects are minor: (1) by June 2024 the section number was four years out of date, having been recodified as RCW 70A.305.040 in 2020 (the engagement letter in the same file correctly uses RCW ch. 70A.305); (2) the cite omits \"RCW\"; (3) the definition of the quoted term is in .020 rather than .040.",
+        "evidence_excerpt": "\"(1) Except as provided in subsection (3) of this section, the following persons are liable with respect to a facility: (a) The owner or operator of the facility; ... (2) Each person who is liable under this section is strictly liable, jointly and severally, for all remedial action costs ...\" History note: \"Formerly RCW 70.105D.040.\" Dispositions page: \"70.105D.040 Standard of liability-Settlement. ... Recodified as RCW 70A.305.040 pursuant to 2020 c 20 § 2030.\" RCW 70A.305.020(26): \"'Potentially liable person' means any person whom the department finds, based on credible evidence, to be liable under RCW 70A.305.040.\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70.105D.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.020",
+          "https://www.courtlistener.com/opinion/2585991/taliesen-corp-v-razore-land-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 4.A, June 5, 2024 entry (T. Wendt)",
+      "authority_type": "statute",
+      "authority": "CERCLA (federal analogs)",
+      "citation_as_written": "federal CERCLA analogs",
+      "pincite": "",
+      "cited_for": "CERCLA analogs for MTCA summary judgment brief arguments",
+      "quotes": [],
+      "context": "research federal CERCLA analogs for motion brief arguments.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Comprehensive Environmental Response, Compensation, and Liability Act of 1980 (CERCLA), 42 U.S.C. §§ 9601-9675; liability provision at CERCLA § 107(a), 42 U.S.C. § 9607(a)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "A time-entry description (\"research federal CERCLA analogs for motion brief arguments\") in the June invoice summary, tied to the MTCA summary judgment brief. CERCLA exists and is the recognized federal model for MTCA: the Washington Supreme Court states \"MTCA follows CERCLA in defining who is liable for environmental contamination,\" that MTCA's liability language is \"substantially the same language used in CERCLA with one exception,\" and that federal cases interpreting the similar language are persuasive authority. Using CERCLA analogs for MTCA contractor/operator liability arguments is therefore a legally sound description. No specific holding or pin cite is asserted.",
+        "evidence_excerpt": "\"MTCA follows CERCLA in defining who is liable for environmental contamination. ... This is substantially the same language used in CERCLA with one exception. See 42 U.S.C. § 9607(a)(1) ... The parent statute to MTCA, CERCLA, has consistently been interpreted to avoid fusing the separate legal doctrines that underlie the terms, 'owner' and 'operator.'\" (Pope Resources, LP v. Dep't of Natural Resources, 190 Wn.2d 744, 751 (2018))",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4500878/pope-res-lp-v-wash-state-dept-of-natural-res/",
+          "https:/9607"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 4.B, June 4, 2024 entry (K. Takahashi)",
+      "authority_type": "statute",
+      "authority": "Washington Model Toxics Control Act (statutory text and legislative history)",
+      "citation_as_written": "Washington Model Toxics Control Act",
+      "pincite": "",
+      "cited_for": "Research on statutory text and legislative history of MTCA",
+      "quotes": [],
+      "context": "analyze statutory text and legislative history of Washington Model Toxics Control Act",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The Washington Model Toxics Control Act exists under that name. It is codified at chapter 70A.305 RCW (formerly chapter 70.105D RCW) and was enacted as Initiative Measure No. 97, approved November 8, 1988 (Laws of 1989, ch. 2), with later legislative amendments in 1994, 1997, 2013 and 2020. The entry is a generic reference to the Act's text and history with no section or proposition to test beyond existence. One context note: because the Act began as a voter initiative, its original \"legislative history\" is initiative material rather than committee history; that does not make the reference inaccurate.",
+        "evidence_excerpt": "RCW 70A.305.900: \"Short title — 1989 c 2. This act shall be known as 'the model toxics control act.' [ 1989 c 2 s 22 (Initiative Measure No. 97, approved November 8, 1988). Formerly RCW 70.105D.900.]\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.900",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70.105D.040"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 5, June 12, 2024 entry (K. Takahashi)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)",
+      "citation_as_written": "FRCP 26(a)(1)",
+      "pincite": "26(a)(1)",
+      "cited_for": "Initial disclosure obligations in environmental litigation",
+      "quotes": [],
+      "context": "Research initial disclosure obligations under FRCP 26(a)(1); analyze scope of initial disclosures in environmental litigation. Reviewed advisory committee notes and W.D. Wash. local rules governing content and timing of disclosure requirements.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 26(a)(1) is the initial-disclosure rule. 26(a)(1)(A) lists the four categories a party must disclose without awaiting a discovery request (witnesses, documents/ESI, damages computation, insurance agreements), and 26(a)(1)(C) sets the timing (at or within 14 days after the Rule 26(f) conference). That matches the billing narrative's description of 'initial disclosure obligations' and 'content and timing of disclosure requirements.' The rule is trans-substantive, so it applies in environmental litigation; the rule page also carries advisory committee notes, as the entry references.",
+        "evidence_excerpt": "(1) Initial Disclosure. (A) In General. Except as exempted by Rule 26(a)(1)(B) or as otherwise stipulated or ordered by the court, a party must, without awaiting a discovery request, provide to the other parties: (i) the name and, if known, the address and telephone number of each individual likely to have discoverable information ... (C) Time for Initial Disclosures—In General. A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 5, June 12, 2024 entry (K. Takahashi)",
+      "authority_type": "court_rule",
+      "authority": "W.D. Wash. local rules (disclosures)",
+      "citation_as_written": "W.D. Wash. local rules governing content and timing of disclosure requirements",
+      "pincite": "",
+      "cited_for": "Content and timing of disclosures",
+      "quotes": [],
+      "context": "Reviewed advisory committee notes and W.D. Wash. local rules governing content and timing of disclosure requirements.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "W.D. Wash. LCR 26(a)(3) (pretrial disclosures, on the LCR 16 schedule); LCR 5(d) (Rule 26 initial disclosures not to be filed). LCR 26(a)(1) and (a)(2) are \"Reserved.\"",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "The W.D. Wash. Local Civil Rules exist and LCR 26 is titled \"Duty to Disclose; General Provisions Governing Discovery,\" so a generic reference to local rules on disclosure is real. But the time entry concerns initial disclosures under FRCP 26(a)(1), and the local rules have nothing governing their content or timing: LCR 26(a)(1) and (a)(2) are both \"Reserved.\" What the local rules do cover is the manner and schedule of pretrial disclosures (LCR 26(a)(3), by reference to LCR 16) and a direction in LCR 5(d) that Rule 26 initial disclosures not be filed. The only initial-disclosure timing provision is in the optional individualized trial program rule (exchange within seven days of court approval of the agreement). The description is therefore loose rather than wrong: local disclosure provisions exist, but not ones governing the content and timing of initial disclosures. Checked against the currently posted rules, not a June 2024 snapshot.",
+        "evidence_excerpt": "\"LCR 26 DUTY TO DISCLOSE; GENERAL PROVISIONS GOVERNING DISCOVERY (a) Required Disclosures (1) Reserved (2) Reserved (3) Pretrial Disclosures. Unless otherwise directed by the court, the disclosures listed in Fed. R. Civ. P. 26(a)(3) shall be made in the manner and in accordance with the schedule prescribed in LCR 16.\" / LCR 5(d): \"Rule 26 initial disclosures and discovery requests and responses must not be filed unless they are used in the proceedings or the court orders filing.\"",
+        "source_urls": [
+          "https://www.wawd.uscourts.gov/sites/wawd/files/WAWDAllLocalCivilRules.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 5, June 17, 2024 entry (T. Wendt)",
+      "authority_type": "statute",
+      "authority": "Washington MTCA statute of repose provisions",
+      "citation_as_written": "MTCA statute of repose provisions",
+      "pincite": "",
+      "cited_for": "Interplay of MTCA statute of repose with common-law limitations periods",
+      "quotes": [],
+      "context": "Examined interplay between MTCA statute of repose provisions and common-law limitations periods for negligence-based environmental claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.080 (MTCA private-action limitations period); the statute of repose litigated against MTCA claims is the construction statute of repose, RCW 4.16.310 (see Taliesen Corp. v. Razore Land Co., 135 Wn. App. 106, 144 P.3d 1185 (2006))",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "The label is loose. Nothing in ch. 70A.305 RCW is denominated a statute of repose, and the word \"repose\" does not appear in RCW 70A.305.080. The MTCA's only time bar is the limitations period in RCW 70A.305.080: a private action must be brought within three years from the date remedial action confirms cleanup standards are met. That period runs from a fixed external event rather than accrual and \"applies to all causes of action regardless of when the cause of action may have arisen,\" so a fair reader can identify what the time entry means, but it is a limitations provision, not a repose provision. The statute of repose that Washington courts have actually discussed alongside the MTCA is the construction statute of repose, RCW 4.16.310; Taliesen held it does not bar MTCA contribution claims because the MTCA governs in the event of conflict. Separately, the MTCA time bar governs MTCA cost-recovery actions, not common-law negligence claims, which is consistent with the entry's framing as an \"interplay\" question. This is a close call against MISCHARACTERIZED; I treated it as a mislabel in a billing narrative rather than a false statement of a rule.",
+        "evidence_excerpt": "RCW 70A.305.080: \"An action under this section may be brought after remedial action costs are incurred but must be brought within three years from the date remedial action confirms cleanup standards are met or within one year of May 12, 1993, whichever is later.\" Taliesen: \"the trial court ruled that the construction statute of repose does not bar claims under the Act.\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.080",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305",
+          "https://www.courtlistener.com/opinion/2585991/taliesen-corp-v-razore-land-co/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "hl-june-2024-invoice-summary.docx.md",
+      "location": "Section 7, Summary Judgment Motion paragraph",
+      "authority_type": "statute",
+      "authority": "Washington MTCA, Section 70.105D.040",
+      "citation_as_written": "MTCA Section 70.105D.040",
+      "pincite": "",
+      "cited_for": "TerraVerde's argument that, as remediation contractor, it is not subject to strict liability under MTCA, which applies to property owners and operators",
+      "quotes": [],
+      "context": "TerraVerde is not subject to strict liability under MTCA Section 70.105D.040, which by its terms applies to property owners and operators rather than to contractors retained to perform environmental remediation services.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.040(1)-(2) (formerly RCW 70.105D.040; recodified by Laws of 2020, ch. 20, § 2030)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The section is real and does impose strict liability, and its first two categories are current and former owners and operators, so the sentence is a fair report of TerraVerde's litigation position. Two defects. (1) The section number was superseded in 2020; the correct cite in June 2024 was RCW 70A.305.040. (2) \"By its terms applies to property owners and operators rather than to contractors\" is an advocate's gloss, not what the text says. The statute also reaches arrangers/generators, transporters, and certain sellers ((1)(c)-(e)), and it contains no exclusion for remediation contractors. \"Owner or operator\" is defined to include any person \"who exercises any control over the facility\" (RCW 70A.305.020(22)(a)), so a contractor can be liable as an operator. In Taliesen Corp. v. Razore Land Co. (Wash. Ct. App. 2006), the environmental consultant was held liable as an operator while the drilling contractor escaped liability only because it lacked authority to control. I treated this as a minor defect rather than a mischaracterization because the document presents it as the motion's argument and the owner/operator focus is accurate as far as it goes; a stricter reader could call the \"rather than to contractors\" clause mischaracterized.",
+        "evidence_excerpt": "RCW 70A.305.040(1): \"the following persons are liable with respect to a facility: (a) The owner or operator of the facility; (b) Any person who owned or operated the facility at the time of disposal or release of the hazardous substances; (c) Any person who owned or possessed a hazardous substance and who by contract, agreement, or otherwise arranged for disposal or treatment ...\"; (2): \"Each person who is liable under this section is strictly liable, jointly and severally ...\". RCW 70A.305.020(22): \"'Owner or operator' means: (a) Any person with any ownership interest in the facility or who exercises any control over the facility\". Taliesen: \"(4) Golder was liable as an operator.\" ... \"the trial court determined Murphy was not an operator and had no liability.\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.020",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70.105D.040",
+          "https://www.courtlistener.com/opinion/2585991/taliesen-corp-v-razore-land-co/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "doe-matter-july-2024-summary.docx.md",
+      "location": "Matter Description paragraph",
+      "authority_type": "statute",
+      "authority": "RCW 70.105D.040 (MTCA)",
+      "citation_as_written": "RCW 70.105D.040",
+      "pincite": "",
+      "cited_for": "Scope of strict liability under the MTCA",
+      "quotes": [],
+      "context": "particularly regarding MTCA liability standards, the scope of strict liability under RCW 70.105D.040, remediation contractor obligations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.040 (formerly RCW 70.105D.040; recodified by Laws of 2020, ch. 20, § 2030)",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "The MTCA \"Standard of liability—Settlement\" section is real and does set the scope of strict liability: subsection (1) lists the liable persons and subsection (2) makes each strictly, jointly and severally liable. The defect is the section number: RCW 70.105D.040 was recodified as RCW 70A.305.040 in 2020, so a July 2024 document citing the old number uses a superseded citation. The same document set is internally inconsistent on this point: the engagement letter cites the MTCA as \"RCW Chapter 70A.305.\"",
+        "evidence_excerpt": "\"70.105D.040 Standard of liability-Settlement. [...] Recodified as RCW 70A.305.040 pursuant to 2020 c 20 § 2030.\" / RCW 70A.305.040(2): \"Each person who is liable under this section is strictly liable, jointly and severally, for all remedial action costs and for all natural resource damages resulting from the releases or threatened releases of hazardous substances.\" / history note: \"Formerly RCW 70.105D.040.\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70.105D.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "doe-matter-july-2024-summary.docx.md",
+      "location": "Research Entries Detail, July 1, 2024 entry (K. Takahashi)",
+      "authority_type": "statute",
+      "authority": "RCW 70.105D.040 (MTCA)",
+      "citation_as_written": "RCW 70.105D.040",
+      "pincite": "",
+      "cited_for": "Scope of strict liability and applicability to parties performing cleanup actions",
+      "quotes": [],
+      "context": "analyze scope of strict liability under RCW 70.105D.040 and applicability to parties performing cleanup actions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.040 (formerly RCW 70.105D.040; recodified by Laws of 2020, ch. 20, § 2030)",
+        "quote_check": "No quotations attributed to the authority.",
+        "explanation": "Same statute and same defect as ref 27: the section exists and governs MTCA strict liability, but it was recodified as RCW 70A.305.040 in 2020, so the 2024 time entry uses a superseded number. On the proposition: subsection (2) imposes strict, joint and several liability; subsection (1) defines the categories of liable persons (owners/operators, arrangers, transporters, sellers) and subsection (3) lists the exemptions. Nothing in the section speaks specifically to remediation contractors or parties performing cleanup actions, but the section's liable-person categories and exemptions are the provisions one would analyze to decide whether such a party is covered, so the entry's description of the research topic is a fair use of the statute.",
+        "evidence_excerpt": "RCW 70A.305.040: \"(1) Except as provided in subsection (3) of this section, the following persons are liable with respect to a facility: (a) The owner or operator of the facility; (b) Any person who owned or operated the facility at the time of disposal or release of the hazardous substances; ... (2) Each person who is liable under this section is strictly liable, jointly and severally, for all remedial action costs and for all natural resource damages ...\" / \"Formerly RCW 70.105D.040.\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.040",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70.105D.040"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "doe-matter-july-2024-summary.docx.md",
+      "location": "Research Entries Detail, July 8, 2024 entry (K. Takahashi)",
+      "authority_type": "statute",
+      "authority": "CERCLA Section 107",
+      "citation_as_written": "CERCLA Section 107",
+      "pincite": "Section 107",
+      "cited_for": "Ninth Circuit and EPA interpretive guidance on contractor liability under CERCLA",
+      "quotes": [],
+      "context": "Research federal CERCLA analogs to MTCA strict liability provisions; analyze Ninth Circuit and EPA interpretive guidance on contractor liability under CERCLA Section 107.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "CERCLA § 107, 42 U.S.C. § 9607 (Pub. L. 96-510, title I, § 107, Dec. 11, 1980, 94 Stat. 2781). Related: the express response-action-contractor provision is CERCLA § 119, 42 U.S.C. § 9619.",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "CERCLA Section 107 is real and is codified at 42 U.S.C. § 9607 (the LII source credit reads \"Pub. L. 96-510, title I, § 107\"). It is the liability provision listing the four classes of covered persons, so \"contractor liability under CERCLA Section 107\" is an accurate way to describe the question. Ninth Circuit authority on exactly that point exists: Kaiser Aluminum & Chemical Corp. v. Catellus Development Corp., 976 F.2d 1338 (9th Cir. 1992), held that an excavation contractor could be liable under § 9607(a)(2) as an operator and under § 9607(a)(4) as a transporter. Two caveats: (1) the statutory text specifically addressing response action contractors is § 119 (42 U.S.C. § 9619), not § 107, though the liability it limits arises under § 107; (2) I confirmed the Ninth Circuit half of the phrase but did not locate and read a specific EPA guidance document on contractor liability, and the entry names none.",
+        "evidence_excerpt": "42 U.S.C. § 9607(a): \"(1) the owner and operator of a vessel or a facility, (2) any person who at the time of disposal of any hazardous substance owned or operated any facility at which such hazardous substances were disposed of ... shall be liable for—\". Kaiser Aluminum: \"The question is whether the allegations of Catellus's complaint are sufficient to show that Ferry was an operator of the facility and that it disposed of a hazardous substance.\" 42 U.S.C. § 9619(a)(1): \"A person who is a response action contractor ... shall not be liable under this subchapter or under any other Federal law ...\"",
+        "source_urls": [
+          "https:/9607",
+          "https:/9619",
+          "https://www.courtlistener.com/opinion/9011937/kaiser-aluminum-chemical-corp-v-catellus-development-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "doe-matter-july-2024-summary.docx.md",
+      "location": "Other Research Entries, July 10, 2024 entry (A. Osei)",
+      "authority_type": "regulation",
+      "authority": "WAC 173-340 (MTCA cleanup regulations)",
+      "citation_as_written": "WAC 173-340",
+      "pincite": "",
+      "cited_for": "Procedural requirements for responding to DOE enforcement orders",
+      "quotes": [],
+      "context": "analyze procedural requirements for responding to DOE enforcement orders under WAC 173-340.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "WAC ch. 173-340 (Model Toxics Control Act Cleanup Regulations), Part 5, esp. WAC 173-340-540 (enforcement orders) and WAC 173-340-500 (PLP status determination)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "Chapter 173-340 WAC is the Department of Ecology's MTCA cleanup regulation, and its Part 5 (\"Administrative Procedures for Remedial Actions\") includes WAC 173-340-540, \"Enforcement orders,\" which governs when Ecology may issue an enforcement order and the consequences of noncompliance. The chapter is the correct regulatory home for the topic. Note that -540 speaks to issuance and effect rather than a detailed response procedure, and the timing of judicial review of orders is set by statute (RCW 70A.305.070), not the WAC; this does not make the chapter-level reference inaccurate.",
+        "evidence_excerpt": "WAC 173-340-540 Enforcement orders. ... The department may issue an enforcement order requiring remedial action after issuing a notice of potentially liable person status letter under WAC 173-340-500. ... Failure to comply with an enforcement order may result in substantial liability for costs and penalties as specified in RCW 70A.305.050.",
+        "source_urls": [
+          "https://app.leg.wa.gov/WAC/default.aspx?cite=173-340",
+          "https://app.leg.wa.gov/WAC/default.aspx?cite=173-340-540"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "engagement-letter-cascade.docx.md",
+      "location": "Section 2 (Scope of Engagement), paragraph 2",
+      "authority_type": "statute",
+      "authority": "Washington MTCA, RCW Chapter 70A.305",
+      "citation_as_written": "RCW Chapter 70A.305",
+      "pincite": "",
+      "cited_for": "Statute underlying Cascade's third claim, violation of the Washington Model Toxics Control Act",
+      "quotes": [],
+      "context": "(iii) violation of the Washington Model Toxics Control Act (\"MTCA\"), RCW Chapter 70A.305",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "Chapter 70A.305 RCW is the current codification of Washington's Model Toxics Control Act (chapter title \"Hazardous Waste Cleanup—Model Toxics Control Act\"; short title at RCW 70A.305.900), recodified from former ch. 70.105D RCW in 2020. The engagement letter's citation is accurate and current, and the chapter contains the liability provision (RCW 70A.305.040) and private right of action (RCW 70A.305.080) on which an MTCA claim would rest.",
+        "evidence_excerpt": "RCW 70A.305.900 Short title — 1989 c 2. This act shall be known as \"the model toxics control act.\" [ 1989 c 2 s 22 (Initiative Measure No. 97, approved November 8, 1988). Formerly RCW 70.105D.900 .]",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.900"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "terraverde-billing-guidelines.docx.md",
+      "location": "Section 5.2, acceptable description example",
+      "authority_type": "statute",
+      "authority": "Washington MTCA Section 70.105D.080 (contribution claims)",
+      "citation_as_written": "MTCA Section 70.105D.080",
+      "pincite": "",
+      "cited_for": "Example of acceptable research time-entry description",
+      "quotes": [
+        "research Washington state standards for contribution claims under MTCA Section 70.105D.080"
+      ],
+      "context": "\"research Washington state standards for contribution claims under MTCA Section 70.105D.080.\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "RCW 70A.305.080 (formerly RCW 70.105D.080; recodified by Laws of 2020, ch. 20, § 2030)",
+        "quote_check": "The quoted string is the billing guidelines' own example time-entry description, found verbatim in the source document at Section 5.2; it is not a quotation from the statute.",
+        "explanation": "The section cited is the right provision in substance: former RCW 70.105D.080, \"Private right of action—Remedial action costs,\" is the MTCA section that authorizes contribution claims. But the section number is superseded. RCW 70.105D.080 was recodified as RCW 70A.305.080 in 2020, and the guidelines state they were revised in November 2023, so they use a section number that had been out of date for roughly three years. (The engagement letter in the same file set uses the current chapter number, RCW ch. 70A.305.) The content of the provision is unchanged by the recodification.",
+        "evidence_excerpt": "70.105D.080 Private right of action-Remedial action costs. [2020 c 20 § 1312; 1997 c 406 § 6; 1993 c 326 § 1.] Recodified as RCW 70A.305.080 pursuant to 2020 c 20 § 2030.",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/dispo.aspx?cite=70.105D",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.080"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "terraverde-billing-guidelines.docx.md",
+      "location": "Section 6.5(a), example of acceptable research description",
+      "authority_type": "statute",
+      "authority": "RCW 23B.06.220",
+      "citation_as_written": "RCW 23B.06.220",
+      "pincite": "",
+      "cited_for": "Example: standards for piercing the corporate veil in Washington",
+      "quotes": [
+        "research standards for piercing the corporate veil in Washington under RCW 23B.06.220"
+      ],
+      "context": "\"research standards for piercing the corporate veil in Washington under RCW 23B.06.220,\" or \"research Ninth Circuit authority on the scope of contribution claims under MTCA\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No language is attributed to the statute. The quoted string (\"research standards for piercing the corporate veil in Washington under RCW 23B.06.220\") is the billing guideline's own sample time-entry wording, found verbatim at Section 6.5(a) of terraverde-billing-guidelines.docx.md; it is not a quotation from the statute.",
+        "explanation": "RCW 23B.06.220 is a real section of the Washington Business Corporation Act, headed \"Liability of shareholders.\" Its entire text is a single sentence limiting a share purchaser's liability to paying the consideration for the shares. It contains no veil-piercing standard, test, or factors, and does not mention disregarding the corporate entity. It is the shareholder limited-liability provision (so it is topically adjacent), but it is not a source of \"standards for piercing the corporate veil.\" Note the context: this is a hypothetical example of an acceptable research description in a client billing guideline, not a legal argument, but the statute as cited does not contain what it is cited for.",
+        "evidence_excerpt": "RCW 23B.06.220 Liability of shareholders. A purchaser from a corporation of its own shares is not liable to the corporation or its creditors with respect to the shares except to pay the consideration for which the shares were approved to be issued under RCW 23B.06.210 or specified in the subscription agreement under RCW 23B.06.200. [2009 c 189 s 9; 1989 c 165 s 50.]",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=23B.06.220"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The official RCW text of 23B.06.220, \"Liability of shareholders\", is one sentence: \"A purchaser from a corporation of its own shares is not liable to the corporation or its creditors with respect to the shares except to pay the consideration for which the shares were approved to be issued under RCW 23B.06.210 or specified in the subscription agreement under RCW 23B.06.200.\" It has no veil-piercing test or factors and no language about personal liability for the shareholder's own conduct. I found no case applying it to veil piercing: CourtListener searches for \"23B.06.220\" returned nothing. Washington veil-piercing opinions I read rest on the common-law test instead. Maple Valley Park Place v. Tax Resource Centers (Wash. Ct. App., No. 78832-9-I) states: \"To pierce the corporate veil, a party must establish that (1) the corporate form was intentionally used to violate or evade a duty, and (2) piercing the veil is 'necessary and required to prevent unjustified loss to the injured party.'\" It cites Meisel v. M & N Modern Hydraulic Press Co., 97 Wn.2d 403, 410 (1982). Kim v. Rosellini (No. 70063-4-I) applies the same Meisel test. The statute is next to the topic as the basic shareholder limited-liability provision, but it is not a source of veil-piercing standards. That stays true even though the citation is only an illustrative example in a billing guideline. The first finding holds.",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=23B.06.220",
+          "https://www.courts.wa.gov/opinions/pdf/788329.pdf",
+          "https://www.courts.wa.gov/opinions/pdf/700634.pdf"
+        ]
+      }
+    },
+    {
+      "ref": 34,
+      "document": "terraverde-billing-guidelines.docx.md",
+      "location": "Section 6.5(a), example of acceptable research description",
+      "authority_type": "statute",
+      "authority": "Washington MTCA (contribution claims)",
+      "citation_as_written": "MTCA",
+      "pincite": "",
+      "cited_for": "Example: Ninth Circuit authority on scope of contribution claims under MTCA",
+      "quotes": [
+        "research Ninth Circuit authority on the scope of contribution claims under MTCA"
+      ],
+      "context": "\"research Ninth Circuit authority on the scope of contribution claims under MTCA\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted string is the billing guidelines' own example time-entry description, found verbatim in the source document at Section 6.5(a); it is not a quotation from the statute or any case.",
+        "explanation": "The MTCA's private right of action expressly includes contribution claims (RCW 70A.305.080, formerly RCW 70.105D.080), and Ninth Circuit authority addressing MTCA contribution claims exists, e.g., Pacific Sound Resources v. Burlington Northern & Santa Fe Railway Co., 286 F. App'x 381 (9th Cir. 2008) (unpublished memorandum reversing dismissal of an MTCA contribution action for lack of standing). The example description therefore refers to a real statute and a real body of authority. No specific section or case is cited, so there is nothing further to pin.",
+        "evidence_excerpt": "RCW 70A.305.080: \"a person may bring a private right of action, including a claim for contribution or for declaratory relief, against any other person liable under RCW 70A.305.040 for the recovery of remedial action costs.\" Pacific Sound Resources (9th Cir.): \"brought this action against Burlington Northern and Santa Fe Railway (\"the Burlington\") for contribution under Washington's Model Toxics Control Act, Washington Revised Code § 70.105D.080\"",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=70A.305.080",
+          "https://www.courtlistener.com/opinion/8688108/pacific-sound-resources-v-burlington-northern-santa-fe-railway-co/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, cell I70",
+      "authority_type": "statute",
+      "authority": "Washington prejudgment interest statute",
+      "citation_as_written": "Washington prejudgment interest statute",
+      "pincite": "",
+      "cited_for": "Time entry describes researching the Washington prejudgment interest statute and its applicability to contract and tort claims",
+      "quotes": [],
+      "context": "Research Washington prejudgment interest statute; analyze applicability to contract and tort claims in environmental context.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "No single Washington \"prejudgment interest statute\" exists. The statutory rate comes from RCW 19.52.010(1) (12 percent absent a written agreement); RCW 4.56.110 governs interest on judgments, with separate contract (subsection (1)) and tort (subsection (3)) rules. Entitlement to prejudgment interest is a common-law rule: Hansen v. Rothaus, 107 Wn.2d 468, 472, 730 P.2d 662 (1986).",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The reference is loose rather than wrong. Washington has statutory interest provisions that courts apply to prejudgment interest: RCW 19.52.010 sets the 12 percent rate (its caption reads \"Exception for prejudgment interest\"), and Washington appellate courts describe 12 percent under RCW 19.52.010 as \"this state's statutory rate\" for prejudgment interest. But whether prejudgment interest is available at all is decided by a court-made liquidated-claim rule, not a statute, and the contract/tort distinction the entry mentions appears in the judgment-interest statute, RCW 4.56.110. So an unnamed \"Washington prejudgment interest statute\" is an imprecise label for a mixed statutory and common-law regime. I did not read Hansen v. Rothaus directly; the rule is taken from Paul v. All Alaskan Seafoods' description of it.",
+        "evidence_excerpt": "RCW 19.52.010: \"Rate in absence of agreement — Exception for prejudgment interest — Application to consumer leases. (1) ... every loan or forbearance of money, goods, or thing in action shall bear interest at the rate of twelve percent per annum where no different rate is agreed to in writing between the parties\". Paul v. All Alaskan Seafoods, 24 P.3d 447 (Wash. Ct. App. 2001): \"The trial court awarded prejudgment interest at 12 percent, this state's statutory rate.\" ... \"In Washington, 'whether prejudgment interest is awardable depends on whether the claim is a liquidated or readily determinable claim, as opposed to an unliquidated claim.'\" RCW 4.56.110(3)(b): \"judgments founded on the tortious conduct of individuals or other entities ... shall bear interest from the date of entry at two percentage points above the prime rate\".",
+        "source_urls": [
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=19.52.010",
+          "https://app.leg.wa.gov/RCW/default.aspx?cite=4.56.110",
+          "https://www.courtlistener.com/opinion/2514171/paul-v-all-alaskan-seafoods-inc/",
+          "https://www.courtlistener.com/opinion/2507797/olympic-pipe-line-co-v-thoeny/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "hl-july-2024-invoice.xlsx.md",
+      "location": "Fee Detail sheet, cell I138",
+      "authority_type": "case",
+      "authority": "Daubert challenges (Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Time entry describes analyzing potential Daubert challenges to Cascade's expert",
+      "quotes": [],
+      "context": "Review Cascade expert's prior testimony and publications; prepare analysis of potential Daubert challenges.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "A time-entry description (\"prepare analysis of potential Daubert challenges\" to the opposing expert), using the case name as shorthand. Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), exists and holds that Rule 702 assigns the trial judge a gatekeeping role over expert testimony, which is the basis for motions to exclude experts commonly called Daubert challenges. The usage is accurate; no specific holding or pin cite is asserted.",
+        "evidence_excerpt": "\"the Rules of Evidence— especially Rule 702 — do assign to the trial judge the task of ensuring that an expert's testimony both rests on a reliable foundation and is relevant to the task at hand.\" (509 U.S. at 597)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "engagement-letter-cascade.docx.md",
+      "location": "Dispute resolution / governing law section, arbitration clause",
+      "authority_type": "court_rule",
+      "authority": "American Arbitration Association rules",
+      "citation_as_written": "the rules of the American Arbitration Association",
+      "pincite": "",
+      "cited_for": "Binding arbitration of engagement disputes is administered under AAA rules",
+      "quotes": [],
+      "context": "the dispute shall be resolved through binding arbitration in Seattle, Washington, administered in accordance with the rules of the American Arbitration Association.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "American Arbitration Association, Commercial Arbitration Rules and Mediation Procedures (amended and effective Sept. 1, 2022), R-1(a) (the engagement letter does not name a rule set; R-1(a) makes the Commercial Rules the default for a domestic commercial dispute)",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "The AAA publishes arbitration rules, and its standard clause provides for \"arbitration administered by the American Arbitration Association under its Commercial Arbitration Rules.\" The engagement-letter clause (binding arbitration in Seattle \"administered in accordance with the rules of the American Arbitration Association\") is a generic reference that does not specify which AAA rule set; under R-1(a) the Commercial Arbitration Rules apply where parties provide for AAA arbitration of a domestic commercial dispute without specifying particular rules. The reference is a contract term, not a legal proposition, and is accurate as far as it goes. I read the 2022 Commercial Rules PDF; I did not check whether a later amendment has superseded that edition.",
+        "evidence_excerpt": "R-1. Agreement of Parties* (a) The parties shall be deemed to have made these Rules a part of their arbitration agreement whenever they have provided for arbitration by the American Arbitration Association (\"AAA\") under its Commercial Arbitration Rules or for arbitration by the AAA of a domestic commercial dispute without specifying particular rules.",
+        "source_urls": [
+          "https://www.adr.org/media/lwanubnp/2025_commercialrules_web.pdf",
+          "https://www.adr.org/rules-forms-and-fees/commercial/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1471 @@
+{
+  "task": "build-litigation-case-timeline",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "defendant-answer-counterclaim.docx.md",
+    "deposition-summary-fong.docx.md",
+    "deposition-summary-holcomb.docx.md",
+    "email-stanton-to-ivers.eml.md",
+    "exclusive-distribution-agreement.docx.md",
+    "expert-report-buckley.docx.md",
+    "expert-report-chakrabarti.docx.md",
+    "harborview-breach-response.docx.md",
+    "internal-emails-holcomb-yee-stanton.eml.md",
+    "internal-emails-stanton-fong-qa.eml.md",
+    "notice-of-material-breach.docx.md",
+    "notice-of-termination.docx.md",
+    "plaintiff-complaint.docx.md",
+    "qa-rejection-log.xlsx.md",
+    "scheduling-order.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "III. Jurisdiction and Venue, para. 8",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332 (diversity jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Basis for subject matter jurisdiction: complete diversity of citizenship and amount in controversy over $75,000",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332 (diversity jurisdiction). The parties are citizens of different states",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1332 is the diversity jurisdiction statute. It requires citizens of different States and more than $75,000 in controversy, which matches the proposition it is cited for.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "III. Jurisdiction and Venue, para. 9",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b) (venue)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "(b)",
+      "cited_for": "Venue proper in District of Oregon because defendant resides there and a substantial part of the events occurred there",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. § 1391(b) because Greenleaf is a resident of this District, and a substantial part of the events and omissions giving rise to the claims asserted herein occurred in this District",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The complaint gives two grounds for venue: the defendant resides in the district, and a substantial part of the events occurred there. These track § 1391(b)(1) and (b)(2) exactly.",
+        "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "IV.G. Harborview's Discovery of Greenleaf's Misconduct, para. 56",
+      "authority_type": "statute",
+      "authority": "Oregon Revised Statutes 12.110(1) (limitations; fraud, discovery rule)",
+      "citation_as_written": "ORS 12.110(1)",
+      "pincite": "(1)",
+      "cited_for": "Statute of limitations for fraud claims is subject to the discovery rule and does not begin to run until plaintiff discovered or should have discovered the fraud",
+      "quotes": [],
+      "context": "Under Oregon law, including ORS 12.110(1), the statute of limitations for fraud claims is subject to the discovery rule and does not begin to run until the plaintiff discovered or, in the exercise of reasonable diligence, should have discovered the fraud.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "ORS 12.110(1) states that in an action based on fraud or deceit, the limitation period starts only when the fraud is discovered. That supports the discovery-rule proposition. The 'reasonable diligence / should have discovered' wording is a judicial gloss rather than statutory text, but the complaint says 'Under Oregon law, including ORS 12.110(1)', so this is a fair paraphrase.",
+        "evidence_excerpt": "provided, that in an action at law based upon fraud or deceit, the limitation shall be deemed to commence only from the discovery of the fraud or deceit.",
+        "source_urls": [
+          "https://oregon.public.law/statutes/ors_12.110"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "plaintiff-complaint.docx.md",
+      "location": "VII. Third Cause of Action (Fraud), para. 75",
+      "authority_type": "statute",
+      "authority": "Oregon Revised Statutes 12.110(1) (limitations; fraud, discovery rule)",
+      "citation_as_written": "ORS 12.110(1)",
+      "pincite": "(1)",
+      "cited_for": "Provides a two-year statute of limitations for fraud claims, which does not begin to run until plaintiff discovers or should have discovered the fraud; fraud claim timely",
+      "quotes": [],
+      "context": "Harborview's fraud claim is timely under Oregon's discovery rule. ORS 12.110(1) provides a two-year statute of limitations for fraud claims, which does not begin to run until the plaintiff discovers or, in the exercise of reasonable diligence, should have discovered the fraud.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "ORS 12.110(1) sets a two-year period, and for fraud actions it starts only on discovery. That supports both the two-year limit for fraud and the discovery rule. The 'reasonable diligence' constructive-discovery standard comes from case-law interpretation, not the statute's wording, but it is a reasonable reading.",
+        "evidence_excerpt": "shall be commenced within two years; provided, that in an action at law based upon fraud or deceit, the limitation shall be deemed to commence only from the discovery of the fraud or deceit.",
+        "source_urls": [
+          "https://oregon.public.law/statutes/ors_12.110"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Section 7.1 — Quality Standards",
+      "authority_type": "regulation",
+      "authority": "FDA regulations, 21 CFR Parts 110 and 117",
+      "citation_as_written": "21 CFR Parts 110 and 117",
+      "pincite": "",
+      "cited_for": "Greenleaf's quality-control procedures must be consistent with applicable FDA regulations",
+      "quotes": [],
+      "context": "Greenleaf shall maintain quality-control procedures consistent with applicable FDA regulations, including 21 CFR Parts 110 and 117, and industry best practices for the manufacture of organic food products.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Parts 110 and 117 are both current FDA human-food CGMP regulations, and Part 117 also covers hazard analysis and preventive controls. Requiring quality-control procedures 'consistent with applicable FDA regulations, including 21 CFR Parts 110 and 117' cites them accurately.",
+        "evidence_excerpt": "§ 110.5 Current good manufacturing practice. (a) The criteria and definitions in this part shall apply in determining whether a food is adulterated ... § 117.1 Applicability and status. (a) The criteria and definitions in this part apply in determining whether a food is: (1) Adulterated",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-02/title-21.xml?part=110&section=110.5",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-02/title-21.xml?part=117&section=117.1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Exhibit B (Quality Standards), item 1 Regulatory Compliance",
+      "authority_type": "regulation",
+      "authority": "FDA CGMP, Hazard Analysis, and Risk-Based Preventive Controls for Human Food, 21 CFR Parts 110 and 117",
+      "citation_as_written": "FDA 21 CFR Parts 110 and 117",
+      "pincite": "",
+      "cited_for": "Products must be manufactured in compliance with Current Good Manufacturing Practice and preventive controls regulations",
+      "quotes": [],
+      "context": "All Products shall be manufactured in compliance with the Current Good Manufacturing Practice, Hazard Analysis, and Risk-Based Preventive Controls for Human Food regulations set forth in FDA 21 CFR Parts 110 and 117",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. Part 110 (Current Good Manufacturing Practice in Manufacturing, Packing, or Holding Human Food) and 21 C.F.R. Part 117 (Current Good Manufacturing Practice, Hazard Analysis, and Risk-Based Preventive Controls for Human Food)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both parts exist and are current in the eCFR; neither is removed or reserved. Part 117 carries the full 'CGMP, Hazard Analysis, and Risk-Based Preventive Controls for Human Food' title. Part 110 covers CGMP only. Attributing the combined title to both parts is a small imprecision. The contract's requirement to comply with the CGMP and preventive-controls regulations is otherwise a correct reference.",
+        "evidence_excerpt": "Part 110—Current Good Manufacturing Practice in Manufacturing, Packing, or Holding Human Food; Part 117—Current Good Manufacturing Practice, Hazard Analysis, and Risk-Based Preventive Controls for Human Food",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-21.json",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-02/title-21.xml?part=117&section=117.1"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Exhibit B (Quality Standards), item 5 Organic Certification",
+      "authority_type": "regulation",
+      "authority": "USDA National Organic Program (NOP) regulations, 7 CFR Part 205",
+      "citation_as_written": "7 CFR Part 205",
+      "pincite": "",
+      "cited_for": "Products bearing USDA Organic seal or organic claim must comply with NOP regulations and be certified by an accredited certifying agent",
+      "quotes": [],
+      "context": "All Products bearing the USDA Organic seal or any organic certification claim shall comply with the USDA National Organic Program (NOP) regulations (7 CFR Part 205) and shall be certified by an accredited certifying agent.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "7 CFR Part 205 is the National Organic Program. Section 205.100(a) requires operations producing or handling products sold, labeled, or represented as organic to be certified under subpart E. Certification runs through an accredited certifying agent (see 205.201(a)). This is consistent with the contract clause that references the regulations.",
+        "evidence_excerpt": "PART 205—NATIONAL ORGANIC PROGRAM ... each operation or portion of an operation that produces or handles agricultural products intended to be sold, labeled, or represented as \"100 percent organic,\" \"organic,\" ... must be certified according to the provisions of subpart E",
+        "source_urls": [
+          "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-7?part=205"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "expert-report-buckley.docx.md",
+      "location": "III. Materials Reviewed, item 9",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 110 (Current Good Manufacturing Practice in Manufacturing, Packing, or Holding Human Food)",
+      "citation_as_written": "21 C.F.R. Part 110",
+      "pincite": "",
+      "cited_for": "FDA regulation reviewed by expert as applicable regulation",
+      "quotes": [],
+      "context": "Applicable regulations of the United States Food and Drug Administration (\"FDA\"), including 21 C.F.R. Part 110 (Current Good Manufacturing Practice in Manufacturing, Packing, or Holding Human Food) and 21 C.F.R. Part 117",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "21 C.F.R. Part 110 exists in the current eCFR with exactly the title the expert gives. It is cited only as a regulation the expert reviewed. Part 117 has since become the main CGMP rule for human food, but Part 110 remains codified, so listing it as reviewed material is accurate.",
+        "evidence_excerpt": "Part 110—Current Good Manufacturing Practice in Manufacturing, Packing, or Holding Human Food (Subparts A General Provisions, B Buildings and Facilities, C Equipment, E Production and Process Controls, G Defect Action Levels)",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-21.json",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=110&subpart=A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "expert-report-buckley.docx.md",
+      "location": "III. Materials Reviewed, item 9",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 117 (Current Good Manufacturing Practice, Hazard Analysis, and Risk-Based Preventive Controls for Human Food)",
+      "citation_as_written": "21 C.F.R. Part 117",
+      "pincite": "",
+      "cited_for": "FDA regulation reviewed by expert as applicable regulation",
+      "quotes": [],
+      "context": "21 C.F.R. Part 117 (Current Good Manufacturing Practice, Hazard Analysis, and Risk-Based Preventive Controls for Human Food).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "21 C.F.R. Part 117 exists, and its title matches the expert's description word for word. It is cited only as an FDA regulation the expert reviewed.",
+        "evidence_excerpt": "Part 117—Current Good Manufacturing Practice, Hazard Analysis, and Risk-Based Preventive Controls for Human Food",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-21.json"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "expert-report-buckley.docx.md",
+      "location": "III. Materials Reviewed, item 10",
+      "authority_type": "regulation",
+      "authority": "USDA National Organic Program standards, 7 C.F.R. Part 205",
+      "citation_as_written": "7 C.F.R. Part 205",
+      "pincite": "",
+      "cited_for": "NOP standards reviewed by expert",
+      "quotes": [],
+      "context": "United States Department of Agriculture (\"USDA\") National Organic Program (\"NOP\") standards, 7 C.F.R. Part 205.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "7 C.F.R. Part 205 is correctly identified as the USDA National Organic Program standards. Here it appears only in a list of materials reviewed, and that identification is accurate.",
+        "evidence_excerpt": "PART 205—NATIONAL ORGANIC PROGRAM",
+        "source_urls": [
+          "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-7?part=205"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "expert-report-buckley.docx.md",
+      "location": "V. Methodology, Industry Benchmarking",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Parts 110 and 117 and 7 C.F.R. Part 205",
+      "citation_as_written": "21 C.F.R. Parts 110 and 117; ... 7 C.F.R. Part 205",
+      "pincite": "",
+      "cited_for": "Industry benchmarks for QA thresholds derived from FDA guidance under Parts 110 and 117 and USDA NOP standards",
+      "quotes": [],
+      "context": "These industry benchmarks were derived from FDA guidance documents, including those promulgated under 21 C.F.R. Parts 110 and 117; USDA NOP standards set forth in 7 C.F.R. Part 205; and published food-science literature",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "21 C.F.R. Parts 110 and 117 and 7 C.F.R. Part 205 (National Organic Program) all exist. Here they are cited only as the regulatory sources behind the expert's industry benchmarks, not for any specific numeric threshold. Both Part 110 (Subpart G) and Part 117 (section 117.110) address defect action levels and quality control, which is consistent with how they are used. One small looseness: the report describes 'guidance documents ... promulgated under' these parts. That describes the FDA guidance, not the regulations themselves, so it does not affect the citation.",
+        "evidence_excerpt": "Part 110 ... Subpart G—Defect Action Levels; Part 117 ... Subpart B—Current Good Manufacturing Practice; Part 205—National Organic Program",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-21.json",
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-7.json"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "expert-report-buckley.docx.md",
+      "location": "VI.C. Labeling Defects That Were Immaterial (Lots H-2220, H-2231)",
+      "authority_type": "regulation",
+      "authority": "FDA food labeling regulations, 21 C.F.R. Part 101",
+      "citation_as_written": "21 C.F.R. Part 101",
+      "pincite": "",
+      "cited_for": "Minor typographical/barcode variations did not affect regulatory compliance under FDA labeling requirements",
+      "quotes": [],
+      "context": "Neither defect affected regulatory compliance under FDA labeling requirements (21 C.F.R. Part 101), nutritional accuracy, organic certification markings, allergen disclosures, or consumer safety.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "21 C.F.R. Part 101 is the FDA's food labeling part, so it is the right regulation to cite for FDA labeling compliance. The expert's view that the minor typographical and barcode defects did not affect compliance is a factual opinion. The citation only identifies the governing rules, and it is accurate for that.",
+        "evidence_excerpt": "Part 101—Food Labeling ... § 101.1 Principal display panel of package form food.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-21.json",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-02/title-21.xml?part=101&section=101.1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "expert-report-buckley.docx.md",
+      "location": "VII. Analysis of the Enhanced Screening Protocol, Second opinion",
+      "authority_type": "regulation",
+      "authority": "21 C.F.R. Part 117, Subpart B; USDA NOP standards",
+      "citation_as_written": "21 C.F.R. Part 117, Subpart B",
+      "pincite": "Subpart B",
+      "cited_for": "FDA regulations contemplate uniform application of preventive controls and quality standards across production; NOP similarly requires uniform quality and handling standards",
+      "quotes": [],
+      "context": "FDA regulations under 21 C.F.R. Part 117, Subpart B, contemplate the uniform application of preventive controls and quality standards to ensure consistent product safety and quality across all production. USDA NOP standards similarly require that certified organic products meet uniform quality and handling standards.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "21 C.F.R. Part 117, Subpart C (preventive controls); Subpart B covers CGMP only",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Part 117, Subpart B is titled 'Current Good Manufacturing Practice' (sections 117.10-117.110). It covers personnel, plant, sanitation, equipment, processes and controls, and defect action levels. The phrase 'preventive control' does not appear anywhere in Subpart B; the preventive controls are in Subpart C ('Hazard Analysis and Risk-Based Preventive Controls'). Subpart B also says nothing about 'uniform' application or 'consistent' quality across production. Its general rule (117.80(a)) is only that all operations follow adequate sanitation principles and use appropriate quality control so that food is suitable for consumption. Nothing in it addresses applying different levels of screening to lots bound for different customers. The companion claim that the NOP (7 C.F.R. Part 205) requires 'uniform quality and handling standards' also has no textual basis: the only uses of 'uniform' in Part 205 refer to USDA's 'Uniform Rules of Practice' for appeals. The cited subpart supports at most a generic CGMP and quality-control obligation, not the uniformity claim the expert relies on.",
+        "evidence_excerpt": "§ 117.80 Processes and controls. (a) General. (1) All operations in the manufacturing, processing, packing, and holding of food ... must be conducted in accordance with adequate sanitation principles. (2) Appropriate quality control operations must be employed to ensure that food is suitable for human consumption",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=117&subpart=B",
+          "https://www.ecfr.gov/api/versioner/v1/structure/current/title-21.json",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-7.xml?part=205"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I could not refute the finding. I pulled the current eCFR text of 21 C.F.R. Part 117, Subpart B. Its heading is 'Subpart B--Current Good Manufacturing Practice', and it contains only §§ 117.10 (Personnel), 117.20, 117.35, 117.37, 117.40, 117.80 (Processes and controls), 117.93, 117.95 and 117.110 (Defect action levels). A search of the full subpart text turned up no instance of 'preventive control', 'uniform' or 'consistent'. Preventive controls sit in Subpart C, and the expert report's own materials list names Part 117's title, so it is the cite to Subpart B that is wrong. The closest support in Subpart B is generic quality-control language: § 117.80(a)(2) says 'Appropriate quality control operations must be employed to ensure that food is suitable for human consumption,' and § 117.110(a) says the holder of food 'must at all times utilize quality control operations that reduce natural or unavoidable defects to the lowest level currently feasible.' Read fairly, CGMP applies to all food a facility handles, so a weak inference against destination-based screening is possible. But the subpart says nothing about 'uniform application of preventive controls' or 'consistent product safety and quality across all production', so the report attributes content the subpart lacks. On the NOP half (7 C.F.R. Part 205), 'uniform' appears only in references to USDA's 'Uniform Rules of Practice, 7 CFR part 1, subpart H'. The nearest language is the definition of 'State organic program' activities, which ensure organic production and handling requirements 'are fully and consistently applied'. That is about government enforcement, not a requirement that products meet 'uniform quality and handling standards'. MISCHARACTERIZED stands: real regulations, cited for a uniformity rule (and, for Subpart B, preventive controls) that the text does not contain.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-21.xml?part=117&subpart=B",
+          "https://www.ecfr.gov/api/versioner/v1/full/2026-10-01/title-7.xml?part=205"
+        ]
+      }
+    },
+    {
+      "ref": 13,
+      "document": "deposition-summary-holcomb.docx.md",
+      "location": "XII. Certification and Preparation Notes",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 30(e)",
+      "pincite": "30(e)",
+      "cited_for": "Deponent given transcript for review and 30 days to submit an errata sheet noting changes in form or substance",
+      "quotes": [],
+      "context": "The deponent has been provided with a copy of the transcript for review pursuant to Federal Rule of Civil Procedure 30(e) and has 30 days from the date of receipt to submit an errata sheet noting any changes in form or substance.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 30(e)(1) gives the deponent 30 days to review the transcript and sign a statement listing changes in form or substance. The rule starts the 30 days when the officer gives notice that the transcript is available, not when the deponent receives it, and review must be requested before the deposition ends. The summary's paraphrase is close enough to stand.",
+        "evidence_excerpt": "the deponent must be allowed 30 days after being notified by the officer that the transcript or recording is available in which: (A) to review the transcript or recording; and (B) if there are changes in form or substance, to sign a statement listing the changes",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "deposition-summary-holcomb.docx.md",
+      "location": "Closing work-product legend",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(3)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(3)",
+      "pincite": "26(b)(3)",
+      "cited_for": "Document is attorney work product prepared in anticipation of litigation and protected from disclosure",
+      "quotes": [],
+      "context": "This document constitutes attorney work product prepared in anticipation of litigation and is protected from disclosure under Federal Rule of Civil Procedure 26(b)(3) and applicable state law equivalents.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(3) protects documents prepared in anticipation of litigation by or for a party's attorney, subject to a showing of substantial need. A deposition summary prepared by counsel falls within it, so the work-product legend is a correct use of the rule.",
+        "evidence_excerpt": "Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial by or for another party or its representative (including the other party's attorney...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "exclusive-distribution-agreement.docx.md",
+      "location": "Exhibit B (Quality Standards), item 2 specification table, Pesticide Residues row",
+      "authority_type": "regulation",
+      "authority": "USDA National Organic Program (NOP) Standards",
+      "citation_as_written": "USDA NOP Standards",
+      "pincite": "",
+      "cited_for": "Pesticide residue specification measured per USDA NOP Standards",
+      "quotes": [],
+      "context": "| Pesticide Residues            | Per USDA NOP Standards    | Below detectable limits      |",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The USDA NOP standards (7 CFR Part 205) include pesticide residue rules. Section 205.671 bars selling a product as organic when residue testing finds prohibited substances above 5% of the EPA tolerance. A contract specification that measures pesticide residues 'per USDA NOP Standards' points to a real body of standards that addresses this subject. The contract's stricter acceptance criterion ('below detectable limits') is a contract term and is not attributed to the regulation.",
+        "evidence_excerpt": "When residue testing detects prohibited substances at levels that are greater than 5 percent of the Environmental Protection Agency's tolerance for the specific residue detected or unavoidable residual environmental contamination, the agricultural product must not be sold, labeled, or represented as organically produced.",
+        "source_urls": [
+          "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-7?part=205&section=205.671"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "II.A ¶1",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Subject-matter jurisdiction based on diversity of citizenship",
+      "quotes": [],
+      "context": "Greenleaf admits that this Court has subject-matter jurisdiction over this action pursuant to 28 U.S.C. § 1332 based on diversity of citizenship.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "28 U.S.C. § 1332(a)(1) gives district courts original jurisdiction over suits between citizens of different States where more than $75,000 is in controversy, so it supports the admission of diversity jurisdiction. A pleading note unrelated to the citation itself: Harborview is an LLC, and an LLC's citizenship is that of its members, not its state of organization.",
+        "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "II.A ¶2",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "",
+      "cited_for": "Venue proper in the District of Oregon",
+      "quotes": [],
+      "context": "Greenleaf admits that venue is proper in this District pursuant to 28 U.S.C. § 1391(b) and the forum-selection provision contained in Section 14.2 of the EDA.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b) is the general federal venue provision; it lays venue where any defendant resides (all defendants residing in the State) or where a substantial part of the events occurred. An admission that venue is proper under § 1391(b) is a correct use of the statute. The EDA forum-selection clause is a contract fact, not something the statute addresses.",
+        "evidence_excerpt": "A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "II.E ¶30",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 9(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 9(b)",
+      "pincite": "",
+      "cited_for": "Fraud claim not pleaded with required particularity; heightened pleading standard",
+      "quotes": [],
+      "context": "Greenleaf asserts that Harborview has failed to plead its fraud claim with the particularity required by Federal Rule of Civil Procedure 9(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 9(b) requires the circumstances of fraud to be stated with particularity, which is the heightened pleading standard invoked here.",
+        "evidence_excerpt": "In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "III, First Affirmative Defense",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure 12(b)(6) and 12(c)",
+      "citation_as_written": "Federal Rules of Civil Procedure 12(b)(6) and 12(c)",
+      "pincite": "",
+      "cited_for": "Reservation of rights re failure to state a claim",
+      "quotes": [],
+      "context": "Greenleaf reserves all rights under Federal Rules of Civil Procedure 12(b)(6) and 12(c).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Rule 12(b)(6) provides the failure-to-state-a-claim defense, and Rule 12(c) provides judgment on the pleadings. Under Rule 12(h)(2), that defense may be raised in an answer or by a 12(c) motion, so reserving rights under these rules is a proper use of the citation.",
+        "evidence_excerpt": "Failure to state a claim upon which relief can be granted ... may be raised: (A) in any pleading allowed or ordered under Rule 7(a); (B) by a motion under Rule 12(c)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "III, Sixth Affirmative Defense",
+      "authority_type": "statute",
+      "authority": "ORS 12.080",
+      "citation_as_written": "ORS 12.080",
+      "pincite": "",
+      "cited_for": "Six-year limitation for contract actions",
+      "quotes": [],
+      "context": "including but not limited to ORS 12.080 (six-year limitation for contract actions) and ORS 12.110 (two-year limitation for fraud and tortious conduct).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "ORS 12.080(1) requires an action on a contract to be commenced within six years, so the parenthetical is accurate. The dispute involves a commission-based exclusive distribution agreement. The companion description of ORS 12.110 as the two-year limit for fraud and tortious conduct is also accurate.",
+        "evidence_excerpt": "An action upon a contract or liability, express or implied, excepting those mentioned in ORS 12.070 ... shall be commenced within six years.",
+        "source_urls": [
+          "https://oregon.public.law/statutes/ors_12.080"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "III, Sixth Affirmative Defense",
+      "authority_type": "statute",
+      "authority": "ORS 12.110",
+      "citation_as_written": "ORS 12.110",
+      "pincite": "",
+      "cited_for": "Two-year limitation for fraud and tortious conduct",
+      "quotes": [],
+      "context": "ORS 12.080 (six-year limitation for contract actions) and ORS 12.110 (two-year limitation for fraud and tortious conduct).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 12.110(1) sets a two-year limitation for actions for injury to the person or rights of another not arising on contract (i.e., tortious conduct), with a proviso that for actions based on fraud or deceit the period runs from discovery. That supports the description 'two-year limitation for fraud and tortious conduct.'",
+        "evidence_excerpt": "An action for assault, battery, false imprisonment, or for any injury to the person or rights of another, not arising on contract, and not especially enumerated in this chapter, shall be commenced within two years; provided, that in an action at law based upon fraud or deceit, the limitation shall be deemed to commence only from the discovery of the fraud or deceit.",
+        "source_urls": [
+          "https://oregon.public.law/statutes/ors_12.110"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "III, Seventh Affirmative Defense",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 9(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 9(b)",
+      "pincite": "",
+      "cited_for": "Fraud claim fails heightened pleading requirements",
+      "quotes": [],
+      "context": "fails to satisfy the heightened pleading requirements of Federal Rule of Civil Procedure 9(b) and is subject to dismissal on that basis.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 9(b) imposes the particularity requirement for fraud. Seeking dismissal when a fraud claim does not meet it is the standard way the rule is invoked.",
+        "evidence_excerpt": "In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "IV.B ¶41",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 13(a)",
+      "citation_as_written": "Federal Rule of Civil Procedure 13(a)",
+      "pincite": "",
+      "cited_for": "Counterclaim is compulsory because it arises from same transaction or occurrence",
+      "quotes": [],
+      "context": "is therefore a compulsory counterclaim under Federal Rule of Civil Procedure 13(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 13(a)(1) makes a counterclaim compulsory when it arises out of the transaction or occurrence that is the subject matter of the opposing party's claim. That supports the proposition.",
+        "evidence_excerpt": "A pleading must state as a counterclaim any claim that—at the time of its service—the pleader has against an opposing party if the claim: (A) arises out of the transaction or occurrence that is the subject matter of the opposing party's claim",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_13"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "IV.B ¶42",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Subject-matter jurisdiction over Counterclaim (diversity)",
+      "quotes": [],
+      "context": "This Court has subject-matter jurisdiction over the Counterclaim pursuant to 28 U.S.C. § 1332, as the parties are citizens of different states",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1332(a)(1) supports diversity jurisdiction over the counterclaim, which seeks $1.2M between an Oregon corporation and a Washington LLC.",
+        "evidence_excerpt": "original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "IV.B ¶42",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1367(a)",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over Counterclaim",
+      "quotes": [],
+      "context": "This Court also has supplemental jurisdiction over the Counterclaim pursuant to 28 U.S.C. § 1367(a).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 1367(a) grants supplemental jurisdiction over claims so related to the claims within original jurisdiction that they form part of the same case or controversy. That fits a compulsory counterclaim arising from the same transaction. Supplemental jurisdiction is redundant here because the counterclaim independently satisfies § 1332, but the citation is accurate.",
+        "evidence_excerpt": "(a) Except as provided in subsections (b) and (c) ... in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
+        "source_urls": [
+          "https:/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "VI. Prayer for Relief (Counterclaim) ¶3",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1961",
+      "citation_as_written": "28 U.S.C. § 1961",
+      "pincite": "",
+      "cited_for": "Post-judgment interest at the applicable legal rate",
+      "quotes": [],
+      "context": "post-judgment interest at the applicable legal rate, as provided by 28 U.S.C. § 1961 and Oregon law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1961 allows interest on any money judgment in a civil case recovered in a district court and sets the post-judgment rate. That supports a prayer for post-judgment interest at the applicable rate.",
+        "evidence_excerpt": "Interest shall be allowed on any money judgment in a civil case recovered in a district court.",
+        "source_urls": [
+          "https:/1961"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "deposition-summary-fong.docx.md",
+      "location": "X. Certification, Note",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(e)",
+      "citation_as_written": "Fed. R. Civ. P. 30(e)",
+      "pincite": "",
+      "cited_for": "Deponent review and correction of transcript; thirty-day review period",
+      "quotes": [],
+      "context": "The deponent has been provided a copy of the transcript for review and correction pursuant to Fed. R. Civ. P. 30(e). The thirty-day review period expires December 5, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 30(e)(1) provides for the deponent's review and correction of the transcript within a 30-day period, as the summary says.",
+        "evidence_excerpt": "the deponent must be allowed 30 days after being notified by the officer that the transcript or recording is available in which: (A) to review the transcript or recording",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "deposition-summary-fong.docx.md",
+      "location": "Closing footer",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(3)",
+      "pincite": "",
+      "cited_for": "Attorney work-product protection; document prepared in anticipation of litigation",
+      "quotes": [],
+      "context": "This document is protected from disclosure under the attorney work-product doctrine, Fed. R. Civ. P. 26(b)(3). It was prepared in anticipation of litigation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(3) codifies trial-preparation (work-product) protection for materials prepared in anticipation of litigation. This supports the footer on the attorney's deposition summary.",
+        "evidence_excerpt": "(3) Trial Preparation: Materials. (A) Documents and Tangible Things. Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "expert-report-chakrabarti.docx.md",
+      "location": "X. Exhibit List, Exhibit B",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Expert's list of cases in which she testified in the last four years",
+      "quotes": [],
+      "context": "Exhibit B: List of Cases in Which Dr. Chakrabarti Has Testified as an Expert in the Last Four Years (per Fed. R. Civ. P. 26(a)(2)(B))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2)(B)(v) requires the expert report to list the other cases in which the witness testified as an expert during the previous 4 years. That matches the exhibit description.",
+        "evidence_excerpt": "(v) a list of all other cases in which, during the previous 4 years, the witness testified as an expert at trial or by deposition",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "scheduling-order.docx.md",
+      "location": "Title; Preamble",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)",
+      "pincite": "",
+      "cited_for": "Basis for scheduling order and scheduling conference",
+      "quotes": [],
+      "context": "SCHEDULING ORDER PURSUANT TO FED. R. CIV. P. 16(b) ... A Rule 16(b) scheduling conference was held on May 28, 2024 ... and the requirements of Fed. R. Civ. P. 16(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b), \"Scheduling and Management,\" requires the judge to issue a scheduling order, including after consulting the parties' attorneys at a scheduling conference. It is the correct basis for the order and the conference.",
+        "evidence_excerpt": "must issue a scheduling order ... after consulting with the parties' attorneys and any unrepresented parties at a scheduling conference.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "scheduling-order.docx.md",
+      "location": "II. Amendment of Pleadings",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Good cause required for amendment/joinder after deadline",
+      "quotes": [],
+      "context": "Any amendment or joinder sought after this date will require a showing of good cause under Fed. R. Civ. P. 16(b)(4)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) allows a schedule to be modified only for good cause. The order's amendment and joinder deadline is part of that schedule (Rule 16(b)(3)(A)), so the good-cause requirement for later amendments is properly grounded in 16(b)(4).",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "scheduling-order.docx.md",
+      "location": "III.A Initial Disclosures; Summary of Key Deadlines",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(1)",
+      "pincite": "",
+      "cited_for": "Initial disclosures due within fourteen days of the Order",
+      "quotes": [],
+      "context": "Initial disclosures required by Fed. R. Civ. P. 26(a)(1) shall be made within fourteen (14) days of the entry of this Order, i.e., by June 17, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1) governs initial disclosures. Under 26(a)(1)(C), the default deadline (14 days after the Rule 26(f) conference) applies unless a court order sets a different time, so the court may set 14 days from the order.",
+        "evidence_excerpt": "A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "scheduling-order.docx.md",
+      "location": "III.B Written Discovery",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 33(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 33(a)(1)",
+      "pincite": "",
+      "cited_for": "Limit of 25 interrogatories including discrete subparts",
+      "quotes": [],
+      "context": "Each side is limited to twenty-five (25) interrogatories, including all discrete subparts, consistent with Fed. R. Civ. P. 33(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 33(a)(1) sets a default limit of 25 interrogatories, including all discrete subparts. The rule counts per party rather than per side, but it lets the court order otherwise. Saying the order's per-side limit is 'consistent with' the rule is a fair reading.",
+        "evidence_excerpt": "Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "scheduling-order.docx.md",
+      "location": "III.B Written Discovery",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "",
+      "cited_for": "Requests for production must be proportional to the needs of the case",
+      "quotes": [],
+      "context": "Requests for Production are unlimited in number but must be proportional to the needs of the case under Fed. R. Civ. P. 26(b)(1), considering the importance of the issues at stake",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks are used. 'proportional to the needs of the case' and 'considering the importance of the issues at stake' track the rule verbatim.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter that is proportional to the needs of the case, with the importance of the issues at stake as the first listed factor. This supports the order's proportionality limit on requests for production.",
+        "evidence_excerpt": "relevant to any party's claim or defense and proportional to the needs of the case, considering the importance of the issues at stake in the action",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "scheduling-order.docx.md",
+      "location": "III.D Depositions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 30(d)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 30(d)(1)",
+      "pincite": "",
+      "cited_for": "Ten fact depositions per side, seven hours each",
+      "quotes": [],
+      "context": "each of no more than seven (7) hours of examination, consistent with Fed. R. Civ. P. 30(d)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 30(d)(1) limits a deposition to 1 day of 7 hours unless stipulated or ordered otherwise. In context, the cite supports only the seven-hour limit. The ten-deposition limit (a Rule 30(a)(2)(A)(i) concept) is not attributed to 30(d)(1) in the text.",
+        "evidence_excerpt": "(1) Duration. Unless otherwise stipulated or ordered by the court, a deposition is limited to 1 day of 7 hours.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "scheduling-order.docx.md",
+      "location": "III.E Document Production",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 34",
+      "citation_as_written": "Fed. R. Civ. P. 34",
+      "pincite": "",
+      "cited_for": "Document production within thirty days of service of requests",
+      "quotes": [],
+      "context": "Parties shall produce documents in response to Requests for Production within thirty (30) days of service, in accordance with Fed. R. Civ. P. 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 34(b)(2)(A) requires a written response within 30 days after service. Production is due at the time the request specifies or another reasonable time. The order's 30-day production deadline is a valid court-ordered timing that fits Rule 34's framework, so 'in accordance with' is a reasonable characterization.",
+        "evidence_excerpt": "The party to whom the request is directed must respond in writing within 30 days after being served",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "scheduling-order.docx.md",
+      "location": "III.F Privilege Logs",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Fed. R. Evid. 502(b)",
+      "pincite": "",
+      "cited_for": "Obligations regarding inadvertent disclosure of privileged material",
+      "quotes": [],
+      "context": "The parties are reminded of their obligations under Fed. R. Evid. 502(b) regarding the inadvertent disclosure of privileged material, including the requirements that the holder of the privilege took reasonable steps to prevent disclosure and promptly took reasonable steps to rectify the error.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The paraphrased elements (reasonable steps to prevent disclosure; promptly took reasonable steps to rectify) track the rule text closely.",
+        "explanation": "FRE 502(b) provides that inadvertent disclosure is not a waiver if the holder took reasonable steps to prevent disclosure and promptly took reasonable steps to rectify the error. The scheduling order describes it accurately.",
+        "evidence_excerpt": "(1) the disclosure is inadvertent; (2) the holder of the privilege or protection took reasonable steps to prevent disclosure; and (3) the holder promptly took reasonable steps to rectify the error",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "scheduling-order.docx.md",
+      "location": "IV.A Plaintiff's Expert Disclosures",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)",
+      "pincite": "",
+      "cited_for": "Expert disclosures and reports due December 1, 2024",
+      "quotes": [],
+      "context": "Plaintiff shall disclose all expert witnesses and provide expert reports in compliance with Fed. R. Civ. P. 26(a)(2) no later than December 1, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2) governs expert witness disclosures and written reports. Under 26(a)(2)(D), these disclosures are made at the times the court orders, so a December 1, 2024 deadline is a proper application.",
+        "evidence_excerpt": "A party must make these disclosures at the times and in the sequence that the court orders.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "scheduling-order.docx.md",
+      "location": "IV.B Defendant's Expert Disclosures",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)",
+      "pincite": "",
+      "cited_for": "Defendant expert disclosures and reports due December 10, 2024",
+      "quotes": [],
+      "context": "Defendant shall disclose all expert witnesses and provide expert reports in compliance with Fed. R. Civ. P. 26(a)(2) no later than December 10, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2) governs expert disclosures and reports. Rule 26(a)(2)(D) says the disclosures are made at the times the court orders, so a scheduling order setting a December 10, 2024 deadline for compliance with 26(a)(2) is a proper use of the rule.",
+        "evidence_excerpt": "(D) Time to Disclose Expert Testimony. A party must make these disclosures at the times and in the sequence that the court orders.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 40,
+      "document": "scheduling-order.docx.md",
+      "location": "IV.E Daubert Motions",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Motions to exclude expert testimony must be filed by February 1, 2025",
+      "quotes": [],
+      "context": "Any motions to exclude expert testimony pursuant to Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and Fed. R. Evid. 702, must be filed no later than February 1, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The citation is correct: Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579, decided June 28, 1993. The scheduling order cites Daubert only to describe motions to exclude expert testimony, which is accurate. The February 1, 2025 deadline comes from the order, not the case.",
+        "evidence_excerpt": "Daubert v. Merrell Dow Pharmaceuticals, Inc. — 509 U.S. 579; 113 S. Ct. 2786; dateFiled 1993-06-28. '...the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "scheduling-order.docx.md",
+      "location": "IV.E Daubert Motions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 702",
+      "citation_as_written": "Fed. R. Evid. 702",
+      "pincite": "",
+      "cited_for": "Motions to exclude expert testimony",
+      "quotes": [],
+      "context": "pursuant to Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and Fed. R. Evid. 702, must be filed no later than February 1, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "FRE 702 sets the admissibility standard for expert testimony. It is the proper basis, together with Daubert, for motions to exclude expert testimony.",
+        "evidence_excerpt": "A witness who is qualified as an expert ... may testify in the form of an opinion or otherwise if the proponent demonstrates to the court that it is more likely than not that",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_702"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "scheduling-order.docx.md",
+      "location": "IV.F Requirements for Expert Reports",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "pincite": "",
+      "cited_for": "Required contents of expert reports (opinions, bases, facts, exhibits, qualifications, publications, prior testimony, compensation)",
+      "quotes": [],
+      "context": "All expert reports must comply with Fed. R. Civ. P. 26(a)(2)(B) and shall contain a complete statement of all opinions the witness will express",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks are used. The phrase 'a complete statement of all opinions the witness will express' tracks Rule 26(a)(2)(B)(i) verbatim.",
+        "explanation": "Rule 26(a)(2)(B)(i)-(vi) lists the required report contents: opinions with their bases and reasons, facts or data considered, exhibits, qualifications with publications from the previous 10 years, prior testimony from the previous 4 years, and compensation. This matches the scheduling order's description.",
+        "evidence_excerpt": "The report must contain: (i) a complete statement of all opinions the witness will express and the basis and reasons for them; (ii) the facts or data considered by the witness in forming them; (iii) any exhibits...",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "scheduling-order.docx.md",
+      "location": "V. Dispositive Motions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 56",
+      "citation_as_written": "Fed. R. Civ. P. 56",
+      "pincite": "",
+      "cited_for": "Summary judgment motions due March 1, 2025",
+      "quotes": [],
+      "context": "All motions for summary judgment or partial summary judgment under Fed. R. Civ. P. 56 must be filed no later than March 1, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "Rule 56 governs summary judgment motions. Rule 56(b) lets the court set a filing deadline different from the default, so the order's March 1, 2025 deadline for Rule 56 motions is proper.",
+        "evidence_excerpt": "Unless a different time is set by local rule or the court orders otherwise, a party may file a motion for summary judgment at any time until 30 days after the close of all discovery.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "scheduling-order.docx.md",
+      "location": "VI.A Pretrial Conference",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(e)",
+      "citation_as_written": "Fed. R. Civ. P. 16(e)",
+      "pincite": "",
+      "cited_for": "Pretrial conference scheduled for May 19, 2025",
+      "quotes": [],
+      "context": "A pretrial conference pursuant to Fed. R. Civ. P. 16(e) is scheduled for May 19, 2025, at 10:00 a.m.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(e) authorizes the court to hold a final pretrial conference. Scheduling such a conference under 16(e) is a proper use of the rule. The order calls it a \"pretrial conference\" rather than a \"final pretrial conference,\" which is immaterial.",
+        "evidence_excerpt": "Final Pretrial Conference and Orders. The court may hold a final pretrial conference to formulate a trial plan",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "scheduling-order.docx.md",
+      "location": "IX.A Modification of Deadlines",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 16(b)(4)",
+      "citation_as_written": "Fed. R. Civ. P. 16(b)(4)",
+      "pincite": "",
+      "cited_for": "Deadlines modified only on good cause shown",
+      "quotes": [],
+      "context": "shall not be modified except by Order of the Court upon a showing of good cause pursuant to Fed. R. Civ. P. 16(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 16(b)(4) limits modification of the schedule to good cause shown with the judge's consent, which matches the proposition.",
+        "evidence_excerpt": "A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "scheduling-order.docx.md",
+      "location": "IX.B Cooperation; IX.C Communications with the Court",
+      "authority_type": "court_rule",
+      "authority": "Local Rules of the U.S. District Court for the District of Oregon",
+      "citation_as_written": "Local Rules of this Court / Local Rules of this District",
+      "pincite": "",
+      "cited_for": "Professional conduct expectations and permitted ex parte communications",
+      "quotes": [],
+      "context": "consistent with the Oregon State Bar Standards of Professional Conduct and the Local Rules of this Court ... except as permitted by the Local Rules of this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The District of Oregon has Local Rules. LR 83-7 sets standards of professional conduct and requires compliance with the Oregon Rules of Professional Conduct and the Court's Statement of Professionalism, which supports the general professionalism reference. The ex parte clause only says such communications are allowed where the Local Rules permit them; I did not find a specific local rule on ex parte communications, but the order does not claim one exists. Side note: the order's phrase 'Oregon State Bar Standards of Professional Conduct' is loose naming; the actual rules are the 'Oregon Rules of Professional Conduct'.",
+        "evidence_excerpt": "LR 83-7 Standards of Professional Conduct: Every attorney admitted ... must: Be familiar and comply with the Oregon Rules of Professional Conduct and this Court's Statement of Professionalism.",
+        "source_urls": [
+          "https://www.ord.uscourts.gov/index.php/rules-orders-and-notices/local-rules/civil-procedure/1777-lr-83-rules-and-directives-by-the-district-court"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "scheduling-order.docx.md",
+      "location": "Summary of Key Deadlines table",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(a)(1)",
+      "pincite": "",
+      "cited_for": "Initial disclosures due June 17, 2024",
+      "quotes": [],
+      "context": "June 17, 2024 | Initial Disclosures due (Fed. R. Civ. P. 26(a)(1))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1) is the correct rule for initial disclosures, and the court may set their due date by order under 26(a)(1)(C).",
+        "evidence_excerpt": "unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "task.json.md",
+      "location": "rubric C-041",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Evidence 502(b)",
+      "citation_as_written": "Fed. R. Evid. 502(b)",
+      "pincite": "",
+      "cited_for": "Clawback of inadvertently produced privileged document",
+      "quotes": [],
+      "context": "whether by referencing Fed. R. Evid. 502(b), a clawback agreement, or a protective order mechanism.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "FRE 502(b) governs non-waiver for inadvertently disclosed privileged material, which is the basis for clawback. Citing it for clawback of an inadvertently produced privileged document is accurate.",
+        "evidence_excerpt": "the disclosure does not operate as a waiver in a federal or state proceeding if: (1) the disclosure is inadvertent",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "task.json.md",
+      "location": "rubric C-044",
+      "authority_type": "statute",
+      "authority": "ORS 12.110(1)",
+      "citation_as_written": "ORS 12.110(1)",
+      "pincite": "",
+      "cited_for": "Statute of limitations for fraud is 2 years from discovery",
+      "quotes": [],
+      "context": "Under Oregon law (ORS 12.110(1)), the statute of limitations for fraud is 2 years from discovery.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 12.110(1) supplies the two-year period, and its fraud proviso says the period starts only when the fraud or deceit is discovered. 'Two years from discovery' accurately paraphrases the statute.",
+        "evidence_excerpt": "shall be commenced within two years; provided, that in an action at law based upon fraud or deceit, the limitation shall be deemed to commence only from the discovery of the fraud or deceit.",
+        "source_urls": [
+          "https://oregon.public.law/statutes/ors_12.110"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "task.json.md",
+      "location": "rubric C-043",
+      "authority_type": "case",
+      "authority": "Daubert (motion; no case cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Speculative 5-year projection as target for a Daubert motion or expert exclusion",
+      "quotes": [],
+      "context": "identifies that the speculative 5-year projection in Dr. Chakrabarti's damages model is a potential target for summary judgment, a Daubert motion, or expert exclusion.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed; no case is actually cited.",
+        "explanation": "The rubric refers generically to a 'Daubert motion' and cites no case. Daubert does impose the gatekeeping duty to exclude expert testimony that is unreliable, so calling an expert's speculative damages projection a target for a Daubert motion is a correct general use of the term. Whether this particular projection would be excluded depends on the facts and was not assessed.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "scheduling-order.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (Joint Rule 26(f) Report)",
+      "citation_as_written": "Joint Rule 26(f) Report",
+      "pincite": "",
+      "cited_for": "The Court considered the parties' Joint Rule 26(f) Report in entering the scheduling order",
+      "quotes": [],
+      "context": "The Court has further considered the parties' Joint Rule 26(f) Report (Dkt. No. 18, filed May 21, 2024) and the requirements of Fed. R. Civ. P. 16(b).",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(f) requires the parties to confer and submit a written report outlining a proposed discovery plan, which a court considers in issuing a Rule 16(b) scheduling order. The reference to a Joint Rule 26(f) Report is accurate.",
+        "evidence_excerpt": "jointly responsible for arranging the conference, for attempting in good faith to agree on the proposed discovery plan, and for submitting to the court within 14 days after the conference a written report outlining the plan",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "defendant-answer-counterclaim.docx.md",
+      "location": "II.E ¶30 (second sentence, short-form)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 9(b) (short form)",
+      "citation_as_written": "Rule 9(b)",
+      "pincite": "",
+      "cited_for": "Greenleaf reserves the right to move to dismiss the fraud claim on Rule 9(b) grounds",
+      "quotes": [],
+      "context": "Greenleaf reserves the right to move for dismissal of Harborview's fraud claim on Rule 9(b) grounds and/or on statute of limitations grounds at the appropriate time.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotations.",
+        "explanation": "This short-form reference to Rule 9(b) is accurate, and the rule's particularity requirement is a proper ground for moving to dismiss a fraud claim.",
+        "evidence_excerpt": "In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

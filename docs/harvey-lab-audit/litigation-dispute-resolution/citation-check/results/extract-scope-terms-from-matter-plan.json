@@ -1,0 +1,587 @@
+{
+  "task": "extract-scope-terms-from-matter-plan",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "budget-summary.xlsx.md",
+    "engagement-letter.docx.md",
+    "matter-plan-revision-1.docx.md",
+    "matter-plan.docx.md",
+    "outside-counsel-guidelines.docx.md",
+    "scope-negotiation-emails.eml.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "matter-plan.docx.md",
+      "location": "Section 2.2 Procedural History (line 70)",
+      "authority_type": "case",
+      "authority": "Rivera v. Pinnacle Hydraulics Solutions, LLC",
+      "citation_as_written": "No. 1:24-cv-00712 (N.D. Ohio)",
+      "pincite": "",
+      "cited_for": "Earliest-filed action in the matter, filed April 8, 2024 in N.D. Ohio",
+      "quotes": [],
+      "context": "The earliest-filed action was *Rivera v. Pinnacle Hydraulics Solutions, LLC*, No. 1:24-cv-00712, filed in the Northern District of Ohio on April 8, 2024.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "Docket entry of the fictional matter's own underlying litigation."
+    },
+    {
+      "ref": 1,
+      "document": "matter-plan.docx.md",
+      "location": "Section 1 / Litigation Posture (line 46) and Section 2.2 (line 72)",
+      "authority_type": "case",
+      "authority": "In re HX-9000 Series Hydraulic Press Products Liability Litigation, MDL No. 3:24-md-02987 (N.D. Ohio)",
+      "citation_as_written": "MDL No. 3:24-md-02987",
+      "pincite": "",
+      "cited_for": "JPML consolidated 27 federal actions on September 10, 2024 as the MDL before Judge Cartwright; the matter being defended",
+      "quotes": [],
+      "context": "the JPML entered a transfer order on September 10, 2024, consolidating twenty-seven (27) federal actions as MDL No. 3:24-md-02987 in the Northern District of Ohio, assigned to the Honorable Helen R. Cartwright.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own MDL and in-universe JPML transfer order."
+    },
+    {
+      "ref": 2,
+      "document": "matter-plan.docx.md",
+      "location": "Section 6 Timeline, April 15, 2025 Initial Disclosures (line 406)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)",
+      "pincite": "26(a)(1)",
+      "cited_for": "Initial disclosure obligations due in the MDL",
+      "quotes": [],
+      "context": "This deadline applies to both parties' initial disclosure obligations under Federal Rule of Civil Procedure 26(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1) is the initial-disclosure provision. It requires each party to provide initial disclosures without awaiting a discovery request, and it permits the timing to be set by stipulation or court order, so a court-set MDL deadline that applies to both sides is consistent with it. An MDL products-liability action is not among the exempt categories in 26(a)(1)(B). The April 15, 2025 date is a fictional scheduling fact.",
+        "evidence_excerpt": "\"Except as exempted by Rule 26(a)(1)(B) or as otherwise stipulated or ordered by the court, a party must, without awaiting a discovery request, provide to the other parties:\" ... \"at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "matter-plan.docx.md",
+      "location": "Section 6 Timeline, September 15, 2025 Expert Reports Due (line 412)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(a)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)",
+      "pincite": "26(a)(2)",
+      "cited_for": "Expert report compliance with scheduling order and expert disclosure rule",
+      "quotes": [],
+      "context": "to ensure timely completion of expert reports in compliance with the Court's scheduling order and Federal Rule of Civil Procedure 26(a)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "FRCP 26(a)(2) governs expert witness disclosures, including written reports (26(a)(2)(B)) and timing 'at the times and in the sequence that the court orders' (26(a)(2)(D)). Supports the reference to timely expert reports complying with the scheduling order and Rule 26(a)(2).",
+        "evidence_excerpt": "In addition to the disclosures required by Rule 26(a)(1), a party must disclose to the other parties the identity of any witness it may use at trial ... A party must make these disclosures at the times and in the sequence that the court orders.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "matter-plan.docx.md",
+      "location": "WS-1 scope item (d) Daubert Challenges (line 106)",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.) - referenced by name only as 'Daubert motions'",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Motions challenging admissibility of plaintiffs' expert testimony",
+      "quotes": [],
+      "context": "Daubert Challenges. Preparation and filing of Daubert motions challenging the admissibility of plaintiffs' expert testimony, in coordination with the expert management work under WS-3.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "\"Daubert motions challenging the admissibility of plaintiffs' expert testimony\" accurately describes motion practice under Daubert, which holds that the trial judge must screen expert scientific testimony for reliability and relevance under FRE 702. The case is named only.",
+        "evidence_excerpt": "\"under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "matter-plan.docx.md",
+      "location": "WS-3 description (line 146)",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.) - by name only",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "WS-3 coordinates with WS-1 for Daubert motion support",
+      "quotes": [],
+      "context": "coordination with WS-1 for Daubert motion support, and trial testimony preparation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Daubert is named only, as the label for expert-admissibility motions that the expert work stream supports. The case is real and set the trial judge's gatekeeping role under Rule 702, which is the basis for Daubert motions. The usage is accurate.",
+        "evidence_excerpt": "\"Rule 702's 'helpfulness' standard requires a valid scientific connection to the pertinent inquiry as a precondition to admissibility.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "matter-plan.docx.md",
+      "location": "Section 6 Timeline, December 1, 2025 Daubert Motion Filing Deadline (line 416) and timeline table (line 435)",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.) - by name only",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Deadline to file Daubert motions challenging expert testimony",
+      "quotes": [],
+      "context": "All Daubert motions challenging the admissibility of expert testimony must be filed by this date.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The matter plan correctly describes \"Daubert motions\" as motions \"challenging the admissibility of expert testimony,\" which matches the opinion's holding that the trial judge screens expert testimony for reliability and relevance under Rule 702. The filing deadline is a fictional case-management fact that is not attributed to the opinion.",
+        "evidence_excerpt": "\"'General acceptance' is not a necessary precondition to the admissibility of scientific evidence under the Federal Rules of Evidence, but the Rules of Evidence— especially Rule 702 — do assign to the trial judge the task of ensuring that an expert's testimony both rests on a reliable foundation and is relevant\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "matter-plan.docx.md",
+      "location": "Section 4.4 EX-5 Lobbying (line 318)",
+      "authority_type": "regulation",
+      "authority": "OSHA regulations; CPSC rulemaking (generic reference)",
+      "citation_as_written": "Occupational Safety and Health Administration (OSHA) regulations; Consumer Product Safety Commission (CPSC) rulemaking",
+      "pincite": "",
+      "cited_for": "Lobbying/advocacy on these regulatory matters is excluded from scope",
+      "quotes": [],
+      "context": "Any lobbying or legislative advocacy related to hydraulic equipment safety standards, Occupational Safety and Health Administration (OSHA) regulations, Consumer Product Safety Commission (CPSC) rulemaking, or similar regulatory or legislative matters is excluded",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Generic reference to OSHA regulations (29 CFR, including Part 1910 Subpart O machinery and machine guarding) and CPSC notice-and-comment rulemaking. Both exist; the matter plan merely excludes lobbying on these regulatory matters from scope, which requires no legal support beyond the authorities' existence.",
+        "evidence_excerpt": "OSHA: 'Regulations (Standards - 29 CFR)' ... Subpart O - Machinery and Machine Guarding. CPSC: 'Congress provides the Commission authority to enact regulations in the area of consumer product safety.'",
+        "source_urls": [
+          "https://www.osha.gov/laws-regs/regulations/standardnumber/1910",
+          "https://www.cpsc.gov/Regulations-Laws--Standards/Rulemaking"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 1, Scope (a) Federal Matter (line 27)",
+      "authority_type": "case",
+      "authority": "In re HX-9000 Series Hydraulic Press Products Liability Litigation, MDL No. 3:24-md-02987 (N.D. Ohio)",
+      "citation_as_written": "MDL No. 3:24-md-02987",
+      "pincite": "",
+      "cited_for": "Federal matter the Firm is retained to defend",
+      "quotes": [],
+      "context": "Federal Matter: In re HX-9000 Series Hydraulic Press Products Liability Litigation, MDL No. 3:24-md-02987, currently pending before the Honorable Helen R. Cartwright",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own caption."
+    },
+    {
+      "ref": 9,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 1, Scope (b) State Matter (line 29)",
+      "authority_type": "case",
+      "authority": "Kovacs, et al. v. Pinnacle Hydraulics Solutions, LLC, et al.",
+      "citation_as_written": "Case No. CV-24-938471 (Ct. Common Pleas, Cuyahoga County, Ohio)",
+      "pincite": "",
+      "cited_for": "State matter the Firm is retained to defend",
+      "quotes": [],
+      "context": "State Matter: Kovacs, et al. v. Pinnacle Hydraulics Solutions, LLC, et al., Case No. CV-24-938471, pending in the Court of Common Pleas, Cuyahoga County, Ohio.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own state-court caption."
+    },
+    {
+      "ref": 10,
+      "document": "engagement-letter.docx.md",
+      "location": "Exclusion EX-6 (line 53)",
+      "authority_type": "other",
+      "authority": "Judicial Panel on Multidistrict Litigation / MDL No. 3:24-md-02987",
+      "citation_as_written": "MDL No. 3:24-md-02987",
+      "pincite": "",
+      "cited_for": "Non-HX-9000 claims excluded unless consolidated into the MDL by the JPML",
+      "quotes": [],
+      "context": "unless and until such claims are consolidated into MDL No. 3:24-md-02987 by the Judicial Panel on Multidistrict Litigation",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe MDL of the fictional matter."
+    },
+    {
+      "ref": 11,
+      "document": "engagement-letter.docx.md",
+      "location": "Exclusion EX-5 (line 51)",
+      "authority_type": "regulation",
+      "authority": "OSHA requirements / state industrial safety regulations (generic reference)",
+      "citation_as_written": "OSHA requirements",
+      "pincite": "",
+      "cited_for": "Regulatory rulemaking participation on these is excluded",
+      "quotes": [],
+      "context": "regulatory rulemaking participation related to hydraulic equipment safety standards, OSHA requirements, or state industrial safety regulations is excluded",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Generic reference to OSHA requirements (29 CFR occupational safety standards, including machinery standards) used only to describe an excluded category of regulatory work. The authority exists and the reference is accurate as a descriptive label.",
+        "evidence_excerpt": "Regulations (Standards - 29 CFR) ... Subpart O - Machinery and Machine Guarding",
+        "source_urls": [
+          "https://www.osha.gov/laws-regs/regulations/standardnumber/1910"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 11 Conflicts (line 220)",
+      "authority_type": "court_rule",
+      "authority": "Ohio Rules of Professional Conduct, Rules 1.7 and 1.9",
+      "citation_as_written": "Rules 1.7 and 1.9 of the Ohio Rules of Professional Conduct",
+      "pincite": "1.7, 1.9",
+      "cited_for": "No conflicts of interest precluding the engagement",
+      "quotes": [],
+      "context": "no current conflicts of interest exist that would preclude this engagement under Rules 1.7 and 1.9 of the Ohio Rules of Professional Conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Ohio Prof. Cond. R. 1.7 (conflicts of interest: current clients) and R. 1.9 (duties to former clients) are the correct rules governing whether conflicts preclude an engagement. The letter's representation that no conflicts exist under those rules properly invokes them (the factual representation itself is not verifiable).",
+        "evidence_excerpt": "RULE 1.7: CONFLICT OF INTEREST: CURRENT CLIENTS (a) A lawyer's acceptance or continuation of representation of a client creates a conflict of interest if ... RULE 1.9: DUTIES TO FORMER CLIENTS (a) Unless the former client gives informed consent, confirmed in writing, a lawyer who has formerly represented a client in a matter shall not thereafter represent another person in the same or a substantially related matter...",
+        "source_urls": [
+          "https://www.supremecourt.ohio.gov/docs/LegalResources/Rules/ProfConduct/profConductRules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "engagement-letter.docx.md",
+      "location": "Confidentiality section (line 236)",
+      "authority_type": "court_rule",
+      "authority": "Ohio Rules of Professional Conduct",
+      "citation_as_written": "Ohio Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Firm's confidentiality obligations",
+      "quotes": [],
+      "context": "consistent with the Firm's obligations under the Ohio Rules of Professional Conduct and applicable law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Ohio Rules of Professional Conduct exist and Rule 1.6 imposes confidentiality obligations on lawyers, supporting the general reference to the firm's confidentiality obligations.",
+        "evidence_excerpt": "RULE 1.6: CONFIDENTIALITY OF INFORMATION (a) A lawyer shall not reveal information relating to the representation of a client, including information protected by the attorney-client privilege under applicable law, unless the client gives informed consent...",
+        "source_urls": [
+          "https://www.supremecourt.ohio.gov/docs/LegalResources/Rules/ProfConduct/profConductRules.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "engagement-letter.docx.md",
+      "location": "Section 13 Governing Law and Dispute Resolution (line 258)",
+      "authority_type": "other",
+      "authority": "Commercial Arbitration Rules of the American Arbitration Association",
+      "citation_as_written": "Commercial Arbitration Rules of the American Arbitration Association",
+      "pincite": "",
+      "cited_for": "Fee/malpractice disputes arbitrated under AAA rules in Cleveland",
+      "quotes": [],
+      "context": "final and binding arbitration in Cleveland, Ohio, administered under the Commercial Arbitration Rules of the American Arbitration Association.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The AAA publishes Commercial Arbitration Rules and Mediation Procedures (current amended version effective Sept. 1, 2022), and AAA's standard clause provides for arbitration administered by the AAA under those rules. The engagement letter's choice of these rules, with Cleveland as the seat, is a contract term that the rules accommodate. Whether a fee or malpractice dispute is arbitrable depends on the contract and ethics rules, not on the AAA rules themselves; nothing in the citation misstates what the rules are.",
+        "evidence_excerpt": "\"shall be settled by arbitration administered by the American Arbitration Association in accordance with its Commercial [or other] Arbitration Rules, and judgment on the award rendered by the arbitrator(s) may be entered in any court having jurisdiction thereof.\"",
+        "source_urls": [
+          "https://www.adr.org/industries/commercial/",
+          "https://www.adr.org/media/ueonklrv/2026_commercial-arbitration-rules-mediation-procedures.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "outside-counsel-guidelines.docx.md",
+      "location": "Section 2 conflicts check (line 61)",
+      "authority_type": "court_rule",
+      "authority": "Rules of Professional Conduct (generic)",
+      "citation_as_written": "applicable Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Conflicts check standard",
+      "quotes": [],
+      "context": "conduct a thorough conflicts check in accordance with the applicable Rules of Professional Conduct",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Generic reference to 'applicable Rules of Professional Conduct' as the standard for conflicts checks. State rules of professional conduct (e.g., Ohio Rules 1.7 and 1.9, which track the ABA Model Rules) govern conflicts of interest, so the generic reference is accurate.",
+        "evidence_excerpt": "RULE 1.7: CONFLICT OF INTEREST: CURRENT CLIENTS (a) A lawyer's acceptance or continuation of representation of a client creates a conflict of interest if either of the following applies: (1) the representation of that client will be directly adverse to another current client;",
+        "source_urls": [
+          "https://www.supremecourt.ohio.gov/docs/LegalResources/Rules/ProfConduct/profConductRules.pdf"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "matter-plan-revision-1.docx.md",
+      "location": "Section 1 Purpose and Background (line 24)",
+      "authority_type": "other",
+      "authority": "CPSC Case No. 25-C-0412 (U.S. Consumer Product Safety Commission investigation)",
+      "citation_as_written": "CPSC Case No. 25-C-0412",
+      "pincite": "",
+      "cited_for": "Formal CPSC investigation into HX-9000 presses triggering WS-4",
+      "quotes": [],
+      "context": "the U.S. Consumer Product Safety Commission opened a formal investigation (CPSC Case No. 25-C-0412) into the HX-9000 Series hydraulic press systems",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "In-universe agency proceeding of the fictional matter."
+    },
+    {
+      "ref": 17,
+      "document": "outside-counsel-guidelines.docx.md",
+      "location": "Data security / destruction of files section (line 327)",
+      "authority_type": "other",
+      "authority": "NIST Special Publication 800-88 (Guidelines for Media Sanitization)",
+      "citation_as_written": "National Institute of Standards and Technology Special Publication 800-88 (NIST 800-88)",
+      "pincite": "",
+      "cited_for": "Electronic data must be securely deleted using methods compliant with NIST SP 800-88 or a successor standard.",
+      "quotes": [],
+      "context": "Electronic data must be securely deleted using methods compliant with the National Institute of Standards and Technology Special Publication 800-88 (NIST 800-88) or a successor standard. Outside counsel must provide written certification of destruction within ten (10) business days of completing the destruction process.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "NIST SP 800-88 is the real NIST 'Guidelines for Media Sanitization' (Rev. 1; a Rev. 2 now exists, covered by the 'or a successor standard' language). It is the appropriate standard for secure deletion/sanitization of electronic data; the guideline sets a client contractual requirement referencing it.",
+        "evidence_excerpt": "NIST SP 800-88 Rev. 1: Guidelines for Media Sanitization ... Media sanitization refers to a process that renders access to target data on the media infeasible for a given level of effort.",
+        "source_urls": [
+          "https://csrc.nist.gov/pubs/sp/800/88/r1/final"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "scope-negotiation-emails.eml.md",
+      "location": "First email (Layton to Voss, Jan. 15, 2025), first paragraph",
+      "authority_type": "other",
+      "authority": "MDL No. 3:24-md-02987 (N.D. Ohio, Judge Cartwright)",
+      "citation_as_written": "MDL No. 3:24-md-02987",
+      "pincite": "",
+      "cited_for": "The federal multidistrict litigation the engagement covers (WS-1).",
+      "quotes": [],
+      "context": "covering defense of MDL No. 3:24-md-02987 (N.D. Ohio, Judge Cartwright) and the parallel Cuyahoga County case (CV-24-938471) on behalf of Pinnacle Industrial Holdings, Inc. and Pinnacle Hydraulics Solutions, LLC.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "This is the fictional matter's own docket. The engagement is defending it."
+    },
+    {
+      "ref": 19,
+      "document": "scope-negotiation-emails.eml.md",
+      "location": "First email (Layton to Voss, Jan. 15, 2025), first paragraph",
+      "authority_type": "other",
+      "authority": "Cuyahoga County Case No. CV-24-938471",
+      "citation_as_written": "CV-24-938471",
+      "pincite": "",
+      "cited_for": "The parallel state court case the engagement covers (WS-2).",
+      "quotes": [],
+      "context": "the parallel Cuyahoga County case (CV-24-938471) on behalf of Pinnacle Industrial Holdings, Inc. and Pinnacle Hydraulics Solutions, LLC.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "This is the fictional matter's own state-court docket."
+    },
+    {
+      "ref": 20,
+      "document": "budget-summary.xlsx.md",
+      "location": "Sheet 'Fee Budget by Work Stream', cells B2 and B3",
+      "authority_type": "other",
+      "authority": "MDL No. 3:24-md-02987 (N.D. Ohio, Judge Helen R. Cartwright) and Cuyahoga County Case No. CV-24-938471",
+      "citation_as_written": "MDL No. 3:24-md-02987; Case No. CV-24-938471",
+      "pincite": "",
+      "cited_for": "The federal and state matters for which the fee budget is allocated (WS-1 and WS-2).",
+      "quotes": [],
+      "context": "Federal MDL Defense — MDL No. 3:24-md-02987 (N.D. Ohio, Judge Helen R. Cartwright). ... State Court Defense — Cuyahoga County Case No. CV-24-938471.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "These are the fictional matter's own dockets."
+    },
+    {
+      "ref": 21,
+      "document": "budget-summary.xlsx.md",
+      "location": "Sheet 'Fee Budget by Work Stream', cell B2 (WS-1 description)",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "WS-1 defense work includes Daubert challenges (expert admissibility motion practice)",
+      "quotes": [],
+      "context": "All aspects of defense including motion practice, discovery, depositions, Daubert challenges, and trial.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The case is named only, as the label for expert-admissibility motion practice (\"Daubert challenges\"). Daubert holds that Rule 702 makes the trial judge responsible for ensuring that expert testimony is reliable and relevant. That is the basis for Daubert challenges, so the reference is accurate. No reporter cite was given, but none was needed for a passing reference in a budget line.",
+        "evidence_excerpt": "\"the Rules of Evidence— especially Rule 702 — do assign to the trial judge the task of ensuring that an expert's testimony both rests on a reliable foundation and is relevant to the task at hand.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "budget-summary.xlsx.md",
+      "location": "Sheet 'Monthly Forecast', cell M11 (Dec 2025 checkpoint flag)",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Deadline for filing Daubert motions in the MDL",
+      "quotes": [],
+      "context": "Daubert motions due: Dec. 1, 2025",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Daubert appears by name only, to label a category of motion (motions challenging expert admissibility under Rule 702). The case is real and is the source of that motion practice. The Dec. 1, 2025 deadline is a fictional MDL scheduling fact, not something attributed to the opinion, so no external authority can check it. Using the name as a label is accurate.",
+        "evidence_excerpt": "\"under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "task.json.md",
+      "location": "rubric criterion C-044",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Daubert motion filing deadline of December 1, 2025",
+      "quotes": [],
+      "context": "PASS if the report lists December 1, 2025 as the Daubert motion filing deadline. FAIL if this date is missing.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "A rubric criterion uses the name only, to refer to the Daubert motion deadline. The case is real, and \"Daubert motion\" correctly names a motion challenging expert admissibility. The Dec. 1, 2025 date comes from the fictional matter documents, not from the opinion, and checks for consistency with them rather than with legal authority.",
+        "evidence_excerpt": "\"the Rules of Evidence— especially Rule 702 — do assign to the trial judge the task of ensuring that an expert's testimony both rests on a reliable foundation and is relevant to the task at hand.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "scope-negotiation-emails.eml.md",
+      "location": "Third email (Layton to Giles, Jan. 16, 2025), Work Stream Overview bullets WS-1 and WS-2, and Question 1",
+      "authority_type": "other",
+      "authority": "MDL No. 3:24-md-02987 (N.D. Ohio) and Cuyahoga County CV-24-938471",
+      "citation_as_written": "MDL No. 3:24-md-02987; CV-24-938471",
+      "pincite": "",
+      "cited_for": "Dockets of the fictional matter being defended (WS-1 and WS-2 scope; EX-6 consolidation exception)",
+      "quotes": [],
+      "context": "WS-1: Federal MDL Defense (MDL No. 3:24-md-02987, N.D. Ohio, Judge Cartwright) - WS-2: State Court Defense (Cuyahoga County CV-24-938471)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own federal and state dockets."
+    },
+    {
+      "ref": 25,
+      "document": "task.json.md",
+      "location": "rubric criteria C-001 and C-002",
+      "authority_type": "other",
+      "authority": "MDL No. 3:24-md-02987 (N.D. Ohio); Cuyahoga County Case No. CV-24-938471",
+      "citation_as_written": "MDL No. 3:24-md-02987; Case No. CV-24-938471",
+      "pincite": "",
+      "cited_for": "Case numbers the extraction report must identify for WS-1 and WS-2",
+      "quotes": [],
+      "context": "references MDL No. 3:24-md-02987 in the Northern District of Ohio ... references Cuyahoga County Case No. CV-24-938471",
+      "found_by": "completeness_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The fictional matter's own dockets."
+    }
+  ]
+}

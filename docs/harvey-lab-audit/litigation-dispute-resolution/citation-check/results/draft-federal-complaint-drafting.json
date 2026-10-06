@@ -1,0 +1,797 @@
+{
+  "task": "draft-federal-complaint-drafting",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "client-intake-memo.docx.md",
+    "graydon-activity-reports.docx.md",
+    "graydon-response-letter.docx.md",
+    "graydon-ridgecrest-agreement.docx.md",
+    "millhaven-investigation-summary.docx.md",
+    "placement-agent-agreement.docx.md",
+    "rosario-vega-discovery-email.eml.md",
+    "task.json.md",
+    "westlake-demand-letter.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "task.json.md",
+      "location": "rubric C-002 (match_criteria)",
+      "authority_type": "case",
+      "authority": "Carden v. Arkoma Associates",
+      "citation_as_written": "494 U.S. 185 (1990)",
+      "pincite": "",
+      "cited_for": "An LLC takes the citizenship of each of its members for diversity jurisdiction, not its state of formation or principal place of business",
+      "quotes": [],
+      "context": "This can be shown by citing Carden v. Arkoma Associates, 494 U.S. 185 (1990), or by expressly explaining the LLC-member citizenship rule.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Carden v. Arkoma Associates, 494 U.S. 185 (1990), is correctly cited. It holds that for diversity purposes the citizenship of an artificial entity other than a corporation depends on the citizenship of all its members, and it rejects looking only to some members or treating the entity as a citizen of its state of organization. The case itself involved a limited partnership, not an LLC. Courts of appeals apply Carden's general rule for artificial entities to LLCs, so citing it as the source of the LLC member-citizenship rule is standard practice. A 'see' signal or an explanatory parenthetical would make that clearer.",
+        "evidence_excerpt": "we reject the contention that to determine, for diversity purposes, the citizenship of an artificial entity, the court may consult the citizenship of less than all of the entity's members. We adhere to our oft-repeated rule that diversity jurisdiction in a suit by or against the entity depends on the citizenship of 'all the members'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112380/carden-v-arkoma-associates/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "task.json.md",
+      "location": "rubric C-002 (title)",
+      "authority_type": "case",
+      "authority": "Carden v. Arkoma LLC",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Citizenship rule for LLCs in diversity jurisdiction (title names the case as 'Carden v. Arkoma LLC' rather than Arkoma Associates)",
+      "quotes": [],
+      "context": "ISSUE_001: Complaint cites or reflects Carden v. Arkoma LLC citizenship rule",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Carden v. Arkoma Associates, 494 U.S. 185 (1990)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric title names the case 'Carden v. Arkoma LLC'. The real case is Carden v. Arkoma Associates, and the defendant was a limited partnership, not an LLC. The rule referred to (an artificial entity takes the citizenship of all its members) is accurate, but the party name is garbled. The same rubric item's match_criteria gives the correct name.",
+        "evidence_excerpt": "Carden v. Arkoma Associates ... 494 U.S. 185 ... dateFiled 1990-02-27",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112380/carden-v-arkoma-associates/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. CourtListener has the case as Carden v. Arkoma Associates, 494 U.S. 185 (1990) (cluster 112380). It does not appear under the name 'Arkoma LLC.' The opinion describes the respondent as follows: 'Respondent Arkoma Associates (Arkoma), a limited partnership organized under the laws of Arizona.' It holds that 'the citizenship of the limited partners must be taken into account to determine diversity of citizenship.' The rubric title 'Carden v. Arkoma LLC' garbles the party name and wrongly implies the case involved an LLC. The rule the title invokes (an unincorporated entity takes the citizenship of its members, which later courts applied to LLCs) is substantively sound. The match_criteria for the same rubric item gives the correct cite. The defect is the misnamed party, not the substance, so WRONG_CITATION_REAL_CASE fits.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112380/carden-v-arkoma-associates/"
+        ]
+      }
+    },
+    {
+      "ref": 2,
+      "document": "task.json.md",
+      "location": "rubric C-004",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)(1)",
+      "citation_as_written": "28 U.S.C. § 1332(a)(1)",
+      "pincite": "",
+      "cited_for": "Amount in controversy must exceed $75,000, exclusive of interest and costs, for diversity jurisdiction",
+      "quotes": [],
+      "context": "PASS if the complaint alleges that the amount in controversy exceeds $75,000, exclusive of interest and costs, as required by 28 U.S.C. § 1332(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The paraphrase 'exceeds $75,000, exclusive of interest and costs' matches the statute's wording.",
+        "explanation": "Section 1332(a)(1) gives district courts original jurisdiction when the matter in controversy exceeds $75,000, exclusive of interest and costs, and the parties are citizens of different States. Strictly, the dollar threshold is in the § 1332(a) preamble and (a)(1) is the diversity clause, but citing (a)(1) for diversity jurisdiction is standard practice.",
+        "evidence_excerpt": "where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "task.json.md",
+      "location": "rubric C-006",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper where a substantial part of the events occurred in the district",
+      "quotes": [],
+      "context": "references 28 U.S.C. § 1391(b)(2) (substantial part of events occurred in the district) or the contractual forum selection clause, or both.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The parenthetical closely paraphrases the statute.",
+        "explanation": "Section 1391(b)(2) makes venue proper in a judicial district where a substantial part of the events or omissions giving rise to the claim occurred.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "task.json.md",
+      "location": "rubric C-006 (title)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391",
+      "citation_as_written": "28 U.S.C. § 1391",
+      "pincite": "",
+      "cited_for": "Venue in the Northern District of Texas",
+      "quotes": [],
+      "context": "Venue: Northern District of Texas alleged under 28 U.S.C. § 1391",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "28 U.S.C. § 1391 is the general federal venue statute. Section 1391(b) sets out where a civil action may be brought, which supports alleging venue in the Northern District of Texas under § 1391.",
+        "evidence_excerpt": "(b) Venue in General.— A civil action may be brought in— ... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "task.json.md",
+      "location": "rubric C-012 (title and match_criteria)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 9(b)",
+      "citation_as_written": "Rule 9(b)",
+      "pincite": "",
+      "cited_for": "Fraud must be pleaded with particularity (who, what, when, where, how)",
+      "quotes": [],
+      "context": "ISSUE_005: Fraud claim states who, what, when, where, how per Rule 9(b)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed in this item.",
+        "explanation": "Rule 9(b) requires a party alleging fraud to state the circumstances constituting fraud with particularity. The 'who, what, when, where, how' breakdown is a well-established judicial gloss on that requirement (e.g., DiLeo v. Ernst & Young, 901 F.2d 624 (7th Cir. 1990)), not text from the rule itself. The proposition is a fair reading.",
+        "evidence_excerpt": "In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9",
+          "https://www.courtlistener.com/opinion/540063/fed-sec-l-rep-p-95228-rocco-dileo-and-louise-dileo-v-ernst-young/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "task.json.md",
+      "location": "rubric C-013",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 9(b)",
+      "citation_as_written": "Fed. R. Civ. P. 9(b)",
+      "pincite": "",
+      "cited_for": "Heightened pleading standard for fraud; complaint should cite or be structured to satisfy it",
+      "quotes": [
+        "who, what, when, where, and how"
+      ],
+      "context": "PASS if the complaint explicitly acknowledges or structures the fraud claim to satisfy Fed. R. Civ. P. 9(b)'s heightened pleading requirement, either by citing Rule 9(b) or by clearly organizing the allegations to meet the 'who, what, when, where, and how' framework.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "'who, what, when, where, and how': not in the text of Rule 9(b). The rubric presents it as a framework, not as the rule's text. The phrase appears verbatim in DiLeo v. Ernst & Young, 901 F.2d 624 (7th Cir. 1990), and in many later Rule 9(b) decisions.",
+        "explanation": "Rule 9(b) sets a heightened pleading standard for fraud ('state with particularity the circumstances constituting fraud'). The rubric correctly describes that standard. The quoted framework is standard case-law shorthand for it rather than wording from the rule, so the attribution is fair.",
+        "evidence_excerpt": "Rule 9(b): 'a party must state with particularity the circumstances constituting fraud or mistake.' DiLeo: 'the \"circumstances\" must be pleaded in detail. This means the who, what, when, where, and how: the first paragraph of any newspaper story.'",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9",
+          "https://www.courtlistener.com/opinion/540063/fed-sec-l-rep-p-95228-rocco-dileo-and-louise-dileo-v-ernst-young/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "task.json.md",
+      "location": "rubric C-014",
+      "authority_type": "case",
+      "authority": "Formosa Plastics Corp. v. Presidio Engineers",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Texas economic loss rule and fraudulent inducement exception",
+      "quotes": [],
+      "context": "A reference to Formosa Plastics Corp. v. Presidio Engineers is ideal but not required; the concept must be addressed.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Formosa Plastics Corp. USA v. Presidio Engineers & Contractors, Inc., 960 S.W.2d 41 (Tex. 1998)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a real Texas Supreme Court decision (March 13, 1998). It holds that tort damages for fraudulent inducement are recoverable even when the plaintiff suffers only economic loss tied to the contract's subject matter. That is the leading Texas authority for the fraudulent-inducement exception to the economic loss rule. The rubric names the case without a reporter cite, so the full citation is supplied here. Note that an earlier 1995 opinion in the same case, from the Texas Court of Appeals (13th District), is at 941 S.W.2d 138.",
+        "evidence_excerpt": "\"Accordingly, tort damages are recoverable for a fraudulent inducement claim irrespective of whether the fraudulent representations are later subsumed in a contract or whether the plaintiff only suffers an economic loss related to the subject matter of the contract.\" Also: \"the legal duty not to fraudulently procure a contract is separate and independent from the duties established by the contract itself.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2427974/formosa-plastics-corp-usa-v-presidio-engineers-and-contractors-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "task.json.md",
+      "location": "rubric C-020",
+      "authority_type": "other",
+      "authority": "Daubert challenge (Daubert v. Merrell Dow Pharmaceuticals, Inc., case name not given)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Risk of expert-admissibility challenge to speculative lost carried interest damages",
+      "quotes": [],
+      "context": "notes the risk of a Daubert challenge or motion to dismiss",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric's reference to the 'risk of a Daubert challenge' to speculative damages refers correctly to Daubert's gatekeeping standard for the reliability of expert testimony.",
+        "evidence_excerpt": "the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "placement-agent-agreement.docx.md",
+      "location": "Section 5.1(e)",
+      "authority_type": "statute",
+      "authority": "Securities Act of 1933",
+      "citation_as_written": "Securities Act of 1933, as amended",
+      "pincite": "",
+      "cited_for": "Graydon must conduct solicitation in compliance with federal securities laws",
+      "quotes": [],
+      "context": "in compliance with applicable federal and state securities laws, including the Securities Act of 1933, as amended, and the Securities Exchange Act of 1934, as amended, and all applicable rules and regulations of FINRA.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 77a et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Securities Act of 1933 is a real federal statute, codified at 15 U.S.C. § 77a et seq. The contract only requires compliance with it, so the reference is accurate.",
+        "evidence_excerpt": "15 U.S.C. § 77a: \"This subchapter may be cited as the 'Securities Act of 1933'.\"",
+        "source_urls": [
+          "https:/77a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "placement-agent-agreement.docx.md",
+      "location": "Section 5.1(e)",
+      "authority_type": "statute",
+      "authority": "Securities Exchange Act of 1934",
+      "citation_as_written": "Securities Exchange Act of 1934, as amended",
+      "pincite": "",
+      "cited_for": "Graydon must conduct solicitation in compliance with federal securities laws",
+      "quotes": [],
+      "context": "including the Securities Act of 1933, as amended, and the Securities Exchange Act of 1934, as amended, and all applicable rules and regulations of FINRA.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Securities Exchange Act of 1934, 15 U.S.C. § 78a et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Securities Exchange Act of 1934 is a real federal statute (codified at 15 U.S.C. § 78a et seq.). The contract simply requires Graydon to solicit investors in compliance with it and other securities laws. That is an accurate general reference; it is not a claim about any particular provision.",
+        "evidence_excerpt": "15 U.S.C. § 78o(a)(1): \"It shall be unlawful for any broker or dealer ... to effect any transactions in, or to induce or attempt to induce the purchase or sale of, any security ... unless such broker or dealer is registered in accordance with subsection (b) of this section.\"",
+        "source_urls": [
+          "https:/78o"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "placement-agent-agreement.docx.md",
+      "location": "Section 7.5",
+      "authority_type": "statute",
+      "authority": "Securities Act of 1933 and Securities Exchange Act of 1934",
+      "citation_as_written": "Securities Act of 1933, as amended, the Securities Exchange Act of 1934, as amended",
+      "pincite": "",
+      "cited_for": "Graydon's covenant to comply with law",
+      "quotes": [],
+      "context": "including without limitation the Securities Act of 1933, as amended, the Securities Exchange Act of 1934, as amended, applicable state securities and \"blue sky\" laws, and all rules and regulations of FINRA.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 77a et seq.; 15 U.S.C. § 78a et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Both statutes are real and properly named. The Securities Act of 1933 is at 15 U.S.C. § 77a et seq., and the Securities Exchange Act of 1934 is at 15 U.S.C. § 78a et seq. The contract uses them only in a general covenant to comply with law, which is accurate.",
+        "evidence_excerpt": "15 U.S.C. § 77a: \"This subchapter may be cited as the 'Securities Act of 1933'.\" 15 U.S.C. § 78a: \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
+        "source_urls": [
+          "https:/77a",
+          "https:/78a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "placement-agent-agreement.docx.md",
+      "location": "Section 7.6(b)",
+      "authority_type": "statute",
+      "authority": "Securities Act of 1933",
+      "citation_as_written": "Securities Act of 1933, as amended",
+      "pincite": "",
+      "cited_for": "Westlake's representation that the Fund is offered under applicable exemptions from registration",
+      "quotes": [],
+      "context": "the Fund is being offered and sold in compliance with applicable exemptions from registration under the Securities Act of 1933, as amended, and applicable state securities laws",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 77a et seq.; see 15 U.S.C. § 77d(a)(2)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Securities Act of 1933 provides exemptions from registration. Section 4(a)(2), at 15 U.S.C. § 77d(a)(2), exempts private offerings by an issuer. The contract's representation that the Fund is sold under applicable exemptions refers to a real statutory scheme.",
+        "evidence_excerpt": "15 U.S.C. § 77d(a): \"The provisions of section 77e of this title shall not apply to— ... (2) transactions by an issuer not involving any public offering.\"",
+        "source_urls": [
+          "https:/77a",
+          "https:/77d"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "placement-agent-agreement.docx.md",
+      "location": "Section 12.2",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure",
+      "citation_as_written": "Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Service of process may be effected by any means permitted under Texas law or the Federal Rules of Civil Procedure",
+      "quotes": [],
+      "context": "service of process in any such action or proceeding may be effected by any means permitted under the laws of the State of Texas or under the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a contract clause allowing service by any means the Federal Rules of Civil Procedure permit, and those rules do provide for service of process. Rule 4(e)(1) and 4(h)(1) also allow service by following the law of the state where the district court sits, so a contract referring to both Texas law and the federal rules is consistent with them.",
+        "evidence_excerpt": "Rule 4(h)(1): \"in the manner prescribed by Rule 4(e)(1) for serving an individual; or by delivering a copy of the summons and of the complaint to an officer, a managing or general agent...\"; Rule 4(e)(1): \"following state law for serving a summons...\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part IV, Count III (line 53)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 9(b)",
+      "citation_as_written": "Federal Rule of Civil Procedure 9(b)",
+      "pincite": "",
+      "cited_for": "Fraud count must satisfy heightened pleading standard requiring particularity as to speaker, content, time and place, and manner in which statements were misleading",
+      "quotes": [],
+      "context": "Because this count sounds in fraud, the complaint must satisfy the heightened pleading standard of Federal Rule of Civil Procedure 9(b), requiring particularity as to the identity of the speaker, the content of the misrepresentation, the time and place of each statement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 9(b) requires a party alleging fraud to state the circumstances with particularity. The listed elements (speaker, content, time and place, and why the statements were misleading) are the standard judicial reading of 'circumstances', not words in the rule itself. The memo presents them as what particularity requires, a fair paraphrase.",
+        "evidence_excerpt": "\"In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake. Malice, intent, knowledge, and other conditions of a person's mind may be alleged generally.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part V.A, Subject Matter Jurisdiction (line 63)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)(1)",
+      "citation_as_written": "28 U.S.C. § 1332(a)(1)",
+      "pincite": "",
+      "cited_for": "Federal subject matter jurisdiction based on diversity of citizenship and amount in controversy exceeding $75,000",
+      "quotes": [],
+      "context": "Federal subject matter jurisdiction lies under 28 U.S.C. § 1332(a)(1) on the basis of diversity of citizenship between the parties and an amount in controversy exceeding $75,000.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1332(a)(1) grants original jurisdiction over civil actions between citizens of different States when the amount in controversy exceeds $75,000. That matches the proposition.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part V.A, final paragraph (line 67)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)(1) (short form: Section 1332(a)(1))",
+      "citation_as_written": "Section 1332(a)(1)",
+      "pincite": "",
+      "cited_for": "Both diversity requirements (complete diversity and amount in controversy over $75,000) are satisfied",
+      "quotes": [],
+      "context": "Accordingly, both requirements for diversity jurisdiction under Section 1332(a)(1) are satisfied.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1332(a)(1)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a short-form cite to § 1332(a)(1), which has two requirements: the parties must be citizens of different States, and the amount in controversy must exceed $75,000. The statute's text does not use the phrase 'complete diversity'; that rule comes from judicial interpretation of the statute. Describing the requirement that way is still a fair and standard reading.",
+        "evidence_excerpt": "matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part V.C, Venue (line 73)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper in N.D. Tex., Dallas Division, because a substantial part of the events giving rise to the claims occurred in Dallas County",
+      "quotes": [],
+      "context": "Venue is proper in the Northern District of Texas, Dallas Division, under 28 U.S.C. § 1391(b)(2), as a substantial part of the events giving rise to the claims occurred in Dallas County, Texas.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(2) allows venue where a substantial part of the events giving rise to the claim occurred. Events in Dallas County fall within the Northern District of Texas, so the statute supports the proposition. The statute sets venue by judicial district only; the choice of the Dallas Division is a local matter that the statute does not address.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VI.C, Lost Carried Interest (line 93)",
+      "authority_type": "case",
+      "authority": "Daubert (case name given without cite; Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Carried interest damages model may face a Daubert challenge (expert admissibility) at summary judgment",
+      "quotes": [],
+      "context": "This element may face a *Daubert* challenge at summary judgment and may be vulnerable to a motion to dismiss for failure to plead non-speculative damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo uses 'Daubert' only as shorthand for a challenge to whether expert testimony is admissible. Daubert makes the trial judge responsible for ensuring that expert testimony is reliable as well as relevant. A speculative damages model built on expert testimony is a typical Daubert target, so the reference is accurate. No reporter cite is given, which is normal usage for an internal memo.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VII, item 3, Carried Interest Expert (line 140)",
+      "authority_type": "case",
+      "authority": "Daubert (case name given without cite; Daubert v. Merrell Dow Pharmaceuticals, Inc.)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Retain damages expert to prepare defensible carried interest model in anticipation of a Daubert challenge",
+      "quotes": [],
+      "context": "to prepare a defensible carried interest loss model in anticipation of a *Daubert* challenge.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo recommends hiring an expert to prepare a defensible model in anticipation of a Daubert challenge. Under Daubert the judge acts as gatekeeper for expert reliability under Rule 702, so this is an accurate use of the name.",
+        "evidence_excerpt": "We recognize that, in practice, a gatekeeping role for the judge, no matter how flexible, inevitably on occasion will prevent the jury from learning of authentic insights and innovations.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VII, item 4, Economic Loss Rule (line 142)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 12(b)(6)",
+      "citation_as_written": "Rule 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Brief the Texas economic loss rule issue in anticipation of an early motion to dismiss",
+      "quotes": [],
+      "context": "I recommend we brief this issue in anticipation of an early Rule 12(b)(6) motion.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 12(b)(6) is the defense of failure to state a claim, which a party may raise by motion before pleading. That is the right vehicle for an early dismissal motion based on the economic loss rule. The memo cites the rule only as the anticipated motion type, which is accurate.",
+        "evidence_excerpt": "\"But a party may assert the following defenses by motion: ... (6) failure to state a claim upon which relief can be granted\"; \"A motion asserting any of these defenses must be made before pleading if a responsive pleading is allowed.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VII, item 5, Rule 9(b) Compliance (line 144)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 9(b) (short form: Rule 9(b))",
+      "citation_as_written": "Rule 9(b)",
+      "pincite": "",
+      "cited_for": "Fraud count must satisfy heightened pleading standard; sufficient particularity to plead who, what, when, where, how",
+      "quotes": [],
+      "context": "The fraud count must satisfy the heightened pleading standard of Rule 9(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 9(b) sets the heightened particularity standard for fraud. 'Who, what, when, where, how' is a common judicial shorthand for that standard, offered here as a paraphrase rather than a quote. It is consistent with the rule.",
+        "evidence_excerpt": "\"In alleging fraud or mistake, a party must state with particularity the circumstances constituting fraud or mistake.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_9"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "graydon-ridgecrest-agreement.docx.md",
+      "location": "Section 5.1(d) (line 89)",
+      "authority_type": "statute",
+      "authority": "Securities Exchange Act of 1934",
+      "citation_as_written": "Securities Exchange Act of 1934, as amended",
+      "pincite": "",
+      "cited_for": "Introducer represents it is not required to be registered as a broker-dealer under the Act in connection with the Services",
+      "quotes": [],
+      "context": "The Introducer is not required to be registered as a broker-dealer under the Securities Exchange Act of 1934, as amended, or under applicable state securities laws in connection with the performance of the Services contemplated by this Agreement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Securities Exchange Act of 1934 § 15(a), 15 U.S.C. § 78o(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Exchange Act really does require brokers and dealers to register (Section 15(a), 15 U.S.C. § 78o(a)(1)), so the statute this broker-dealer registration representation refers to exists and is described accurately. Whether the Introducer is actually exempt from registration is a factual representation by a party, not a statement of law, so the citation itself is sound. (On the scenario facts, the representation may be false, but that is a merits issue.)",
+        "evidence_excerpt": "\"It shall be unlawful for any broker or dealer ... to make use of the mails or any means or instrumentality of interstate commerce to effect any transactions in, or to induce or attempt to induce the purchase or sale of, any security ... unless such broker or dealer is registered in accordance with subsection (b) of this section.\"",
+        "source_urls": [
+          "https:/78o"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "graydon-ridgecrest-agreement.docx.md",
+      "location": "Section 10.2 (line 135)",
+      "authority_type": "other",
+      "authority": "American Arbitration Association Commercial Arbitration Rules",
+      "citation_as_written": "Commercial Arbitration Rules",
+      "pincite": "",
+      "cited_for": "Disputes resolved by binding arbitration administered by AAA under its then-current Commercial Arbitration Rules",
+      "quotes": [],
+      "context": "binding arbitration in New York, New York, administered by the American Arbitration Association in accordance with its then-current Commercial Arbitration Rules.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The AAA publishes Commercial Arbitration Rules; the current version took effect September 1, 2022. Rule R-1(a) says these Rules become part of the parties' arbitration agreement when they provide for AAA arbitration under its Commercial Arbitration Rules, and that the Rules apply in the form in effect when the administrative filing requirements are met. That fits the contract clause's reference to the AAA's 'then-current' Commercial Arbitration Rules.",
+        "evidence_excerpt": "R-1. Agreement of Parties (a) The parties shall be deemed to have made these Rules a part of their arbitration agreement whenever they have provided for arbitration by the American Arbitration Association (\"AAA\") under its Commercial Arbitration Rules",
+        "source_urls": [
+          "https://www.adr.org/media/ueonklrv/2026_commercial-arbitration-rules-mediation-procedures.pdf",
+          "https://www.adr.org/industries/commercial/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "graydon-response-letter.docx.md",
+      "location": "Section 1, second paragraph (line 21)",
+      "authority_type": "statute",
+      "authority": "Delaware Limited Liability Company Act",
+      "citation_as_written": "Delaware Limited Liability Company Act",
+      "pincite": "",
+      "cited_for": "GCS was duly formed under the Act and is a legally distinct entity from Graydon Strategic Advisors",
+      "quotes": [],
+      "context": "Graydon Capital Solutions LLC is a Delaware limited liability company that was duly formed under the Delaware Limited Liability Company Act and is a legally distinct and separate entity",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Delaware Limited Liability Company Act, Del. Code Ann. tit. 6, ch. 18 (see § 18-201)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Delaware Limited Liability Company Act exists (6 Del. C. ch. 18). Section 18-201 sets out how an LLC is formed (filing a certificate of formation) and provides that an LLC formed under the chapter is a separate legal entity. That supports the letter's general claim that a properly formed Delaware LLC is legally distinct. Whether GCS is in fact separate from Graydon Strategic Advisors is a fact of the fictional scenario that the statute cannot confirm.",
+        "evidence_excerpt": "A limited liability company formed under this chapter shall be a separate legal entity, the existence of which as a separate legal entity shall continue until cancellation of the limited liability company's certificate of formation.",
+        "source_urls": [
+          "https://delcode.delaware.gov/title6/c018/sc02/index.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VII, item 4, Economic Loss Rule (line 142)",
+      "authority_type": "other",
+      "authority": "Texas economic loss rule",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Texas economic loss rule generally prohibits tort recovery for claims arising from the same subject matter as a contract; Graydon may invoke it against the fraud and fiduciary duty claims",
+      "quotes": [],
+      "context": "Graydon may argue that the fraud and fiduciary duty claims are barred by the Texas economic loss rule, which generally prohibits tort recovery for claims arising from the same subject matter as a contract.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "See, e.g., Formosa Plastics Corp. USA v. Presidio Eng'rs & Contractors, Inc., 960 S.W.2d 41 (Tex. 1998); LAN/STV v. Martin K. Eby Constr. Co., 435 S.W.3d 234 (Tex. 2014)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The memo gives no citation for the doctrine. Texas does recognize an economic loss rule that limits tort recovery when the only injury is economic loss to the subject of a contract. Formosa Plastics restates the Jim Walter Homes v. Reed formulation, and LAN/STV surveys the rule. The memo is right that Graydon could raise the rule as a defense. Its noted exceptions are consistent with Formosa Plastics, which holds that tort damages are recoverable for fraudulent inducement even when the loss relates to the contract's subject matter. Calling the rule one that 'generally prohibits' such recovery is a reasonable simplification.",
+        "evidence_excerpt": "Formosa, 960 S.W.2d 41: \"When the injury is only the economic loss to the subject of a contract itself, the action sounds in contract alone.\" ... \"tort damages are recoverable for a fraudulent inducement claim irrespective of whether the fraudulent representations are later subsumed in a contract or whether the plaintiff only suffers an economic loss related to the subject matter of the contract.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/9770758/formosa-plastics-corp-usa-v-presidio-engineers-and-contractors-inc/",
+          "https://www.courtlistener.com/opinion/2831386/lanstv-v-martin-k-eby-construction-co-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VI (damages summary), line 130",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332 (amount in controversy threshold, by description)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Amount in controversy of $14,730,000 exceeds the statutory threshold of $75,000 for diversity jurisdiction",
+      "quotes": [],
+      "context": "The amount in controversy for diversity jurisdiction purposes is $14,730,000, which exceeds the statutory threshold of $75,000.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "28 U.S.C. § 1332(a)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The authority is identified only by description. 28 U.S.C. § 1332(a) sets the diversity amount-in-controversy requirement: the amount must exceed $75,000, exclusive of interest and costs. The $14,730,000 alleged is well above that threshold.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "client-intake-memo.docx.md",
+      "location": "Part VI (damages summary), line 130",
+      "authority_type": "statute",
+      "authority": "Texas law on exemplary damages (no statutory cap for these tort claims)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Punitive damages may be available under Texas law for fraud and breach of fiduciary duty; Texas imposes no statutory cap on exemplary damages for non-economic tort claims of this nature",
+      "quotes": [],
+      "context": "Punitive damages may also be available under Texas law for claims sounding in fraud and breach of fiduciary duty. Texas does not impose a statutory cap on exemplary damages for non-economic tort claims of this nature.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Civ. Prac. & Rem. Code § 41.008(b)-(c)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Texas allows exemplary damages for fraud, so that part of the memo is correct. But the memo is wrong to say Texas has no statutory cap for fraud or breach of fiduciary duty claims. Section 41.008(b) caps exemplary damages at the greater of $200,000 or two times economic damages plus noneconomic damages up to $750,000. The cap is lifted only under § 41.008(c), which requires conduct that would be one of the listed felonies, committed knowingly or intentionally. The list includes misapplication of fiduciary property (Penal Code § 32.45), commercial bribery (§ 32.43), and felony theft. Fraud and breach of fiduciary duty claims as such are therefore capped unless the plaintiff proves an enumerated felony.",
+        "evidence_excerpt": "§ 41.008(b): \"Exemplary damages awarded against a defendant may not exceed an amount equal to the greater of: (1)(A) two times the amount of economic damages; plus (B) an amount equal to any noneconomic damages found by the jury, not to exceed $750,000; or (2) $200,000.\" § 41.008(c) exempts listed felony conduct committed knowingly or intentionally (e.g., § 32.45 misapplication of fiduciary property).",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_41.008"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The intake memo says Texas imposes 'no statutory cap on exemplary damages for non-economic tort claims of this nature' (fraud and breach of fiduciary duty). Tex. Civ. Prac. & Rem. Code § 41.008(b) caps exemplary damages at the greater of '(A) two times the amount of economic damages; plus (B) an amount equal to any noneconomic damages found by the jury, not to exceed $750,000' or '$200,000.' Under § 41.008(c), the cap is lifted only where the conduct would be one of the listed felonies, committed knowingly or intentionally. The list includes 'Section 32.43 (Commercial Bribery),' 'Section 32.45 (Misapplication of Fiduciary Property...),' 'Section 32.46 (Fraudulent Securing of Document Execution),' forgery, and felony theft. Fraud and fiduciary-duty tort claims as such are therefore capped unless the plaintiff proves an enumerated felony. The memo's categorical no-cap statement misstates the statute. The statement appears to be an error deliberately planted in the task's source documents, but as a statement of law it is mischaracterized. I could not read the official statutes.capitol.texas.gov page because the fetch returned only navigation. The text above comes from texas.public.law.",
+        "source_urls": [
+          "https://texas.public.law/statutes/tex._civ._practice_and_remedies_code_section_41.008"
+        ]
+      }
+    }
+  ]
+}

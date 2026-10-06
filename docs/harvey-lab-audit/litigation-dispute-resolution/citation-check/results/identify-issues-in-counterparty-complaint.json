@@ -1,0 +1,958 @@
+{
+  "task": "identify-issues-in-counterparty-complaint",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "distribution-agreement.docx.md",
+    "first-amendment.docx.md",
+    "lis-pendens.docx.md",
+    "objection-letter.docx.md",
+    "tannick-email.eml.md",
+    "task.json.md",
+    "termination-notice-cause.docx.md",
+    "termination-notice-convenience.docx.md",
+    "verified-complaint.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "verified-complaint.docx.md",
+      "location": "¶15 (Jurisdiction and Venue)",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Federal question jurisdiction based on the DTSA claim in Count V",
+      "quotes": [],
+      "context": "This Court has original subject matter jurisdiction pursuant to 28 U.S.C. § 1331 because this Verified Complaint asserts a claim arising under federal law, specifically the Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq., as set forth in Count V below.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "28 U.S.C. § 1331 gives district courts original jurisdiction over civil actions arising under federal law. A claim pleaded under the Defend Trade Secrets Act, 18 U.S.C. § 1836, arises under a law of the United States, so the citation supports federal-question jurisdiction. Section 1836(c) also independently confers original jurisdiction over civil actions under that section, which is consistent. The \"of 2016\" label matches the statutory credit showing the civil-action amendments were enacted by Pub. L. 114-153 on May 11, 2016.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title28/html/USCODE-2024-title28-partIV-chap85-sec1331.htm",
+          "https:/1331",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "verified-complaint.docx.md",
+      "location": "¶15",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Federal law claim supporting federal question jurisdiction (Count V)",
+      "quotes": [],
+      "context": "specifically the Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq., as set forth in Count V below.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The Defend Trade Secrets Act of 2016 is the short title of Pub. L. 114-153, which amended 18 U.S.C. § 1836 to add the private civil action in subsection (b); the definitions follow in § 1839, so \"§ 1836 et seq.\" is an accurate cite. A claim under § 1836(b) is a claim arising under federal law, which supports federal-question jurisdiction under 28 U.S.C. § 1331 (\"all civil actions arising under the Constitution, laws, or treaties of the United States\"). § 1836(c) also independently grants district courts original jurisdiction over civil actions brought under the section.",
+        "evidence_excerpt": "(b) Private Civil Actions.— (1) In general.— An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce. ... (c) Jurisdiction.— The district courts of the United States shall have original jurisdiction of civil actions brought under this section.",
+        "source_urls": [
+          "https:/1836",
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
+          "https:/1331"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "verified-complaint.docx.md",
+      "location": "¶16",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367(a)",
+      "citation_as_written": "28 U.S.C. § 1367(a)",
+      "pincite": "(a)",
+      "cited_for": "Supplemental jurisdiction over state law claims sharing a common nucleus of operative fact with the DTSA claim",
+      "quotes": [],
+      "context": "This Court has supplemental jurisdiction over Plaintiff's state law claims pursuant to 28 U.S.C. § 1367(a) because the state law claims asserted herein ... arise from the same case or controversy as the federal Defend Trade Secrets Act claim",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. \"same case or controversy\" tracks the statutory text. The complaint's added phrase \"common nucleus of operative fact\" is not in the statute; it is not presented as a quotation.",
+        "explanation": "§ 1367(a) grants supplemental jurisdiction, in any civil action where the district court has original jurisdiction, over all other claims so related to the original-jurisdiction claims that they form part of the same case or controversy under Article III. That supports the proposition that the court has supplemental jurisdiction over state-law claims arising from the same case or controversy as the federal DTSA claim. Subsection pin (a) is correct.",
+        "evidence_excerpt": "in any civil action of which the district courts have original jurisdiction, the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III of the United States Constitution.",
+        "source_urls": [
+          "https:/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "verified-complaint.docx.md",
+      "location": "¶17",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332(a)",
+      "citation_as_written": "28 U.S.C. § 1332(a)",
+      "pincite": "(a)",
+      "cited_for": "Diversity jurisdiction; alleges LLC plaintiff is citizen of Delaware and Pennsylvania (state of formation and principal place of business)",
+      "quotes": [],
+      "context": "This Court also has subject matter jurisdiction pursuant to 28 U.S.C. § 1332(a) because the matter in controversy is between citizens of different states and the amount in controversy exceeds $75,000, exclusive of interest and costs.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The complaint's paraphrase (\"between citizens of different states and the amount in controversy exceeds $75,000, exclusive of interest and costs\") closely tracks the text of § 1332(a) and (a)(1).",
+        "explanation": "28 U.S.C. § 1332(a)(1) gives district courts original jurisdiction where the matter in controversy exceeds $75,000, exclusive of interest and costs, and is between citizens of different States, so the citation is accurate for the rule it is cited for. Separate pleading defect, not a citation defect: the complaint treats the LLC plaintiff as a citizen of its state of organization and principal place of business (Delaware and Pennsylvania). That test appears only in § 1332(c)(1) and only for \"a corporation\"; nothing in § 1332(a) supports it for an LLC. In the Sixth Circuit (the complaint is filed in N.D. Ohio), Delay v. Rosenthal Collins Group, LLC, 585 F.3d 1003 (6th Cir. 2009), holds that \"a limited liability company has the citizenship of each of its members.\" The complaint identifies only the managing member's citizenship (Pennsylvania), so diversity is not properly alleged as written.",
+        "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https:/1332",
+          "https://www.courtlistener.com/opinion/1191604/delay-v-rosenthal-collins-group-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "verified-complaint.docx.md",
+      "location": "¶19",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "(b)(2)",
+      "cited_for": "Venue proper where a substantial part of events occurred",
+      "quotes": [],
+      "context": "Venue is proper in this District pursuant to 28 U.S.C. § 1391(b)(2) because a substantial part of the events or omissions giving rise to Plaintiff's claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The complaint's wording (\"a substantial part of the events or omissions giving rise to Plaintiff's claims occurred in this District\") tracks § 1391(b)(2) nearly verbatim.",
+        "explanation": "§ 1391(b)(2) permits venue in a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred. The citation and pin cite are accurate and support the proposition.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "verified-complaint.docx.md",
+      "location": "¶20",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(1)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(1)",
+      "pincite": "(b)(1)",
+      "cited_for": "Venue proper where defendant resides; corporation resides where subject to personal jurisdiction",
+      "quotes": [],
+      "context": "Venue is also proper in this District pursuant to 28 U.S.C. § 1391(b)(1) because Defendant Eastbrook Manufacturing, Inc. resides in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "§ 1391(b)(1) permits venue in a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located. With a single Ohio defendant, the cited sentence (venue proper because the defendant resides in the district) is supported at the pin cite. Note on the uncited sentence that follows it: the rule that a corporation is deemed to reside where it is subject to personal jurisdiction is not in (b)(1). It comes from § 1391(c)(2) (entity defendant resides in any district where it is subject to personal jurisdiction with respect to the action) and § 1391(d) (multi-district States; this is where the \"at the time an action is commenced\" wording appears). A complete cite for that sentence would be § 1391(c)(2) and (d). The statement of law is substantially accurate.",
+        "evidence_excerpt": "(b) Venue in General.— A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located;",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "verified-complaint.docx.md",
+      "location": "¶121 (Damages)",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, O.R.C. § 1333.63(B)",
+      "citation_as_written": "O.R.C. § 1333.63(B)",
+      "pincite": "(B)",
+      "cited_for": "Authorizes exemplary damages up to twice compensatory award for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Exemplary damages for willful and malicious trade secret misappropriation: up to $25,000,000, representing up to twice the compensatory damages award, as authorized by the Ohio Uniform Trade Secrets Act, O.R.C. § 1333.63(B), and the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "O.R.C. § 1333.63(B) (punitive or exemplary damages 'in an amount not exceeding three times any award made under division (A)')",
+        "quote_check": "No quotation attributed.",
+        "explanation": "R.C. 1333.63(B) is the right subsection and does authorize punitive or exemplary damages for willful and malicious misappropriation, but its cap is three times the compensatory award, not twice. The codes.ohio.gov page lists only one version of the section (eff. July 20, 1994). The complaint attributes a two-times cap to the Ohio statute in para. 121 and says so outright in para. 178 ('not exceeding twice any compensatory award'). Because the $25 million sought (2 x $12.5 million) is within the real three-times cap, the request itself is authorized, and the error understates the plaintiff's own ceiling. If the census treats a misstated statutory multiplier as minor where the relief sought is still authorized, this would be VERIFIED_MINOR_DEFECT; I classed it as mischaracterized because the stated rule is not the rule in the statute.",
+        "evidence_excerpt": "(B) If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A) of this section.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "I agree that the multiplier is wrong but think MISCHARACTERIZED overstates the problem in this paragraph. R.C. 1333.63(B), the only version on codes.ohio.gov (eff. July 20, 1994), reads: 'If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A) of this section.' So the statute does authorize exemplary damages for willful and malicious misappropriation, and the $25,000,000 requested (twice the $12.5M compensatory figure) is inside Ohio's three-times cap. In this paragraph Ohio is cited jointly with the DTSA, and the 'twice' figure is correct for the DTSA: 18 U.S.C. 1836(b)(3)(C) allows 'exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B).' Read fairly, both cited authorities authorize the relief sought. The only defect is that the paragraph implies Ohio's cap is two times, which is a loose description of the multiplier, not a misstatement of what the statute allows here. The clear misstatement of the statute is ref 10 (para. 178).",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https:/1836"
+        ]
+      }
+    },
+    {
+      "ref": 7,
+      "document": "verified-complaint.docx.md",
+      "location": "¶121 (Damages)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Authorizes exemplary damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "as authorized by the Ohio Uniform Trade Secrets Act, O.R.C. § 1333.63(B), and the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to 2 times the damages awarded under subparagraph (B) where the trade secret is willfully and maliciously misappropriated. That matches the proposition and the \"up to twice the compensatory damages\" figure in ¶121 as to the DTSA. The same sentence's \"twice\" figure is wrong for the Ohio statute cited alongside it (see ref 10), but the DTSA pin cite is accurate.",
+        "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B); and",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "verified-complaint.docx.md",
+      "location": "Count IV heading",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, O.R.C. § 1333.61 et seq.",
+      "citation_as_written": "O.R.C. § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Statutory basis for Count IV trade secret misappropriation",
+      "quotes": [],
+      "context": "MISAPPROPRIATION OF TRADE SECRETS — OHIO UNIFORM TRADE SECRETS ACT (O.R.C. § 1333.61 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "R.C. 1333.61 is titled 'Uniform trade secrets act definitions' and opens Ohio's Uniform Trade Secrets Act, which by its own terms runs through section 1333.69. It defines 'misappropriation' (div. (B)) and 'trade secret' (div. (D)), and section 1333.63 gives a civil damages action for misappropriation. '1333.61 et seq.' is an accurate citation for the statutory basis of Count IV.",
+        "evidence_excerpt": "Section 1333.61 | Uniform trade secrets act definitions. As used in sections 1333.61 to 1333.69 of the Revised Code, unless the context requires otherwise: ... (B) \"Misappropriation\" means any of the following:",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "verified-complaint.docx.md",
+      "location": "¶167 (Count IV)",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, O.R.C. § 1333.61(D)",
+      "citation_as_written": "O.R.C. § 1333.61(D)",
+      "pincite": "(D)",
+      "cited_for": "Definition of 'trade secrets'",
+      "quotes": [],
+      "context": "constitute \"trade secrets\" within the meaning of the Ohio Uniform Trade Secrets Act, O.R.C. § 1333.61(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No extended quotation. The quoted term 'trade secrets' corresponds to the defined term 'Trade secret' in div. (D).",
+        "explanation": "Division (D) of R.C. 1333.61 is the definition of 'trade secret', so the pin cite is correct. The definition expressly covers 'business information or plans, financial information, or listing of names, addresses, or telephone numbers', subject to the independent-economic-value and reasonable-secrecy requirements. That is the category the complaint invokes for its customer lists, pricing models and sales data; whether those facts satisfy the two requirements is a merits question, not a citation defect.",
+        "evidence_excerpt": "(D) \"Trade secret\" means information, including the whole or any portion or phase of any scientific or technical information, design, process, procedure, formula, pattern, compilation, program, device, method, technique, or improvement, or any business information or plans, financial information, or listing of names, addresses, or telephone numbers, that satisfies both of the following:",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "verified-complaint.docx.md",
+      "location": "¶178 (Count IV)",
+      "authority_type": "statute",
+      "authority": "O.R.C. § 1333.63(B)",
+      "citation_as_written": "O.R.C. § 1333.63(B)",
+      "pincite": "(B)",
+      "cited_for": "Where willful and malicious misappropriation exists, court may award exemplary damages not exceeding twice compensatory award",
+      "quotes": [],
+      "context": "Under O.R.C. § 1333.63(B), where willful and malicious misappropriation exists, the court may award exemplary damages in an amount not exceeding twice any compensatory award. Crescent Ridge is entitled to exemplary damages of up to $25,000,000.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "O.R.C. § 1333.63(B) (punitive or exemplary damages \"in an amount not exceeding three times any award made under division (A)\")",
+        "quote_check": "No quotation attributed. The complaint's paraphrase (\"not exceeding twice any compensatory award\") departs from the statutory text, which says \"three times.\"",
+        "explanation": "The section and division exist and do authorize exemplary damages for willful and malicious misappropriation, but the complaint misstates the cap. Ohio's statute allows punitive or exemplary damages up to three times the division (A) award, not twice. The \"twice\" multiplier is the rule in the DTSA, 18 U.S.C. § 1836(b)(3)(C), and the Uniform Act, not Ohio's. On the pleaded $12.5 million compensatory figure the Ohio cap would be $37.5 million, not $25 million; the same error appears in ¶121. The misstatement understates the plaintiff's own ceiling, so if the multiplier is treated as a small defect this would be VERIFIED_MINOR_DEFECT instead.",
+        "evidence_excerpt": "(B) If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A) of this section.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. Para. 178 attributes a specific rule to R.C. 1333.63(B), exemplary damages 'not exceeding twice any compensatory award', and the statute does not say that. codes.ohio.gov shows a single version (eff. July 20, 1994): 'the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A) of this section.' 'Not more than 2 times' is the federal DTSA rule (18 U.S.C. 1836(b)(3)(C)), not Ohio's. I found no version of the Ohio statute with a two-times cap. The section is real and right that willful and malicious misappropriation triggers exemplary damages, but the paragraph states the cap incorrectly. The error understates the plaintiff's own ceiling, so the requested $25M is still authorized. That softens the practical harm but does not change that the stated rule is not the statute's rule.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https:/1836"
+        ]
+      }
+    },
+    {
+      "ref": 11,
+      "document": "verified-complaint.docx.md",
+      "location": "¶179 (Count IV)",
+      "authority_type": "statute",
+      "authority": "O.R.C. § 1333.62",
+      "citation_as_written": "O.R.C. § 1333.62",
+      "pincite": "",
+      "cited_for": "Preliminary and permanent injunctive relief against misappropriation",
+      "quotes": [],
+      "context": "Crescent Ridge seeks preliminary and permanent injunctive relief under O.R.C. § 1333.62 to prevent Eastbrook from any further use, disclosure, or exploitation of Crescent Ridge's trade secrets",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "O.R.C. § 1333.62 (\"Injunction against misappropriation\") provides in division (A) that actual or threatened misappropriation may be enjoined, and in division (C) that affirmative acts to protect a trade secret may be compelled by court order. That supports the request for preliminary and permanent injunctive relief against further use or disclosure and for return or destruction of the data.",
+        "evidence_excerpt": "(A) Actual or threatened misappropriation may be enjoined. ... (C) In appropriate circumstances, affirmative acts to protect a trade secret may be compelled by court order.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "verified-complaint.docx.md",
+      "location": "¶180 (Count IV)",
+      "authority_type": "statute",
+      "authority": "O.R.C. § 1333.62",
+      "citation_as_written": "O.R.C. § 1333.62",
+      "pincite": "",
+      "cited_for": "Order requiring Eastbrook to identify persons to whom trade secrets were disclosed",
+      "quotes": [],
+      "context": "Crescent Ridge further seeks an order under O.R.C. § 1333.62 requiring Eastbrook to identify all persons and entities to whom Crescent Ridge's trade secrets have been disclosed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.R.C. § 1333.62(C)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Section 1333.62 does not mention an order to identify recipients of disclosed trade secrets. Division (C) does authorize the court, \"in appropriate circumstances,\" to compel \"affirmative acts to protect a trade secret.\" An order to identify the persons to whom the secrets were disclosed and to prevent further dissemination is a reasonable reading of that power, so the section fairly supports the relief sought. A pin cite to division (C) would be more precise.",
+        "evidence_excerpt": "(C) In appropriate circumstances, affirmative acts to protect a trade secret may be compelled by court order.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.62"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "verified-complaint.docx.md",
+      "location": "¶181 (Count IV)",
+      "authority_type": "statute",
+      "authority": "O.R.C. § 1333.64",
+      "citation_as_written": "O.R.C. § 1333.64",
+      "pincite": "",
+      "cited_for": "Attorneys' fees for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Crescent Ridge is also entitled to attorneys' fees under O.R.C. § 1333.64, as Eastbrook's misappropriation was willful and malicious.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "O.R.C. § 1333.64(C)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "O.R.C. § 1333.64 (\"Attorney's fees\") permits the court to award reasonable attorney's fees to the prevailing party where willful and malicious misappropriation exists (division (C)). That supports the proposition. The complaint's word \"entitled\" overstates it slightly: the award is discretionary (\"may award\") and goes only to the prevailing party. That is ordinary pleading advocacy, not a mischaracterization.",
+        "evidence_excerpt": "The court may award reasonable attorney's fees to the prevailing party, if any of the following applies: (A) A claim of misappropriation is made in bad faith. (B) A motion to terminate an injunction is made or resisted in bad faith. (C) Willful and malicious misappropriation exists.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "verified-complaint.docx.md",
+      "location": "¶182 (Count IV WHEREFORE)",
+      "authority_type": "statute",
+      "authority": "O.R.C. § 1333.64",
+      "citation_as_written": "O.R.C. § 1333.64",
+      "pincite": "",
+      "cited_for": "Attorneys' fees requested in Count IV prayer",
+      "quotes": [],
+      "context": "attorneys' fees under O.R.C. § 1333.64, and costs.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "R.C. 1333.64 (Ohio UTSA, eff. July 20, 1994, single version) is the attorney's-fees provision. It lets the court award reasonable attorney's fees to the prevailing party where, among other grounds, 'willful and malicious misappropriation exists' (div. (C)). Complaint para. 181 pleads willful and malicious misappropriation, so the Count IV fee request cites the right section. The award is discretionary ('may') and limited to a prevailing party, which is consistent with a prayer for relief.",
+        "evidence_excerpt": "The court may award reasonable attorney's fees to the prevailing party, if any of the following applies: (A) A claim of misappropriation is made in bad faith. (B) A motion to terminate an injunction is made or resisted in bad faith. (C) Willful and malicious misappropriation exists.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "verified-complaint.docx.md",
+      "location": "¶184 (Count V)",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq.",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Federal trade secret claim pleaded in the alternative to Count IV",
+      "quotes": [],
+      "context": "In the alternative to Count IV, and pursuant to the Defend Trade Secrets Act of 2016, 18 U.S.C. § 1836 et seq. (the \"DTSA\"), Crescent Ridge asserts a federal trade secret misappropriation claim against Eastbrook.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The name, year and code cite are accurate: Pub. L. 114-153 § 1 provides the short title \"Defend Trade Secrets Act of 2016\" and § 2 amends 18 U.S.C. § 1836 to create a private civil action for trade secret misappropriation. The statute supports asserting a federal trade secret misappropriation claim. Pleading the count in the alternative to Count IV is the complaint's own framing; the statute neither requires nor bars it. The related pin cites used in Count V also match the text: § 1839(5) defines \"misappropriation\", and § 1836(b)(3)(A)-(D) provide injunctive relief, damages for actual loss and unjust enrichment, exemplary damages of not more than 2 times the damages awarded, and attorney's fees for willful and malicious misappropriation.",
+        "evidence_excerpt": "SECTION 1. SHORT TITLE. This Act may be cited as the ``Defend Trade Secrets Act of 2016''. SEC. 2. FEDERAL JURISDICTION FOR THEFT OF TRADE SECRETS. (a) In General.--Section 1836 of title 18, United States Code, is amended by striking subsection (b) and inserting the following: ``(b) Private Civil Actions.--",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm",
+          "https:/1836",
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "verified-complaint.docx.md",
+      "location": "Count V heading",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Statutory basis for Count V",
+      "quotes": [],
+      "context": "MISAPPROPRIATION OF TRADE SECRETS — FEDERAL DEFEND TRADE SECRETS ACT (18 U.S.C. § 1836)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "18 U.S.C. § 1836, as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153), is the section that creates the federal private civil action for misappropriation of trade secrets, in subsection (b)(1). It is the correct statutory basis for a count headed as a federal DTSA misappropriation claim. A more precise pin would be § 1836(b), but citing the section in a count heading is accurate.",
+        "evidence_excerpt": "(b) Private Civil Actions.— (1) In general.— An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https:/1836",
+          "https://www.govinfo.gov/content/pkg/PLAW-114publ153/html/PLAW-114publ153.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "verified-complaint.docx.md",
+      "location": "¶187 (Count V)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1839(5)",
+      "citation_as_written": "18 U.S.C. § 1839(5)",
+      "pincite": "(5)",
+      "cited_for": "Definition of misappropriation (acquisition through improper means)",
+      "quotes": [],
+      "context": "Eastbrook misappropriated Crescent Ridge's trade secrets, as defined under 18 U.S.C. § 1839(5), by acquiring Crescent Ridge's trade secrets through improper means",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "18 U.S.C. § 1839(5) defines \"misappropriation,\" and (5)(A) covers acquisition of another's trade secret by a person who knows or has reason to know it was acquired by improper means. That supports the complaint's theory of misappropriation by acquisition through improper means. (\"Improper means\" is separately defined in § 1839(6), but the cite is to the misappropriation definition, which is paragraph (5).)",
+        "evidence_excerpt": "(5) the term \"misappropriation\" means— (A) acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; or (B) disclosure or use of a trade secret of another without express or implied consent",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1839.htm",
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "verified-complaint.docx.md",
+      "location": "¶192 (Count V)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(B)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(B)",
+      "pincite": "(b)(3)(B)",
+      "cited_for": "Damages for actual loss and unjust enrichment not addressed in actual loss",
+      "quotes": [],
+      "context": "including both the actual loss caused by the misappropriation and the unjust enrichment caused by the misappropriation that is not addressed in computing damages for actual loss, as provided under 18 U.S.C. § 1836(b)(3)(B).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint's wording is a near-verbatim paraphrase of (B)(i)(I)-(II).",
+        "explanation": "Section 1836(b)(3)(B)(i) authorizes damages for actual loss caused by the misappropriation plus damages for unjust enrichment not addressed in computing actual loss, exactly as the complaint describes.",
+        "evidence_excerpt": "(B) award— (i)(I) damages for actual loss caused by the misappropriation of the trade secret; and (II) damages for any unjust enrichment caused by the misappropriation of the trade secret that is not addressed in computing damages for actual loss",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "verified-complaint.docx.md",
+      "location": "¶193 (Count V)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Exemplary damages up to two times compensatory damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "exemplary damages of up to $25,000,000 under 18 U.S.C. § 1836(b)(3)(C), which authorizes an award of exemplary damages not more than two times the amount of compensatory damages where the trade secret is willfully and maliciously misappropriated.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint says \"not more than two times the amount of compensatory damages\"; the statute says \"not more than 2 times the amount of the damages awarded under subparagraph (B)\" -- a fair paraphrase.",
+        "explanation": "Section 1836(b)(3)(C) authorizes exemplary damages of up to two times the subparagraph (B) damages where the trade secret is willfully and maliciously misappropriated. The complaint's description is accurate; \"compensatory damages\" is a reasonable shorthand for the (B) award.",
+        "evidence_excerpt": "(C) if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "verified-complaint.docx.md",
+      "location": "¶194 (Count V)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(A)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(A)",
+      "pincite": "(b)(3)(A)",
+      "cited_for": "Injunctive relief against actual or threatened misappropriation",
+      "quotes": [],
+      "context": "Crescent Ridge seeks preliminary and permanent injunctive relief under 18 U.S.C. § 1836(b)(3)(A) to prevent any actual or threatened misappropriation",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes. The complaint's paraphrase (\"prevent any actual or threatened misappropriation\"; \"affirmative steps to protect\") tracks subparagraphs (A)(i) and (A)(ii).",
+        "explanation": "18 U.S.C. § 1836(b)(3)(A) authorizes a court to grant an injunction to prevent any actual or threatened misappropriation and, where appropriate, to require affirmative actions to protect the trade secret. That supports the request for injunctive relief, including the return-or-destroy request as an affirmative-action remedy.",
+        "evidence_excerpt": "(A) grant an injunction— (i) to prevent any actual or threatened misappropriation described in paragraph (1) on such terms as the court deems reasonable ... (ii) if determined appropriate by the court, requiring affirmative actions to be taken to protect the trade secret",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "verified-complaint.docx.md",
+      "location": "¶195 (Count V)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "(b)(3)(D)",
+      "cited_for": "Attorneys' fees for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Crescent Ridge is also entitled to an award of reasonable attorneys' fees under 18 U.S.C. § 1836(b)(3)(D), as Eastbrook's misappropriation was willful and malicious.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Section 1836(b)(3)(D) permits an award of reasonable attorney's fees to the prevailing party where the trade secret was willfully and maliciously misappropriated. The complaint's \"entitled to\" overstates a discretionary (\"a court may\") prevailing-party remedy, but that is ordinary pleading rhetoric; the cited provision is the correct fee authority and the willful-and-malicious predicate is correctly stated.",
+        "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, which may be established by circumstantial evidence, a motion to terminate an injunction is made or opposed in bad faith, or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https:/1836",
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "verified-complaint.docx.md",
+      "location": "¶196 (Count V WHEREFORE)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "(b)(3)(D)",
+      "cited_for": "Attorneys' fees requested in Count V prayer",
+      "quotes": [],
+      "context": "attorneys' fees under 18 U.S.C. § 1836(b)(3)(D), and costs.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The Count V prayer seeks \"attorneys' fees under 18 U.S.C. § 1836(b)(3)(D), and costs.\" Subparagraph (D) authorizes reasonable attorney's fees to the prevailing party for willful and malicious misappropriation. Here \"costs\" is requested separately and is not attributed to (D), so the citation is accurate.",
+        "evidence_excerpt": "or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https:/1836",
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "verified-complaint.docx.md",
+      "location": "Prayer for Relief (f)",
+      "authority_type": "statute",
+      "authority": "O.R.C. § 1333.64",
+      "citation_as_written": "O.R.C. § 1333.64",
+      "pincite": "",
+      "cited_for": "Attorneys' fees and costs authorized by Ohio UTSA",
+      "quotes": [],
+      "context": "Attorneys' fees and costs of suit, as authorized by the Ohio Uniform Trade Secrets Act, O.R.C. § 1333.64, and the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(D);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "R.C. 1333.64 supports the attorney's-fees half of the proposition: reasonable fees to the prevailing party where willful and malicious misappropriation exists. The defect is that prayer (f) says 'Attorneys' fees and costs of suit, as authorized by' section 1333.64, and the section says nothing about costs. That is loose prayer-clause drafting, not a wrong citation; the complaint's own para. 182 separates the two correctly ('attorneys' fees under O.R.C. 1333.64, and costs'). I did not check the paired DTSA cite, 18 U.S.C. 1836(b)(3)(D), which is outside this ref.",
+        "evidence_excerpt": "The court may award reasonable attorney's fees to the prevailing party, if any of the following applies: ... (C) Willful and malicious misappropriation exists.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.64"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "verified-complaint.docx.md",
+      "location": "Prayer for Relief (f)",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "(b)(3)(D)",
+      "cited_for": "Attorneys' fees and costs authorized by DTSA",
+      "quotes": [],
+      "context": "as authorized by the Ohio Uniform Trade Secrets Act, O.R.C. § 1333.64, and the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(D);",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Prayer (f) seeks \"Attorneys' fees and costs of suit, as authorized by ... 18 U.S.C. § 1836(b)(3)(D).\" Subparagraph (D) does authorize reasonable attorney's fees to the prevailing party (on bad faith or willful and malicious misappropriation), so the citation is correct for fees. It says nothing about costs; the word does not appear in (D) or elsewhere in § 1836(b)(3). The attribution is therefore slightly over-broad as to \"costs of suit\" -- a loose attribution, not a wrong citation. I did not check the Ohio statute cited alongside it (O.R.C. § 1333.64), which is outside this ref.",
+        "evidence_excerpt": "(D) if a claim of the misappropriation is made in bad faith, which may be established by circumstantial evidence, a motion to terminate an injunction is made or opposed in bad faith, or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.",
+        "source_urls": [
+          "https:/1836",
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title18/html/USCODE-2024-title18-partI-chap90-sec1836.htm"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "verified-complaint.docx.md",
+      "location": "Verification",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1746",
+      "citation_as_written": "28 U.S.C. § 1746",
+      "pincite": "",
+      "cited_for": "Declaration under penalty of perjury verifying the complaint",
+      "quotes": [],
+      "context": "state under penalty of perjury pursuant to 28 U.S.C. § 1746 that I have read the foregoing Verified Complaint and that the factual allegations contained therein are true and correct",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The verification's wording departs from the statutory form (see explanation) but does not purport to quote it.",
+        "explanation": "§ 1746 allows a matter that must or may be supported by a sworn verification to be supported instead by an unsworn written declaration or verification subscribed as true under penalty of perjury. It is the correct authority for an unsworn verification of a complaint. Compliance points about the verification itself, not the citation: (1) the statute requires the declaration to be \"dated\" and in \"substantially\" the prescribed form (\"...that the foregoing is true and correct. Executed on (date).\"), and the verification block in the supplied text has a signature line but no date or \"Executed on\" line; (2) the declarant qualifies the statement as true \"to the best of my knowledge, information, and belief\" and partly on information and belief, which is narrower than the statutory \"true and correct\" form.",
+        "evidence_excerpt": "such matter may, with like force and effect, be supported, evidenced, established, or proved by the unsworn declaration, certificate, verification, or statement, in writing of such person which is subscribed by him, as true under penalty of perjury, and dated, in substantially the following form",
+        "source_urls": [
+          "https:/1746"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "verified-complaint.docx.md",
+      "location": "Certificate of Service",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 4(h)",
+      "citation_as_written": "Federal Rule of Civil Procedure 4(h)",
+      "pincite": "4(h)",
+      "cited_for": "Service of summons and complaint on a corporation",
+      "quotes": [],
+      "context": "service of the Summons and Verified Complaint upon Defendant Eastbrook Manufacturing, Inc. will be effected via certified mail, return receipt requested, and personal service by a process server, pursuant to Federal Rule of Civil Procedure 4(h)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Fed. R. Civ. P. 4(h) is the rule governing service on a corporation. Rule 4(h)(1)(B) covers delivery to an officer or a managing, general or authorized agent (the personal service on the CEO and registered agent). Rule 4(h)(1)(A) incorporates Rule 4(e)(1), which allows service under state law, and that is the route for certified mail. Rule 4(h) does not itself authorize mail service. I confirmed the Ohio side only from a search-result summary of Ohio Civ.R. 4.1(A)(1) and 4.2(F), not the primary rule text: it describes certified mail service on a corporation at its usual place of business as made by the clerk, so mailing by counsel may not qualify. That goes to how service is carried out, not to whether 4(h) is the right rule.",
+        "evidence_excerpt": "(h) Serving a Corporation, Partnership, or Association. Unless federal law provides otherwise or the defendant's waiver has been filed, a domestic or foreign corporation ... must be served: (1) in a judicial district of the United States: (A) in the manner prescribed by Rule 4(e)(1) for serving an individual; or (B) by delivering a copy of the summons and of the complaint to an officer, a managing or general agent, or any other agent authorized by appointment or by law to receive service of process",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "lis-pendens.docx.md",
+      "location": "Header ('Filed Pursuant to')",
+      "authority_type": "statute",
+      "authority": "Ohio Revised Code § 2703.26",
+      "citation_as_written": "Ohio Revised Code § 2703.26",
+      "pincite": "",
+      "cited_for": "Statutory basis for filing the notice of lis pendens",
+      "quotes": [],
+      "context": "NOTICE OF LIS PENDENS Filed Pursuant to Ohio Revised Code § 2703.26",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "R.C. 2703.26 ('Lis pendens in general', current version eff. Sept. 11, 2008) is Ohio's codification of lis pendens, so the header names the correct statute for a notice of lis pendens. Caveat: the section is self-executing on the filing of a complaint and contains no procedure for recording a notice with a county recorder, so 'Filed Pursuant to' is loose. Whether the statute actually reaches this action is a separate question, addressed under ref 28.",
+        "evidence_excerpt": "When a complaint is filed, the action is pending so as to charge a third person with notice of its pendency. While pending, no interest can be acquired by third persons in the subject of the action, as against the plaintiff's title.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2703.26",
+          "https://www.courtlistener.com/opinion/6898572/beneficial-ohio-inc-v-ellis/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "lis-pendens.docx.md",
+      "location": "Opening paragraph",
+      "authority_type": "statute",
+      "authority": "Ohio Revised Code § 2703.26",
+      "citation_as_written": "Ohio Revised Code § 2703.26",
+      "pincite": "",
+      "cited_for": "Notice that the action 'affects or may affect' the described real property",
+      "quotes": [],
+      "context": "hereby gives notice pursuant to Ohio Revised Code § 2703.26 that an action has been commenced in the United States District Court for the Northern District of Ohio, Eastern Division, bearing Case No. 1:24-cv-02187, which action affects or may affect the real property described herein.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The notice's phrase 'affects or may affect the real property' is not statutory language; R.C. 2703.26 speaks of 'the subject of the action' and 'the plaintiff's title'.",
+        "explanation": "The notice invokes R.C. 2703.26 for an action that 'affects or may affect' Eastbrook's real property, a standard the statute does not contain. The statute protects only against third-party interests acquired 'in the subject of the action, as against the plaintiff's title'. Ohio courts read it to require that the property be 'directly affected by the judgment in the pending suit', and hold that 'An action for money damages only is not subject to the doctrine of lis pendens' (Bradford v. Reid, 126 Ohio App.3d 448, 452-53 (1st Dist. 1998), applying an earlier version with the same operative second sentence). The action the notice itself describes is contract, trade-secret, tortious-interference and unjust-enrichment claims seeking damages, with no claim to title or an interest in Parcel No. 67-04421. The statute is real and correctly cited, but it does not support the proposition. This appears to be the defect the task plants (rubric: lis pendens improper).",
+        "evidence_excerpt": "R.C. 2703.26: \"While pending, no interest can be acquired by third persons in the subject of the action, as against the plaintiff's title.\" Bradford v. Reid: \"(4) the property be directly affected by the judgment in the pending suit. ... An action for money damages only is not subject to the doctrine of lis pendens.\"",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2703.26",
+          "https://www.courtlistener.com/opinion/3981501/bradford-v-reid/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. R.C. 2703.26 (codes.ohio.gov, eff. Sept. 11, 2008) reads in full: 'When a complaint is filed, the action is pending so as to charge a third person with notice of its pendency. While pending, no interest can be acquired by third persons in the subject of the action, as against the plaintiff's title.' It does not contain an 'affects or may affect' standard; it protects only the plaintiff's title in property that is the subject of the action. Bradford v. Reid, 126 Ohio App.3d 448 (1st Dist. 1998) (CourtListener cluster 3981501), confirms the reading: lis pendens requires 'the property be directly affected by the judgment in the pending suit', and at *452 'An action for money damages only is not subject to the doctrine of lis pendens.' At *453 it adds that the possibility a sale could fund a recovery is only 'an indirect effect on the property.' The notice itself describes seven contract, trade-secret, tortious-interference and unjust-enrichment claims seeking more than $62.9M in damages. Neither the complaint nor the notice asserts any claim to title in, or an interest in, Parcel No. 67-04421. Complaint para. 22 says only that the notice was filed 'to protect Plaintiff's interest in the subject matter of this litigation.' The statute is real and correctly cited but does not support a lis pendens on the defendant's unrelated real property.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-2703.26",
+          "https://www.courtlistener.com/opinion/3981501/bradford-v-reid/"
+        ]
+      }
+    },
+    {
+      "ref": 29,
+      "document": "lis-pendens.docx.md",
+      "location": "Description of Pending Action",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, Ohio Revised Code § 1333.61 et seq.",
+      "citation_as_written": "Ohio Revised Code § 1333.61 et seq.",
+      "pincite": "",
+      "cited_for": "Describes one of the claims in the pending action (trade secret misappropriation)",
+      "quotes": [],
+      "context": "(2) misappropriation of trade secrets under the Ohio Uniform Trade Secrets Act, Ohio Revised Code § 1333.61 et seq.;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed to this authority.",
+        "explanation": "Ohio Revised Code sections 1333.61 to 1333.69 are Ohio's Uniform Trade Secrets Act. Section 1333.61 is the definitions section and the first section of the act (defining \"misappropriation\" and \"trade secret\"); section 1333.69 provides the short title; section 1333.63 provides a civil damages remedy for misappropriation. Citing \"Ohio Revised Code § 1333.61 et seq.\" as the Ohio Uniform Trade Secrets Act for a trade-secret misappropriation claim is accurate. The statute's own short title is \"Uniform Trade Secrets Act\"; \"Ohio Uniform Trade Secrets Act\" is the conventional name and not a defect. Side note outside the citation itself: the lis pendens lists this claim as item (2), while the verified complaint pleads it as Count IV under the same citation (O.R.C. § 1333.61 et seq.); that is an internal numbering difference between the documents, not a citation error.",
+        "evidence_excerpt": "Section 1333.61 | Uniform trade secrets act definitions. \"As used in sections 1333.61 to 1333.69 of the Revised Code, unless the context requires otherwise:\" ... Section 1333.69 | Title of act. \"Sections 1333.61 to 1333.69 of the Revised Code may be cited as the 'Uniform Trade Secrets Act.'\" (Effective: July 20, 1994)",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.61",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.69",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63",
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.67"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "lis-pendens.docx.md",
+      "location": "Description of Pending Action",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act, 18 U.S.C. § 1836",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Describes one of the claims in the pending action (federal trade secret misappropriation)",
+      "quotes": [],
+      "context": "(3) misappropriation of trade secrets under the Federal Defend Trade Secrets Act, 18 U.S.C. § 1836;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "18 U.S.C. § 1836 (\"Civil proceedings\"), as amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114-153), creates the federal private civil action for trade secret misappropriation in subsection (b). Citing it as the basis for a federal trade secret misappropriation claim is accurate.",
+        "evidence_excerpt": "(b) Private Civil Actions.— (1) In general.— An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "distribution-agreement.docx.md",
+      "location": "Section 10.1(b) (Arbitration)",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 1–16",
+      "citation_as_written": "9 U.S.C. §§ 1–16",
+      "pincite": "",
+      "cited_for": "Arbitration under the Agreement is governed by the FAA to the extent applicable",
+      "quotes": [],
+      "context": "The arbitration shall be governed by the Federal Arbitration Act, 9 U.S.C. §§ 1–16, to the extent applicable.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Chapter 1 of Title 9 (the Federal Arbitration Act's general provisions) runs from § 1 through § 16, so \"9 U.S.C. §§ 1–16\" is the standard and accurate citation. Section 2 makes written arbitration provisions in contracts involving commerce valid and enforceable. A contract clause choosing the FAA to govern arbitration \"to the extent applicable\" is a correct use of the cite.",
+        "evidence_excerpt": "§ 1. “Maritime transactions” and “commerce” defined; exceptions to operation of title § 2. Validity, irrevocability, and enforcement of agreements to arbitrate ... § 15. Inapplicability of the Act of State doctrine § 16. Appeals",
+        "source_urls": [
+          "https:/chapter-1",
+          "https:/2",
+          "https:/16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "task.json.md",
+      "location": "rubric C-007",
+      "authority_type": "statute",
+      "authority": "Ohio Uniform Trade Secrets Act, O.R.C. § 1333.63(B)",
+      "citation_as_written": "O.R.C. § 1333.63(B)",
+      "pincite": "(B)",
+      "cited_for": "Exemplary damages under Ohio UTSA require willful and malicious misappropriation",
+      "quotes": [],
+      "context": "PASS if the memo identifies that Count IV's claim for exemplary/punitive damages under the Ohio Uniform Trade Secrets Act (O.R.C. § 1333.63(B) or equivalent) requires a showing of willful and malicious misappropriation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The rubric says exemplary/punitive damages under the Ohio UTSA (R.C. 1333.63(B)) require a showing of willful and malicious misappropriation. That matches the statutory text: such damages are conditioned on willful and malicious misappropriation existing. The pin cite to division (B) is correct, and the rubric makes no claim about the multiplier.",
+        "evidence_excerpt": "(B) If willful and malicious misappropriation exists, the court may award punitive or exemplary damages in an amount not exceeding three times any award made under division (A) of this section.",
+        "source_urls": [
+          "https://codes.ohio.gov/ohio-revised-code/section-1333.63"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

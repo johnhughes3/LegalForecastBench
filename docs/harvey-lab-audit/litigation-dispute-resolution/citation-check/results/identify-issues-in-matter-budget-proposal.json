@@ -1,0 +1,182 @@
+{
+  "task": "identify-issues-in-matter-budget-proposal",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "colton-ocg-v4.2.docx.md",
+    "matter-budget-proposal.docx.md",
+    "prior-year-budget-actuals.xlsx.md",
+    "rate-increase-notice.eml.md",
+    "task.json.md",
+    "timekeeper-addition-notice.eml.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "matter-budget-proposal.docx.md",
+      "location": "Section 1: Executive Summary, para. 2",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "O.C.G.A. § 10-1-761 et seq.",
+      "pincite": "",
+      "cited_for": "Colton's second cause of action alleges misappropriation of trade secrets in violation of the Georgia Trade Secrets Act.",
+      "quotes": [],
+      "context": "(2) misappropriation of trade secrets in violation of the Georgia Trade Secrets Act, O.C.G.A. § 10-1-761 et seq.; (3) breach of fiduciary duty; and (4) unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-760 et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Georgia Trade Secrets Act is real and provides a misappropriation claim. However, the Act begins at § 10-1-760 (Short Title), and Georgia courts cite it as 'OCGA § 10-1-760 et seq.' Section 10-1-761 is the Definitions section. Starting the et seq. cite at 761 still covers the operative provisions (761 definitions through 767), so this is a small citation defect, not a wrong authority.",
+        "evidence_excerpt": "a claim under the Georgia Trade Secrets Act of 1990 ( OCGA § 10-1-760 et seq. ) [One Sixty Over Ninety, 351 Ga. App. 133]; section list: '§ 10-1-760 - Short Title; § 10-1-761 - Definitions; § 10-1-762 - Injunctive Relief; § 10-1-763 - Recovery of Damages'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4639656/one-sixty-over-ninety-llc-v-board-of-regents-of-the-university-system-of/",
+          "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html",
+          "https://law.justia.com/codes/georgia/2020/title-10/chapter-1/article-27/section-10-1-761/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "matter-budget-proposal.docx.md",
+      "location": "Section 2.3 (L400 Motion Practice)",
+      "authority_type": "case",
+      "authority": "Daubert (Daubert v. Merrell Dow Pharmaceuticals, Inc., as commonly referenced; name only, no cite given)",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "The L400 phase accounts for potential Daubert or expert exclusion motions prompted by opinions of Ridgewater's retained experts.",
+      "quotes": [],
+      "context": "Additionally, this phase accounts for potential Daubert or expert exclusion motions that may be necessitated by the opinions offered by Ridgewater's retained experts.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The budget uses 'Daubert' only as the common name for a motion to exclude expert testimony, not as a cite for a holding. Daubert is the Supreme Court case setting the standard for admitting expert scientific testimony, so describing expert-exclusion motions as 'Daubert motions' is accurate. The matter is in Georgia state court (Fulton County Superior Court). The Georgia Supreme Court cites Daubert in its expert-admissibility decisions (e.g., Miller v. Golden Peanut Co., 317 Ga. 22 (2023); Monroe v. State, 313 Ga. 458 (2022)), so the label fits there too.",
+        "evidence_excerpt": "509 U.S. 579 (1993) ... In this case we are called upon to determine the standard for admitting expert scientific testimony in a federal trial.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/",
+          "https://www.courtlistener.com/opinion/10680052/miller-v-golden-peanut-company-llc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "matter-budget-proposal.docx.md",
+      "location": "Section 4.6 Boyd Whitaker — Partner (Advisory Role)",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "O.C.G.A. § 10-1-761",
+      "pincite": "",
+      "cited_for": "Whitaker has extensive experience litigating claims under the Georgia trade secrets statute.",
+      "quotes": [],
+      "context": "given his deep expertise in Georgia trade secrets law, including extensive experience litigating claims under O.C.G.A. § 10-1-761.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-760 et seq. (Georgia Trade Secrets Act); misappropriation is defined at § 10-1-761(2)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 10-1-761 is the Act's Definitions section, which defines 'trade secret' and 'misappropriation' (§ 10-1-761(2)). The remedies for a claim are in §§ 10-1-762 (injunctive relief) and 10-1-763 (damages). Calling these 'claims under § 10-1-761' is an imprecise shorthand for claims under the whole Act, though the provision is closely tied to the elements of the claim. It is a minor citation defect only. The cite is used for an attorney's experience, which is not a legal proposition.",
+        "evidence_excerpt": "§ 10-1-761 - Definitions; § 10-1-762 - Injunctive Relief; § 10-1-763 - Recovery of Damages; O.C.G.A. 10-1-761(2), 'Misappropriation' means: (A) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means...",
+        "source_urls": [
+          "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html",
+          "https://law.justia.com/codes/georgia/2020/title-10/chapter-1/article-27/section-10-1-761/",
+          "https://www.courtlistener.com/opinion/4639656/one-sixty-over-ninety-llc-v-board-of-regents-of-the-university-system-of/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "matter-budget-proposal.docx.md",
+      "location": "Section 6, Conflicts Certification",
+      "authority_type": "regulation",
+      "authority": "Rules of Professional Conduct (applicable, unspecified jurisdiction)",
+      "citation_as_written": "applicable Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "The firm certifies a conflicts review was conducted in accordance with internal policies and the applicable Rules of Professional Conduct.",
+      "quotes": [],
+      "context": "Whitfield Garrett LLP certifies that it has conducted a conflicts review in accordance with its internal policies and the applicable Rules of Professional Conduct and is not aware of any conflicts of interest",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a generic reference to 'the applicable Rules of Professional Conduct,' with no rule number or jurisdiction given. The matter is in Fulton County, Georgia, and the lead partner is admitted in North Carolina and Georgia. Georgia has Rules of Professional Conduct that include conflict-of-interest rules (e.g., Rule 1.7), so the generic reference is accurate. With no specific rule cited, there is nothing more precise to check, and a generic compliance certification is a normal use.",
+        "evidence_excerpt": "FAO 10-2 interprets and discusses various provisions of the Georgia Rules of Professional Conduct, including Rule 1.14",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/7477929/in-re-formal-advisory-opinion-no-16-2/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "matter-budget-proposal.docx.md",
+      "location": "Section 9: Conclusion and Approval Request",
+      "authority_type": "statute",
+      "authority": "Georgia Trade Secrets Act",
+      "citation_as_written": "O.C.G.A. § 10-1-761",
+      "pincite": "",
+      "cited_for": "Complexity of the trade secrets claims under the Georgia statute supports the proposed budget.",
+      "quotes": [],
+      "context": "Based on our assessment of the case, including the complexity of the trade secrets claims under O.C.G.A. § 10-1-761, the substantial volume of discovery involving approximately 2.5 million documents",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "O.C.G.A. § 10-1-760 et seq.",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Like ref 2, this cites the Definitions section (§ 10-1-761) as shorthand for trade secrets claims under the Georgia Trade Secrets Act, which begins at § 10-1-760. The statute is real and the reference fits. It is used only to describe the claims' complexity, and the only flaw is the imprecise section number.",
+        "evidence_excerpt": "Georgia Trade Secrets Act of 1990 ( OCGA § 10-1-760 et seq. ); '§ 10-1-761 - Definitions'",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/4639656/one-sixty-over-ninety-llc-v-board-of-regents-of-the-university-system-of/",
+          "https://law.onecle.com/georgia/title-10/chapter-1/article-27/index.html"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "matter-budget-proposal.docx.md",
+      "location": "Assumptions section, item 4 (Dispositive Motions)",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc. (name only, 'Daubert motions')",
+      "citation_as_written": "Daubert",
+      "pincite": "",
+      "cited_for": "Additional Daubert motions (expert exclusion motions) may increase hours and fees beyond the budgeted amounts for Phase L400",
+      "quotes": [],
+      "context": "If multiple rounds of motion practice are required, including cross-motions for summary judgment or additional Daubert motions, hours and fees may increase beyond the budgeted amounts for Phase L400.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "Daubert is real law referenced as a standard expert-exclusion motion, not part of the fictional scenario.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "As in ref 1, 'Daubert motions' is the conventional name for motions to exclude expert testimony under the Daubert admissibility standard. Using the term in a budget assumption about extra motion practice is accurate; no holding is attributed to the case.",
+        "evidence_excerpt": "In this case we are called upon to determine the standard for admitting expert scientific testimony in a federal trial.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

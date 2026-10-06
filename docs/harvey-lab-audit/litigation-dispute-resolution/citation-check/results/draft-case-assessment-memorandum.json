@@ -1,0 +1,902 @@
+{
+  "task": "draft-case-assessment-memorandum",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "bridger-damages-report.docx.md",
+    "cascade-complaint.docx.md",
+    "cascade-forensic-summary.docx.md",
+    "cascade-rejection-letter.docx.md",
+    "distribution-agreement.docx.md",
+    "greenleaf-internal-emails.eml.md",
+    "jantzen-employment-agreement.docx.md",
+    "task.json.md",
+    "termination-letter.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "cascade-complaint.docx.md",
+      "location": "I. Introduction, para 1",
+      "authority_type": "statute",
+      "authority": "Oregon Uniform Trade Secrets Act (OUTSA)",
+      "citation_as_written": "ORS 646.461–646.475",
+      "pincite": "",
+      "cited_for": "Basis for Cascade's trade secret misappropriation claim",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under both the Oregon Uniform Trade Secrets Act (\"OUTSA\"), ORS 646.461–646.475, and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836, and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.461 to 646.475 is Oregon's Uniform Trade Secrets Act. It defines misappropriation (646.461(2)) and provides injunctive relief and damages (646.463, 646.465), so it supports a misappropriation claim. The 'OUTSA' label is a conventional name; the statute's own short title is 'Uniform Trade Secrets Act.'",
+        "evidence_excerpt": "646.461 Definitions for ORS 646.461 to 646.475 ... (2) \"Misappropriation\" means: (a) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "cascade-complaint.docx.md",
+      "location": "I. Introduction, para 1",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act (DTSA)",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal trade secret misappropriation claim",
+      "quotes": [],
+      "context": "misappropriation of trade secrets under both the Oregon Uniform Trade Secrets Act (\"OUTSA\"), ORS 646.461–646.475, and the federal Defend Trade Secrets Act (\"DTSA\"), 18 U.S.C. § 1836, and unjust enrichment.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836, as amended by the Defend Trade Secrets Act of 2016, provides the federal civil claim for trade secret misappropriation.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection ... [amended by] Defend Trade Secrets Act of 2016 (Pub. L. 114–153)",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "cascade-complaint.docx.md",
+      "location": "III. Jurisdiction and Venue, para 10",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1331 (federal question jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1331",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction because the Third Cause of Action arises under the DTSA",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction under 28 U.S.C. § 1331 because Cascade's Third Cause of Action arises under the Defend Trade Secrets Act, 18 U.S.C. § 1836, a federal statute.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1331 gives district courts original jurisdiction of civil actions arising under federal law; a DTSA claim arises under a federal statute. 18 U.S.C. § 1836(c) separately confirms original jurisdiction for DTSA actions.",
+        "evidence_excerpt": "The district courts shall have original jurisdiction of all civil actions arising under the Constitution, laws, or treaties of the United States.",
+        "source_urls": [
+          "https:/1331",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "cascade-complaint.docx.md",
+      "location": "III. Jurisdiction and Venue, para 10",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal statute under which the Third Cause of Action arises",
+      "quotes": [],
+      "context": "Cascade's Third Cause of Action arises under the Defend Trade Secrets Act, 18 U.S.C. § 1836, a federal statute.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836 is the DTSA's civil-action provision. It is a federal statute that creates a private cause of action for trade secret misappropriation and gives district courts original jurisdiction.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection if the trade secret is related to a product or service used in, or intended for use in, interstate or foreign commerce.",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "cascade-complaint.docx.md",
+      "location": "III. Jurisdiction and Venue, para 11",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1367 (supplemental jurisdiction)",
+      "citation_as_written": "28 U.S.C. § 1367",
+      "pincite": "",
+      "cited_for": "Supplemental jurisdiction over state law claims sharing a common nucleus of operative fact with DTSA claim",
+      "quotes": [],
+      "context": "This Court has supplemental jurisdiction over Cascade's state law claims (First, Second, and Fourth Causes of Action) under 28 U.S.C. § 1367 because those claims arise from the same case or controversy as the federal DTSA claim",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1367(a) grants supplemental jurisdiction over claims that form part of the same Article III case or controversy as the claims within original jurisdiction. The complaint uses the statute's 'same case or controversy' wording. The 'common nucleus of operative fact' phrasing in the cited_for field is the standard judicial gloss on that test, not statutory text, but the statute supports the proposition.",
+        "evidence_excerpt": "the district courts shall have supplemental jurisdiction over all other claims that are so related to claims in the action within such original jurisdiction that they form part of the same case or controversy under Article III",
+        "source_urls": [
+          "https:/1367"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "cascade-complaint.docx.md",
+      "location": "III. Jurisdiction and Venue, para 13",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b) (venue)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "(b)",
+      "cited_for": "Venue proper in District of Oregon where defendant resides and events occurred",
+      "quotes": [],
+      "context": "Venue is proper in this District under 28 U.S.C. § 1391(b) because Greenleaf resides in this District and a substantial part of the events and omissions giving rise to the claims occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1391(b)(1) allows venue in a district where any defendant resides, provided all defendants reside in the same State; here there is a single defendant. Section 1391(b)(2) allows venue where a substantial part of the events or omissions occurred. Both grounds the complaint alleges fall within subsection (b).",
+        "evidence_excerpt": "(1) a judicial district in which any defendant resides, if all ... (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.E, para 60",
+      "authority_type": "statute",
+      "authority": "Oregon UTSA definition of trade secret",
+      "citation_as_written": "ORS 646.461(4)",
+      "pincite": "(4)",
+      "cited_for": "Pricing Model, Customer Database, Route Optimization System are trade secrets",
+      "quotes": [],
+      "context": "constitute \"trade secrets\" within the meaning of the Oregon Uniform Trade Secrets Act, ORS 646.461(4), and the federal Defend Trade Secrets Act, 18 U.S.C. § 1839(3), because they derive independent economic value",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed (the quoted term \"trade secrets\" matches the defined term).",
+        "explanation": "ORS 646.461(4) defines 'trade secret' as information (including compilations, customer lists, programs, methods, techniques, processes) that has independent economic value from not being generally known and is subject to reasonable secrecy efforts. The complaint paraphrases this accurately.",
+        "evidence_excerpt": "(4) \"Trade secret\" means information, including a drawing, cost data, customer list, formula, pattern, compilation, program, device, method, technique or process that: (a) Derives independent economic value, actual or potential, from not being generally known to the public ... and (b) Is the subject of efforts that are reasonable under the circumstances to maintain its secrecy.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.E, para 60",
+      "authority_type": "statute",
+      "authority": "DTSA definition of trade secret",
+      "citation_as_written": "18 U.S.C. § 1839(3)",
+      "pincite": "(3)",
+      "cited_for": "Materials are trade secrets (independent economic value, reasonable secrecy measures)",
+      "quotes": [],
+      "context": "ORS 646.461(4), and the federal Defend Trade Secrets Act, 18 U.S.C. § 1839(3), because they derive independent economic value, actual and potential, from not being generally known",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The complaint paraphrases the statute as 'actual and potential'; the statute says 'actual or potential'. This is not presented as a quote.",
+        "explanation": "§ 1839(3) defines a trade secret as information whose owner has taken reasonable measures to keep it secret and that derives independent economic value from not being generally known or readily ascertainable. This matches the proposition.",
+        "evidence_excerpt": "\"(A) the owner thereof has taken reasonable measures to keep such information secret; and (B) the information derives independent economic value, actual or potential, from not being generally known to...\"",
+        "source_urls": [
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.E, para 70",
+      "authority_type": "statute",
+      "authority": "Oregon UTSA remedies provision",
+      "citation_as_written": "ORS 646.465",
+      "pincite": "",
+      "cited_for": "Willful and malicious misappropriation warranting enhanced damages and attorneys' fees",
+      "quotes": [],
+      "context": "Greenleaf's misappropriation of Cascade's trade secrets was willful and malicious within the meaning of ORS 646.465 and 18 U.S.C. § 1836(b)(3), warranting enhanced damages and attorneys' fees.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "ORS 646.465(3); ORS 646.467(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.465(3) supports enhanced (punitive) damages for willful or malicious misappropriation. Attorney fees for willful or malicious misappropriation come from ORS 646.467(3), not 646.465. The citation therefore supports only the damages half of the proposition and leaves out the fee provision.",
+        "evidence_excerpt": "646.465 ... (3) Upon a finding of willful or malicious misappropriation, punitive damages may be awarded ... 646.467 Attorney fees. The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.E, para 70",
+      "authority_type": "statute",
+      "authority": "DTSA remedies",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)",
+      "pincite": "(b)(3)",
+      "cited_for": "Willful and malicious misappropriation warranting enhanced damages and attorneys' fees",
+      "quotes": [],
+      "context": "willful and malicious within the meaning of ORS 646.465 and 18 U.S.C. § 1836(b)(3), warranting enhanced damages and attorneys' fees.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1836(b)(3) is the DTSA remedies provision. Its subparagraphs (C) and (D) authorize exemplary damages and attorney's fees for willful and malicious misappropriation.",
+        "evidence_excerpt": "\"Remedies.—In a civil action brought under this subsection with respect to the misappropriation of a trade secret, a court may—\"",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.F, para 82",
+      "authority_type": "statute",
+      "authority": "Oregon UTSA exemplary damages",
+      "citation_as_written": "ORS 646.465(2)",
+      "pincite": "(2)",
+      "cited_for": "Enhanced damages of up to two times trade secret damages for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Cascade is also entitled to enhanced damages of up to two times the amount of trade secret damages for willful and malicious misappropriation pursuant to ORS 646.465(2) and 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "ORS 646.465(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The doubled-damages remedy is in ORS 646.465, but in subsection (3), not (2). Subsection (2) covers actual loss, unjust enrichment, and the reasonable-royalty floor. Subsection (3) allows punitive damages up to twice the award on a finding of 'willful or malicious' misappropriation. The complaint says 'willful and malicious,' which states the statutory standard more strictly than it is written.",
+        "evidence_excerpt": "(3) Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.F, para 82",
+      "authority_type": "statute",
+      "authority": "DTSA exemplary damages",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "(b)(3)(C)",
+      "cited_for": "Enhanced damages up to two times for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "pursuant to ORS 646.465(2) and 18 U.S.C. § 1836(b)(3)(C). Enhanced damages on the trade secret claim alone could total an additional $9,600,000.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The cite is correct: § 1836(b)(3)(C) allows exemplary damages of up to 2x the compensatory award for willful and malicious misappropriation. Separately, the Oregon cite paired with it in the same sentence (ORS 646.465(2)) is wrong. That subsection covers measure-of-damages; punitive damages are in ORS 646.465(3).",
+        "evidence_excerpt": "\"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)\"",
+        "source_urls": [
+          "https:/1836",
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.F, para 83",
+      "authority_type": "statute",
+      "authority": "Oregon UTSA attorneys' fees",
+      "citation_as_written": "ORS 646.465(3)",
+      "pincite": "(3)",
+      "cited_for": "Entitlement to reasonable attorneys' fees",
+      "quotes": [],
+      "context": "Cascade is further entitled to its reasonable attorneys' fees pursuant to ORS 646.465(3) and 18 U.S.C. § 1836(b)(3)(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "ORS 646.467(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.465(3) covers punitive damages up to twice the compensatory award, not attorney fees. Oregon UTSA attorney fees are in ORS 646.467, and subsection (3) allows fees when willful or malicious misappropriation is found. The fee award is discretionary ('may award ... to the prevailing party'), so 'entitled' overstates it.",
+        "evidence_excerpt": "646.465 ... (3) Upon a finding of willful or malicious misappropriation, punitive damages may be awarded ... 646.467 Attorney fees. The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. The official ORS text shows that 646.465(3) is the punitive-damages provision: \"(3) Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.\" Attorney fees are in a separate section, ORS 646.467: \"The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.\" The correct cite is ORS 646.467(3). That fee award is discretionary (\"may award\"), and it depends on a willful or malicious finding, so \"entitled\" overstates it. The DTSA half, 18 U.S.C. § 1836(b)(3)(D), is correct: it allows a court to \"award reasonable attorney's fees to the prevailing party\" on willful and malicious misappropriation. The source is complaint ¶ 83.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ]
+      }
+    },
+    {
+      "ref": 13,
+      "document": "cascade-complaint.docx.md",
+      "location": "IV.F, para 83",
+      "authority_type": "statute",
+      "authority": "DTSA attorneys' fees",
+      "citation_as_written": "18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "(b)(3)(D)",
+      "cited_for": "Entitlement to reasonable attorneys' fees",
+      "quotes": [],
+      "context": "Cascade is further entitled to its reasonable attorneys' fees pursuant to ORS 646.465(3) and 18 U.S.C. § 1836(b)(3)(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The cite is correct: § 1836(b)(3)(D) lets a court award reasonable attorney's fees to the prevailing party when misappropriation is willful and malicious. The fee award is discretionary ('may'), so 'entitled' is advocacy overstatement. Separately, the Oregon cite paired with it in the same sentence is wrong. ORS 646.465(3) covers punitive damages; the Oregon fee provision is ORS 646.467.",
+        "evidence_excerpt": "\"or the trade secret was willfully and maliciously misappropriated, award reasonable attorney's fees to the prevailing party.\"",
+        "source_urls": [
+          "https:/1836",
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "cascade-complaint.docx.md",
+      "location": "VII. Third Cause of Action heading",
+      "authority_type": "statute",
+      "authority": "Oregon UTSA and DTSA",
+      "citation_as_written": "ORS 646.461–646.475; 18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Heading of Third Cause of Action for trade secret misappropriation",
+      "quotes": [],
+      "context": "THIRD CAUSE OF ACTION — MISAPPROPRIATION OF TRADE SECRETS UNDER THE OREGON UNIFORM TRADE SECRETS ACT (ORS 646.461–646.475) AND THE DEFEND TRADE SECRETS ACT (18 U.S.C. § 1836)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The heading cites the Oregon UTSA range correctly (ORS 646.461 to 646.475, under the 'TRADE SECRETS' heading with the short title at 646.475(2)). 18 U.S.C. § 1836 is the DTSA civil-action provision. The Oregon portion was checked against the official ORS text; the federal cite was not separately retrieved here.",
+        "evidence_excerpt": "TRADE SECRETS 646.461 Definitions for ORS 646.461 to 646.475 ... 646.475 Application and construction of ORS 646.461 to 646.475; short title",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "cascade-complaint.docx.md",
+      "location": "VII, para 109",
+      "authority_type": "statute",
+      "authority": "ORS 646.461(4) and 18 U.S.C. § 1839(3)",
+      "citation_as_written": "ORS 646.461(4); 18 U.S.C. § 1839(3)",
+      "pincite": "",
+      "cited_for": "Pricing Model, Customer Database, Route Optimization System are trade secrets as defined",
+      "quotes": [],
+      "context": "are trade secrets as defined in ORS 646.461(4) and 18 U.S.C. § 1839(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.461(4) defines \"trade secret\" (expressly including cost data, customer lists, compilations, programs, methods, and processes). 18 U.S.C. § 1839(3) is the DTSA definition of \"trade secret\". Both are the correct definitional provisions for the pricing model, customer database, and routing system.",
+        "evidence_excerpt": "ORS 646.461(4): \"'Trade secret' means information, including a drawing, cost data, customer list, formula, pattern, compilation, program, device, method, technique or process that...\"; 18 U.S.C. § 1839(3): \"the term 'trade secret' means all forms and types of financial, business, scientific, technical, economic, or engineering information...\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "cascade-complaint.docx.md",
+      "location": "VII, para 118",
+      "authority_type": "statute",
+      "authority": "ORS 646.461(2) and 18 U.S.C. § 1839(5) (definition of misappropriation)",
+      "citation_as_written": "ORS 646.461(2); 18 U.S.C. § 1839(5)",
+      "pincite": "",
+      "cited_for": "Greenleaf's acquisition, disclosure and use constitutes misappropriation",
+      "quotes": [],
+      "context": "constitutes \"misappropriation\" as defined in ORS 646.461(2) and 18 U.S.C. § 1839(5).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed (the term \"misappropriation\" is the defined term in both provisions).",
+        "explanation": "ORS 646.461(2) and 18 U.S.C. § 1839(5) each define \"misappropriation\" to cover acquisition by improper means and disclosure or use without consent. Both are the correct definitional provisions for the allegation.",
+        "evidence_excerpt": "ORS 646.461: \"(2) 'Misappropriation' means: (a) Acquisition of a trade secret of another by a person who knows or has reason to know that the trade secret was acquired by improper means; (b) Disclosure or use...\"; 18 U.S.C. § 1839: \"(5) the term 'misappropriation' means— (A) acquisition of a trade secret of another...\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1839"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "cascade-complaint.docx.md",
+      "location": "VII, para 122",
+      "authority_type": "statute",
+      "authority": "ORS 646.465(2) and 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "ORS 646.465(2); 18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Enhanced damages up to two times actual damages, and exemplary damages up to two times, for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "enhanced damages of up to two times the amount of actual damages under ORS 646.465(2) and exemplary damages not exceeding two times the amount of damages awarded under 18 U.S.C. § 1836(b)(3)(C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "ORS 646.465(3); 18 U.S.C. § 1836(b)(3)(C)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA half is correct: § 1836(b)(3)(C) allows exemplary damages of up to 2 times the damages for willful and malicious misappropriation. The Oregon subsection is wrong. ORS 646.465(2) covers only compensatory measures (actual loss, unjust enrichment, a floor of a reasonable royalty). The doubling remedy is in ORS 646.465(3), which allows \"punitive damages\" up to twice the award on a finding of \"willful or malicious\" misappropriation. The proposition is substantively right, but the cited Oregon subsection does not contain it.",
+        "evidence_excerpt": "ORS 646.465(2): \"Damages may include both the actual loss caused by misappropriation, and the unjust enrichment...\"; (3): \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. ORS 646.465(2) states only compensatory measures: \"Damages may include both the actual loss caused by misappropriation, and the unjust enrichment ... but shall not be less than a reasonable royalty for the unauthorized disclosure or use of a trade secret.\" The doubling remedy is in 646.465(3): \"punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2).\" The DTSA cite is accurate. § 1836(b)(3)(C) reads: \"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B).\" The proposition is substantively right, but the Oregon subsection is wrong. The source is complaint ¶ 122 (the same error appears in ¶ 82).",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ]
+      }
+    },
+    {
+      "ref": 18,
+      "document": "cascade-complaint.docx.md",
+      "location": "VII, para 123",
+      "authority_type": "statute",
+      "authority": "ORS 646.465(3) and 18 U.S.C. § 1836(b)(3)(D)",
+      "citation_as_written": "ORS 646.465(3); 18 U.S.C. § 1836(b)(3)(D)",
+      "pincite": "",
+      "cited_for": "Attorneys' fees for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "Cascade is entitled to its reasonable attorneys' fees under ORS 646.465(3) and 18 U.S.C. § 1836(b)(3)(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "ORS 646.467(3); 18 U.S.C. § 1836(b)(3)(D)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The DTSA half is correct: § 1836(b)(3)(D) authorizes reasonable attorney's fees to the prevailing party where the misappropriation was willful and malicious. The Oregon cite is wrong. ORS 646.465(3) is the punitive-damages provision and says nothing about fees. Oregon's UTSA fee provision is ORS 646.467(3), which allows fees when willful or malicious misappropriation is found.",
+        "evidence_excerpt": "ORS 646.467: \"The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.\" ORS 646.465(3): \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded...\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. ORS 646.465(3) deals only with punitive damages: \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award...\" It says nothing about fees. Oregon's UTSA fee provision is ORS 646.467(3): \"The court may award reasonable attorney fees to the prevailing party if: ... (3) Willful or malicious misappropriation is found by the court or jury.\" The DTSA half, § 1836(b)(3)(D), is correct. The correct cite is ORS 646.467(3); 18 U.S.C. § 1836(b)(3)(D). The source is complaint ¶ 123.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ]
+      }
+    },
+    {
+      "ref": 19,
+      "document": "cascade-complaint.docx.md",
+      "location": "VII, para 124",
+      "authority_type": "statute",
+      "authority": "ORS 646.463 and 18 U.S.C. § 1836(b)(3)(A)",
+      "citation_as_written": "ORS 646.463; 18 U.S.C. § 1836(b)(3)(A)",
+      "pincite": "",
+      "cited_for": "Injunctive relief against misappropriation",
+      "quotes": [],
+      "context": "Cascade further seeks injunctive relief pursuant to ORS 646.463 and 18 U.S.C. § 1836(b)(3)(A), including orders: (a) requiring Greenleaf to return all misappropriated materials",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.463 allows actual or threatened misappropriation to be enjoined, and (3) authorizes affirmative acts to protect a trade secret. 18 U.S.C. § 1836(b)(3)(A) authorizes injunctions against actual or threatened misappropriation, including orders requiring affirmative actions. Both support the requested return-and-cease injunctive relief.",
+        "evidence_excerpt": "ORS 646.463(1): \"Actual or threatened misappropriation may be temporarily, preliminarily or permanently enjoined.\" (3) \"In appropriate circumstances, the court may order affirmative acts to protect a trade secret.\"; § 1836(b)(3)(A): \"grant an injunction— (i) to prevent any actual or threatened misappropriation...\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "bridger-damages-report.docx.md",
+      "location": "VII.A Background",
+      "authority_type": "statute",
+      "authority": "Oregon UTSA and DTSA",
+      "citation_as_written": "ORS 646.461–646.475; 18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Materials constitute trade secrets under both statutes",
+      "quotes": [],
+      "context": "These materials constitute trade secrets under both the Oregon Uniform Trade Secrets Act (ORS 646.461–646.475) and the Federal Defend Trade Secrets Act (18 U.S.C. § 1836).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Oregon UTSA range is correct. The assertion that the materials are trade secrets applies the statute's definition (ORS 646.461(4)) to the facts. The statute supplies that framework, so the citation is appropriate.",
+        "evidence_excerpt": "(4) \"Trade secret\" means information, including a drawing, cost data, customer list, formula, pattern, compilation, program, device, method, technique or process that: (a) Derives independent economic value ...",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "bridger-damages-report.docx.md",
+      "location": "VII.B Valuation Methodology",
+      "authority_type": "statute",
+      "authority": "ORS 646.465(2) and 18 U.S.C. § 1836(b)(3)(C)",
+      "citation_as_written": "ORS 646.465(2); 18 U.S.C. § 1836(b)(3)(C)",
+      "pincite": "",
+      "cited_for": "Enhanced (exemplary) damages available for willful and malicious misappropriation, could double trade secret damages",
+      "quotes": [],
+      "context": "nor does it include enhanced (exemplary) damages that may be available under Oregon UTSA (ORS 646.465(2)) or DTSA (18 U.S.C. § 1836(b)(3)(C)) for willful and malicious misappropriation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "ORS 646.465(3); 18 U.S.C. § 1836(b)(3)(C)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This has the same defect as the complaint. Under Oregon's UTSA, enhanced (punitive) damages of up to twice the award are in ORS 646.465(3), not 646.465(2), which sets out the compensatory measures. The DTSA cite, § 1836(b)(3)(C), correctly provides exemplary damages of up to 2 times for willful and malicious misappropriation. The statement that enhanced damages \"could double\" the award is consistent with both statutes.",
+        "evidence_excerpt": "ORS 646.465(3): \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2)\"; § 1836(b)(3)(C): \"award exemplary damages in an amount not more than 2 times the amount of the damages awarded under subparagraph (B)\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. This is the same defect as ref 17, this time in the Bridger damages report. ORS 646.465(2) covers actual loss, unjust enrichment, and a reasonable-royalty floor, not enhanced damages. Enhanced damages are in 646.465(3): \"punitive damages may be awarded in an amount not exceeding twice any award made under subsections (1) and (2) of this section.\" The DTSA cite, § 1836(b)(3)(C), is correct (\"exemplary damages in an amount not more than 2 times the amount of the damages\"). The statement that enhanced damages \"could double\" the award fits both statutes; only the Oregon subsection is wrong.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html",
+          "https:/1836"
+        ]
+      }
+    },
+    {
+      "ref": 22,
+      "document": "jantzen-employment-agreement.docx.md",
+      "location": "Section 6.6 Trade Secret Acknowledgment",
+      "authority_type": "statute",
+      "authority": "Oregon Uniform Trade Secrets Act",
+      "citation_as_written": "ORS 646.461–646.475",
+      "pincite": "",
+      "cited_for": "Confidential Information constitutes trade secrets within the meaning of OUTSA",
+      "quotes": [],
+      "context": "certain Confidential Information constitutes \"trade secrets\" within the meaning of the Oregon Uniform Trade Secrets Act (ORS 646.461–646.475) and the federal Defend Trade Secrets Act of 2016 (18 U.S.C. § 1836 et seq.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.461 to 646.475 is Oregon's Uniform Trade Secrets Act, and 646.461(4) defines 'trade secret'. The range cited is correct.",
+        "evidence_excerpt": "\"ORS 646.461 to 646.475 may be cited as the Uniform Trade Secrets Act.\" (ORS 646.475(2))",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "jantzen-employment-agreement.docx.md",
+      "location": "Section 6.6 Trade Secret Acknowledgment",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act of 2016",
+      "citation_as_written": "18 U.S.C. § 1836 et seq.",
+      "pincite": "",
+      "cited_for": "Confidential Information constitutes trade secrets under DTSA",
+      "quotes": [],
+      "context": "the federal Defend Trade Secrets Act of 2016 (18 U.S.C. § 1836 et seq.), and that the unauthorized use or disclosure of such trade secrets would cause irreparable and continuing harm",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Defend Trade Secrets Act of 2016 (Pub. L. 114-153) amended 18 U.S.C. § 1836 and related sections of chapter 90. '§ 1836 et seq.' is a conventional way to cite it. The contract clause is a party acknowledgment, not a claim about what the statute holds, and the statute supports treating qualifying confidential information as trade secrets.",
+        "evidence_excerpt": "This section was significantly amended by the Defend Trade Secrets Act of 2016 (Pub. L. 114–153, enacted May 11, 2016, 130 Stat. 376).",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "jantzen-employment-agreement.docx.md",
+      "location": "Section 6.8 Defend Trade Secrets Act Notice",
+      "authority_type": "statute",
+      "authority": "DTSA whistleblower immunity notice",
+      "citation_as_written": "18 U.S.C. § 1833(b)",
+      "pincite": "(b)",
+      "cited_for": "Immunity notice: no liability for disclosure of trade secret in confidence to government official or attorney, or in sealed filing",
+      "quotes": [],
+      "context": "Pursuant to 18 U.S.C. § 1833(b), Employee is hereby notified that an individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that is made: (i) in confidence to a Federal, State, or local government official",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No formal quotation marks. The notice text closely tracks the statute: 'shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that' and 'in confidence to a Federal, State, or local government official' appear verbatim in § 1833(b)(1)-(1)(A).",
+        "explanation": "§ 1833(b)(1) grants immunity for disclosures made in confidence to government officials or attorneys to report a suspected violation of law, or made in a sealed court filing. § 1833(b)(3)(A) requires employers to give notice of this immunity in employee agreements.",
+        "evidence_excerpt": "\"An individual shall not be held criminally or civilly liable under any Federal or State trade secret law for the disclosure of a trade secret that— (A) is made—(i) in confidence to a Federal, State, or local government official, either directly or indirectly, or to an attorney\"",
+        "source_urls": [
+          "https:/1833"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "jantzen-employment-agreement.docx.md",
+      "location": "Section 10.1 Work Made for Hire",
+      "authority_type": "statute",
+      "authority": "United States Copyright Act, definition of work made for hire",
+      "citation_as_written": "17 U.S.C. § 101",
+      "pincite": "",
+      "cited_for": "Work Product deemed 'work made for hire' as defined in the Copyright Act",
+      "quotes": [
+        "work made for hire"
+      ],
+      "context": "all Work Product shall be deemed \"work made for hire\" as that term is defined in the United States Copyright Act (17 U.S.C. § 101).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"work made for hire\": found verbatim as a defined term in 17 U.S.C. § 101.",
+        "explanation": "17 U.S.C. § 101 defines \"work made for hire\" as (1) a work prepared by an employee within the scope of employment, or (2) certain specially commissioned works covered by a signed writing. The agreement correctly cites § 101 as the source of the definition. Deeming non-copyrightable materials (such as customer lists) to be works made for hire has no copyright effect, but the clause hedges with \"to the maximum extent permitted\" and adds a backup assignment.",
+        "evidence_excerpt": "\"A 'work made for hire' is— (1) a work prepared by an employee within the scope of his or her employment; or (2) a work specially ordered or commissioned...\"",
+        "source_urls": [
+          "https:/101"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "task.json.md",
+      "location": "rubric C-034",
+      "authority_type": "statute",
+      "authority": "Oregon non-compete statute",
+      "citation_as_written": "ORS 653.295",
+      "pincite": "",
+      "cited_for": "Oregon's restrictions on non-compete enforceability",
+      "quotes": [],
+      "context": "PASS if the memo discusses Oregon's restrictions on non-compete enforceability (e.g., ORS 653.295 or general reference to Oregon's restrictive approach to non-competes).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 653.295 is Oregon's noncompetition statute. It makes such agreements unenforceable unless notice and other conditions are met, caps their term at 12 months, and imposes a salary threshold and a protectable-interest requirement.",
+        "evidence_excerpt": "Title: \"Noncompetition agreements; bonus restriction agreements; applicability of restrictions\"; \"The term of a noncompetition agreement may not exceed 12 months from the date of the employee's termination.\"",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors653.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "task.json.md",
+      "location": "rubric C-050",
+      "authority_type": "statute",
+      "authority": "Defend Trade Secrets Act",
+      "citation_as_written": "18 U.S.C. § 1836",
+      "pincite": "",
+      "cited_for": "Federal DTSA claim asserted in Count III",
+      "quotes": [],
+      "context": "PASS if the memo addresses both the federal Defend Trade Secrets Act (18 U.S.C. § 1836) and the Oregon Uniform Trade Secrets Act (ORS 646.461–646.475) claims asserted in Count III.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1836 is the correct cite for a civil DTSA claim. Section 1836(b)(1) creates the private civil action for misappropriation.",
+        "evidence_excerpt": "An owner of a trade secret that is misappropriated may bring a civil action under this subsection",
+        "source_urls": [
+          "https:/1836"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "task.json.md",
+      "location": "rubric C-050",
+      "authority_type": "statute",
+      "authority": "Oregon Uniform Trade Secrets Act",
+      "citation_as_written": "ORS 646.461–646.475",
+      "pincite": "",
+      "cited_for": "Oregon UTSA claim asserted in Count III",
+      "quotes": [],
+      "context": "the federal Defend Trade Secrets Act (18 U.S.C. § 1836) and the Oregon Uniform Trade Secrets Act (ORS 646.461–646.475) claims asserted in Count III.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "ORS 646.461 to 646.475 is the Oregon trade secrets series under the 'TRADE SECRETS' heading of ORS Chapter 646. ORS 646.475(2) provides that the sections 'may be cited as the Uniform Trade Secrets Act.' The range is cited correctly for the Oregon UTSA claim.",
+        "evidence_excerpt": "646.475 ... (2) ORS 646.461 to 646.475 may be cited as the Uniform Trade Secrets Act.",
+        "source_urls": [
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "task.json.md",
+      "location": "rubric C-013",
+      "authority_type": "statute",
+      "authority": "DTSA and Oregon UTSA (enhanced damages and fees; no section cited)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Enhanced/exemplary damages and attorney's fees for willful and malicious misappropriation",
+      "quotes": [],
+      "context": "PASS if the memo discusses the risk of enhanced or exemplary damages and/or attorney's fees under the DTSA or Oregon UTSA due to evidence of willful and malicious misappropriation.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1836(b)(3)(C)-(D); ORS 646.465(3), 646.467(3)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes provide enhanced damages and fees for willful (and malicious) misappropriation. The DTSA allows exemplary damages of up to 2x and attorney's fees when misappropriation is willful and malicious. The Oregon UTSA allows punitive damages of up to 2x (646.465(3)) and fees (646.467(3)) on a finding of willful OR malicious misappropriation, so Oregon's standard is the looser disjunctive one.",
+        "evidence_excerpt": "\"if the trade secret is willfully and maliciously misappropriated, award exemplary damages in an amount not more than 2 times the amount of the damages awarded\" (1836(b)(3)(C)); \"Upon a finding of willful or malicious misappropriation, punitive damages may be awarded in an amount not exceeding twice any award\" (ORS 646.465(3))",
+        "source_urls": [
+          "https:/1836",
+          "https://www.oregonlegislature.gov/bills_laws/ors/ors646.html"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "task.json.md",
+      "location": "rubric C-028",
+      "authority_type": "case",
+      "authority": "Daubert (expert testimony admissibility standard; name only, no case cite)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Challenge to Bridger's replacement-cost methodology on Daubert grounds",
+      "quotes": [],
+      "context": "is inflated and subject to challenge, such as on Daubert grounds or as an improper damages measure for contract claims.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The rubric cites Daubert by name only, which is an ordinary shorthand for a Daubert challenge. Daubert requires the trial judge to make sure expert testimony is relevant and reliable under Rule 702. That supports using it to challenge an expert's damages methodology.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

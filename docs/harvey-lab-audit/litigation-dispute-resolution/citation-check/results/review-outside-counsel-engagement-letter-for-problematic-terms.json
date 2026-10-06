@@ -1,0 +1,540 @@
+{
+  "task": "review-outside-counsel-engagement-letter-for-problematic-terms",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "alcott-conflicts-email.eml.md",
+    "crosspoint-ediscovery-proposal.docx.md",
+    "engagement-letter-hbc.docx.md",
+    "morrow-conflict-email.eml.md",
+    "pinnacle-ocg-2024.docx.md",
+    "staffing-plan-novatech.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "engagement-letter-hbc.docx.md",
+      "location": "Opening paragraph and Section 1 (Scope of Engagement)",
+      "authority_type": "case",
+      "authority": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.",
+      "citation_as_written": "Case No. 3:25-cv-01847-MRD (W.D.N.C.)",
+      "pincite": "",
+      "cited_for": "The matter being defended: NovaTech's breach-of-contract action (approx. $14.2M) pending in W.D.N.C.",
+      "quotes": [],
+      "context": "in connection with the litigation captioned NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc., Case No. 3:25-cv-01847-MRD, currently pending in the United States District Court for the Western District of North Carolina.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario; its own caption and docket number."
+    },
+    {
+      "ref": 1,
+      "document": "engagement-letter-hbc.docx.md",
+      "location": "Section 1 (Scope of Engagement), deadlines paragraph; Exhibit B Phase 1 description",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (Rule 26(f) conference)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Parties' discovery-planning conference scheduled for December 5, 2025; Exhibit B refers to the Rule 26(f) conference and preparation of the Joint Discovery Plan.",
+      "quotes": [],
+      "context": "Pinnacle's Answer to the Complaint is due on November 7, 2025, and the parties' Rule 26(f) conference is currently scheduled for December 5, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(f)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Fed. R. Civ. P. 26(f) requires the parties to confer and develop a proposed discovery plan, then submit a written report outlining it within 14 days. That matches the letter's references to a 'Rule 26(f) conference' and to preparing the Joint Discovery Plan. The December 5, 2025 date is a fact of the fictional scenario and cannot be checked against the rule. The short form 'Rule 26(f)' is unambiguous for a case pending in federal district court.",
+        "evidence_excerpt": "In conferring, the parties must consider the nature and basis of their claims and defenses and the possibilities for promptly settling or resolving the case; make or arrange for the disclosures required by Rule 26(a)(1); discuss any issues about preserving discoverable information; and develop a proposed discovery plan.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "engagement-letter-hbc.docx.md",
+      "location": "Exhibit B (header) and Phase 1 description",
+      "authority_type": "case",
+      "authority": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.",
+      "citation_as_written": "Case No. 3:25-cv-01847-MRD (W.D.N.C.)",
+      "pincite": "",
+      "cited_for": "Caption of the matter to which the preliminary litigation budget relates.",
+      "quotes": [],
+      "context": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc. Case No. 3:25-cv-01847-MRD (W.D.N.C.)",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario."
+    },
+    {
+      "ref": 3,
+      "document": "engagement-letter-hbc.docx.md",
+      "location": "Section 17 (Dispute Resolution)",
+      "authority_type": "other",
+      "authority": "American Arbitration Association (AAA) Commercial Arbitration Rules",
+      "citation_as_written": "AAA Commercial Arbitration Rules then in effect",
+      "pincite": "",
+      "cited_for": "Governs mandatory binding arbitration of all fee, billing, and malpractice disputes, seated in Washington, D.C.",
+      "quotes": [],
+      "context": "shall be resolved exclusively by binding arbitration administered by the American Arbitration Association (\"AAA\") under its Commercial Arbitration Rules then in effect.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The AAA Commercial Arbitration Rules exist; the version read is the one amended and effective September 1, 2022. The engagement letter invokes them as the governing procedure in a contract clause rather than citing them for a legal proposition. R-1(a) confirms that a clause calling for AAA arbitration under its Commercial Arbitration Rules incorporates them, and that they apply in the form in effect when the demand's filing requirements are met, which matches the letter's 'then in effect' wording. I did not check whether the rules permit or restrict the clause's other features (single arbitrator, D.C. seat, malpractice claims); the citation does not depend on that.",
+        "evidence_excerpt": "R-1. Agreement of Parties (a) The parties shall be deemed to have made these Rules a part of their arbitration agreement whenever they have provided for arbitration by the American Arbitration Association (\"AAA\") under its Commercial Arbitration Rules ... These Rules and any amendment to them shall apply in the form in effect at the time the administrative requirements are met for a Demand for Arbitration or Submission Agreement received by the AAA.",
+        "source_urls": [
+          "https://www.adr.org/media/lwanubnp/2025_commercialrules_web.pdf",
+          "https://www.adr.org/rules-forms-and-fees/commercial/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "engagement-letter-hbc.docx.md",
+      "location": "Section 18 (Governing Law)",
+      "authority_type": "other",
+      "authority": "Laws of the District of Columbia (governing law clause)",
+      "citation_as_written": "laws of the District of Columbia",
+      "pincite": "",
+      "cited_for": "Engagement letter governed by D.C. law without regard to conflicts principles.",
+      "quotes": [],
+      "context": "This engagement letter shall be governed by and construed in accordance with the laws of the District of Columbia, without regard to its conflicts of law principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "This is a contractual choice-of-law clause, not a citation to a specific authority. It names the law of a real jurisdiction (District of Columbia) and asserts no holding, rule, or quotation that could be checked against a source. The census entry matches Section 18 of the engagement letter. No external source was consulted because there is no proposition about the content of D.C. law to test.",
+        "evidence_excerpt": "This engagement letter shall be governed by and construed in accordance with the laws of the District of Columbia, without regard to its conflicts of law principles.",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "alcott-conflicts-email.eml.md",
+      "location": "Body, second paragraph",
+      "authority_type": "case",
+      "authority": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.",
+      "citation_as_written": "Case No. 3:25-cv-01847-MRD (W.D.N.C.)",
+      "pincite": "",
+      "cited_for": "Matter for which conflicts check was run.",
+      "quotes": [],
+      "context": "to defend Pinnacle Health Systems, Inc. in NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc., Case No. 3:25-cv-01847-MRD (W.D.N.C.).",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario."
+    },
+    {
+      "ref": 6,
+      "document": "alcott-conflicts-email.eml.md",
+      "location": "Body, third paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (Rule 26(f) conference)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Conference set for December 5 as a deadline driving work start.",
+      "quotes": [],
+      "context": "Given the November 7 answer deadline and the Rule 26(f) conference set for December 5, the team wants to hit the ground running.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(f)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Fed. R. Civ. P. 26(f) provides for the parties' discovery-planning conference, to be held as soon as practicable and at least 21 days before the Rule 16(b) scheduling conference or order. The email's reference to a 'Rule 26(f) conference' as an upcoming case deadline is an accurate use of the rule. The December 5 date is a fact of the fictional scenario and cannot be checked against the rule.",
+        "evidence_excerpt": "Except in a proceeding exempted from initial disclosure under Rule 26(a)(1)(B) or when the court orders otherwise, the parties must confer as soon as practicable—and in any event at least 21 days before a scheduling conference is to be held or a scheduling order is due under Rule 16(b).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "crosspoint-ediscovery-proposal.docx.md",
+      "location": "Cover page, Matter Reference; Section II.A",
+      "authority_type": "case",
+      "authority": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.",
+      "citation_as_written": "Case No. 3:25-cv-01847-MRD, United States District Court, Western District of North Carolina",
+      "pincite": "",
+      "cited_for": "Matter for which e-discovery services are proposed.",
+      "quotes": [],
+      "context": "Matter Reference: NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc. Case No. 3:25-cv-01847-MRD United States District Court, Western District of North Carolina",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario."
+    },
+    {
+      "ref": 8,
+      "document": "crosspoint-ediscovery-proposal.docx.md",
+      "location": "Section II.A (Matter Background)",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (Rule 26(f) conference)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Conference at which parties will discuss preservation, collection and production of ESI.",
+      "quotes": [],
+      "context": "The parties' Rule 26(f) conference is currently scheduled for December 5, 2025, at which time the parties will be expected to discuss, among other things, their respective positions regarding the preservation, collection, and production of electronically stored information (\"ESI\").",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Fed. R. Civ. P. 26(f) exists and requires the parties to confer and develop a discovery plan. Rule 26(f)(2) requires the parties to 'discuss any issues about preserving discoverable information', and Rule 26(f)(3)(C) requires the discovery plan to address disclosure, discovery, and preservation of ESI, including the form of production. 'Collection' is not a word in the rule, but the document's statement that the parties will be expected to discuss preservation, collection, and production of ESI at the conference is a fair paraphrase. The December 5, 2025 date is a fact of the fictional scenario, not a legal proposition.",
+        "evidence_excerpt": "(C) any issues about disclosure, discovery, or preservation of electronically stored information, including the form or forms in which it should be produced;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "crosspoint-ediscovery-proposal.docx.md",
+      "location": "Section V (Terms & Conditions), Data Security",
+      "authority_type": "statute",
+      "authority": "Health Insurance Portability and Accountability Act of 1996 (HIPAA) and implementing regulations",
+      "citation_as_written": "Health Insurance Portability and Accountability Act of 1996 (\"HIPAA\") and its implementing regulations",
+      "pincite": "",
+      "cited_for": "CrossPoint will execute a Business Associate Agreement if required for handling protected health information.",
+      "quotes": [],
+      "context": "CrossPoint will execute a Business Associate Agreement (\"BAA\") if required for the handling of protected health information (\"PHI\") under the Health Insurance Portability and Accountability Act of 1996 (\"HIPAA\") and its implementing regulations.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "The Act's name and year are exactly as written (Pub. L. 104-191, section 1(a)). The implementing regulations require a covered entity that discloses PHI to a business associate to obtain satisfactory assurances documented in a written contract (45 C.F.R. 164.502(e)(1)-(2), cross-referencing 164.504(e)), which is the business associate agreement. HITECH (42 U.S.C. 17934(a)) itself uses the term 'business associate agreement'. The proposal's 'if required' hedge is accurate, since a BAA is needed only where PHI of a covered entity is handled.",
+        "evidence_excerpt": "The satisfactory assurances required by paragraph (e)(1) of this section must be documented through a written contract or other written agreement or arrangement with the business associate that meets the applicable requirements of § 164.504(e).",
+        "source_urls": [
+          "https:/164.502",
+          "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
+          "https:/17934"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "staffing-plan-novatech.docx.md",
+      "location": "Header (Matter) and Section 1",
+      "authority_type": "case",
+      "authority": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.",
+      "citation_as_written": "Case No. 3:25-cv-01847-MRD, United States District Court, Western District of North Carolina, Charlotte Division",
+      "pincite": "",
+      "cited_for": "Matter for which staffing is proposed.",
+      "quotes": [],
+      "context": "Matter: NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc., Case No. 3:25-cv-01847-MRD, United States District Court, Western District of North Carolina, Charlotte Division",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario."
+    },
+    {
+      "ref": 11,
+      "document": "staffing-plan-novatech.docx.md",
+      "location": "Section 1 and Section 4, Phase 1 Key Activities",
+      "authority_type": "court_rule",
+      "authority": "Federal Rule of Civil Procedure 26(f) (Rule 26(f) conference)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Conference scheduled December 5, 2025, a key Phase 1 activity.",
+      "quotes": [],
+      "context": "the parties' Rule 26(f) conference is scheduled for December 5, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Fed. R. Civ. P. 26(f) exists and provides for a conference of the parties to plan discovery, held early in the case. The staffing plan refers to it only as a scheduled event and an early-phase activity, which is consistent with the rule. The December 5, 2025 date is a fact of the fictional scenario, not a legal proposition.",
+        "evidence_excerpt": "the parties must confer as soon as practicable—and in any event at least 21 days before a scheduling conference is to be held or a scheduling order is due under Rule 16(b).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "pinnacle-ocg-2024.docx.md",
+      "location": "Section 10.2(d) Data Security",
+      "authority_type": "statute",
+      "authority": "HIPAA and HITECH (Health Information Technology for Economic and Clinical Health Act)",
+      "citation_as_written": "HIPAA and HITECH",
+      "pincite": "",
+      "cited_for": "Outside counsel must comply with applicable federal and state data protection and privacy laws.",
+      "quotes": [],
+      "context": "Comply with all applicable federal and state data protection and privacy laws, including HIPAA and HITECH to the extent applicable to the engagement;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "Both statutes exist under the names used. HIPAA is Pub. L. 104-191 (1996). HITECH is Title XIII of Division A (and Title IV of Division B) of Pub. L. 111-5 (2009), and it applies HIPAA security and privacy requirements directly to business associates (42 U.S.C. 17931, 17934). The guideline only requires outside counsel to comply with applicable data protection and privacy laws, naming these two 'to the extent applicable'. It makes no specific claim about their content, so there is nothing to mischaracterize.",
+        "evidence_excerpt": "This title (and title IV of division B) may be cited as the ``Health Information Technology for Economic and Clinical Health Act'' or the ``HITECH Act''.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/PLAW-111publ5/html/PLAW-111publ5.htm",
+          "https://www.govinfo.gov/content/pkg/PLAW-104publ191/html/PLAW-104publ191.htm",
+          "https:/17931",
+          "https:/17934"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "pinnacle-ocg-2024.docx.md",
+      "location": "Section 13.2 and 14.1 (Governing Law)",
+      "authority_type": "other",
+      "authority": "Laws of the State of North Carolina (governing law clause)",
+      "citation_as_written": "laws of the State of North Carolina",
+      "pincite": "",
+      "cited_for": "OCG and engagements governed by North Carolina law; venue in Mecklenburg County courts.",
+      "quotes": [],
+      "context": "These Guidelines shall be governed by and construed in accordance with the laws of the State of North Carolina, without regard to conflict-of-laws principles.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "This is a contractual choice-of-law and venue clause, not a citation to a specific authority. It names the law of a real jurisdiction (North Carolina) and asserts no holding, rule, or quotation that could be checked against a source. The census entry matches the guidelines: the governing-law sentence appears in the document, and a companion provision supplies the Mecklenburg County venue. No external source was consulted because there is no proposition about the content of North Carolina law to test.",
+        "evidence_excerpt": "Outside counsel consents to personal jurisdiction and venue in the state and federal courts located in Mecklenburg County, North Carolina for any action arising out of or relating to an engagement governed by these Guidelines.",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "task.json.md",
+      "location": "rubric C-009",
+      "authority_type": "restatement_or_treatise",
+      "authority": "ABA Model Rules of Professional Conduct, Rule 1.5 (Fees)",
+      "citation_as_written": "ABA Model Rule 1.5",
+      "pincite": "",
+      "cited_for": "Fee reasonableness concerns with the $250,000 non-refundable retainer.",
+      "quotes": [],
+      "context": "potential issues under fee reasonableness rules (e.g., ABA Model Rule 1.5 or similar), the risk that a non-refundable retainer could be deemed unreasonable if the engagement ends early",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 1.5(a) prohibits agreeing to, charging or collecting an unreasonable fee and lists the reasonableness factors. Comment [4] adds that a lawyer who takes an advance fee must return any unearned portion. Both directly support the rubric's point that a $250,000 'non-refundable' retainer raises fee-reasonableness concerns if the engagement ends early. Read from an Internet Archive capture of the ABA's own page, because americanbar.org returned HTTP 403 to direct requests.",
+        "evidence_excerpt": "(a) A lawyer shall not make an agreement for, charge, or collect an unreasonable fee or an unreasonable amount for expenses. || Comment [4]: A lawyer may require advance payment of a fee, but is obliged to return any unearned portion. See Rule 1.16(d).",
+        "source_urls": [
+          "https://web.archive.org/web/20251228070044/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_5_fees/",
+          "https://web.archive.org/web/20251116053356/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_5_fees/comment_on_rule_1_5/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "task.json.md",
+      "location": "rubric C-017",
+      "authority_type": "restatement_or_treatise",
+      "authority": "ABA Model Rules of Professional Conduct, Rule 1.16(d) (Declining or Terminating Representation)",
+      "citation_as_written": "ABA Model Rule 1.16(d)",
+      "pincite": "",
+      "cited_for": "15% termination fee is ethically disfavored / restricts client's right to terminate.",
+      "quotes": [],
+      "context": "or is ethically disfavored (e.g., under ABA Model Rule 1.16(d) or similar principles)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "ABA Model Rule of Professional Conduct 1.16(a)(3) & cmt. [4] (client's right to discharge), together with Rule 1.16(d) and Rule 1.5(a)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 1.16(d) exists and governs a lawyer's duties on termination: take reasonably practicable steps to protect the client's interests and refund any advance fee not earned. That fairly supports treating a 15% surcharge on fees billed, triggered by client termination, as ethically disfavored, and the rubric hedges with 'e.g.' and 'or similar principles'. The subsection pin is loose, though: paragraph (d) says nothing about termination fees or the right to terminate. The client's right to discharge counsel 'at any time, with or without cause' is in Rule 1.16(a)(3) and Comment [4], and the reasonableness limit on such a charge is in Rule 1.5(a).",
+        "evidence_excerpt": "(d) Upon termination of representation, a lawyer shall take steps to the extent reasonably practicable to protect a client's interests, such as giving reasonable notice to the client, allowing time for employment of other counsel, surrendering papers and property to which the client is entitled and refunding any advance payment of fee or expense that has not been earned or incurred. || Comment [4]: A client has a right to discharge a lawyer at any time, with or without cause, subject to liability for payment for the lawyer's services.",
+        "source_urls": [
+          "https://web.archive.org/web/20260121203301/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_16_declining_or_terminating_representation/",
+          "https://web.archive.org/web/20260122185341/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_16_declining_or_terminating_representation/comment_on_rule_1_16_declining_or_terminating_representation/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "task.json.md",
+      "location": "rubric C-018",
+      "authority_type": "restatement_or_treatise",
+      "authority": "ABA Model Rules of Professional Conduct, Rule 1.8(h) (prospective limitation of malpractice liability)",
+      "citation_as_written": "ABA Model Rule 1.8(h)",
+      "pincite": "",
+      "cited_for": "Prospective limitation of malpractice liability (liability cap) may be ethically impermissible or restricted.",
+      "quotes": [],
+      "context": "notes that prospective limitation of malpractice liability may be ethically impermissible or restricted (e.g., under ABA Model Rule 1.8(h))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 1.8(h)(1) is the Model Rule on prospective limits on malpractice liability. It bars such an agreement unless the client is independently represented in making it, and Comment [17] explains why. A cap at the lesser of $1 million or fees paid is exactly this kind of agreement, so the rubric's statement that it 'may be ethically impermissible or restricted' is accurate.",
+        "evidence_excerpt": "(h) A lawyer shall not: (1) make an agreement prospectively limiting the lawyer's liability to a client for malpractice unless the client is independently represented in making the agreement; || Comment [17]: Agreements prospectively limiting a lawyer's liability for malpractice are prohibited unless the client is independently represented in making the agreement because they are likely to undermine competent and diligent representation.",
+        "source_urls": [
+          "https://web.archive.org/web/20250830161430/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_8_current_clients_specific_rules/",
+          "https://web.archive.org/web/20251207210255/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_8_current_clients_specific_rules/comment_on_rule_1_8/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "task.json.md",
+      "location": "rubric C-019",
+      "authority_type": "restatement_or_treatise",
+      "authority": "ABA Model Rules of Professional Conduct, Rule 1.8(h)",
+      "citation_as_written": "Model Rule 1.8(h)",
+      "pincite": "",
+      "cited_for": "Client indemnification of firm may implicate rules on prospective limitation of malpractice liability.",
+      "quotes": [],
+      "context": "may implicate ethics rules regarding prospective limitation of malpractice liability (e.g., Model Rule 1.8(h))",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 1.8(h)(1) prohibits an agreement prospectively limiting the lawyer's liability to a client for malpractice unless the client is independently represented in making it. The rule does not mention indemnification. The rubric's claim is only that the indemnity 'may implicate' the rule, and that is a reasonable reading: the letter's clause has the client hold the firm harmless from all claims 'arising out of or relating to the engagement or any services provided', excepting only willful misconduct, which would reach the firm's own negligence. Two limits worth knowing: the rule covers liability 'to a client', and it has an independent-representation exception.",
+        "evidence_excerpt": "(h) A lawyer shall not: (1) make an agreement prospectively limiting the lawyer's liability to a client for malpractice unless the client is independently represented in making the agreement;",
+        "source_urls": [
+          "https://web.archive.org/web/20250830161430/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_8_current_clients_specific_rules/",
+          "https://web.archive.org/web/20251207210255/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_8_current_clients_specific_rules/comment_on_rule_1_8/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "task.json.md",
+      "location": "rubric C-031",
+      "authority_type": "restatement_or_treatise",
+      "authority": "ABA Model Rules of Professional Conduct, Rule 1.6 (Confidentiality of Information)",
+      "citation_as_written": "Model Rule 1.6",
+      "pincite": "",
+      "cited_for": "Marketing use of client name may implicate confidentiality duties.",
+      "quotes": [],
+      "context": "may implicate confidentiality duties (e.g., Model Rule 1.6), and/or requires more specific informed consent",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 1.6(a) bars a lawyer from revealing 'information relating to the representation of a client' without the client's informed consent. Comment [4] extends that to disclosures that could reasonably lead a third person to protected information. Naming a client and the general nature of its engagement in marketing material is information relating to the representation, so the rule supports the hedged proposition that the marketing clause 'may implicate confidentiality duties' and calls for informed consent.",
+        "evidence_excerpt": "(a) A lawyer shall not reveal information relating to the representation of a client unless the client gives informed consent, the disclosure is impliedly authorized in order to carry out the representation or the disclosure is permitted by paragraph (b).",
+        "source_urls": [
+          "https://web.archive.org/web/20251220162431/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_6_confidentiality_of_information/",
+          "https://web.archive.org/web/20241230033754/https://www.americanbar.org/groups/professional_responsibility/publications/model_rules_of_professional_conduct/rule_1_6_confidentiality_of_information/comment_on_rule_1_6/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "task.json.md",
+      "location": "rubric C-038",
+      "authority_type": "case",
+      "authority": "NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc.",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "The underlying matter the memo must correctly identify, with approx. $14.2M claimed damages.",
+      "quotes": [],
+      "context": "PASS if the memo correctly identifies the underlying matter as NovaTech Solutions, LLC v. Pinnacle Health Systems, Inc. with approximately $14.2 million in claimed damages.",
+      "found_by": "first_pass",
+      "fictional_by_design": true,
+      "fictional_reason": "The matter at hand in the fictional scenario."
+    },
+    {
+      "ref": 20,
+      "document": "crosspoint-ediscovery-proposal.docx.md",
+      "location": "Section V (Terms & Conditions), Governing Law",
+      "authority_type": "other",
+      "authority": "Laws of the Commonwealth of Virginia (governing law clause)",
+      "citation_as_written": "laws of the Commonwealth of Virginia",
+      "pincite": "",
+      "cited_for": "CrossPoint engagement governed by Virginia law, without regard to conflict of laws principles",
+      "quotes": [],
+      "context": "**Governing Law.** This engagement shall be governed by and construed in accordance with the laws of the Commonwealth of Virginia, without regard to its conflict of laws principles.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "This is a contractual choice-of-law clause, not a citation to a specific authority. It names the law of a real jurisdiction (Virginia) and asserts no holding, rule, or quotation that could be checked against a source. The census entry matches the clause as it appears in the CrossPoint proposal. No external source was consulted because there is no proposition about the content of Virginia law to test.",
+        "evidence_excerpt": "**Governing Law.** This engagement shall be governed by and construed in accordance with the laws of the Commonwealth of Virginia, without regard to its conflict of laws principles.",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "staffing-plan-novatech.docx.md",
+      "location": "Section 2, Experience of Kevin Marsh",
+      "authority_type": "other",
+      "authority": "North Carolina law (contract interpretation)",
+      "citation_as_written": "North Carolina law",
+      "pincite": "",
+      "cited_for": "Mr. Marsh prepared research memoranda on issues of contract interpretation under North Carolina law",
+      "quotes": [],
+      "context": "prepared research memoranda on issues of contract interpretation under North Carolina law",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No attributed quotes.",
+        "explanation": "This is a biographical statement in a staffing plan about an associate's experience, not a citation to a specific authority. It refers generically to the body of North Carolina contract law, a real jurisdiction's law, and asserts no holding, rule, or quotation that could be checked. The census entry matches the document text. No external source was consulted because there is no legal proposition to test.",
+        "evidence_excerpt": "prepared research memoranda on issues of contract interpretation under North Carolina law",
+        "source_urls": [],
+        "confidence": "high"
+      }
+    }
+  ]
+}

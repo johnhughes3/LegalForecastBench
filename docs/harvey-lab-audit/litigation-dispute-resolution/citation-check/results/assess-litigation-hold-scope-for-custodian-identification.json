@@ -1,0 +1,1134 @@
+{
+  "task": "assess-litigation-hold-scope-for-custodian-identification",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "brashear-tran-nguyen-emails.eml.md",
+    "demand-letter-stadler-raines.docx.md",
+    "internal-investigation-summary.docx.md",
+    "it-infrastructure-memo.docx.md",
+    "kovach-personnel-file-summary.docx.md",
+    "nexfield-retention-policy.docx.md",
+    "pinnacle-hartwell-engagement.docx.md",
+    "sec-informal-inquiry-letter.docx.md",
+    "task.json.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Section 1: Purpose and Scope, para 2",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act of 2002 Section 802 (18 U.S.C. §§ 1519, 1520)",
+      "citation_as_written": "18 U.S.C. §§ 1519 and 1520",
+      "pincite": "",
+      "cited_for": "Criminal penalties for knowing destruction, alteration, concealment, or falsification of documents with intent to impede a federal investigation",
+      "quotes": [],
+      "context": "Section 802 of SOX (codified at 18 U.S.C. §§ 1519 and 1520) provides for criminal penalties — including fines and imprisonment of up to twenty (20) years — for the knowing destruction, alteration, concealment, or falsification of documents",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1519 (added by SOX § 802(a)); § 1520 concerns auditors' retention of workpapers",
+        "quote_check": "No quotations attributed.",
+        "explanation": "SOX § 802(a) did enact both 18 U.S.C. §§ 1519 and 1520, so the codification is accurate. § 1519 matches the proposition exactly: knowing destruction, alteration, concealment, or falsification with intent to impede a federal investigation, punishable by up to 20 years. § 1520, however, requires accountants to keep audit and review workpapers. Its penalty (up to 10 years) is for knowing and willful violation of that retention duty, and it has no intent-to-impede element. Citing § 1520 alongside § 1519 for this proposition is therefore slightly imprecise.",
+        "evidence_excerpt": "§ 1519: \"...with the intent to impede, obstruct, or influence the investigation or proper administration of any matter within the jurisdiction of any department or agency of the United States ... imprisoned not more than 20 years\"; § 1520(b): \"Whoever knowingly and willfully violates subsection (a)(1) ... shall be fined under this title, imprisoned not more than 10 years, or both.\"",
+        "source_urls": [
+          "https:/1519",
+          "https:/1520"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Section 1: Purpose and Scope, para 2",
+      "authority_type": "statute",
+      "authority": "Securities Act of 1933; Securities Exchange Act of 1934",
+      "citation_as_written": "Securities Act of 1933, the Securities Exchange Act of 1934",
+      "pincite": "",
+      "cited_for": "Company is subject to federal securities laws and SEC rules",
+      "quotes": [],
+      "context": "the Company is subject to the requirements of the federal securities laws, including the Securities Act of 1933, the Securities Exchange Act of 1934, and the rules and regulations promulgated thereunder",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Securities Act of 1933, 15 U.S.C. § 77a et seq.; Securities Exchange Act of 1934, 15 U.S.C. § 78a et seq.",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Both statutes exist under the names given. Saying that a NASDAQ-listed issuer is subject to them and to the SEC rules under them is an accurate general statement.",
+        "evidence_excerpt": "§ 77a: \"This subchapter may be cited as the 'Securities Act of 1933'.\"; § 78a: \"This chapter may be cited as the 'Securities Exchange Act of 1934.'\"",
+        "source_urls": [
+          "https:/77a",
+          "https:/78a"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Section 1: Purpose and Scope, para 2",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act of 2002",
+      "citation_as_written": "Sarbanes-Oxley Act of 2002 (\"SOX\")",
+      "pincite": "",
+      "cited_for": "Imposes record-keeping, retention, and preservation obligations on public companies",
+      "quotes": [],
+      "context": "The Company is also subject to the Sarbanes-Oxley Act of 2002 (\"SOX\"), which imposes significant record-keeping, retention, and preservation obligations on public companies",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Sarbanes-Oxley Act of 2002, Pub. L. 107-204, 116 Stat. 745",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This general description is supported. Title VIII of SOX (§ 802) added 18 U.S.C. § 1519, which criminalizes destroying or falsifying records to obstruct federal matters and applies to 'whoever', including public-company personnel. It also added § 1520 on retention of audit records. § 1520(c) says other federal and state duties to maintain documents still apply. Taken together, SOX does impose significant retention and preservation obligations in the public-company context, though some of them (e.g., § 1520) fall on auditors rather than on the issuer itself.",
+        "evidence_excerpt": "18 U.S.C. § 1519: \"Whoever knowingly alters, destroys, mutilates, conceals, covers up, falsifies, or makes a false entry in any record, document, or tangible object with the intent to impede, obstruct, or influence the investigation ... shall be fined under this title, imprisoned not more than 20 years, or both.\" (Added Pub. L. 107-204, title VIII, § 802(a))",
+        "source_urls": [
+          "https:/1519",
+          "https:/1520"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Section 1: Purpose and Scope, para 2",
+      "authority_type": "regulation",
+      "authority": "SEC Rule 17a-4",
+      "citation_as_written": "SEC Rule 17a-4",
+      "pincite": "",
+      "cited_for": "Imposes specific retention requirements for certain categories of records",
+      "quotes": [],
+      "context": "Additionally, SEC Rule 17a-4 and other regulatory provisions impose specific retention requirements applicable to certain categories of records maintained by publicly traded companies and their affiliates.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. § 240.17a-4",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 17a-4 is a record-preservation rule for exchange members, brokers, and dealers (and certain security-based swap entities that are registered broker-dealers). It does not set retention requirements for records kept by publicly traded companies in general. Nexfield is a NASDAQ-listed industrial company, not a broker-dealer. Describing 17a-4 as imposing retention requirements on \"records maintained by publicly traded companies and their affiliates\" misstates who the rule covers. A broker-dealer affiliate would be covered only because it is a broker-dealer, not because it is affiliated with a public company.",
+        "evidence_excerpt": "\"§ 240.17a-4 Records to be preserved by certain exchange members, brokers and dealers.\" ... \"Every member, broker or dealer subject to § 240.17a-3 must preserve for a period of not less than 6 years...\"",
+        "source_urls": [
+          "https:/240.17a-4"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds after a search for supporting text. 17 C.F.R. § 240.17a-4 applies only to securities-industry intermediaries. Paragraphs (a) and (b) each begin \"Every member, broker or dealer subject to § 240.17a-3 must preserve...\", and the rule's scope covers exchange members, brokers and dealers, registered broker-dealers, and security-based swap dealers or participants that are registered broker-dealers. Nothing in it extends the requirements to issuers or to public companies generally. The retention policy (nexfield-retention-policy.docx.md, para. 2) says Rule 17a-4 imposes \"specific retention requirements applicable to certain categories of records maintained by publicly traded companies and their affiliates.\" That sentence is part of a passage listing the obligations Nexfield, a NASDAQ-listed industrial company, is subject to as a public company. The words \"certain categories\" and \"affiliates\" do not save it. A broker-dealer affiliate would be covered because it is a broker-dealer, not because it belongs to a public-company group, and the documents give no sign that Nexfield has a broker-dealer affiliate. The policy therefore misstates who the rule covers. The citation itself (SEC Rule 17a-4) is correct and the rule is real, so MISCHARACTERIZED is the right status.",
+        "source_urls": [
+          "https:/240.17a-4"
+        ]
+      }
+    },
+    {
+      "ref": 4,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Section 4.3: Custodian Obligations",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. §§ 1519, 1520",
+      "citation_as_written": "18 U.S.C. §§ 1519 and 1520",
+      "pincite": "",
+      "cited_for": "Criminal prosecution for spoliation in cases involving federal investigations",
+      "quotes": [],
+      "context": "and, in cases involving federal investigations, criminal prosecution under 18 U.S.C. §§ 1519 and 1520.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1519 (and 18 U.S.C. § 1520 only as to auditors' workpapers)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1519 directly supports criminal prosecution of anyone who knowingly destroys, alters, or conceals records with intent to obstruct a federal investigation (up to 20 years). § 1520 ('Destruction of corporate audit records') is also part of SOX § 802, but it applies only to accountants who audit issuers and must keep audit workpapers. It does not reach company custodians who spoil evidence under a litigation hold, so citing it for that proposition is a loose fit.",
+        "evidence_excerpt": "§ 1519: 'Whoever knowingly alters, destroys, mutilates, conceals ... any record ... with the intent to impede, obstruct, or influence the investigation ... shall be fined ... imprisoned not more than 20 years'; § 1520(a)(1): 'Any accountant who conducts an audit of an issuer ... shall maintain all audit or review workpapers for a period of 5 years'",
+        "source_urls": [
+          "https:/1519",
+          "https:/1520"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Section 6: Compliance and Enforcement",
+      "authority_type": "statute",
+      "authority": "SOX Section 802 (18 U.S.C. §§ 1519, 1520)",
+      "citation_as_written": "SOX Section 802 (18 U.S.C. §§ 1519, 1520)",
+      "pincite": "",
+      "cited_for": "Civil and criminal liability for intentional destruction of records subject to hold or government investigation",
+      "quotes": [],
+      "context": "including but not limited to penalties under SOX Section 802 (18 U.S.C. §§ 1519, 1520).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Sarbanes-Oxley Act of 2002, Pub. L. 107-204, § 802(a), 116 Stat. 800 (codified at 18 U.S.C. §§ 1519, 1520)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "SOX § 802 did add 18 U.S.C. §§ 1519 and 1520. Section 1519 makes it a crime to knowingly destroy or alter records with intent to obstruct a federal investigation or matter (up to 20 years), so it supports the criminal-penalty point. Section 1520 is narrower: it requires auditors of issuers to keep audit workpapers for 5 years and punishes violations of that rule. It does not reach a company employee's destruction of records under a litigation hold. Neither section creates civil liability, but the policy attributes civil liability to 'applicable federal and state law' generally. The overall statement is fair; citing § 1520 is a loose fit.",
+        "evidence_excerpt": "§1519: \"Whoever knowingly alters, destroys, mutilates, conceals ... with the intent to impede, obstruct, or influence the investigation ... shall be fined under this title, imprisoned not more than 20 years, or both.\" §1520(a): \"Any accountant who conducts an audit of an issuer ... shall maintain all audit or review workpapers for a period of 5 years\"",
+        "source_urls": [
+          "https:/1519",
+          "https:/1520"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "it-infrastructure-memo.docx.md",
+      "location": "Section 4.2 SAP Retention and Data Integrity",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act (SOX compliance obligations)",
+      "citation_as_written": "SOX compliance obligations",
+      "pincite": "",
+      "cited_for": "Financial records retention policy mandates 7-year retention per IRS record-keeping requirements and SOX compliance",
+      "quotes": [],
+      "context": "mandates retention of all financial transaction data for a minimum of seven (7) years in accordance with IRS record-keeping requirements and SOX compliance obligations",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a loose policy reference. SOX's seven-year retention rule (SOX § 802(a)(2) as implemented by 17 C.F.R. § 210.2-06) applies to accountants keeping audit and review records, not to an issuer's own financial transaction data. IRS guidance generally calls for 3 years, with 7 years only for worthless-securities or bad-debt claims. A 7-year company policy is consistent with SOX and IRS duties, but neither one actually requires 7-year retention of all transaction data. Because the document describes an internal policy choice 'in accordance with' those duties, the defect is minor.",
+        "evidence_excerpt": "17 CFR 210.2-06(a): \"For a period of seven years after an accountant concludes an audit or review of an issuer's financial statements ... the accountant shall retain records relevant to the audit or review\"; IRS: \"Keep records for 3 years if situations (4), (5), and (6) below do not apply\" ... \"Keep records for 7 years if you file a claim for a loss from worthless securities or bad debt deduction.\"",
+        "source_urls": [
+          "https:/210.2-06",
+          "https://www.irs.gov/businesses/small-businesses-self-employed/how-long-should-i-keep-records",
+          "https:/1520"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section I, para 2",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act Section 806, 18 U.S.C. § 1514A",
+      "citation_as_written": "Section 806 of the Sarbanes-Oxley Act of 2002, codified at 18 U.S.C. § 1514A",
+      "pincite": "",
+      "cited_for": "Whistleblower retaliation claim against publicly traded employer",
+      "quotes": [],
+      "context": "claims under Section 806 of the Sarbanes-Oxley Act of 2002, codified at 18 U.S.C. § 1514A (\"SOX Section 806\"), and Texas common-law wrongful termination.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed. The demand letter's paraphrase of covered violations (§§ 1341, 1343, 1344, 1348, SEC rules, fraud against shareholders) matches the text of § 1514A(a)(1).",
+        "explanation": "SOX § 806 is codified at 18 U.S.C. § 1514A (Pub. L. 107-204, § 806(a)). It creates a whistleblower-retaliation cause of action against publicly traded employers, and the letter's paraphrase matches the statute.",
+        "evidence_excerpt": "\"any lawful act done by the employee— (1) to provide information ... regarding any conduct which the employee reasonably believes constitutes a violation of section 1341, 1343, 1344, or 1348, any rule or regulation of the Securities and Exchange Commission, or any provision of Federal law relating to fraud against shareholders\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section I, para 2",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1341 (mail fraud)",
+      "citation_as_written": "18 U.S.C. § 1341",
+      "pincite": "",
+      "cited_for": "Predicate violation for SOX 806 protection",
+      "quotes": [],
+      "context": "conduct they reasonably believe constitutes a violation of 18 U.S.C. § 1341 (mail fraud)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1341 is the mail fraud statute ('Frauds and swindles'), and § 1514A(a)(1) lists 'section 1341' as a predicate violation for SOX 806 protection.",
+        "evidence_excerpt": "§ 1341. Frauds and swindles ... § 1514A(a)(1): 'any conduct which the employee reasonably believes constitutes a violation of section 1341, 1343, 1344, or 1348'",
+        "source_urls": [
+          "https:/part-I/chapter-63",
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section I, para 2",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1343 (wire fraud)",
+      "citation_as_written": "18 U.S.C. § 1343",
+      "pincite": "",
+      "cited_for": "Predicate violation for SOX 806 protection",
+      "quotes": [],
+      "context": "18 U.S.C. § 1343 (wire fraud)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1343 is the wire fraud statute and is listed as a predicate in § 1514A(a)(1).",
+        "evidence_excerpt": "§ 1343. Fraud by wire, radio, or television; § 1514A(a)(1): 'a violation of section 1341, 1343, 1344, or 1348'",
+        "source_urls": [
+          "https:/part-I/chapter-63",
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section I, para 2",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1344 (bank fraud)",
+      "citation_as_written": "18 U.S.C. § 1344",
+      "pincite": "",
+      "cited_for": "Predicate violation for SOX 806 protection",
+      "quotes": [],
+      "context": "18 U.S.C. § 1344 (bank fraud)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1344 is the bank fraud statute and is listed as a predicate in § 1514A(a)(1).",
+        "evidence_excerpt": "§ 1344. Bank fraud; § 1514A(a)(1): 'a violation of section 1341, 1343, 1344, or 1348'",
+        "source_urls": [
+          "https:/part-I/chapter-63",
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section I, para 2",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1348 (securities fraud)",
+      "citation_as_written": "18 U.S.C. § 1348",
+      "pincite": "",
+      "cited_for": "Predicate violation for SOX 806 protection; also SEC rules and federal law relating to fraud against shareholders",
+      "quotes": [],
+      "context": "or 18 U.S.C. § 1348 (securities fraud), any rule or regulation of the Securities and Exchange Commission, or any provision of federal law relating to fraud against shareholders.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "18 U.S.C. § 1348 is 'Securities and commodities fraud' and is a § 1514A(a)(1) predicate. The demand letter's paraphrase of the remaining categories ('any rule or regulation of the Securities and Exchange Commission, or any provision of Federal law relating to fraud against shareholders') follows § 1514A(a)(1) almost word for word.",
+        "evidence_excerpt": "'§ 1348 - Securities and commodities fraud'; § 1514A(a)(1): 'section 1341, 1343, 1344, or 1348, any rule or regulation of the Securities and Exchange Commission, or any provision of Federal law relating to fraud against shareholders'",
+        "source_urls": [
+          "https:/1348",
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section III, paragraph following August 5 account (\"Each of the four complaints...\")",
+      "authority_type": "statute",
+      "authority": "18 U.S.C. § 1514A(a)(1)",
+      "citation_as_written": "18 U.S.C. § 1514A(a)(1)",
+      "pincite": "(a)(1)",
+      "cited_for": "Reports to supervisor, accounting personnel, and Audit Committee are covered protected disclosures",
+      "quotes": [],
+      "context": "are all expressly covered categories of protected disclosures under 18 U.S.C. § 1514A(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1514A(a)(1)(C)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "§ 1514A(a)(1)(C) covers information given to 'a person with supervisory authority over the employee (or such other person working for the employer who has the authority to investigate, discover, or terminate misconduct).' Reports to the supervising CFO are expressly covered. Reports to the Controller and the Audit Committee chair are covered only if those people have authority to investigate, discover, or terminate misconduct. The statute does not expressly name 'accounting personnel responsible for internal controls' or the Audit Committee, so calling them all 'expressly covered categories' overstates the text slightly. The pin cite could also be more specific: (a)(1)(C).",
+        "evidence_excerpt": "(C) a person with supervisory authority over the employee (or such other person working for the employer who has the authority to investigate, discover, or terminate misconduct)",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section III, last paragraph",
+      "authority_type": "regulation",
+      "authority": "SEC Rule 13a-14",
+      "citation_as_written": "SEC Rule 13a-14",
+      "pincite": "",
+      "cited_for": "Requires officer certifications of periodic reports; alleged violation Kovach reasonably believed",
+      "quotes": [],
+      "context": "SEC Rule 13a-14 (requiring officer certifications of periodic reports)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "17 C.F.R. § 240.13a-14",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 13a-14(a) requires the principal executive and principal financial officers to sign certifications for each Form 10-Q, 10-K, 20-F, and 40-F report. The parenthetical \"requiring officer certifications of periodic reports\" is accurate. Whether an employee could reasonably believe this rule was violated is an argument the demand letter makes, not something the rule itself decides.",
+        "evidence_excerpt": "\"Each principal executive and principal financial officer of the issuer, or persons performing similar functions, at the time of filing of the report must sign a certification.\"",
+        "source_urls": [
+          "https:/240.13a-14"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section III, last paragraph",
+      "authority_type": "statute",
+      "authority": "Section 10(b) of the Securities Exchange Act of 1934 and Rule 10b-5",
+      "citation_as_written": "Section 10(b) of the Securities Exchange Act of 1934 and Rule 10b-5",
+      "pincite": "",
+      "cited_for": "Anti-fraud provisions Kovach reasonably believed were violated",
+      "quotes": [],
+      "context": "the anti-fraud provisions of Section 10(b) of the Securities Exchange Act of 1934 and Rule 10b-5 promulgated thereunder.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "15 U.S.C. § 78j(b); 17 C.F.R. § 240.10b-5",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 10(b) of the Exchange Act and Rule 10b-5 are the core federal securities anti-fraud provisions, and Rule 10b-5 was promulgated under § 10(b). The citation and its description are accurate.",
+        "evidence_excerpt": "§ 78j heading \"Manipulative and deceptive devices\"; (b) \"To use or employ, in connection with the purchase or sale of any security ... any manipulative or deceptive device or contrivance in contravention of such rules and regulations as the Commission may prescribe\"; § 240.10b-5 \"Employment of manipulative and deceptive devices.\"",
+        "source_urls": [
+          "https:/78j",
+          "https:/240.10b-5"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section IV, July 15, 2024 PIP paragraph",
+      "authority_type": "case",
+      "authority": "Clark County School Dist. v. Breeden",
+      "citation_as_written": "532 U.S. 268, 273-74 (2001)",
+      "pincite": "273-74",
+      "cited_for": "Temporal proximity must be very close to support inference of causation",
+      "quotes": [
+        "very close"
+      ],
+      "context": "See, e.g., Clark County School Dist. v. Breeden, 532 U.S. 268, 273-74 (2001) (noting that temporal proximity must be \"very close\" to support an inference of causation)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "\"very close\": found verbatim at 532 U.S. 273 (the passage runs onto 274).",
+        "explanation": "The per curiam opinion says that cases accepting mere temporal proximity as enough to show causation for a prima facie case uniformly require the proximity to be \"very close\". Pin 273-74 is correct.",
+        "evidence_excerpt": "The cases that accept mere temporal proximity between an employer's knowledge of protected activity and an adverse employment action as sufficient evidence of causality to establish a prima facie case uniformly hold that the temporal proximity must be \"very close,\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/2620700/clark-county-school-district-v-breeden/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section IV, July 15, 2024 PIP paragraph",
+      "authority_type": "case",
+      "authority": "Araujo v. New Jersey Transit Rail Operations, Inc.",
+      "citation_as_written": "708 F.3d 152, 161 (3d Cir. 2013)",
+      "pincite": "161",
+      "cited_for": "Temporal proximity of days or weeks between protected activity and adverse action is sufficient for prima facie showing",
+      "quotes": [],
+      "context": "Araujo v. New Jersey Transit Rail Operations, Inc., 708 F.3d 152, 161 (3d Cir. 2013) (temporal proximity of days or weeks between protected activity and adverse action is sufficient for prima facie showing)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Araujo v. N.J. Transit Rail Operations, Inc., 708 F.3d 152, 160-62 (3d Cir. 2013)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The case is real and the citation is correct (3d Cir., Feb. 19, 2013). It arose under the Federal Railroad Safety Act's contributing-factor framework, not SOX. At 160-62 the court held that temporal proximity (disciplinary charges filed 'a few days after' the injury report), together with evidence of disparate treatment, was enough to make a prima facie case, while calling that evidence 'not overwhelming.' The court did not state a general rule that 'days or weeks' is sufficient. The parenthetical generalizes the holding, and the discussion runs from 160 to 162 rather than sitting only on 161. Still, the case reasonably supports the point that a gap of days can support a prima facie showing of causation.",
+        "evidence_excerpt": "\"Temporal proximity between the employee's engagement in a protected activity and the unfavorable personnel action can be circumstantial evidence that the protected activity was a contributing factor to the adverse employment action.\" ... \"Considering all of the evidence in the light most favorable to Araujo, we conclude that Araujo has asserted a prima facie case.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/820768/araujo-v-new-jersey-transit-rail-operations-inc/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section V.A",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act Section 806, 18 U.S.C. § 1514A (claim and protected disclosures)",
+      "citation_as_written": "18 U.S.C. § 1514A",
+      "pincite": "(a)(1)",
+      "cited_for": "SOX 806 retaliation claim; disclosures to management and Audit Committee are protected",
+      "quotes": [],
+      "context": "A. Sarbanes-Oxley Section 806 Whistleblower Retaliation (18 U.S.C. § 1514A)... all categories of protected disclosure expressly enumerated in 18 U.S.C. § 1514A(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "§ 1514A(a)(1) protects giving information to (A) federal agencies, (B) Congress, or (C) 'a person with supervisory authority over the employee (or such other person working for the employer who has the authority to investigate, discover, or terminate misconduct)'. Reports to the CFO and the Audit Committee chair fit category (C). The letter's phrase 'expressly enumerated' is advocacy shorthand: the statute does not name 'management' or 'Audit Committee', and coverage of the accounting employee (Chen) depends on his authority to investigate. On a reasonable reading, the provision supports the proposition.",
+        "evidence_excerpt": "\"(C) a person with supervisory authority over the employee (or such other person working for the employer who has the authority to investigate, discover, or terminate misconduct)\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section V.A, elements paragraph",
+      "authority_type": "statute",
+      "authority": "SOX Section 806 elements, contributing-factor standard and clear-and-convincing burden shift",
+      "citation_as_written": "SOX Section 806",
+      "pincite": "",
+      "cited_for": "Elements of claim; contributing factor causation more favorable than but-for; employer must show same action by clear and convincing evidence",
+      "quotes": [
+        "contributing factor"
+      ],
+      "context": "the causation standard under SOX Section 806 is the \"contributing factor\" standard — a standard significantly more favorable to the complainant than the \"but-for\" causation standard",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1514A(b)(2)(C) (incorporating 49 U.S.C. § 42121(b)(2)(B))",
+        "quote_check": "\"contributing factor\" found verbatim in 49 U.S.C. § 42121(b)(2)(B)(i) and (iii), which § 1514A(b)(2)(C) incorporates.",
+        "explanation": "Section 1514A(b)(2)(C) adopts the burdens of proof in 49 U.S.C. § 42121(b). Under that section, the complainant must show the protected activity was a 'contributing factor' in the adverse action. The employer then avoids liability only by showing, by clear and convincing evidence, that it would have taken the same action anyway. The letter's comparison to the 'but-for' standard is advocacy commentary, but it describes the statutory standard accurately.",
+        "evidence_excerpt": "\"unless the complainant makes a prima facie showing that any behavior ... was a contributing factor in the unfavorable personnel action\"; \"if the employer demonstrates, by clear and convincing evidence, that the employer would have taken the same unfavorable personnel action in the absence of that behavior\"; §1514A(b)(2)(C): \"the legal burdens of proof set forth in section 42121(b)\"",
+        "source_urls": [
+          "https:/1514A",
+          "https:/42121"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section V.A, OSHA paragraph",
+      "authority_type": "statute",
+      "authority": "SOX Section 806 OSHA administrative procedure (180-day limit, de novo district court review)",
+      "citation_as_written": "SOX Section 806",
+      "pincite": "",
+      "cited_for": "OSHA complaint within 180-day limitations period; de novo review in federal district court",
+      "quotes": [],
+      "context": "file a complaint with the Occupational Safety and Health Administration (\"OSHA\") within the 180-day limitations period prescribed by the statute",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1514A(b)(1), (b)(2)(D)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The statute requires a complaint to the Secretary of Labor (handled by OSHA) within 180 days of the violation or of when the employee became aware of it. If the Secretary has issued no final decision within 180 days, and the delay is not due to the claimant's bad faith, the employee may sue for de novo review in federal district court. The letter's general statement is accurate, although it does not mention the 180-day no-final-decision condition for going to court.",
+        "evidence_excerpt": "\"An action under paragraph (1) shall be commenced not later than 180 days after the date on which the violation occurs\"; \"bringing an action at law or equity for de novo review in the appropriate district court of the United States\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section V.A, remedies paragraph",
+      "authority_type": "statute",
+      "authority": "SOX Section 806 remedies",
+      "citation_as_written": "SOX Section 806",
+      "pincite": "",
+      "cited_for": "Remedies include reinstatement, back pay, compensatory damages, fees",
+      "quotes": [],
+      "context": "Remedies available under SOX Section 806 include reinstatement with full seniority, back pay with interest, compensatory damages",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1514A(c)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1514A(c) provides 'all relief necessary to make the employee whole', including reinstatement with seniority, back pay with interest, and special damages including litigation costs, expert fees, and attorney fees. The letter calls these 'compensatory damages' rather than the statutory 'special damages', and adds emotional distress, which the statute's text does not mention. The core remedies cited (reinstatement, back pay, damages, fees) do match the statute.",
+        "evidence_excerpt": "\"(A) reinstatement with the same seniority status ...; (B) the amount of back pay, with interest; and (C) compensation for any special damages sustained as a result of the discrimination, including litigation costs, expert witness fees, and reasonable attorney fees.\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section V.B",
+      "authority_type": "case",
+      "authority": "Sabine Pilot Service, Inc. v. Hauck",
+      "citation_as_written": "687 S.W.2d 733 (Tex. 1985)",
+      "pincite": "",
+      "cited_for": "At-will employee may not be terminated for sole reason of refusing to perform an illegal act (Texas wrongful termination)",
+      "quotes": [],
+      "context": "Under the Texas Supreme Court's holding in Sabine Pilot Service, Inc. v. Hauck, 687 S.W.2d 733 (Tex. 1985), an at-will employee may not be terminated for the sole reason that the employee refused to perform an illegal act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The Texas Supreme Court recognized a narrow exception to employment at will: discharge for the sole reason that the employee refused to perform an illegal act. The holding is at 687 S.W.2d at 735. The cite and court are correct and the proposition is accurately stated. The letter separately claims that Texas courts extended the doctrine to reporting illegal conduct; that claim is not attributed to Sabine Pilot and was not checked here.",
+        "evidence_excerpt": "That narrow exception covers only the discharge of an employee for the sole reason that the employee refused to perform an illegal act.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1525559/sabine-pilot-service-inc-v-hauck/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section V.C",
+      "authority_type": "statute",
+      "authority": "Section 21F of the Securities Exchange Act of 1934, as amended by Dodd-Frank Act of 2010",
+      "citation_as_written": "Section 21F of the Securities Exchange Act of 1934, as amended by the Dodd-Frank Wall Street Reform and Consumer Protection Act of 2010",
+      "pincite": "",
+      "cited_for": "Potential additional whistleblower claims and SEC bounty award",
+      "quotes": [],
+      "context": "claims under Section 21F of the Securities Exchange Act of 1934, as amended by the Dodd-Frank Wall Street Reform and Consumer Protection Act of 2010 (the \"Dodd-Frank whistleblower provisions\")",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Section 21F of the Securities Exchange Act of 1934, 15 U.S.C. § 78u-6, as added by Dodd-Frank Act § 922(a), Pub. L. 111-203",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 21F (15 U.S.C. § 78u-6) contains both the SEC whistleblower award program (subsection (b)) and the anti-retaliation cause of action (subsection (h)), so it supports both the potential claims and the bounty reference. The one defect: Dodd-Frank § 922(a) added § 21F to the Exchange Act; it did not amend an existing section. \"As amended by\" is imprecise.",
+        "evidence_excerpt": "\"(June 6, 1934, ch. 404, title I, § 21F, as added Pub. L. 111–203, title IX, § 922(a), July 21, 2010...\"; (h)(1)(A) \"No employer may discharge, demote, suspend, threaten, harass ... a whistleblower ... because of any lawful act done by the whistleblower\"",
+        "source_urls": [
+          "https:/78u-6"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section VI, item 5",
+      "authority_type": "statute",
+      "authority": "SOX Section 806 fee-shifting",
+      "citation_as_written": "SOX Section 806",
+      "pincite": "",
+      "cited_for": "Attorney's fees, costs, expert fees authorized",
+      "quotes": [],
+      "context": "expressly authorized under SOX Section 806 and other applicable statutes",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "18 U.S.C. § 1514A(c)(2)(C)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Section 1514A(c)(2)(C) expressly lists litigation costs, expert witness fees, and reasonable attorney fees as recoverable relief.",
+        "evidence_excerpt": "\"(C) compensation for any special damages sustained as a result of the discrimination, including litigation costs, expert witness fees, and reasonable attorney fees.\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section VII, Section VIII",
+      "authority_type": "other",
+      "authority": "Spoliation / duty to preserve (common law, unspecified 'applicable law')",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Duty to preserve attached by August 5, 2024 when litigation reasonably foreseeable; sanctions including adverse inference",
+      "quotes": [],
+      "context": "litigation was reasonably foreseeable... may constitute sanctionable spoliation... adverse inference instructions, monetary penalties, and any other remedies available under applicable law",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "unclear",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The letter cites no specific authority, only 'applicable law'. The general principles are sound. The duty to preserve arises when litigation is reasonably anticipated; the Rule 37(e) Committee Note says that rule builds on the common-law duty. Remedies for lost evidence can include adverse inferences and monetary measures. Under FRCP 37(e)(2), an adverse inference for lost ESI requires a finding of intent to deprive, and the letter only says such sanctions 'may' be sought. Whether the duty attached by August 5, 2024 is a factual question for this scenario, not a matter of law. With no specific authority to check, this is verified only as a general statement of law.",
+        "evidence_excerpt": "FRCP 37(e): \"If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost ... (2) only upon finding that the party acted with the intent to deprive ... may: (A) presume that the lost information was unfavorable to the party; (B) instruct the jury that it may or must presume the information was unfavorable\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "internal-investigation-summary.docx.md",
+      "location": "Section VII, Recommendation 3",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act Sections 302 and 404",
+      "citation_as_written": "Sections 302 and 404 of the Sarbanes-Oxley Act",
+      "pincite": "",
+      "cited_for": "Company's obligations implicated by FY2024 annual audit and notifying auditor",
+      "quotes": [],
+      "context": "the Company's obligations under Sections 302 and 404 of the Sarbanes-Oxley Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Sarbanes-Oxley Act of 2002 §§ 302, 404, Pub. L. 107-204, codified at 15 U.S.C. §§ 7241, 7262",
+        "quote_check": "No quotations attributed.",
+        "explanation": "SOX § 302 (15 U.S.C. § 7241) requires CEO/CFO certification of annual and quarterly reports; § 404 (15 U.S.C. § 7262) requires management's internal-control assessment in the annual report and auditor attestation. Both are directly implicated by an annual audit and by revenue-recognition allegations, so the general reference is accurate.",
+        "evidence_excerpt": "§ 7241(a): \"The Commission shall, by rule, require, for each company filing periodic reports ... that the principal executive officer ... and the principal financial officer ... certify in each annual or quarterly report\"; § 7262 heading: \"Management assessment of internal controls\" (Source: Pub. L. 107-204, title IV, § 404)",
+        "source_urls": [
+          "https:/7241",
+          "https:/7262"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "internal-investigation-summary.docx.md",
+      "location": "Section VII, Recommendation 4",
+      "authority_type": "statute",
+      "authority": "Section 806 of the Sarbanes-Oxley Act",
+      "citation_as_written": "Section 806 of the Sarbanes-Oxley Act",
+      "pincite": "",
+      "cited_for": "Potential whistleblower retaliation exposure from termination",
+      "quotes": [],
+      "context": "potential whistleblower retaliation claims under Section 806 of the Sarbanes-Oxley Act and applicable state law.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Sarbanes-Oxley Act § 806, codified at 18 U.S.C. § 1514A",
+        "quote_check": "No quotations attributed.",
+        "explanation": "SOX § 806 (18 U.S.C. § 1514A) creates a civil anti-retaliation action for employees of public companies who report conduct they reasonably believe violates the mail, wire, bank, or securities fraud statutes, SEC rules, or federal shareholder-fraud law. It fits the potential retaliation exposure from terminating Kovach.",
+        "evidence_excerpt": "Heading: \"Civil action to protect against retaliation in fraud cases\"; Source: \"Added Pub. L. 107–204, title VIII, § 806(a), July 30, 2002\"; \"No company with a class of securities registered under section 12 of the Securities Exchange Act of 1934...\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "kovach-personnel-file-summary.docx.md",
+      "location": "Section 6: Severance Offer and Release",
+      "authority_type": "statute",
+      "authority": "Older Workers Benefit Protection Act",
+      "citation_as_written": "Older Workers Benefit Protection Act",
+      "pincite": "",
+      "cited_for": "21-day consideration period and 7-day revocation for release by employee over 40",
+      "quotes": [],
+      "context": "a twenty-one (21) day consideration period was provided in accordance with the requirements of the Older Workers Benefit Protection Act, with an additional seven (7) day revocation period",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Older Workers Benefit Protection Act, 29 U.S.C. § 626(f)(1)(F)(i), (G)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "For a valid ADEA waiver, the OWBPA requires at least 21 days to consider the agreement (45 days for a group termination program) and a 7-day revocation period after signing. The described individual termination release matches.",
+        "evidence_excerpt": "the individual is given a period of at least 21 days within which to consider the agreement ... for a period of at least 7 days following the execution of such agreement, the individual may revoke the agreement",
+        "source_urls": [
+          "https:/626"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "pinnacle-hartwell-engagement.docx.md",
+      "location": "Section 5: Conflicts of Interest",
+      "authority_type": "court_rule",
+      "authority": "Texas Disciplinary Rules of Professional Conduct",
+      "citation_as_written": "Texas Disciplinary Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Conflicts check conducted per these rules",
+      "quotes": [],
+      "context": "Pinnacle Hartwell has conducted a conflicts check in accordance with its standard procedures and the Texas Disciplinary Rules of Professional Conduct.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Disciplinary Rules Prof'l Conduct R. 1.06, 1.09, 1.10",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The Texas Disciplinary Rules of Professional Conduct exist and include conflict-of-interest rules: 1.06 (general rule), 1.09 (former client), and 1.10 (imputation). The engagement letter only says it ran a conflicts check under those rules, which is a fair general reference.",
+        "evidence_excerpt": "1.06 \"Conflict of Interest: General Rule\"; 1.09 \"Conflict of Interest: Former Client\"; 1.10 \"Imputation of Conflicts of Interest: General Rule\"",
+        "source_urls": [
+          "https://www.legalethicstexas.com/resources/rules/texas-disciplinary-rules-of-professional-conduct/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "pinnacle-hartwell-engagement.docx.md",
+      "location": "Section 7: Termination of Engagement",
+      "authority_type": "court_rule",
+      "authority": "Texas Disciplinary Rules of Professional Conduct",
+      "citation_as_written": "Texas Disciplinary Rules of Professional Conduct",
+      "pincite": "",
+      "cited_for": "Firm's obligations on withdrawal including leave of court",
+      "quotes": [],
+      "context": "subject in all cases to the Firm's obligations under the Texas Disciplinary Rules of Professional Conduct, including the obligation to obtain leave of court to withdraw",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Tex. Disciplinary Rules Prof'l Conduct R. 1.16",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Texas Rule 1.16 (Declining or Terminating Representation) requires a lawyer to continue a representation when a tribunal orders it. Its comment notes that withdrawal in litigation ordinarily requires approval of the presiding judge. That supports the engagement letter's reference to the obligation to obtain leave of court to withdraw while litigation is pending.",
+        "evidence_excerpt": "Rule 1.16(c): \"When ordered to do so by a tribunal, a lawyer shall continue representation notwithstanding good cause for termination of the representation.\" Comment: \"in certain other instances in litigation, withdrawal ordinarily requires approval of the appointing authority or presiding judge.\"",
+        "source_urls": [
+          "https://www.legalethicstexas.com/resources/rules/texas-disciplinary-rules-of-professional-conduct/declining-or-terminating-representation/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "task.json.md",
+      "location": "rubric criterion (title: SOX Section 806 whistleblower protections flagged), match_criteria",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act Section 806 (whistleblower retaliation)",
+      "citation_as_written": "18 U.S.C. § 1514A",
+      "pincite": "",
+      "cited_for": "Memo should flag that Kovach's claims may implicate SOX Section 806 whistleblower retaliation protections, broadening the hold scope",
+      "quotes": [],
+      "context": "PASS if the memo identifies or flags that Kovach's claims may implicate Sarbanes-Oxley (SOX) Section 806 whistleblower retaliation protections (18 U.S.C. § 1514A), given that Kovach reported potential accounting/securities fraud at a publicly traded company to the Audit Committee.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "18 U.S.C. § 1514A was enacted by SOX § 806(a) and is titled 'Whistleblower Protection for Employees of Publicly Traded Companies'. It protects employees of companies with Exchange Act-registered securities who report conduct they reasonably believe is securities fraud, a violation of SEC rules, or fraud against shareholders. That includes reports to a person who has authority to investigate misconduct. Flagging this provision for a public-company employee's report to the Audit Committee is accurate.",
+        "evidence_excerpt": "\"Pub. L. 107–204, title VIII, § 806(a), July 30, 2002, 116 Stat. 802\"; \"Whistleblower Protection for Employees of Publicly Traded Companies.—No company with a class of securities registered under section 12 of the Securities Exchange Act of 1934 ... may discharge ... an employee ... because of any lawful act done by the employee\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "task.json.md",
+      "location": "rubric criterion (title: SOX implications for preservation breadth noted), match_criteria",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act (SOX retaliation theory)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "A potential SOX retaliation theory means the hold should encompass all communications regarding Kovach's Audit Committee reports and subsequent retaliatory actions; SOX claims may create broader preservation obligations",
+      "quotes": [],
+      "context": "PASS if the memo notes that a potential SOX retaliation theory means the hold should encompass all communications regarding Kovach's reports to the Audit Committee and any subsequent retaliatory actions, and/or that SOX claims may create broader or more protective preservation obligations.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a rubric statement, not a citation to specific text. SOX § 806 (18 U.S.C. § 1514A) protects reports to a person 'who has the authority to investigate, discover, or terminate misconduct', which reasonably includes an Audit Committee chair. It also bars retaliatory discharge and other discrimination. So a SOX retaliation theory makes communications about Kovach's reports and the later employment actions relevant. The statute does not itself set preservation duties; the 'broader preservation' point is a reasonable litigation-strategy inference based on relevance, not a statutory rule.",
+        "evidence_excerpt": "\"may discharge, demote, suspend, threaten, harass, or in any other manner discriminate against an employee ... because of any lawful act done by the employee— (1) to provide information ... (C) a person with supervisory authority over the employee (or such other person working for the employer who has the authority to investigate, discover, or terminate misconduct)\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "nexfield-retention-policy.docx.md",
+      "location": "Retention schedule, ERP System Records paragraph",
+      "authority_type": "statute",
+      "authority": "SOX compliance obligations",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "SAP records supporting financial statements, tax filings, or SOX compliance obligations retained at least seven years",
+      "quotes": [],
+      "context": "At a minimum, all SAP records supporting the Company's financial statements, tax filings, or SOX compliance obligations shall be retained for no less than seven (7) years from the applicable reporting period.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The passage refers to \"SOX compliance obligations\" in general and sets a seven-year minimum as the company's own internal policy. SOX does impose compliance obligations that SAP records would support, such as internal-control reporting under § 404 (15 U.S.C. § 7262). The policy does not claim SOX requires seven years, so there is nothing to mischaracterize. For context: the seven-year SOX-derived retention rule (17 C.F.R. § 210.2-06) binds the outside auditor, not the issuer. A reader should not take the seven-year figure as a statutory mandate on the company.",
+        "evidence_excerpt": "17 C.F.R. § 210.2-06(a): \"For a period of seven years after an accountant concludes an audit or review ... the accountant shall retain records relevant to the audit or review\"; 15 U.S.C. § 7262 \"Management assessment of internal controls\"",
+        "source_urls": [
+          "https:/210.2-06",
+          "https:/7262"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "it-infrastructure-memo.docx.md",
+      "location": "Section 4.2 SAP Retention and Data Integrity",
+      "authority_type": "regulation",
+      "authority": "IRS record-keeping requirements",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Seven-year retention of financial transaction data in accordance with IRS record-keeping requirements",
+      "quotes": [],
+      "context": "mandates retention of all financial transaction data for a minimum of seven (7) years in accordance with IRS record-keeping requirements and SOX compliance obligations.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "26 U.S.C. § 6001; 26 C.F.R. § 1.6001-1 (IRS record-keeping requirements)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "IRS record-keeping requirements exist. A 7-year minimum retention policy satisfies them, but the IRS does not generally require 7 years. Its guidance sets a 3-year general period, 6 years for substantial underreporting, 7 years only for worthless-securities or bad-debt loss claims, and 4 years for employment tax records. Saying the policy is \"in accordance with\" IRS requirements is reasonable for a conservative policy, but it loosely implies the IRS mandates 7 years.",
+        "evidence_excerpt": "Keep records for 7 years if you file a claim for a loss from worthless securities or bad debt deduction ... Keep employment tax records for at least 4 years",
+        "source_urls": [
+          "https://www.irs.gov/businesses/small-businesses-self-employed/how-long-should-i-keep-records"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section IV, severance/release paragraph",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act and other federal or state whistleblower statutes (release scope)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Severance release purportedly covered claims arising under the Sarbanes-Oxley Act and other whistleblower statutes",
+      "quotes": [],
+      "context": "conditioned upon his execution of a general release of all claims, including any claims arising under the Sarbanes-Oxley Act and any other federal or state whistleblower statutes.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "This is a factual description of what the proposed severance release covered, not a legal proposition. The Sarbanes-Oxley Act and its whistleblower provision (18 U.S.C. § 1514A) exist. Worth noting: § 1514A(e) says SOX whistleblower rights 'may not be waived by any agreement, policy form, or condition of employment', which may limit whether such a release could be enforced. That does not make the description of the release inaccurate.",
+        "evidence_excerpt": "18 U.S.C. § 1514A(e): \"The rights and remedies provided for in this section may not be waived by any agreement, policy form, or condition of employment, including by a predispute arbitration agreement.\"",
+        "source_urls": [
+          "https:/1514A"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "demand-letter-stadler-raines.docx.md",
+      "location": "Section VI, item 4 (Punitive Damages)",
+      "authority_type": "statute",
+      "authority": "Sarbanes-Oxley Act (federally protected rights)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Punitive damages demanded for reckless disregard of rights under the Sarbanes-Oxley Act",
+      "quotes": [],
+      "context": "Nexfield's conduct was willful, malicious, and undertaken with reckless disregard for Mr. Kovach's federally protected rights under the Sarbanes-Oxley Act.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Sarbanes-Oxley Act § 806, 18 U.S.C. § 1514A(c)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The letter demands punitive damages for reckless disregard of rights under the Sarbanes-Oxley Act. SOX § 806's remedies provision limits relief to making the employee whole: reinstatement, back pay with interest, and special damages including litigation costs, expert fees and attorney fees. It does not authorize punitive damages, and courts have struck SOX punitive damages demands (e.g., Hanna v. WCI Communities, 348 F. Supp. 2d 1332, 1333 (S.D. Fla. 2004), where the plaintiff conceded they are unavailable). The \"reckless disregard of federally protected rights\" standard comes from 42 U.S.C. § 1981a, not SOX. The letter's own remedies paragraph (Section V.A) lists only make-whole relief. Punitive damages might be pursued under the separate Texas common-law claim, but the demand rests them on SOX.",
+        "evidence_excerpt": "An employee prevailing in any action under subsection (b)(1) shall be entitled to all relief necessary to make the employee whole. Relief ... shall include--(A) reinstatement ... (B) the amount of back pay, with interest; and (C) compensation for any special damages ... / Mr. Hanna's response concedes that punitive damages are unavailable under the Sarbanes-Oxley Act",
+        "source_urls": [
+          "https:/1514A",
+          "https://www.courtlistener.com/opinion/2306416/hanna-v-wci-communities-inc/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. The remedies provision of SOX § 806, 18 U.S.C. § 1514A(c), reads: \"(1) An employee prevailing in any action under subsection (b)(1) shall be entitled to all relief necessary to make the employee whole. (2) Relief ... shall include--(A) reinstatement ...; (B) the amount of back pay, with interest; and (C) compensation for any special damages sustained as a result of the discrimination, including litigation costs, expert witness fees, and reasonable attorney fees.\" It does not mention punitive damages. Hanna v. WCI Communities, Inc., 348 F. Supp. 2d 1332, 1333 (S.D. Fla. 2004) (CourtListener opinion 2306416) supports the first reviewer: \"Mr. Hanna's response concedes that punitive damages are unavailable under the Sarbanes-Oxley Act ... Thus, Mr. Hanna's request for punitive damages is stricken as to Count I.\" The demand letter (demand-letter-stadler-raines.docx.md, damages item 4) bases a $2,000,000 punitive-damages demand on \"reckless disregard for Mr. Kovach's federally protected rights under the Sarbanes-Oxley Act.\" Its own Section V.A remedies paragraph lists only make-whole relief. A Texas Sabine Pilot claim might support punitive damages, but the letter ties the punitive demand to federal SOX rights. Two limits on the evidence: Hanna rests on the plaintiff's concession rather than a contested holding, and I did not separately confirm where the \"reckless disregard of federally protected rights\" phrasing comes from. Neither changes the conclusion, because the statute itself provides only make-whole relief.",
+        "source_urls": [
+          "https:/1514A",
+          "https://www.courtlistener.com/opinion/2306416/hanna-v-wci-communities-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 36,
+      "document": "sec-informal-inquiry-letter.docx.md",
+      "location": "Section I, paragraph following the bullet list (line 33)",
+      "authority_type": "regulation",
+      "authority": "Regulation S-X",
+      "citation_as_written": "Regulation S-X",
+      "pincite": "",
+      "cited_for": "Commission reporting requirements against which the Company's revenue recognition practices are assessed in the inquiry",
+      "quotes": [],
+      "context": "The inquiry encompasses the Company's compliance with generally accepted accounting principles (\"GAAP\") and applicable Commission reporting requirements, including Regulation S-X and Accounting Standards Codification Topic 606, with respect to the foregoing practices during the period at issue.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Regulation S-X, 17 C.F.R. Part 210",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Regulation S-X is the SEC regulation that sets the form, content and requirements for financial statements filed with the Commission. It is properly described as an applicable Commission reporting requirement for assessing revenue recognition and financial reporting practices.",
+        "evidence_excerpt": "This part (together with the Financial Reporting Releases (part 211 of this chapter)) sets forth the form and content of and requirements for financial statements required to be filed as a part of:",
+        "source_urls": [
+          "https:/210.1-01"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "sec-informal-inquiry-letter.docx.md",
+      "location": "Section I, paragraph following the bullet list (line 33)",
+      "authority_type": "other",
+      "authority": "Accounting Standards Codification Topic 606 (ASC 606)",
+      "citation_as_written": "Accounting Standards Codification Topic 606",
+      "pincite": "",
+      "cited_for": "Revenue recognition accounting standard with which the Company's compliance is being examined",
+      "quotes": [],
+      "context": "including Regulation S-X and Accounting Standards Codification Topic 606, with respect to the foregoing practices during the period at issue.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "FASB Accounting Standards Codification Topic 606, Revenue from Contracts with Customers",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ASC Topic 606, 'Revenue from Contracts with Customers,' is the FASB codification topic governing revenue recognition and is part of authoritative GAAP. The SEC inquiry letter properly names it as a standard against which the company's revenue practices are being examined.",
+        "evidence_excerpt": "Revenue from Contracts with Customers (Topic 606) ... An Amendment of the FASB Accounting Standards Codification ... the source of authoritative generally accepted accounting principles (GAAP)",
+        "source_urls": [
+          "https://storage.fasb.org/ASU%202016-10.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "sec-informal-inquiry-letter.docx.md",
+      "location": "Section I, document request category 3 (Revenue Recognition Memoranda and Analyses) (line 41)",
+      "authority_type": "other",
+      "authority": "ASC 606",
+      "citation_as_written": "ASC 606",
+      "pincite": "",
+      "cited_for": "Documents supporting conclusions on satisfaction of performance obligations under ASC 606 for channel distributor transactions",
+      "quotes": [],
+      "context": "any documentation supporting the Company's conclusions regarding the satisfaction of performance obligations under ASC 606 with respect to channel distributor transactions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "FASB ASC Topic 606, Revenue from Contracts with Customers (ASU 2014-09)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ASC Topic 606 is the FASB revenue recognition standard. It ties revenue recognition to when (or as) the entity satisfies a performance obligation. That fits a document request for the analyses behind conclusions on satisfying performance obligations for distributor transactions.",
+        "evidence_excerpt": "Step 5: Recognize revenue when (or as) the entity satisfies a performance obligation.",
+        "source_urls": [
+          "https://storage.fasb.org/ASU%202014-09_Section%20A.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "sec-informal-inquiry-letter.docx.md",
+      "location": "Section I, document request category 7 (External Auditor Communications) (line 49)",
+      "authority_type": "other",
+      "authority": "ASC 606",
+      "citation_as_written": "ASC 606",
+      "pincite": "",
+      "cited_for": "Auditor communications addressing application of ASC 606 to channel transactions",
+      "quotes": [],
+      "context": "or correspondence addressing channel sales practices, distributor returns, or the application of ASC 606 to channel transactions.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "FASB ASC Topic 606, Revenue from Contracts with Customers (ASU 2014-09)",
+        "quote_check": "No quotes attributed.",
+        "explanation": "ASC 606 is the governing GAAP revenue recognition standard. It is properly described as the standard whose application to channel transactions the auditor communications would address. The reference is descriptive and accurate.",
+        "evidence_excerpt": "Revenue from Contracts with Customers (Topic 606) No. 2014-09 May 2014 An Amendment of the FASB Accounting Standards Codification",
+        "source_urls": [
+          "https://storage.fasb.org/ASU%202014-09_Section%20A.pdf"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}

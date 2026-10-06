@@ -1,0 +1,2523 @@
+{
+  "task": "identify-issues-in-counterparty-interrogatories",
+  "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+  "documents_read": [
+    "answer-affirmative-defenses.docx.md",
+    "case-management-order.docx.md",
+    "defense-discovery-strategy-memo.docx.md",
+    "fasa-agreement.docx.md",
+    "fasa-renewal-letter.docx.md",
+    "plaintiff-first-interrogatories.docx.md",
+    "plaintiff-initial-disclosures.docx.md",
+    "task.json.md",
+    "verified-complaint.docx.md"
+  ],
+  "citations": [
+    {
+      "ref": 0,
+      "document": "fasa-agreement.docx.md",
+      "location": "Section 2.6(d) Excluded Services",
+      "authority_type": "statute",
+      "authority": "Investment Advisers Act of 1940",
+      "citation_as_written": "Investment Advisers Act of 1940",
+      "pincite": "",
+      "cited_for": "Defines the meaning of 'investment advice' for the excluded investment advisory services",
+      "quotes": [
+        "investment advice"
+      ],
+      "context": "Investment advisory services, including the recommendation or selection of investments ... or any other activity that would constitute \"investment advice\" within the meaning of the Investment Advisers Act of 1940;",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Investment Advisers Act of 1940, 15 U.S.C. § 80b-1 et seq.; see § 80b-2(a)(11)",
+        "quote_check": "\"investment advice\" is the agreement's own defined term, not a quotation from the Act. The Act's definitions section (15 U.S.C. § 80b-2) has no separately defined phrase \"investment advice\"; it defines \"investment adviser\" by reference to advising others about securities.",
+        "explanation": "The Act exists. Section 80b-2(a)(11) defines an investment adviser as one who, for compensation, advises others on the value of securities or the advisability of investing in them. The contract uses that concept to exclude advisory services, which is a reasonable drafting reference. The only imprecision is that \"investment advice\" is not a separately defined statutory term.",
+        "evidence_excerpt": "\"any person who, for compensation, engages in the business of advising others ... as to the value of securities or as to the advisability of investing in, purchasing, or selling securities\"",
+        "source_urls": [
+          "https:/80b-2"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 1,
+      "document": "fasa-agreement.docx.md",
+      "location": "Article I definition of NAV; Section 2.2(b)",
+      "authority_type": "other",
+      "authority": "ASC 820 (Fair Value Measurement), Accounting Standards Codification Topic 820",
+      "citation_as_written": "ASC 820 (Fair Value Measurement)",
+      "pincite": "",
+      "cited_for": "Fair value measurement standard applied in NAV calculation and fair value hierarchy classification (Levels 1-3)",
+      "quotes": [],
+      "context": "Administrator shall apply fair value measurements consistent with Accounting Standards Codification Topic 820 (Fair Value Measurement) (\"ASC 820\") as directed by the General Partner",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "FASB Accounting Standards Codification Topic 820 is titled \"Fair Value Measurement\" and establishes a three-level fair value hierarchy (Level 1, Level 2, Level 3 inputs), as the agreement describes. The text read is FASB's Accounting Standards Update No. 2011-04, which reproduces the amended Codification paragraphs (820-10-35-37, -40, -47, -52); the Codification itself was not read directly.",
+        "evidence_excerpt": "820-10-35-37 To increase consistency and comparability in fair value measurements and related disclosures, this Topic establishes a fair value hierarchy that categorizes into three levels ... the inputs to valuation techniques used to measure fair value.",
+        "source_urls": [
+          "https://storage.fasb.org/ASU2011-04.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 2,
+      "document": "fasa-agreement.docx.md",
+      "location": "Section 9.1 Mandatory Arbitration",
+      "authority_type": "court_rule",
+      "authority": "JAMS Comprehensive Arbitration Rules and Procedures",
+      "citation_as_written": "JAMS Comprehensive Arbitration Rules and Procedures",
+      "pincite": "",
+      "cited_for": "Arbitration administered by JAMS under its rules then in effect",
+      "quotes": [],
+      "context": "binding arbitration administered by JAMS in accordance with the JAMS Comprehensive Arbitration Rules and Procedures then in effect.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The JAMS Comprehensive Arbitration Rules and Procedures exist under exactly that title. They govern JAMS-administered binding arbitrations where the parties agree to use them, which matches the clause.",
+        "evidence_excerpt": "\"The JAMS Comprehensive Arbitration Rules and Procedures (\"Rules\") govern binding Arbitrations of disputes or claims that are administered by JAMS and in which the Parties agree to use these Rules\"",
+        "source_urls": [
+          "https://www.jamsadr.com/rules-comprehensive-arbitration"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 3,
+      "document": "verified-complaint.docx.md",
+      "location": "Jurisdiction and Venue, para 12",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Subject matter jurisdiction based on diversity of citizenship; amount in controversy exceeds $75,000",
+      "quotes": [],
+      "context": "This Court has subject matter jurisdiction over this action pursuant to 28 U.S.C. § 1332 (diversity of citizenship).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "28 U.S.C. § 1332(a)(1) grants district courts original jurisdiction over civil actions between citizens of different States where the matter in controversy exceeds $75,000, exclusive of interest and costs. The complaint's wording tracks the statute. The complaint's accompanying statement that a limited partnership's citizenship follows that of all its partners is a case-law rule, not statutory text, but the citation is offered only for the diversity jurisdiction basis, which it supports.",
+        "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2023-title28/html/USCODE-2023-title28-partIV-chap85-sec1332.htm",
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 4,
+      "document": "verified-complaint.docx.md",
+      "location": "Jurisdiction and Venue, para 13",
+      "authority_type": "statute",
+      "authority": "New York CPLR § 302(a)(1)",
+      "citation_as_written": "New York CPLR § 302(a)(1)",
+      "pincite": "",
+      "cited_for": "Personal jurisdiction over Whitmore because it transacts business in New York",
+      "quotes": [],
+      "context": "Whitmore transacts business in the State of New York within the meaning of New York CPLR § 302(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "CPLR 302(a)(1) allows a New York court to exercise personal jurisdiction over a non-domiciliary that 'transacts any business within the state,' for a cause of action arising from that act. That matches the complaint's jurisdictional allegation.",
+        "evidence_excerpt": "\"a court may exercise personal jurisdiction over any non-domiciliary ... who in person or through an agent: 1. transacts any business within the state or contracts anywhere to supply goods or services in the state\"",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/CVP/302"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 5,
+      "document": "verified-complaint.docx.md",
+      "location": "Jurisdiction and Venue, para 14",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)(2)",
+      "citation_as_written": "28 U.S.C. § 1391(b)(2)",
+      "pincite": "",
+      "cited_for": "Venue proper in S.D.N.Y. because a substantial part of events occurred in the District",
+      "quotes": [],
+      "context": "Venue is proper in the Southern District of New York under 28 U.S.C. § 1391(b)(2) because a substantial part of the events or omissions giving rise to the claims asserted herein occurred in this District.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check. The complaint's unquoted phrasing (\"a substantial part of the events or omissions giving rise to the claims asserted herein occurred in this District\") tracks § 1391(b)(2) nearly word for word.",
+        "explanation": "28 U.S.C. § 1391(b)(2) permits venue in a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred. The pin cite to paragraph (2) is correct and the complaint paraphrases it accurately.",
+        "evidence_excerpt": "(2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred, or a substantial part of property that is the subject of the action is situated;",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2023-title28/html/USCODE-2023-title28-partIV-chap87-sec1391.htm",
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 6,
+      "document": "verified-complaint.docx.md",
+      "location": "para 15, 26, 91 (JAMS rules in FASA 9.1 quotation)",
+      "authority_type": "court_rule",
+      "authority": "JAMS Comprehensive Arbitration Rules and Procedures",
+      "citation_as_written": "JAMS Comprehensive Arbitration Rules and Procedures",
+      "pincite": "",
+      "cited_for": "Quoted FASA Section 9.1 arbitration clause that Trident contends is unenforceable",
+      "quotes": [
+        "in accordance with the JAMS Comprehensive Arbitration Rules and Procedures then in effect"
+      ],
+      "context": "binding arbitration administered by JAMS in Hartford, Connecticut, in accordance with the JAMS Comprehensive Arbitration Rules and Procedures then in effect.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted phrase is contract language from FASA Section 9.1, not a quotation from the JAMS Rules. It matches the FASA text (fasa-agreement.docx.md: 'in accordance with the JAMS Comprehensive Arbitration Rules and Procedures then in effect'). The rules' title is accurate.",
+        "explanation": "The JAMS Comprehensive Arbitration Rules and Procedures exist under that exact title (current version effective June 1, 2021). Rule 1(a) says they govern arbitrations administered by JAMS where the parties agree to use them. That is consistent with how the clause invokes them. The complaint cites the rules only as part of a quoted contract clause, not for any substantive rule.",
+        "evidence_excerpt": "\"The JAMS Comprehensive Arbitration Rules and Procedures ('Rules') govern binding Arbitrations of disputes or claims that are administered by JAMS and in which the Parties agree to use these Rules...\"",
+        "source_urls": [
+          "https://www.jamsadr.com/rules-comprehensive-arbitration/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 7,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Response to para 13",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1332",
+      "citation_as_written": "28 U.S.C. § 1332",
+      "pincite": "",
+      "cited_for": "Admits subject matter jurisdiction based on complete diversity and amount in controversy over $75,000",
+      "quotes": [],
+      "context": "Whitmore admits that this Court has subject matter jurisdiction under 28 U.S.C. § 1332 based on complete diversity of citizenship",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "28 U.S.C. § 1332(a)(1) confers original jurisdiction where the parties are citizens of different States and the amount in controversy exceeds $75,000, exclusive of interest and costs. The answer's admission of jurisdiction on complete diversity (Delaware/New York versus Connecticut) and the amount in controversy matches the statute.",
+        "evidence_excerpt": "(a) The district courts shall have original jurisdiction of all civil actions where the matter in controversy exceeds the sum or value of $75,000, exclusive of interest and costs, and is between— (1) citizens of different States;",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2023-title28/html/USCODE-2023-title28-partIV-chap85-sec1332.htm",
+          "https:/1332"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 8,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Response to para 13",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 3-4",
+      "citation_as_written": "Federal Arbitration Act, 9 U.S.C. §§ 3–4",
+      "pincite": "§§ 3-4",
+      "cited_for": "Right to compel arbitration is not waived by admission of subject matter jurisdiction",
+      "quotes": [],
+      "context": "does not constitute a waiver of Whitmore's right to compel arbitration pursuant to Section 9.1 of the FASA and the Federal Arbitration Act, 9 U.S.C. §§ 3–4.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "9 U.S.C. §§ 3-4 exist and are the FAA provisions for a stay of litigation pending arbitration (§ 3) and an order compelling arbitration (§ 4). The Answer cites them as the statutory source of the \"right to compel arbitration\" that it says is not waived by admitting subject matter jurisdiction; that is an accurate identification of the source of the right. The citation is not offered as authority for a non-waiver rule as such. The text of § 4 is consistent with the point: it presupposes a district court that \"save for such agreement, would have jurisdiction under title 28,\" so admitting jurisdiction is not at odds with seeking to compel arbitration.",
+        "evidence_excerpt": "§ 4: \"A party aggrieved by the alleged failure, neglect, or refusal of another to arbitrate under a written agreement for arbitration may petition any United States district court which, save for such agreement, would have jurisdiction under title 28 ... for an order directing that such arbitration proceed in the manner provided for in such agreement.\"",
+        "source_urls": [
+          "https:/3",
+          "https:/4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 9,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Response to para 14",
+      "authority_type": "statute",
+      "authority": "28 U.S.C. § 1391(b)",
+      "citation_as_written": "28 U.S.C. § 1391(b)",
+      "pincite": "",
+      "cited_for": "Venue may be proper in S.D.N.Y. if the Court retains jurisdiction notwithstanding the arbitration clause",
+      "quotes": [],
+      "context": "venue may be proper in the Southern District of New York under 28 U.S.C. § 1391(b).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "28 U.S.C. § 1391(b) is the general federal venue provision, listing the districts where a civil action may be brought (defendant's residence, where a substantial part of the events occurred, or the fallback district). The answer's conditional admission that venue \"may be proper\" in S.D.N.Y. under § 1391(b) is a fair use of the subsection; the arbitration-clause condition is the pleader's own reservation, not something attributed to the statute.",
+        "evidence_excerpt": "(b) Venue in General.—A civil action may be brought in— (1) a judicial district in which any defendant resides, if all defendants are residents of the State in which the district is located; (2) a judicial district in which a substantial part of the events or omissions giving rise to the claim occurred",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2023-title28/html/USCODE-2023-title28-partIV-chap87-sec1391.htm",
+          "https:/1391"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 10,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Response to para 18",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act (strong federal policy favoring arbitration)",
+      "citation_as_written": "Federal Arbitration Act",
+      "pincite": "",
+      "cited_for": "Doubts about scope or enforceability of arbitration agreements are resolved in favor of arbitration; strong federal policy under the FAA",
+      "quotes": [],
+      "context": "any doubts regarding the scope or enforceability of an arbitration agreement are resolved in favor of arbitration, consistent with the strong federal policy favoring arbitration under the Federal Arbitration Act.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "The Federal Arbitration Act exists (9 U.S.C. § 1 et seq.), and the Supreme Court has read § 2 as declaring a \"liberal federal policy favoring arbitration agreements,\" with doubts about the SCOPE of arbitrable issues resolved in favor of arbitration (Moses H. Cone, 460 U.S. at 24-25). So the core of the proposition is supported, though it is judicial gloss on § 2 rather than statutory text and the Act is cited without a section. The defect is the phrase \"scope or enforceability\": the presumption does not extend to doubts about enforceability. Granite Rock, 561 U.S. at 301-303, confines the presumption to cases where \"a validly formed and enforceable arbitration agreement is ambiguous about whether it covers the dispute at hand,\" and § 2 itself preserves ordinary contract defenses (\"save upon such grounds as exist at law or in equity for the revocation of any contract\"). Morgan v. Sundance, 596 U.S. 411 (2022), further cabins the \"strong federal policy\" framing: the policy \"is about treating arbitration contracts like all others, not about fostering arbitration.\" Treated as a loose overstatement in a pleading rather than a mischaracterization because the sentence attributes the doubt-resolution rule to New York law and cites the FAA only for the federal policy.",
+        "evidence_excerpt": "Moses H. Cone: \"The Arbitration Act establishes that, as a matter of federal law, any doubts concerning the scope of arbitrable issues should be resolved in favor of arbitration\". Granite Rock: \"applying the presumption of arbitrability only where a validly formed and enforceable arbitration agreement is ambiguous about whether it covers the dispute at hand\". Morgan: \"The federal policy is about treating arbitration contracts like all others, not about fostering arbitration.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110873/moses-h-cone-memorial-hospital-v-mercury-construction-corp/",
+          "https://www.courtlistener.com/opinion/149288/granite-rock-co-v-international-brotherhood-of-teamsters/",
+          "https://www.courtlistener.com/opinion/6470914/morgan-v-sundance-inc/",
+          "https:/2"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 11,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Response to para 25",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 3-4",
+      "citation_as_written": "9 U.S.C. §§ 3–4",
+      "pincite": "§§ 3-4",
+      "cited_for": "Reserves right to compel arbitration of all claims under Section 9.1 and the FAA",
+      "quotes": [],
+      "context": "Whitmore expressly reserves its right to compel arbitration of all claims alleged in the Complaint pursuant to Section 9.1 of the FASA and the Federal Arbitration Act, 9 U.S.C. §§ 3–4.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "9 U.S.C. §§ 3-4 are correctly cited as the FAA provisions under which a party may seek a stay pending arbitration (§ 3) and an order directing the parties to arbitrate (§ 4). A reservation of the \"right to compel arbitration of all claims\" pursuant to the contract's arbitration clause and these sections accurately identifies the statutory mechanism. Whether a reservation actually prevents waiver is governed by case law, not by these sections, but the citation does not claim otherwise.",
+        "evidence_excerpt": "§ 4: \"The court shall hear the parties, and upon being satisfied that the making of the agreement for arbitration or the failure to comply therewith is not in issue, the court shall make an order directing the parties to proceed to arbitration in accordance with the terms of the agreement.\"",
+        "source_urls": [
+          "https:/3",
+          "https:/4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 12,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Response to para 17 (unnamed principle)",
+      "authority_type": "other",
+      "authority": "Unspecified settled principles of arbitration law (severability; material breach claims arbitrable)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Claims of material breach are themselves arbitrable and do not defeat enforceability of arbitration clause (no authority named)",
+      "quotes": [],
+      "context": "Under settled principles of arbitration law, claims of material breach are themselves arbitrable and do not defeat the enforceability of an arbitration clause.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Prima Paint Corp. v. Flood & Conklin Mfg. Co., 388 U.S. 395, 402-04 (1967); Buckeye Check Cashing, Inc. v. Cardegna, 546 U.S. 440, 445-46 (2006) (leading authorities for the unnamed principle; none was cited)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The answer cites no authority and invokes 'settled principles of arbitration law.' Under the Federal Arbitration Act, an arbitration clause is severable from the contract that contains it. Unless a challenge targets the arbitration clause itself, attacks on the contract as a whole go to the arbitrator. Buckeye and Prima Paint state this directly. Neither case is about material breach as such; they deal with fraud in the inducement and with a claim that the contract was illegal and void. But an alleged breach of the contract's other terms is an even weaker attack on the arbitration clause, and a broad clause covers it. So it is a fair reading that breach claims do not defeat the clause's enforceability and are themselves arbitrable when within the clause's scope. Whether a particular claim is arbitrable still depends on the clause's scope.",
+        "evidence_excerpt": "First, as a matter of substantive federal arbitration law, an arbitration provision is severable from the remainder of the contract. Second, unless the challenge is to the arbitration clause itself, the issue of the contract's validity is considered by the arbitrator in the first instance. (Buckeye, 546 U.S. at 445-46)",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/145683/buckeye-check-cashing-inc-v-cardegna/",
+          "https://www.courtlistener.com/opinion/107492/prima-paint-corp-v-flood-conklin-mfg-co/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 13,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Responses to paras 97-98 (Count III)",
+      "authority_type": "statute",
+      "authority": "N.Y. CPLR § 214(4)",
+      "citation_as_written": "New York CPLR § 214(4)",
+      "pincite": "",
+      "cited_for": "Three-year statute of limitations bars negligent misrepresentation claims based on conduct before September 12, 2021",
+      "quotes": [],
+      "context": "barred by the applicable three-year statute of limitations under New York CPLR § 214(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "CPLR 214(4) provides a three-year period for 'an action to recover damages for an injury to property.' The statute does not name negligent misrepresentation, but some New York courts have applied 214(4) to such claims (Country World, 186 A.D.2d 781 (2d Dep't 1992); Ackerman, 887 F. Supp. 494, 508 (S.D.N.Y. 1992), both as collected in Fromer v. Yogel). That makes the defense a colorable advocacy position. The defect is that the answer presents three years as the settled rule. Fromer notes 'some dispute,' and other authority applies six years under CPLR 213(1) (Enzinna, 84 A.D.3d at 1744-45; Milin Pharmacy, 173 A.D.2d 686) or the fraud period under 213(8) when the claim sounds in fraud.",
+        "evidence_excerpt": "Fromer v. Yogel: \"There is some dispute concerning the proper statute of limitations for negligent misrepresentation. ... But see, Country World, Inc. v. Imperial Frozen Foods Co., 186 A.D.2d 781, 782 ... (applying three-year limitation period of CPLR § 214(4) and (5))\"",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/CVP/214",
+          "https://www.courtlistener.com/opinion/2332578/fromer-v-yogel/",
+          "https://www.courtlistener.com/opinion/4087492/enzinna-nicole-m-v-dyouville-college/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 14,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "First Affirmative Defense",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 12(b)(6)",
+      "citation_as_written": "Fed. R. Civ. P. 12(b)(6)",
+      "pincite": "",
+      "cited_for": "Complaint fails to state a claim upon which relief can be granted",
+      "quotes": [],
+      "context": "fails to state a claim upon which relief can be granted pursuant to Fed. R. Civ. P. 12(b)(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The answer's phrase 'fails to state a claim upon which relief can be granted' tracks the rule's wording 'failure to state a claim upon which relief can be granted' at Rule 12(b)(6).",
+        "explanation": "Rule 12(b)(6) lists 'failure to state a claim upon which relief can be granted' as a defense, and Rule 12(b) says every defense must be asserted in the responsive pleading if one is required. Rule 12(h)(2)(A) separately confirms the defense may be raised 'in any pleading allowed or ordered under Rule 7(a)'. Asserting it in an answer and citing 12(b)(6) is therefore accurate. Failure to state a claim is not strictly an 'affirmative' defense, but that is a labelling point and not a citation defect.",
+        "evidence_excerpt": "Every defense to a claim for relief in any pleading must be asserted in the responsive pleading if one is required. But a party may assert the following defenses by motion: ... (6) failure to state a claim upon which relief can be granted;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_12"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 15,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Ninth Affirmative Defense",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 3-4",
+      "citation_as_written": "9 U.S.C. §§ 3–4",
+      "pincite": "§§ 3-4",
+      "cited_for": "Court should dismiss or stay action pending arbitration; right to compel arbitration not waived (cited twice in this defense)",
+      "quotes": [],
+      "context": "This Court should dismiss or stay this action pending arbitration pursuant to the Federal Arbitration Act, 9 U.S.C. §§ 3–4.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "9 U.S.C. §§ 3-4 exist and squarely support a STAY pending arbitration (§ 3) and an order compelling arbitration (§ 4). They do not support the \"dismiss\" alternative that the sentence attributes to them (\"This Court should dismiss or stay this action pending arbitration pursuant to the Federal Arbitration Act, 9 U.S.C. §§ 3-4\"). Section 3 says the court \"shall ... stay the trial of the action\"; the only dismissal mentioned in § 4 is dismissal of the petition where a jury finds no arbitration agreement. Smith v. Spizzirri, 601 U.S. 472 (decided May 16, 2024, before this Answer dated Nov. 4, 2024) holds that when a party requests a stay, § 3 \"compels the court to issue a stay, and the court lacks discretion to dismiss the suit\"; footnote 2 preserves dismissal only for a separate reason unrelated to arbitrability, such as lack of jurisdiction. The second use in this defense (reserving the right to compel arbitration under the FAA) is supported. Rated a minor defect because the stay/compel half is correct and \"dismiss or stay\" is pleaded in the alternative.",
+        "evidence_excerpt": "§ 3: \"shall on application of one of the parties stay the trial of the action until such arbitration has been had in accordance with the terms of the agreement\". Spizzirri: \"When a district court finds that a lawsuit involves an arbitrable dispute and a party has requested a stay of the court proceeding pending arbitration, §3 compels the court to issue a stay, and the court lacks discretion to dismiss the suit.\"",
+        "source_urls": [
+          "https:/3",
+          "https:/4",
+          "https://www.courtlistener.com/opinion/9502724/smith-v-spizzirri/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 16,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Eleventh Affirmative Defense",
+      "authority_type": "statute",
+      "authority": "N.Y. CPLR § 214(4)",
+      "citation_as_written": "N.Y. CPLR § 214(4)",
+      "pincite": "",
+      "cited_for": "Three-year limitations period for negligent misrepresentation claims",
+      "quotes": [],
+      "context": "such claims are time-barred under the three-year limitations period applicable to negligent misrepresentation claims under New York law, N.Y. CPLR § 214(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Same analysis as ref 13. CPLR 214(4) gives three years for injury to property, and some courts have applied it to negligent misrepresentation (Country World; Ackerman). But the answer calls it 'the three-year limitations period applicable to negligent misrepresentation claims under New York law' when the law is split. Other Appellate Division authority applies the six-year period of CPLR 213(1) (Enzinna; Milin Pharmacy) or 213(8) for fraud-aligned claims.",
+        "evidence_excerpt": "CPLR 214(4): \"an action to recover damages for an injury to property except as provided in section 214-c\"; Enzinna: \"The cause of action for negligent misrepresentation is governed by the six-year statute of limitations applicable to equitable actions in general (see CPLR 213 [1]\"",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/CVP/214",
+          "https://www.courtlistener.com/opinion/2332578/fromer-v-yogel/",
+          "https://www.courtlistener.com/opinion/4087492/enzinna-nicole-m-v-dyouville-college/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 17,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Eleventh Affirmative Defense",
+      "authority_type": "statute",
+      "authority": "N.Y. CPLR § 213(2)",
+      "citation_as_written": "N.Y. CPLR § 213(2)",
+      "pincite": "",
+      "cited_for": "Six-year limitations period bars breach of contract claims based on conduct before September 12, 2018",
+      "quotes": [],
+      "context": "such claims are also time-barred under N.Y. CPLR § 213(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "CPLR 213 requires the listed actions to be commenced within six years, and subdivision (2) covers 'an action upon a contractual obligation or liability, express or implied.' That supports the defense that contract claims based on conduct more than six years before the September 12, 2024 filing are time-barred.",
+        "evidence_excerpt": "\"an action upon a contractual obligation or liability, express or implied, except as provided in section two hundred thirteen-a or two hundred fourteen-i ...\"",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/CVP/213"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 18,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Thirteenth Affirmative Defense",
+      "authority_type": "other",
+      "authority": "Unspecified New York law (no recovery in quasi-contract where express contract governs)",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Unjust enrichment barred where valid express contract governs the subject matter (no authority named)",
+      "quotes": [],
+      "context": "Under well-settled New York law, a party may not recover in quasi-contract where an express agreement exists covering the disputed subject matter.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Clark-Fitzpatrick, Inc. v. Long Island R.R. Co., 70 N.Y.2d 382, 388-89 (1987) (the leading authority for the unnamed principle; none was cited)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "The answer cites no authority and states the rule as 'well-settled New York law.' The New York Court of Appeals' leading case states that rule. A valid written contract covering the subject matter ordinarily bars recovery in quasi contract, and quasi contract applies only when there is no express agreement. The answer drops the word 'ordinarily,' so it omits recognized exceptions such as a disputed contract or rescission. That is a fair paraphrase of an accurate rule in a pleading.",
+        "evidence_excerpt": "The existence of a valid and enforceable written contract governing a particular subject matter ordinarily precludes recovery in quasi contract for events arising out of the same subject matter ... A \"quasi contract\" only applies in the absence of an express agreement",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/5538099/clark-fitzpatrick-inc-v-long-island-rail-road/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 19,
+      "document": "answer-affirmative-defenses.docx.md",
+      "location": "Prayer for Relief para 2; Jury Demand",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 3-4",
+      "citation_as_written": "9 U.S.C. §§ 3–4",
+      "pincite": "§§ 3-4",
+      "cited_for": "Alternative relief compelling arbitration and staying action; jury demand without waiver of FAA rights",
+      "quotes": [],
+      "context": "compelling arbitration of all claims asserted in the Complaint pursuant to Section 9.1 of the FASA and the Federal Arbitration Act, 9 U.S.C. §§ 3–4",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "In the Prayer for Relief the citation modifies \"compelling arbitration of all claims ... pursuant to Section 9.1 of the FASA and the Federal Arbitration Act, 9 U.S.C. §§ 3-4,\" and the proposition it is cited for (an order compelling arbitration and staying the action; a jury demand made without waiving FAA rights) is what § 4 (order directing arbitration) and § 3 (stay on application) provide. Two caveats that do not change the status as I read the sentence, but which a reviewer could reasonably treat as the same minor defect flagged at ref 15: (1) the prayer goes on to request \"staying or dismissing this action pending completion of such arbitration,\" and under Smith v. Spizzirri, 601 U.S. 472 (2024), § 3 requires a stay rather than dismissal when a stay is requested; (2) § 4 says the arbitration hearing and proceedings \"shall be within the district in which the petition for an order directing such arbitration is filed,\" while this action is in the S.D.N.Y. and Section 9.1 designates Hartford, Connecticut. Neither affects the accuracy of the citation itself.",
+        "evidence_excerpt": "§ 4: \"the court shall make an order directing the parties to proceed to arbitration in accordance with the terms of the agreement. The hearing and proceedings, under such agreement, shall be within the district in which the petition for an order directing such arbitration is filed.\" § 3: \"shall on application of one of the parties stay the trial of the action until such arbitration has been had\".",
+        "source_urls": [
+          "https:/3",
+          "https:/4",
+          "https://www.courtlistener.com/opinion/9502724/smith-v-spizzirri/"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 20,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)",
+      "pincite": "",
+      "cited_for": "Basis for serving initial disclosures",
+      "quotes": [],
+      "context": "hereby serves these Initial Disclosures pursuant to Federal Rule of Civil Procedure 26(a)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(a)(1) (Initial Disclosure) requires a party, without awaiting a discovery request, to provide the listed initial disclosures to the other parties. It is the correct authority for serving initial disclosures. The document's reference to the preceding Rule 26(f) conference is consistent with Rule 26(a)(1)(C), which keys timing to that conference unless a court order sets a different time.",
+        "evidence_excerpt": "(1) Initial Disclosure. (A) In General. Except as exempted by Rule 26(a)(1)(B) or as otherwise stipulated or ordered by the court, a party must, without awaiting a discovery request, provide to the other parties:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 21,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Rule 26(f) conference held December 2, 2024",
+      "quotes": [],
+      "context": "following the Rule 26(f) conference of the parties held on December 2, 2024",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(f) is titled 'Conference of the Parties; Planning for Discovery' and requires the parties to confer and to make or arrange for the Rule 26(a)(1) disclosures. Referring to 'the Rule 26(f) conference of the parties' as the event preceding initial disclosures is accurate usage. The December 2, 2024 date is a fact of the fictional record, not something the rule can confirm. Note the Case Management Order describes the same December 2 event as a court-held pretrial conference (see ref 39).",
+        "evidence_excerpt": "(f) Conference of the Parties; Planning for Discovery. (1) Conference Timing. Except in a proceeding exempted from initial disclosure under Rule 26(a)(1)(B) or when the court orders otherwise, the parties must confer as soon as practicable ... In conferring, the parties must consider the nature and basis of their claims and defenses ... make or arrange for the disclosures required by Rule 26(a)(1)",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 22,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Preamble",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "",
+      "cited_for": "Duty/right to supplement, amend or correct disclosures",
+      "quotes": [],
+      "context": "to supplement, amend, or correct these disclosures as additional information becomes available in the course of discovery, pursuant to Federal Rule of Civil Procedure 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(e)(1) governs supplementing and correcting Rule 26(a) disclosures: a party who has made a disclosure must supplement or correct it in a timely manner on learning it is materially incomplete or incorrect. The rule states this as a duty rather than a reserved right, and it says 'supplement or correct' rather than 'amend'. The reservation-of-rights wording is standard boilerplate, and the rule is the correct authority for supplementing or correcting initial disclosures as new information emerges.",
+        "evidence_excerpt": "(e) Supplementing Disclosures and Responses. (1) In General. A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 23,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section I heading and intro",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(i)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)(A)(i)",
+      "pincite": "",
+      "cited_for": "Disclosure of individuals likely to have discoverable information",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 26(a)(1)(A)(i), Plaintiff identifies the following individuals who are likely to have discoverable information",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The document's paraphrase ('individuals who are likely to have discoverable information that Plaintiff may use to support its claims or defenses, along with the subjects of that information') closely tracks the rule text.",
+        "explanation": "Rule 26(a)(1)(A)(i) requires disclosure of the name and, if known, the address and telephone number of each individual likely to have discoverable information, along with the subjects of that information, that the disclosing party may use to support its claims or defenses. The subsection is correctly cited for the witness-identification section of the disclosures.",
+        "evidence_excerpt": "(i) the name and, if known, the address and telephone number of each individual likely to have discoverable information—along with the subjects of that information—that the disclosing party may use to support its claims or defenses, unless the use would be solely for impeachment;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 24,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section I, item 8",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "",
+      "cited_for": "Will supplement witness disclosures",
+      "quotes": [],
+      "context": "Plaintiff will supplement these disclosures in accordance with Federal Rule of Civil Procedure 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(e)(1) requires a party that has made Rule 26(a) disclosures, which include the witness disclosures under 26(a)(1)(A)(i), to supplement or correct them in a timely manner. A statement that plaintiff will supplement its witness disclosures in accordance with Rule 26(e) is accurate.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect, and if the additional or corrective information has not otherwise been made known to the other parties during the discovery process or in writing; or (B) as ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 25,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section II heading and intro",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(ii)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)(A)(ii)",
+      "pincite": "",
+      "cited_for": "Disclosure of documents, ESI and tangible things",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 26(a)(1)(A)(ii), Plaintiff identifies the following categories of documents",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1)(A)(ii) requires a copy, or a description by category and location, of documents, ESI and tangible things in the disclosing party's possession, custody, or control that it may use to support its claims or defenses, unless solely for impeachment. Plaintiff's disclosure tracks this language (adding 'or that are known to Plaintiff to exist', which goes beyond but does not contradict the rule).",
+        "evidence_excerpt": "(ii) a copy—or a description by category and location—of all documents, electronically stored information, and tangible things that the disclosing party has in its possession, custody, or control and may use to support its claims or defenses, unless the use would be solely for impeachment;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 26,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section III heading and intro",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(iii)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)(A)(iii)",
+      "pincite": "",
+      "cited_for": "Computation of each category of damages",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 26(a)(1)(A)(iii), Plaintiff provides the following computation of each category of damages claimed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1)(A)(iii) requires a computation of each category of damages claimed, together with making available the documents or other evidentiary material on which each computation is based. The disclosure's introductory sentence accurately paraphrases the subparagraph.",
+        "evidence_excerpt": "(iii) a computation of each category of damages claimed by the disclosing party—who must also make available for inspection and copying as under Rule 34 the documents or other evidentiary material, unless privileged or protected from disclosure, on which each computation is based",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 27,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section IV heading and intro",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(iv)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)(A)(iv)",
+      "pincite": "",
+      "cited_for": "Disclosure of insurance agreements",
+      "quotes": [],
+      "context": "Pursuant to Federal Rule of Civil Procedure 26(a)(1)(A)(iv), Plaintiff identifies the following insurance agreement",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1)(A)(iv) requires disclosure of any insurance agreement under which an insurance business may be liable to satisfy all or part of a possible judgment or to indemnify or reimburse for payments made to satisfy the judgment. Plaintiff's sentence reproduces that language almost word for word.",
+        "evidence_excerpt": "(iv) for inspection and copying as under Rule 34, any insurance agreement under which an insurance business may be liable to satisfy all or part of a possible judgment in the action or to indemnify or reimburse for payments made to satisfy the judgment.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 28,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section V, para 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "",
+      "cited_for": "Right to supplement, amend or correct disclosures",
+      "quotes": [],
+      "context": "Plaintiff reserves the right to supplement, amend, or correct these disclosures at any time pursuant to Federal Rule of Civil Procedure 26(e)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(e)(1) is the correct authority for supplementing or correcting Rule 26(a) disclosures. The document's wording is loose in one respect: the rule imposes a duty to supplement 'in a timely manner' and does not confer a right to supplement 'at any time'. That is common reservation-of-rights boilerplate and the rule still supports the core proposition, so the looseness is noted here without downgrading the status.",
+        "evidence_excerpt": "A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 29,
+      "document": "plaintiff-initial-disclosures.docx.md",
+      "location": "Section V, expert paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)",
+      "pincite": "",
+      "cited_for": "Expert disclosures due November 14, 2025 under Scheduling Order",
+      "quotes": [],
+      "context": "expert disclosures under Federal Rule of Civil Procedure 26(a)(2) shall be served no later than November 14, 2025",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2) governs disclosure of expert testimony, and 26(a)(2)(D) leaves timing to the court's order, so the rule is correctly cited for the type of disclosure. The November 14, 2025 date is a statement about the scheduling order, not about the rule, and it conflicts with the record: the Case Management Order sets affirmative expert reports for September 15, 2025 (para. 10), rebuttal reports for October 15, 2025 (para. 11), and makes November 14, 2025 the deadline to complete expert depositions (para. 12). That is a factual inconsistency in the plaintiff's disclosures, not a citation defect, so the status is not downgraded.",
+        "evidence_excerpt": "(2) Disclosure of Expert Testimony. (A) In General. In addition to the disclosures required by Rule 26(a)(1), a party must disclose to the other parties the identity of any witness it may use at trial to present evidence under Federal Rule of Evidence 702, 703, or 705. ... (D) Time to Disclose Expert Testimony. A party must make these disclosures at the times and in the sequence that the court orders.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 30,
+      "document": "fasa-agreement.docx.md",
+      "location": "Section on regulatory filing assistance (Form PF and Form ADV services)",
+      "authority_type": "regulation",
+      "authority": "Form PF (Private Fund) and Form ADV (Uniform Application for Investment Adviser Registration)",
+      "citation_as_written": "Form PF; Form ADV",
+      "pincite": "",
+      "cited_for": "Administrator assists with preparation and filing of SEC Form PF and Form ADV to the extent applicable to the Fund or General Partner",
+      "quotes": [],
+      "context": "Assistance with the preparation and filing of Form PF (Private Fund) and Form ADV (Uniform Application for Investment Adviser Registration) to the extent applicable to the Fund or the General Partner, based upon information and data maintained by Administrator;",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Form PF is the SEC's confidential reporting form for registered advisers to private funds. Form ADV is the 'Uniform Application for Investment Adviser Registration,' and the agreement gives that title correctly. Assistance with these filings 'to the extent applicable' is an accurate description of what the forms are.",
+        "evidence_excerpt": "\"Form ADV is the Uniform Application for Investment Adviser Registration\"; \"Form PF is the confidential reporting form for certain SEC-registered investment advisers to private funds\"",
+        "source_urls": [
+          "https://www.sec.gov/files/formadv-part1a_1.pdf",
+          "https://www.sec.gov/rules-regulations/staff-guidance/division-investment-management-frequently-asked-questions/form-pf-faq"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 31,
+      "document": "task.json.md",
+      "location": "rubric C-002 (ISSUE_001)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(1)",
+      "citation_as_written": "FRCP 33(a)(1) (or Rule 33(a)(1) or Fed. R. Civ. P. 33(a)(1))",
+      "pincite": "33(a)(1)",
+      "cited_for": "Rule limiting interrogatories to 25 including all discrete subparts",
+      "quotes": [],
+      "context": "PASS if the memo cites FRCP 33(a)(1) (or Rule 33(a)(1) or Fed. R. Civ. P. 33(a)(1)) as the rule limiting interrogatories to 25 including all discrete subparts.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the rule.",
+        "explanation": "Rule 33(a)(1) is the provision limiting a party to 25 written interrogatories, including all discrete subparts, absent stipulation or court order. The pin cite is correct and the rule says what it is cited for. The 1993 advisory committee note confirms that the limit cannot be evaded by joining questions on discrete separate subjects as 'subparts'.",
+        "evidence_excerpt": "(1) Number. Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts. Leave to serve additional interrogatories may be granted to the extent consistent with Rule 26(b)(1) and (2).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 32,
+      "document": "task.json.md",
+      "location": "rubric C-012 (ISSUE_003)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(2)",
+      "citation_as_written": "FRCP 33(a)(2) (or Rule 33(a)(2) or Fed. R. Civ. P. 33(a)(2))",
+      "pincite": "33(a)(2)",
+      "cited_for": "Basis for deferring contention interrogatories until later in discovery",
+      "quotes": [],
+      "context": "PASS if the memo cites FRCP 33(a)(2) ... as the basis for deferring contention interrogatories until later in discovery.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the rule.",
+        "explanation": "Rule 33(a)(2) provides that an interrogatory asking for an opinion or contention is not objectionable merely for that reason, but the court may order that it need not be answered until designated discovery is complete, a pretrial conference, or some other time. That is the textual basis for deferring contention interrogatories until later in discovery. The 1970 advisory committee note says the court 'is expressly authorized to defer an answer'. Deferral is by court order and discretionary, not automatic.",
+        "evidence_excerpt": "(2) Scope. An interrogatory may relate to any matter that may be inquired into under Rule 26(b). An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact, but the court may order that the interrogatory need not be answered until designated discovery is complete, or until a pretrial conference or some other time.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 33,
+      "document": "task.json.md",
+      "location": "rubric C-021 (ISSUE_006)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(3) and 26(b)(4)",
+      "citation_as_written": "FRCP 26(b)(3) (work product doctrine) and/or FRCP 26(b)(4) (expert trial preparation materials)",
+      "pincite": "26(b)(3); 26(b)(4)",
+      "cited_for": "Work product and expert trial-preparation protection as basis for objecting to Interrogatory No. 20",
+      "quotes": [],
+      "context": "PASS if the memo cites FRCP 26(b)(3) (work product doctrine) and/or FRCP 26(b)(4) (expert trial preparation materials) as the basis for objecting to Interrogatory No. 20.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The parenthetical labels are accurate: Rule 26(b)(3) is headed 'Trial Preparation: Materials' (the work-product rule) and Rule 26(b)(4) is headed 'Trial Preparation: Experts'.",
+        "explanation": "Interrogatory No. 20 asks for the methodology, analysis, identity, engagement scope, preliminary findings and compensation of any expert, consultant or advisor retained for the litigation. Both rules are proper bases for objecting. Rule 26(b)(4)(D) bars discovery 'by interrogatories or deposition' of facts known or opinions held by a retained expert not expected to testify, absent exceptional circumstances; 26(b)(4)(A)-(C) govern testifying experts and protect draft reports and attorney-expert communications; 26(b)(3) protects trial-preparation materials and attorney mental impressions. Nuances that do not undercut the cite: 26(b)(3) by its terms covers 'documents and tangible things', and 26(b)(4)(C)(i) excepts communications about expert compensation from protection.",
+        "evidence_excerpt": "Rule 26(b)(4)(D): \"Ordinarily, a party may not, by interrogatories or deposition, discover facts known or opinions held by an expert who has been retained or specially employed by another party in anticipation of litigation or to prepare for trial and who is not expected to be called as a witness at trial.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 34,
+      "document": "task.json.md",
+      "location": "rubric C-026 (ISSUE_008)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33 and Fed. R. Civ. P. 34",
+      "citation_as_written": "FRCP 33 ... FRCP 34",
+      "pincite": "",
+      "cited_for": "Distinction between interrogatories (Rule 33) and document requests (Rule 34); interrogatories cannot substitute for document requests",
+      "quotes": [],
+      "context": "PASS if the memo explains the distinction between FRCP 33 interrogatories and FRCP 34 document requests, noting that interrogatories cannot be used as a substitute for document requests.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the rules.",
+        "explanation": "Both rules exist and establish distinct discovery devices: Rule 33 governs written interrogatories answered in writing under oath, and Rule 34 governs requests to produce documents and electronically stored information for inspection and copying. The statement that interrogatories 'cannot be used as a substitute for document requests' is not in the text of either rule; it is a reasonable inference from their structure. Rule 33(d) makes producing business records an option of the responding party, not something the interrogating party can demand. I did not locate or read case law stating the 'no substitute' principle in terms, so support rests on the rule text alone.",
+        "evidence_excerpt": "Rule 34(a): \"A party may serve on any other party a request within the scope of Rule 26(b): (1) to produce and permit the requesting party or its representative to inspect, copy, test, or sample the following items in the responding party's possession, custody, or control: (A) any designated documents or electronically stored information\". Rule 33(b)(3): \"Each interrogatory must, to the extent it is not objected to, be answered separately and fully in writing under oath.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 35,
+      "document": "task.json.md",
+      "location": "rubric C-027 (ISSUE_008)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(d)",
+      "citation_as_written": "FRCP 33(d)",
+      "pincite": "33(d)",
+      "cited_for": "Business records option as alternative way to respond to interrogatories",
+      "quotes": [],
+      "context": "PASS if the memo references FRCP 33(d) (the business records option) as a potential alternative for responding to interrogatories",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Fed. R. Civ. P. 33(d) is titled \"Option to Produce Business Records\" and lets a responding party answer an interrogatory by specifying the business records from which the answer may be derived, where the burden of deriving the answer is substantially the same for either party. That is exactly the \"business records option\" alternative the rubric describes.",
+        "evidence_excerpt": "If the answer to an interrogatory may be determined by examining, auditing, compiling, abstracting, or summarizing a party's business records (including electronically stored information), and if the burden of deriving or ascertaining the answer will be substantially the same for either party, the responding party may answer by: (1) specifying the records that must be reviewed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 36,
+      "document": "task.json.md",
+      "location": "rubric C-031 (ISSUE_011)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "FRCP 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Proportionality standard and factors (importance of issues, amount in controversy, access to information, burden vs. benefit)",
+      "quotes": [],
+      "context": "PASS if the memo applies or references the proportionality standard under FRCP 26(b)(1) (citing the rule or its factors such as importance of issues, amount in controversy, parties' relative access to information, burden vs. benefit, etc.)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(b)(1) limits discovery to matter that is relevant and proportional to the needs of the case and lists the factors the rubric names: importance of the issues, amount in controversy, the parties' relative access to relevant information, and whether burden or expense outweighs likely benefit (plus the parties' resources and the importance of the discovery in resolving the issues, which the rubric's 'etc.' covers).",
+        "evidence_excerpt": "Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, considering the importance of the issues at stake in the action, the amount in controversy, the parties’ relative access to relevant information, the parties’ resources, the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 37,
+      "document": "task.json.md",
+      "location": "rubric C-040",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33",
+      "citation_as_written": "FRCP 33",
+      "pincite": "",
+      "cited_for": "30-day response period for interrogatories (service Feb 3, 2025, due March 5, 2025)",
+      "quotes": [],
+      "context": "PASS if the memo states that interrogatory responses are due March 5, 2025 (30 days from service on February 3, 2025, per FRCP 33).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 33(b)(2)",
+        "quote_check": "No quotation attributed to the rule.",
+        "explanation": "Rule 33(b)(2) sets a 30-day period to answer and object after being served with interrogatories. Thirty days from February 3, 2025 is March 5, 2025 (February 2025 has 28 days), so the date arithmetic is right. The rubric cites Rule 33 generally; the precise subdivision is 33(b)(2). One point outside the citation itself: the certificate of service in plaintiff-first-interrogatories.docx.md says service was by electronic mail and first-class mail, and Rule 6(d) adds 3 days where service is made by mail under Rule 5(b)(2)(C). The rubric does not address that, and the case management order separately fixes responses at 30 days of service.",
+        "evidence_excerpt": "(2) Time to Respond. The responding party must serve its answers and any objections within 30 days after being served with the interrogatories. A shorter or longer time may be stipulated to under Rule 29 or be ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33",
+          "https://www.law.cornell.edu/rules/frcp/rule_6"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 38,
+      "document": "task.json.md",
+      "location": "tags / instructions",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure",
+      "citation_as_written": "federal-rules-of-civil-procedure",
+      "pincite": "",
+      "cited_for": "Subject-matter tag only",
+      "quotes": [],
+      "context": "\"federal-rules-of-civil-procedure\"",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a subject-matter tag naming the Federal Rules of Civil Procedure, which exist. No proposition needs to be checked.",
+        "evidence_excerpt": "FRCP Rule 1: \"These rules govern the procedure in all civil actions and proceedings in the United States district courts, except as stated in Rule 81.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 39,
+      "document": "case-management-order.docx.md",
+      "location": "I. Preamble, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(f)",
+      "pincite": "26(f)",
+      "cited_for": "Initial pretrial conference held pursuant to Rule 26(f) on December 2, 2024",
+      "quotes": [],
+      "context": "The Court held an initial pretrial conference pursuant to Federal Rule of Civil Procedure 26(f) on December 2, 2024",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 16(a) (pretrial conferences ordered by the court) or 16(b) (scheduling conference); Rule 26(f) governs the parties' own conference",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The order says the Court 'held an initial pretrial conference pursuant to Federal Rule of Civil Procedure 26(f).' Rule 26(f) does not provide for a court-held pretrial conference. It governs the 'Conference of the Parties', at which the parties themselves confer and develop a proposed discovery plan to submit to the court. Court-convened pretrial and scheduling conferences are authorized by Rule 16(a) and 16(b), and Rule 26's own committee notes distinguish 'the parties' Rule 26(f) conference' from 'scheduling and pretrial conferences with the court.' This is a wrong-rule cite with little substantive consequence (the other documents treat December 2 as the parties' Rule 26(f) conference, and the plan followed within 14 days as 26(f)(2) contemplates), but the rule as cited does not contain what it is cited for. A reader who treats this as loose labeling could grade it a minor defect.",
+        "evidence_excerpt": "(f) Conference of the Parties; Planning for Discovery. (1) Conference Timing. ... the parties must confer as soon as practicable—and in any event at least 21 days before a scheduling conference is to be held or a scheduling order is due under Rule 16(b). [Rule 16(a):] In any action, the court may order the attorneys and any unrepresented parties to appear for one or more pretrial conferences",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": true,
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "MISCHARACTERIZED overstates this one. Rule 26(f) is titled 'Conference of the Parties; Planning for Discovery.' It does govern the conference that took place on December 2, 2024. The other case documents call it 'the Rule 26(f) conference of the parties held on December 2, 2024' (initial disclosures) and 'The Rule 26(f) conference in this matter occurred on December 2, 2024' (strategy memo). The CMO itself goes on to cite the Joint Discovery Plan 'pursuant to Fed. R. Civ. P. 26(f)(3)' and refers to positions expressed 'at the Rule 26(f) conference.' The rule also anticipates court involvement: under 26(f)(2), 'The court may order the parties or attorneys to attend the conference in person,' and 26(f)(1) ties the timing to the Rule 16(b) scheduling conference. The only defect is the loose label. The order says the Court 'held an initial pretrial conference' under 26(f), when a court-convened conference is properly a Rule 16 event. The rule is the right one for the event described, and nothing substantive turns on the label, so this is a minor labeling defect.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ]
+      }
+    },
+    {
+      "ref": 40,
+      "document": "case-management-order.docx.md",
+      "location": "I. Preamble, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 26(f)(3)",
+      "pincite": "26(f)(3)",
+      "cited_for": "Joint Discovery Plan submitted December 9, 2024",
+      "quotes": [],
+      "context": "the parties submitted a Joint Discovery Plan pursuant to Fed. R. Civ. P. 26(f)(3).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(f)(3) is headed 'Discovery Plan' and sets out what the parties' plan must state, so citing it for a Joint Discovery Plan is accurate. Strictly, the duty to submit the written report outlining the plan within 14 days of the conference sits in Rule 26(f)(2), while (f)(3) governs contents; a December 9 submission after a December 2 conference falls within that 14 days. Citing (f)(3) for the plan is standard practice and not a defect.",
+        "evidence_excerpt": "(3) Discovery Plan. A discovery plan must state the parties' views and proposals on: (A) what changes should be made in the timing, form, or requirement for disclosures under Rule 26(a) ... [26(f)(2):] for submitting to the court within 14 days after the conference a written report outlining the plan.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 41,
+      "document": "case-management-order.docx.md",
+      "location": "II. Initial Disclosures, para 1",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(1)",
+      "pincite": "26(a)(1)",
+      "cited_for": "Initial disclosures due January 6, 2025",
+      "quotes": [],
+      "context": "The parties shall serve initial disclosures pursuant to Federal Rule of Civil Procedure 26(a)(1) no later than January 6, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(a)(1) is the initial-disclosure rule, so the order cites the right authority. The January 6, 2025 deadline is later than the default (14 days after the December 2, 2024 Rule 26(f) conference), but Rule 26(a)(1)(C) expressly allows a different time to be set by court order. A court-ordered January 6, 2025 date is therefore consistent with the rule.",
+        "evidence_excerpt": "(C) Time for Initial Disclosures—In General. A party must make the initial disclosures at or within 14 days after the parties’ Rule 26(f) conference unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 42,
+      "document": "case-management-order.docx.md",
+      "location": "II. Initial Disclosures, para 2",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(i)-(iv)",
+      "citation_as_written": "Rule 26(a)(1)(A)(i)–(iv)",
+      "pincite": "26(a)(1)(A)(i)–(iv)",
+      "cited_for": "Required contents of initial disclosures (witnesses, documents, damages computation, insurance)",
+      "quotes": [],
+      "context": "all as required by Rule 26(a)(1)(A)(i)–(iv).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Fed. R. Civ. P. 26(a)(1)(A)(i)-(iv) lists the four categories of initial disclosures: individuals with discoverable information and its subjects, documents/ESI/tangible things, a computation of each category of damages, and insurance agreements. The Case Management Order's paragraph 2 tracks the four subparagraphs closely (it omits the 'unless the use would be solely for impeachment' carve-out and the indemnify/reimburse clause, but says 'without limitation' and does not misstate the rule). CourtListener holds opinions, not the Federal Rules, so the rule text was read on LII.",
+        "evidence_excerpt": "(i) the name and, if known, the address and telephone number of each individual likely to have discoverable information—along with the subjects of that information—that the disclosing party may use to support its claims or defenses ... (iv) for inspection and copying as under Rule 34, any insurance agreement under which an insurance business may be liable to satisfy all or part of a possible judgment in the action",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 43,
+      "document": "case-management-order.docx.md",
+      "location": "II. Initial Disclosures, para 3",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "26(e)",
+      "cited_for": "Timely supplementation of initial disclosures",
+      "quotes": [],
+      "context": "Supplementation of initial disclosures shall be made in a timely manner consistent with Federal Rule of Civil Procedure 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The order's phrase 'in a timely manner' matches the wording of Rule 26(e)(1)(A).",
+        "explanation": "Rule 26(e)(1)(A) requires a party to supplement or correct its Rule 26(a) disclosures 'in a timely manner' on learning they are materially incomplete or incorrect. The order's direction that supplementation of initial disclosures be timely and consistent with Rule 26(e) tracks the rule directly.",
+        "evidence_excerpt": "must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect, and if the additional or corrective information has not otherwise been made known to the other parties during the discovery process or in writing; or (B) as ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 44,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 5 (Interrogatories)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 33(a)(1)",
+      "pincite": "33(a)(1)",
+      "cited_for": "25-interrogatory limit including all discrete subparts",
+      "quotes": [
+        "Each party may serve no more than 25 interrogatories, including all discrete subparts, upon any other party"
+      ],
+      "context": "Each party may serve no more than 25 interrogatories, including all discrete subparts, upon any other party, consistent with Federal Rule of Civil Procedure 33(a)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The listed sentence is the case management order's own operative language, introduced with 'consistent with' and not presented as a quotation of the rule. It is not verbatim in Rule 33(a)(1), which reads 'a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts'. The order is a close and accurate paraphrase: same 25 limit, same 'including all discrete subparts' phrase.",
+        "explanation": "Rule 33(a)(1) imposes the 25-interrogatory limit including all discrete subparts, and the order's provision is consistent with it. The order's next sentence, on leave for additional interrogatories under Rule 26(b)(1), also tracks the second sentence of Rule 33(a)(1).",
+        "evidence_excerpt": "(1) Number. Unless otherwise stipulated or ordered by the court, a party may serve on any other party no more than 25 written interrogatories, including all discrete subparts. Leave to serve additional interrogatories may be granted to the extent consistent with Rule 26(b)(1) and (2).",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 45,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Leave to serve additional interrogatories requires good cause and proportionality",
+      "quotes": [],
+      "context": "must file a motion demonstrating good cause and proportionality to the needs of the case under Fed. R. Civ. P. 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(1) exists and sets the proportionality standard ('proportional to the needs of the case'). Rule 33(a)(1) expressly ties leave to serve more than 25 interrogatories to Rule 26(b)(1): 'Leave to serve additional interrogatories may be granted to the extent consistent with Rule 26(b)(1) and (2).' The cite is attached to the proportionality requirement, which the rule supports. Caveat: the phrase 'good cause' does not appear in Rule 26(b)(1); that part is the court's own case-management standard, not something drawn from the cited rule. On a fair reading the cite supports the proportionality prong it is attached to.",
+        "evidence_excerpt": "Rule 26(b)(1): \"Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case\". Rule 33(a)(1): \"Leave to serve additional interrogatories may be granted to the extent consistent with Rule 26(b)(1) and (2).\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 46,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(b)(2)",
+      "citation_as_written": "Fed. R. Civ. P. 33(b)(2)",
+      "pincite": "33(b)(2)",
+      "cited_for": "Interrogatory responses due within 30 days of service",
+      "quotes": [],
+      "context": "Responses to interrogatories shall be served within 30 days of service, pursuant to Fed. R. Civ. P. 33(b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the rule.",
+        "explanation": "Rule 33(b)(2) requires the responding party to serve answers and objections within 30 days after being served with the interrogatories. The pin cite is correct and the rule supports the proposition directly.",
+        "evidence_excerpt": "(2) Time to Respond. The responding party must serve its answers and any objections within 30 days after being served with the interrogatories. A shorter or longer time may be stipulated to under Rule 29 or be ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 47,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 6",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34",
+      "citation_as_written": "Federal Rule of Civil Procedure 34",
+      "pincite": "34",
+      "cited_for": "Requests for production of documents and ESI",
+      "quotes": [],
+      "context": "Requests for production of documents and electronically stored information shall be served pursuant to Federal Rule of Civil Procedure 34.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34 (\"Producing Documents, Electronically Stored Information, and Tangible Things, or Entering onto Land, for Inspection and Other Purposes\") governs requests to produce documents and ESI. The order's 30-day response period also matches Rule 34(b)(2)(A), per the LII page as returned by the fetch tool (\"must respond in writing within 30 days after being served\"); that 30-day sentence was not separately grep-confirmed, while the 34(a)(1)(A) text was.",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium from which information can be obtained either directly or, if necessary, after translation by the responding party",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 48,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 7",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 36",
+      "citation_as_written": "Federal Rule of Civil Procedure 36",
+      "pincite": "36",
+      "cited_for": "Requests for admission",
+      "quotes": [],
+      "context": "Requests for admission shall be served pursuant to Federal Rule of Civil Procedure 36.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 36 (\"Requests for Admission\") governs service of written requests to admit. The order's 30-day response period also matches Rule 36(a)(3) per the LII page as returned by the fetch tool (\"A matter is admitted unless, within 30 days after being served...\"); that sentence was not separately grep-confirmed, while the 36(a)(1) text was.",
+        "evidence_excerpt": "A party may serve on any other party a written request to admit, for purposes of the pending action only, the truth of any matters within the scope of Rule 26(b)(1) relating to: (A) facts, the application of law to fact, or opinions about either",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_36"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 49,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 8",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 45",
+      "citation_as_written": "Federal Rule of Civil Procedure 45",
+      "pincite": "45",
+      "cited_for": "Non-party depositions noticed pursuant to Rule 45",
+      "quotes": [],
+      "context": "Non-party depositions shall be noticed with reasonable advance notice and pursuant to Federal Rule of Civil Procedure 45.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 45 (\"Subpoena\") is the mechanism for compelling a non-party to attend and testify at a deposition, and Rule 30(a)(1) cross-refers to it. Strictly, the deposition notice to other parties is given under Rule 30(b)(1) and Rule 45 supplies the subpoena, so \"noticed ... pursuant to Rule 45\" is slightly loose wording, but the rule plainly supports the proposition that non-party depositions proceed under Rule 45.",
+        "evidence_excerpt": "command each person to whom it is directed to do the following at a specified time and place: attend and testify; produce designated documents, electronically stored information, or tangible things in that person's possession, custody, or control ... [Rule 30(a)(1):] The deponent's attendance may be compelled by subpoena under Rule 45.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45",
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 50,
+      "document": "case-management-order.docx.md",
+      "location": "III. Fact Discovery, para 9 (Contention Interrogatories)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(a)(2)",
+      "citation_as_written": "Federal Rule of Civil Procedure 33(a)(2)",
+      "pincite": "33(a)(2)",
+      "cited_for": "Court may order contention interrogatories need not be answered until later; early contention interrogatories subject to objection and deferral",
+      "quotes": [
+        "contention interrogatories served at the early stages of discovery may be subject to objection and deferral if fact discovery has not yet progressed sufficiently to enable a meaningful response"
+      ],
+      "context": "Consistent with Federal Rule of Civil Procedure 33(a)(2), the Court may, on motion, order that contention interrogatories relating to opinions of fact or the application of law to fact need not be answered until designated discovery is complete",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The listed sentence ('contention interrogatories served at the early stages of discovery may be subject to objection and deferral...') is the court's own advisory in the case management order, not attributed to the rule as a quotation; it does not appear in Rule 33 and is not claimed to. The preceding sentence of the order closely tracks Rule 33(a)(2): 'need not be answered until designated discovery is complete, or until a pre-trial conference or some other later time' against the rule's 'need not be answered until designated discovery is complete, or until a pretrial conference or some other time'.",
+        "explanation": "Rule 33(a)(2) authorizes the court to order that opinion or contention interrogatories need not be answered until later, which is what the order says 'consistent with' the rule. Small looseness in the order's paraphrase: 'opinions of fact' for the rule's 'opinion or contention that relates to fact', and the additions 'on motion' and 'later', none of which is in the rule text. None changes the substance. The 1970 advisory committee note supports the deferral rationale.",
+        "evidence_excerpt": "An interrogatory is not objectionable merely because it asks for an opinion or contention that relates to fact or the application of law to fact, but the court may order that the interrogatory need not be answered until designated discovery is complete, or until a pretrial conference or some other time.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 51,
+      "document": "case-management-order.docx.md",
+      "location": "IV. Expert Discovery, para 10",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(2)(B)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(a)(2)(B)",
+      "pincite": "26(a)(2)(B)",
+      "cited_for": "Affirmative expert reports due September 15, 2025",
+      "quotes": [],
+      "context": "shall serve expert reports compliant with Federal Rule of Civil Procedure 26(a)(2)(B) no later than September 15, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(2)(B) is the provision requiring a written report from retained or specially employed experts and specifying its contents, so 'expert reports compliant with Federal Rule of Civil Procedure 26(a)(2)(B)' is an accurate reference. The September 15, 2025 deadline is set by the order itself, which Rule 26(a)(2)(D) contemplates.",
+        "evidence_excerpt": "(B) Witnesses Who Must Provide a Written Report. Unless otherwise stipulated or ordered by the court, this disclosure must be accompanied by a written report—prepared and signed by the witness—if the witness is one retained or specially employed to provide expert testimony in the case",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 52,
+      "document": "case-management-order.docx.md",
+      "location": "IV. Expert Discovery, para 13 (first sentence)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(4)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(4)",
+      "pincite": "26(b)(4)",
+      "cited_for": "Pre-report discovery of testifying expert's facts/opinions governed by Rule 26(b)(4)",
+      "quotes": [],
+      "context": "discovery regarding facts known or opinions held by a party's expert who is expected to testify at trial is governed by Federal Rule of Civil Procedure 26(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(4) ('Trial Preparation: Experts') governs discovery from experts, including those who may testify at trial. Subparagraph (A) addresses the pre-report period directly: where a report is required, the testifying expert may be deposed only after the report is provided. The order's phrase 'facts known or opinions held' appears in the current rule only in (b)(4)(D) for non-testifying experts, but the general statement that Rule 26(b)(4) governs pre-report discovery of testifying experts is accurate.",
+        "evidence_excerpt": "\"(4) Trial Preparation: Experts. (A) Deposition of an Expert Who May Testify. A party may depose any person who has been identified as an expert whose opinions may be presented at trial. If Rule 26(a)(2)(B) requires a report from the expert, the deposition may be conducted only after the report is provided.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 53,
+      "document": "case-management-order.docx.md",
+      "location": "IV. Expert Discovery, para 13",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(4)(B) and (C)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(4)(B) and (C)",
+      "pincite": "26(b)(4)(B), (C)",
+      "cited_for": "Protection of draft expert reports and attorney-expert communications",
+      "quotes": [],
+      "context": "Discovery of draft expert reports and communications between counsel and testifying experts is subject to the protections of Fed. R. Civ. P. 26(b)(4)(B) and (C).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The subparagraph cites are exact. Rule 26(b)(4)(B) extends work-product protection to drafts of expert reports or disclosures, and Rule 26(b)(4)(C) extends it to communications between a party's attorney and a report-providing (testifying) expert, with three listed exceptions (compensation, facts or data provided by counsel and considered, assumptions provided by counsel and relied on).",
+        "evidence_excerpt": "\"(B) Trial-Preparation Protection for Draft Reports or Disclosures. Rules 26(b)(3)(A) and (B) protect drafts of any report or disclosure required under Rule 26(a)(2), regardless of the form in which the draft is recorded. (C) Trial-Preparation Protection for Communications Between a Party's Attorney and Expert Witnesses. Rules 26(b)(3)(A) and (B) protect communications between the party's attorney and any witness required to provide a report under Rule 26(a)(2)(B)\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 54,
+      "document": "case-management-order.docx.md",
+      "location": "IV. Expert Discovery, para 13",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(4)(D)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(4)(D)",
+      "pincite": "26(b)(4)(D)",
+      "cited_for": "Non-testifying consulting experts discoverable only on showing of exceptional circumstances",
+      "quotes": [],
+      "context": "are discoverable only upon a showing of exceptional circumstances under Fed. R. Civ. P. 26(b)(4)(D).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The order's paraphrase closely tracks the rule text ('retained or specially employed ... in anticipation of litigation ... not expected to be called as a witness at trial'; 'exceptional circumstances').",
+        "explanation": "Rule 26(b)(4)(D) bars discovery by interrogatory or deposition of facts known or opinions held by a non-testifying expert retained in anticipation of litigation, except as provided in Rule 35(b) or on a showing of exceptional circumstances. The order's statement that such material is discoverable only on a showing of exceptional circumstances is an accurate paraphrase; it omits the separate Rule 35(b) examiner-report exception, which does not make the proposition wrong.",
+        "evidence_excerpt": "(D) Expert Employed Only for Trial Preparation. Ordinarily, a party may not, by interrogatories or deposition, discover facts known or opinions held by an expert who has been retained or specially employed by another party in anticipation of litigation or to prepare for trial and who is not expected to be called as a witness at trial. But a party may do so only: (i) as provided in Rule 35(b); or (ii) on showing exceptional circumstances under which it is impracticable for the party to obtain facts or opinions on the same subject by other means.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 55,
+      "document": "case-management-order.docx.md",
+      "location": "V. Dispositive Motions, para 14",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 56",
+      "citation_as_written": "Federal Rule of Civil Procedure 56",
+      "pincite": "56",
+      "cited_for": "Summary judgment motions fully briefed by January 16, 2026",
+      "quotes": [],
+      "context": "including motions for summary judgment pursuant to Federal Rule of Civil Procedure 56, shall be fully briefed",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 56 (\"Summary Judgment\") is the rule governing motions for summary judgment. The January 16, 2026 full-briefing deadline is the court's own schedule, not something drawn from the rule; Rule 56(b) expressly allows the court to set a different time (\"Unless a different time is set by local rule or the court orders otherwise\"), so the order's use of the rule is accurate.",
+        "evidence_excerpt": "A party may move for summary judgment, identifying each claim or defense — or the part of each claim or defense — on which summary judgment is sought. ... Unless a different time is set by local rule or the court orders otherwise, a party may file a motion for summary judgment at any time until 30 days after the close of all discovery.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_56"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 56,
+      "document": "case-management-order.docx.md",
+      "location": "V. Dispositive Motions, para 15",
+      "authority_type": "case",
+      "authority": "Daubert v. Merrell Dow Pharmaceuticals, Inc.",
+      "citation_as_written": "509 U.S. 579 (1993)",
+      "pincite": "",
+      "cited_for": "Motions to exclude expert testimony under Daubert due February 27, 2026",
+      "quotes": [],
+      "context": "Motions to exclude expert testimony under Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993), and motions in limine shall be filed no later than February 27, 2026",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Daubert, 509 U.S. 579 (1993) is real law cited in the CMO.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "CourtListener's citation lookup resolves 509 U.S. 579 to Daubert v. Merrell Dow Pharmaceuticals, Inc. (decided June 28, 1993), so name, reporter cite and year all match. The opinion sets out the trial judge's screening (gatekeeping) role over expert scientific testimony under Fed. R. Evid. 702 and 104(a), which is the standard a 'motion to exclude expert testimony under Daubert' invokes. The order cites the case only as the label for that class of motion, with no pin cite, and that use is accurate. The February 27, 2026 filing date is the court's own scheduling choice, not something the case supplies.",
+        "evidence_excerpt": "under the Rules the trial judge must ensure that any and all scientific testimony or evidence admitted is not only relevant, but reliable.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/112903/daubert-v-merrell-dow-pharmaceuticals-inc/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 57,
+      "document": "case-management-order.docx.md",
+      "location": "VII. Discovery Disputes, para 20 (Proportionality)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Discovery must be proportional; Court will weigh importance of issues, amount in controversy, relative access, resources, importance of discovery, burden vs. benefit",
+      "quotes": [],
+      "context": "The parties are reminded that discovery must be proportional to the needs of the case, consistent with Federal Rule of Civil Procedure 26(b)(1).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used, but the order's list of six factors tracks the rule text verbatim (importance of the issues at stake in the action; amount in controversy; parties' relative access to relevant information; parties' resources; importance of the discovery in resolving the issues; whether the burden or expense of the proposed discovery outweighs its likely benefit).",
+        "explanation": "Rule 26(b)(1) limits discovery to matter that is relevant and 'proportional to the needs of the case' and lists exactly the six considerations the order recites, in the same order and wording.",
+        "evidence_excerpt": "\"proportional to the needs of the case, considering the importance of the issues at stake in the action, the amount in controversy, the parties' relative access to relevant information, the parties' resources, the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 58,
+      "document": "case-management-order.docx.md",
+      "location": "VIII. Pretrial Conference, para 21",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(e)",
+      "pincite": "16(e)",
+      "cited_for": "Final pretrial conference April 6, 2026",
+      "quotes": [],
+      "context": "A final pretrial conference pursuant to Federal Rule of Civil Procedure 16(e) shall be held on April 6, 2026",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 16(e) (Final Pretrial Conference and Orders) authorizes the court to hold a final pretrial conference to formulate a trial plan and requires it to be held as close to the start of trial as is reasonable. The order sets the conference for April 6, 2026 with trial starting May 4, 2026, which fits the rule. The specific date is the court's scheduling choice; the rule is correctly cited as the authority for the conference.",
+        "evidence_excerpt": "(e) Final Pretrial Conference and Orders. The court may hold a final pretrial conference to formulate a trial plan, including a plan to facilitate the admission of evidence. The conference must be held as close to the start of trial as is reasonable",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 59,
+      "document": "case-management-order.docx.md",
+      "location": "IX. Preservation of ESI, para 23",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 37(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 37(e)",
+      "pincite": "37(e)",
+      "cited_for": "Duty to preserve ESI",
+      "quotes": [],
+      "context": "consistent with their obligations under Federal Rule of Civil Procedure 37(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 37(e) (\"Failure to Preserve Electronically Stored Information\") exists and is the right rule for ESI preservation, but it is a remedial provision: it sets the consequences when ESI that \"should have been preserved\" is lost because a party \"failed to take reasonable steps to preserve it\". It does not itself impose the preservation obligation; the 2015 Committee Note says the rule is based on the common-law duty and does not attempt to create a new one. The order's phrase \"obligations under Federal Rule of Civil Procedure 37(e)\" is common drafting and a reasonable reading supports it, so this is a loose attribution rather than a mischaracterization. Status is a judgment call between VERIFIED and VERIFIED_MINOR_DEFECT.",
+        "evidence_excerpt": "If electronically stored information that should have been preserved in the anticipation or conduct of litigation is lost because a party failed to take reasonable steps to preserve it, and it cannot be restored or replaced through additional discovery, the court: ... [2015 Committee Note:] Rule 37(e) is based on this common-law duty; it does not attempt to create a new duty to preserve.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_37"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 60,
+      "document": "case-management-order.docx.md",
+      "location": "X. Confidentiality, para 26",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(5)",
+      "pincite": "26(b)(5)",
+      "cited_for": "Asserting privilege claims",
+      "quotes": [],
+      "context": "The parties shall comply with Federal Rule of Civil Procedure 26(b)(5) in asserting privilege claims",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(5) is titled 'Claiming Privilege or Protecting Trial-Preparation Materials' and sets the procedure for asserting privilege over withheld information (subparagraph A) and over information already produced (subparagraph B). It is the correct rule for a direction that parties comply with it in asserting privilege claims.",
+        "evidence_excerpt": "(5) Claiming Privilege or Protecting Trial-Preparation Materials. (A) Information Withheld. When a party withholds information otherwise discoverable by claiming that the information is privileged or subject to protection as trial-preparation material, the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 61,
+      "document": "case-management-order.docx.md",
+      "location": "X. Confidentiality, para 26",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 502(d)",
+      "citation_as_written": "Federal Rule of Evidence 502(d)",
+      "pincite": "502(d)",
+      "cited_for": "Clawback agreement/order for inadvertent production of privileged materials",
+      "quotes": [],
+      "context": "negotiate a clawback agreement or stipulated order under Federal Rule of Evidence 502(d) to govern inadvertent production of privileged materials.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "Fed. R. Evid. 502(d) exists and is the provision under which a federal court may order that privilege or work-product protection is not waived by disclosure connected with the pending litigation, which is the standard basis for a court-ordered clawback. The CMO directs the parties to negotiate a clawback agreement or stipulated order under 502(d) and submit it to the Court, which fits the rule. Nuance, not a defect: a bare party agreement is governed by 502(e) and binds only the parties unless incorporated into a court order; and 502(d) is not limited to inadvertent disclosure (inadvertence is the subject of 502(b)).",
+        "evidence_excerpt": "(d) Controlling Effect of a Court Order. A federal court may order that the privilege or protection is not waived by disclosure connected with the litigation pending before the court — in which event the disclosure is also not a waiver in any other federal or state proceeding.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_502"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 62,
+      "document": "case-management-order.docx.md",
+      "location": "XI. Amendments, para 27",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 16(b)(4)",
+      "citation_as_written": "Federal Rule of Civil Procedure 16(b)(4)",
+      "pincite": "16(b)(4)",
+      "cited_for": "Deadlines modified only on good cause",
+      "quotes": [],
+      "context": "shall not be modified except upon a showing of good cause pursuant to Federal Rule of Civil Procedure 16(b)(4).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 16(b)(4) (Modifying a Schedule) provides that a schedule may be modified only for good cause and with the judge's consent. The order's statement that deadlines will not be modified except on a showing of good cause under Rule 16(b)(4) matches the rule. The order's further statement that party stipulations are ineffective without court approval is consistent with the rule's 'judge's consent' requirement.",
+        "evidence_excerpt": "(4) Modifying a Schedule. A schedule may be modified only for good cause and with the judge's consent.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_16"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 63,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "Preamble, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26 and 33",
+      "citation_as_written": "Rules 26 and 33 of the Federal Rules of Civil Procedure",
+      "pincite": "",
+      "cited_for": "Interrogatories propounded pursuant to Rules 26 and 33; answers due within 30 days",
+      "quotes": [],
+      "context": "hereby propounds its First Set of Interrogatories upon Defendant Whitmore Capital Advisors LLC, pursuant to Rules 26 and 33 of the Federal Rules of Civil Procedure.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed. The interrogatories' instruction that each be 'answered separately and fully, in writing, under oath' tracks Rule 33(b)(3).",
+        "explanation": "Rule 33 governs interrogatories to parties, and Rule 33(a)(2) ties their scope to Rule 26(b), so propounding interrogatories 'pursuant to Rules 26 and 33' is accurate. Rule 33(b)(2) sets the 30-day response period the document states. The stated due date is arithmetically right: service on February 3, 2025 plus 30 days is March 5, 2025. Not checked as a citation matter: the certificate shows service by email and first-class mail, and whether Rule 6(d) adds three days for mail service is a separate question.",
+        "evidence_excerpt": "(2) Time to Respond. The responding party must serve its answers and any objections within 30 days after being served with the interrogatories. A shorter or longer time may be stipulated to under Rule 29 or be ordered by the court.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 64,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "Preamble, first paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "26(e)",
+      "cited_for": "Continuing duty to supplement",
+      "quotes": [],
+      "context": "These Interrogatories are continuing in nature pursuant to Federal Rule of Civil Procedure 26(e)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(e)(1) imposes a duty on a party who has responded to an interrogatory to supplement or correct the response in a timely manner on learning it is materially incomplete or incorrect. The interrogatories' statement that they are continuing and that Defendant must supplement 'promptly if and when additional or corrective information becomes known' closely tracks the rule ('additional or corrective information'; 'promptly' for 'in a timely manner'). Court rule, so checked against the LII rule text rather than CourtListener.",
+        "evidence_excerpt": "(e) Supplementing Disclosures and Responses. (1) In General. A party who has made a disclosure under Rule 26(a)—or who has responded to an interrogatory, request for production, or request for admission—must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 65,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.A (Definitions), intro",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure, Federal Rules of Evidence, and S.D.N.Y. Local Civil Rules",
+      "citation_as_written": "Federal Rules of Civil Procedure, the Federal Rules of Evidence, and the Local Civil Rules of the United States District Court for the Southern District of New York",
+      "pincite": "",
+      "cited_for": "Definitions supplement meanings under federal and local rules",
+      "quotes": [],
+      "context": "supplement, and not to limit, the definitions and meanings ascribed to terms under the Federal Rules of Civil Procedure, the Federal Rules of Evidence, and the Local Civil Rules",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "The FRCP, the Federal Rules of Evidence, and the S.D.N.Y. Local Civil Rules all exist and apply to S.D.N.Y. civil proceedings. The definitions section only says it supplements meanings under those rules, which is an ordinary drafting reference.",
+        "evidence_excerpt": "FRE 101(a): \"These rules apply to proceedings in United States courts.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_1",
+          "https://www.law.cornell.edu/rules/fre/rule_101",
+          "https://www.nysd.uscourts.gov/sites/default/files/local_rules/2026-01-02%20-%20EDNY%20and%20SDNY%20Joint%20Local%20Rules%20As%20Amended.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 66,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.A, Definition 5 (\"Document\")",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Evid. 1001",
+      "citation_as_written": "Federal Rule of Evidence 1001",
+      "pincite": "1001",
+      "cited_for": "Definition of document/writing",
+      "quotes": [],
+      "context": "as defined in Federal Rule of Evidence 1001 and Federal Rule of Civil Procedure 34(a)(1)(A)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed to the authority.",
+        "explanation": "Fed. R. Evid. 1001 exists and is the definitions rule for Article X. It defines \"writing\" (1001(a)) and \"recording\" (1001(b)) and addresses electronically stored information in 1001(d). The interrogatory definition does not claim Rule 1001 defines \"Document\"; it defines \"Document\" as any \"writing, recording, or electronically stored information, as defined in\" FRE 1001 and FRCP 34(a)(1)(A). That is a fair reading: Rule 1001 supplies the writing/recording definitions and Rule 34(a)(1)(A) supplies the documents/ESI scope. Small nuance only: Rule 1001 does not itself define \"document\" or \"electronically stored information\" as terms.",
+        "evidence_excerpt": "In this article: (a) A \"writing\" consists of letters, words, numbers, or their equivalent set down in any form. (b) A \"recording\" consists of letters, words, numbers, or their equivalent recorded in any manner. ... For electronically stored information, \"original\" means any printout — or other output readable by sight — if it accurately reflects the information.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/fre/rule_1001",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 67,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.A, Definition 5 (\"Document\")",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 34(a)(1)(A)",
+      "citation_as_written": "Federal Rule of Civil Procedure 34(a)(1)(A)",
+      "pincite": "34(a)(1)(A)",
+      "cited_for": "Definition of document/ESI",
+      "quotes": [],
+      "context": "as defined in Federal Rule of Evidence 1001 and Federal Rule of Civil Procedure 34(a)(1)(A)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 34(a)(1)(A) is the correct subparagraph for \"documents or electronically stored information\" and lists the covered categories (writings, drawings, graphs, charts, photographs, sound recordings, images, other data or data compilations). Strictly it describes the scope of producible items rather than formally defining \"Document\", but citing it as the definitional source in discovery definitions is standard and a fair reading. The companion cite to Fed. R. Evid. 1001 was not part of this ref and was not checked.",
+        "evidence_excerpt": "any designated documents or electronically stored information—including writings, drawings, graphs, charts, photographs, sound recordings, images, and other data or data compilations—stored in any medium from which information can be obtained either directly or, if necessary, after translation by the responding party",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 68,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.B, Instruction 4",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(e)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(e)",
+      "pincite": "26(e)",
+      "cited_for": "Continuing obligation to supplement answers in writing and under oath",
+      "quotes": [],
+      "context": "These Interrogatories are deemed continuing in nature pursuant to Federal Rule of Civil Procedure 26(e).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED_MINOR_DEFECT",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 26(e)(1)(A) for the duty to supplement; the 'in writing under oath' requirement comes from Fed. R. Civ. P. 33(b)(3), not Rule 26(e)",
+        "quote_check": "No quotation attributed.",
+        "explanation": "The sentence that actually carries the cite ('deemed continuing in nature pursuant to Rule 26(e)') is supported: Rule 26(e)(1) imposes a continuing duty to supplement interrogatory responses. The defect is in the gloss that follows. Rule 26(e) does not say supplementation must be 'in writing and under oath' or 'promptly' for any 'additional information responsive'; it requires supplementation 'in a timely manner' only where the response is materially incomplete or incorrect, and excuses it where the information has otherwise been made known during discovery or in writing. The 1993 committee note adds that supplementations need not be made as each new item is learned. The under-oath requirement for interrogatory answers is in Rule 33(b)(3). Graded as a loose characterization because the stated proposition includes the oath/writing element; if the proposition is read as only the continuing duty, this is VERIFIED.",
+        "evidence_excerpt": "must supplement or correct its disclosure or response: (A) in a timely manner if the party learns that in some material respect the disclosure or response is incomplete or incorrect, and if the additional or corrective information has not otherwise been made known to the other parties during the discovery process or in writing; or (B) as ordered by the court. [Rule 33(b)(3):] Each interrogatory must, to the extent it is not objected to, be answered separately and fully in writing under oath.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.law.cornell.edu/rules/frcp/rule_33"
+        ],
+        "confidence": "medium"
+      }
+    },
+    {
+      "ref": 69,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.B, Instruction 5",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(5)(A)",
+      "citation_as_written": "Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "pincite": "26(b)(5)(A)",
+      "cited_for": "Privilege log requirement for withheld information",
+      "quotes": [],
+      "context": "You must provide a privilege log in compliance with Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(5)(A) requires a party withholding otherwise discoverable information on privilege or work-product grounds to expressly make the claim and describe what is withheld in a way that lets other parties assess the claim. That is the requirement commonly met by a privilege log. The rule text does not use the words 'privilege log' and does not itself list the specific fields the instruction demands (date, author, recipient, subject matter); those are the propounding party's elaboration. Citing the rule as the source of the log obligation is a fair reading.",
+        "evidence_excerpt": "(A) Information Withheld. When a party withholds information otherwise discoverable by claiming that the information is privileged or subject to protection as trial-preparation material, the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed—and do so in a manner that, without revealing information itself privileged or protected, will enable other parties to assess the claim.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 70,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "Preamble paragraph (after CC line)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(3)",
+      "citation_as_written": "Fed. R. Civ. P. 26(b)(3)",
+      "pincite": "26(b)(3)",
+      "cited_for": "Memorandum is protected attorney work product",
+      "quotes": [],
+      "context": "It is protected attorney work product under Fed. R. Civ. P. 26(b)(3) and is subject to the attorney-client privilege.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation marks used. The memo's phrase 'mental impressions, conclusions, opinions, and legal theories of counsel' closely tracks Rule 26(b)(3)(B) ('mental impressions, conclusions, opinions, or legal theories of a party's attorney').",
+        "explanation": "Rule 26(b)(3) ('Trial Preparation: Materials') is the codified work-product rule. Subparagraph (A) protects documents prepared in anticipation of litigation by or for a party or its representative, including its attorney, and (B) requires protection of attorney mental impressions, conclusions, opinions, or legal theories. A litigation-strategy memorandum by defense counsel falls squarely within it.",
+        "evidence_excerpt": "\"Ordinarily, a party may not discover documents and tangible things that are prepared in anticipation of litigation or for trial by or for another party or its representative (including the other party's attorney, consultant, surety, indemnitor, insurer, or agent).\" ... \"it must protect against disclosure of the mental impressions, conclusions, opinions, or legal theories of a party's attorney or other representative concerning the litigation.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 71,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "I. Procedural Posture",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f) and 26(a)(1)",
+      "citation_as_written": "The Rule 26(f) conference ... Initial disclosures pursuant to Rule 26(a)(1)",
+      "pincite": "26(f); 26(a)(1)",
+      "cited_for": "Rule 26(f) conference Dec. 2, 2024; initial disclosures exchanged Jan. 6, 2025",
+      "quotes": [],
+      "context": "The Rule 26(f) conference in this matter occurred on December 2, 2024. ... Initial disclosures pursuant to Rule 26(a)(1) were exchanged by both parties on January 6, 2025.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Both rule references are accurate. Rule 26(f) provides for the parties' conference, and Rule 26(a)(1) governs initial disclosures. The January 6, 2025 exchange is later than the default 14 days after a December 2 conference, but Rule 26(a)(1)(C) allows a different time set by court order, and the Case Management Order (para. 1) set January 6, 2025. The dates themselves are facts of the fictional record.",
+        "evidence_excerpt": "(C) Time for Initial Disclosures—In General. A party must make the initial disclosures at or within 14 days after the parties' Rule 26(f) conference unless a different time is set by stipulation or court order",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 72,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "III.E Theme 5 (Statute of Limitations on Count III)",
+      "authority_type": "statute",
+      "authority": "N.Y. CPLR 214(6)",
+      "citation_as_written": "CPLR § 214(6)",
+      "pincite": "§ 214(6)",
+      "cited_for": "Three-year limitations period for negligent misrepresentation claim, running from the misrepresentation (note: CPLR 214(6) is the non-medical professional malpractice provision; document cites it for negligent misrepresentation)",
+      "quotes": [],
+      "context": "Under New York law, the statute of limitations for a negligent misrepresentation claim is three years from the date of the misrepresentation. CPLR § 214(6).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: CPLR 214(6) is real New York law cited as real authority in the memo.",
+      "first_check": {
+        "status": "MISCHARACTERIZED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "CPLR 214(6) sets a three-year period for 'malpractice, other than medical, dental or podiatric malpractice.' It is not a general limitations rule for negligent misrepresentation, and nothing in the record makes the defendant (Whitmore Capital Advisors LLC, an investment adviser/fund services firm) a professional subject to a malpractice claim. Case law on negligent misrepresentation is split. Some courts apply three years under CPLR 214(4), for example Country World, 186 A.D.2d 781 (2d Dep't 1992), as Fromer v. Yogel collects. Others apply six years under CPLR 213(1), for example Enzinna v. D'Youville College, 84 A.D.3d 1744 (4th Dep't 2011), or the fraud period under 213(8). None of those authorities relies on 214(6). The memo's statement of a settled three-year rule running from the misrepresentation also overstates the law.",
+        "evidence_excerpt": "CPLR 214(6): \"an action to recover damages for malpractice, other than medical, dental or podiatric malpractice, regardless of whether the underlying theory is based in contract or tort\"; Enzinna: \"The cause of action for negligent misrepresentation is governed by the six-year statute of limitations applicable to equitable actions in general (see CPLR 213 [1]\"",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/CVP/214",
+          "https://www.courtlistener.com/opinion/4087492/enzinna-nicole-m-v-dyouville-college/",
+          "https://www.courtlistener.com/opinion/2332578/fromer-v-yogel/"
+        ],
+        "confidence": "medium"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "The finding holds. CPLR 214(6) (NY Senate text) covers 'an action to recover damages for malpractice, other than medical, dental or podiatric malpractice, regardless of whether the underlying theory is based in contract or tort.' Courts do apply 214(6) to negligent-misrepresentation claims, but only when the claim is in substance professional malpractice. In ShareStates Invs., LLC v. Creagh & Assoc., 187 A.D.3d 961 (2d Dep't 2020), for example, the court said 'The three-year statute of limitations in CPLR 214(6) has been held to apply to malpractice by real estate appraisers.' Other hits for 214(6) with negligent misrepresentation involve architects and attorneys. The memo instead cites 214(6) as the general New York limitations period for negligent misrepresentation, 'three years from the date of the misrepresentation.' It does so against an investment adviser and fund services firm, and nothing in the record treats that defendant as a 214(6) professional. 214(6) does not contain that general rule. The general three-year or six-year periods come from other subsections: 214(4), and 213(1) or 213(8).",
+        "source_urls": [
+          "https://www.nysenate.gov/legislation/laws/CVP/214",
+          "https://www.courtlistener.com/opinion/4576669/sharestates-invs-llc-v-creagh-assoc-inc/"
+        ]
+      }
+    },
+    {
+      "ref": 73,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "IV.B Whitmore's Preservation of the Arbitration Defense",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 3-4",
+      "citation_as_written": "9 U.S.C. §§ 3–4",
+      "pincite": "§§ 3–4",
+      "cited_for": "Right to file motion to compel arbitration preserved",
+      "quotes": [],
+      "context": "We are preserving our right to file a motion to compel arbitration under the Federal Arbitration Act, 9 U.S.C. §§ 3–4.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: 9 U.S.C. 3-4 is the real Federal Arbitration Act, cited as real law.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "9 U.S.C. § 4 authorizes a party aggrieved by another's refusal to arbitrate to petition a district court for an order compelling arbitration, and § 3 provides for a stay of litigation pending arbitration. Together they support the stated right to move to compel arbitration.",
+        "evidence_excerpt": "§ 4: \"A party aggrieved by the alleged failure, neglect, or refusal of another to arbitrate under a written agreement for arbitration may petition any United States district court ... for an order directing that such arbitration proceed\"",
+        "source_urls": [
+          "https:/4",
+          "https:/3"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 74,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "IV.C Waiver Risk",
+      "authority_type": "case",
+      "authority": "Thyssen, Inc. v. Calypso Shipping Corp., S.A.",
+      "citation_as_written": "310 F.3d 102 (2d Cir. 2002)",
+      "pincite": "",
+      "cited_for": "Second Circuit waiver of right to compel arbitration through litigation conduct (time elapsed, extent of litigation activity, prejudice)",
+      "quotes": [],
+      "context": "See Thyssen, Inc. v. Calypso Shipping Corp., S.A., 310 F.3d 102 (2d Cir. 2002); Louisiana Stadium & Exposition Dist. v. Sedgewick Valemont, Pierce, Fenner & Smith Inc., 626 F.3d 156 (2d Cir. 2010).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Thyssen v. Calypso Shipping, 310 F.3d 102 (2d Cir. 2002) is a real Second Circuit case cited as real law.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Thyssen, Inc. v. Calypso Shipping Corp., 310 F.3d 102 (2d Cir. Sept. 26, 2002) is a real Second Circuit decision on waiver of arbitration through participation in litigation. It states that waiver is more likely the longer litigation goes on, the more a party litigates, and the more prejudice results, and that 'the key to a waiver analysis is prejudice.' On its facts it found no waiver, but the memo cites it only for the factors, which it supports.",
+        "evidence_excerpt": "\"Generally, waiver is more likely to be found the longer the litigation goes on, the more a party avails itself of the opportunity to litigate, and the more that party's litigation results in prejudice to the opposing party.\" ... \"The key to a waiver analysis is prejudice.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/779782/thyssen-inc-v-calypso-shipping-corp/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 75,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "IV.C Waiver Risk",
+      "authority_type": "case",
+      "authority": "Louisiana Stadium & Exposition Dist. v. Sedgewick Valemont, Pierce, Fenner & Smith Inc. (apparently Merrill Lynch, Pierce, Fenner & Smith Inc.)",
+      "citation_as_written": "626 F.3d 156 (2d Cir. 2010)",
+      "pincite": "",
+      "cited_for": "Second Circuit waiver of right to compel arbitration through litigation conduct (note: party name in document appears garbled relative to the reported case)",
+      "quotes": [],
+      "context": "Louisiana Stadium & Exposition Dist. v. Sedgewick Valemont, Pierce, Fenner & Smith Inc., 626 F.3d 156 (2d Cir. 2010).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: Louisiana Stadium & Exposition Dist. v. Merrill Lynch, 626 F.3d 156 (2d Cir. 2010) is a real case; the altered party name is a garble, but it is cited as real law.",
+      "first_check": {
+        "status": "WRONG_CITATION_REAL_CASE",
+        "authority_exists": "yes",
+        "correct_citation": "Louisiana Stadium & Exposition Dist. v. Merrill Lynch, Pierce, Fenner & Smith Inc., 626 F.3d 156 (2d Cir. 2010)",
+        "quote_check": "No quotations attributed.",
+        "explanation": "626 F.3d 156 (2d Cir. Nov. 22, 2010) is Louisiana Stadium & Exposition District v. Merrill Lynch, Pierce, Fenner & Smith Inc. The memo garbles the defendant's name as 'Sedgewick Valemont, Pierce, Fenner & Smith Inc.' Volume, page, court and year are correct. On substance the case supports the proposition. It applies the three Second Circuit waiver factors (time elapsed, amount of litigation, prejudice) and holds that the plaintiff waived arbitration by litigating for eleven months.",
+        "evidence_excerpt": "\"(1) the time elapsed from when litigation was commenced until the request for arbitration; (2) the amount of litigation to date, including motion practice and discovery; and (3) proof of prejudice.\" ... \"we hold that LSED waived its arbitration rights.\"",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/179607/louisiana-stadium-exposition-district-v-merrill-lynch-pierce-fenner/"
+        ],
+        "confidence": "high"
+      },
+      "second_check": {
+        "refuted": false,
+        "revised_status": "WRONG_CITATION_REAL_CASE",
+        "explanation": "The finding holds. On CourtListener, 626 F.3d 156 (cluster 179607; 2d Cir., filed 2010-11-22; also 2010 WL 4704316) is 'Louisiana Stadium & Exposition District v. Merrill Lynch, Pierce, Fenner & Smith Inc.' The memo garbles the defendant's name as 'Sedgewick Valemont, Pierce, Fenner & Smith Inc.' No case under that name exists at that cite, and no alternate reporter or name variant explains it. Volume, page, court and year are correct, and the case is a Second Circuit decision on waiver of arbitration through litigation conduct, which fits the proposition. The defect is the garbled party name.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/179607/louisiana-stadium-exposition-district-v-merrill-lynch-pierce-fenner/"
+        ]
+      }
+    },
+    {
+      "ref": 76,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "IV.D.1 Standing Reservation (quoted reservation text)",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 1-16",
+      "citation_as_written": "9 U.S.C. §§ 1–16",
+      "pincite": "§§ 1–16",
+      "cited_for": "Standing reservation of arbitration rights to be included in all discovery responses",
+      "quotes": [
+        "Whitmore's participation in discovery proceedings in this Court is made without waiver of, and without prejudice to, Whitmore's arbitration rights under Section 9.1 and the Federal Arbitration Act, 9 U.S.C. §§ 1–16."
+      ],
+      "context": "Whitmore's participation in discovery proceedings in this Court is made without waiver of, and without prejudice to, Whitmore's arbitration rights under Section 9.1 and the Federal Arbitration Act, 9 U.S.C. §§ 1–16.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: 9 U.S.C. 1-16 is the real Federal Arbitration Act, cited as real law.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "The quoted sentence is not a quotation from the statute; it is the memo's own drafted reservation language, and it appears verbatim in defense-discovery-strategy-memo.docx.md (section IV.D.1, line 128). Nothing is attributed to the text of the FAA.",
+        "explanation": "9 U.S.C. §§ 1-16 is the correct citation for Chapter 1 (General Provisions) of Title 9, the core Federal Arbitration Act; the chapter runs from § 1 through § 16 (Appeals). The citation is used only to identify the statute whose arbitration rights are being reserved, which it does accurately. Note that nothing in §§ 1-16 makes a unilateral reservation effective against waiver by litigation conduct; that is a question of case law (see Morgan v. Sundance, 596 U.S. 411), not something the citation purports to establish.",
+        "evidence_excerpt": "9 U.S. Code Chapter 1 - GENERAL PROVISIONS ... § 1. \"Maritime transactions\" and \"commerce\" defined; exceptions to operation of title § 2. Validity, irrevocability, and enforcement of agreements to arbitrate § 3. Stay of proceedings where issue therein referable to arbitration ... § 16. Appeals",
+        "source_urls": [
+          "https:/chapter-1"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 77,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "VI.C.1(b) Proportionality under FRCP 26(b)(1)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "FRCP 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Objection that discovery on ~39 other fund clients is disproportionate",
+      "quotes": [],
+      "context": "Proportionality under FRCP 26(b)(1) — The burden of reviewing account records ... for approximately 39 additional fund clients ... is grossly disproportionate to the needs of this case",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(1) is the correct source for a proportionality objection. It confines discovery to matter 'proportional to the needs of the case' and names burden or expense versus likely benefit as a factor, which is the ground the memo invokes for discovery about roughly 39 non-party fund clients. Whether the objection would succeed is an application question, not a citation defect.",
+        "evidence_excerpt": "\"relevant to any party's claim or defense and proportional to the needs of the case, considering ... whether the burden or expense of the proposed discovery outweighs its likely benefit.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 78,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "VI.C.2 Protective Order",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(c)",
+      "citation_as_written": "FRCP 26(c)",
+      "pincite": "26(c)",
+      "cited_for": "Move for protective order limiting disclosure of other-client information to attorneys' eyes only",
+      "quotes": [],
+      "context": "we should immediately move for a protective order under FRCP 26(c) limiting such disclosure to attorneys' eyes only",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(c)(1) authorizes a party from whom discovery is sought to move for a protective order and permits the court, for good cause, to specify terms for disclosure, limit its scope, designate who may be present, and require that confidential commercial information be revealed only in a specified way. The rule does not use the phrase 'attorneys' eyes only', but an order restricting disclosure of other clients' information to counsel falls within 26(c)(1)(B), (D) and (G), so the rule supports the proposed motion.",
+        "evidence_excerpt": "A party or any person from whom discovery is sought may move for a protective order in the court where the action is pending ... The court may, for good cause, issue an order to protect a party or person from annoyance, embarrassment, oppression, or undue burden or expense, including one or more of the following: ... (G) requiring that a trade secret or other confidential research, development, or commercial information not be revealed or be revealed only in a specified way",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 79,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "VII.C.3(c) Roszak response guidance",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(b)(1)",
+      "citation_as_written": "FRCP 26(b)(1)",
+      "pincite": "26(b)(1)",
+      "cited_for": "Objection that request for Roszak's SSN/compensation is disproportionate",
+      "quotes": [],
+      "context": "The request is disproportionate to the needs of the case under FRCP 26(b)(1)",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(b)(1) is the correct source for the objection that a request (here, a non-party former employee's Social Security number and compensation at a later employer) is 'disproportionate to the needs of the case'. The rule uses that exact proportionality formulation and lists the importance of the discovery in resolving the issues and burden versus benefit as factors.",
+        "evidence_excerpt": "\"Parties may obtain discovery regarding any nonprivileged matter that is relevant to any party's claim or defense and proportional to the needs of the case, considering the importance of the issues at stake in the action ... the importance of the discovery in resolving the issues, and whether the burden or expense of the proposed discovery outweighs its likely benefit.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 80,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "VII.C.4 Roszak deposition",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 45",
+      "citation_as_written": "Rule 45",
+      "pincite": "45",
+      "cited_for": "Trident must subpoena former employee Roszak for deposition",
+      "quotes": [],
+      "context": "Trident will need to subpoena Roszak for deposition under Rule 45.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Rule 45 governs subpoenas commanding a person to attend and testify, including at a deposition (Rule 45(a)(1)(B) addresses a subpoena \"commanding attendance at a deposition\" per the LII page as returned by the fetch tool), and Rule 30(a)(1) states a deponent's attendance may be compelled by Rule 45 subpoena. A former employee who is no longer within a party's control is a non-party witness, so the memo's statement that Trident will need a Rule 45 subpoena to depose Roszak is supported. Whether Roszak is in fact outside Whitmore's control is a factual premise of the fictional scenario, not something the rule addresses.",
+        "evidence_excerpt": "command each person to whom it is directed to do the following at a specified time and place: attend and testify; produce designated documents, electronically stored information, or tangible things in that person's possession, custody, or control ... [Rule 30(a)(1):] The deponent's attendance may be compelled by subpoena under Rule 45.",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_45",
+          "https://www.law.cornell.edu/rules/frcp/rule_30"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 81,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "VIII. Insurance and Reservation of Rights",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(a)(1)(A)(iv)",
+      "citation_as_written": "FRCP 26(a)(1)(A)(iv)",
+      "pincite": "26(a)(1)(A)(iv)",
+      "cited_for": "Insurance agreements are subject to mandatory initial disclosure",
+      "quotes": [],
+      "context": "Under FRCP 26(a)(1)(A)(iv), insurance agreements that may satisfy a judgment in the action are subject to mandatory disclosure",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed.",
+        "explanation": "Rule 26(a)(1)(A) makes the listed items mandatory ('a party must, without awaiting a discovery request, provide'), and subparagraph (iv) covers insurance agreements under which an insurer may be liable to satisfy a judgment in the action. The memo's statement that such agreements 'are subject to mandatory disclosure' is a fair paraphrase.",
+        "evidence_excerpt": "a party must, without awaiting a discovery request, provide to the other parties: ... (iv) for inspection and copying as under Rule 34, any insurance agreement under which an insurance business may be liable to satisfy all or part of a possible judgment in the action",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 82,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "XI.1 Next Steps, Monitor for Service",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 33(b)(2) and 34(b)(2)",
+      "citation_as_written": "FRCP 33(b)(2) and FRCP 34(b)(2)",
+      "pincite": "33(b)(2); 34(b)(2)",
+      "cited_for": "30-day response deadline for interrogatories and document requests",
+      "quotes": [],
+      "context": "The response deadline will be 30 days from the date of service under FRCP 33(b)(2) and FRCP 34(b)(2).",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "Fed. R. Civ. P. 33(b)(2); Fed. R. Civ. P. 34(b)(2)(A)",
+        "quote_check": "No quotation attributed to the rules.",
+        "explanation": "Both pin cites are correct. Rule 33(b)(2) sets 30 days after service for interrogatory answers and objections. Rule 34(b)(2)(A) sets 30 days after service for a written response to a document request; citing 34(b)(2) without the (A) is accurate. Rule 34 has an alternative trigger for early requests delivered under Rule 26(d)(2) (30 days after the first Rule 26(f) conference), and both periods can be changed by stipulation or court order. Neither qualification undermines the memo's general statement.",
+        "evidence_excerpt": "Rule 34(b)(2)(A): \"Time to Respond. The party to whom the request is directed must respond in writing within 30 days after being served or — if the request was delivered under Rule 26(d)(2) — within 30 days after the parties' first Rule 26(f) conference.\" Rule 33(b)(2): \"The responding party must serve its answers and any objections within 30 days after being served with the interrogatories.\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_33",
+          "https://www.law.cornell.edu/rules/frcp/rule_34"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 83,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "XI.5 Next Steps, Continue Evaluation of Motion to Compel Arbitration",
+      "authority_type": "statute",
+      "authority": "Federal Arbitration Act, 9 U.S.C. §§ 3-4",
+      "citation_as_written": "9 U.S.C. §§ 3–4",
+      "pincite": "§§ 3–4",
+      "cited_for": "Timing of motion to compel arbitration or stay pending arbitration",
+      "quotes": [],
+      "context": "optimal timing for filing a motion to compel arbitration under 9 U.S.C. §§ 3–4, or in the alternative, to stay proceedings pending arbitration.",
+      "found_by": "first_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "REVERSED by completeness pass: 9 U.S.C. 3-4 is the real FAA, cited as real law.",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "Section 4 provides for a motion or petition to compel arbitration and § 3 for a stay of proceedings pending arbitration, which matches the memo's alternatives of compelling arbitration or staying the case. Neither section sets a deadline. The memo cites them for the vehicle, not for any timing rule, so the citation is accurate.",
+        "evidence_excerpt": "§ 3: \"the court in which such suit is pending ... shall on application of one of the parties stay the trial of the action until such arbitration has been had in accordance with the terms of the agreement, providing the applicant for the stay is not in default\"",
+        "source_urls": [
+          "https:/3",
+          "https:/4"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 84,
+      "document": "case-management-order.docx.md",
+      "location": "I. Preamble, third paragraph",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Court considered the parties' positions as expressed at the Rule 26(f) conference",
+      "quotes": [],
+      "context": "The Court has considered the parties' Joint Discovery Plan, the nature and complexity of this action, and the positions of the parties as expressed at the Rule 26(f) conference.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(f) provides for a conference at which the parties consider their claims and defenses and develop a proposed discovery plan stating their 'views and proposals.' Referring to 'the positions of the parties as expressed at the Rule 26(f) conference' is consistent with the rule. This passage only labels the conference; it does not repeat the assertion in ref 39 that the Court held it under Rule 26(f), though it refers to the same December 2 event.",
+        "evidence_excerpt": "In conferring, the parties must consider the nature and basis of their claims and defenses and the possibilities for promptly settling or resolving the case ... and develop a proposed discovery plan. ... (3) Discovery Plan. A discovery plan must state the parties' views and proposals on:",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 85,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "X. Anticipated Interrogatory Problem Areas (intro to numbered list)",
+      "authority_type": "court_rule",
+      "authority": "Fed. R. Civ. P. 26(f)",
+      "citation_as_written": "Rule 26(f)",
+      "pincite": "",
+      "cited_for": "Issues raised at the Rule 26(f) conference inform anticipated interrogatory problem areas",
+      "quotes": [],
+      "context": "Based on our review of the Complaint, the Answer and Affirmative Defenses, and the issues raised at the Rule 26(f) conference, we anticipate the following problem areas in Trident's interrogatories:",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotation attributed.",
+        "explanation": "Rule 26(f) requires the parties to confer on the nature and basis of claims and defenses and on discovery subjects, ESI and privilege issues. A memo drawing anticipated interrogatory problem areas from 'the issues raised at the Rule 26(f) conference' uses the rule accurately as a reference to that conference. What was actually raised there is a fact of the fictional record.",
+        "evidence_excerpt": "In conferring, the parties must consider the nature and basis of their claims and defenses ... (3) Discovery Plan. A discovery plan must state the parties' views and proposals on: ... (B) the subjects on which discovery may be needed, when discovery should be completed, and whether discovery should be conducted in phases or be limited to or focused on particular issues;",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 86,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.B (Instructions), introductory paragraph",
+      "authority_type": "court_rule",
+      "authority": "Federal Rules of Civil Procedure and S.D.N.Y. Local Civil Rules",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Instructions intended to ensure responses comply with the Federal Rules of Civil Procedure and the Local Civil Rules of this Court",
+      "quotes": [],
+      "context": "These instructions are intended to ensure that Defendant's responses are complete, accurate, and in compliance with the Federal Rules of Civil Procedure and the Local Civil Rules of this Court.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotes attributed.",
+        "explanation": "This is a general reference to the FRCP and to the S.D.N.Y. Local Civil Rules (joint S.D.N.Y./E.D.N.Y. Local Rules, current version effective January 2, 2026). Both exist and govern interrogatory practice in S.D.N.Y. civil actions. The instruction makes no specific claim that needs checking beyond that.",
+        "evidence_excerpt": "FRCP Rule 1: \"These rules govern the procedure in all civil actions and proceedings in the United States district courts\"; S.D.N.Y. site: \"LOCAL RULES OF THE UNITED STATES DISTRICT COURTS FOR THE SOUTHERN AND EASTERN DISTRICTS OF NEW YORK\"",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_1",
+          "https://www.nysd.uscourts.gov/sites/default/files/local_rules/2026-01-02%20-%20EDNY%20and%20SDNY%20Joint%20Local%20Rules%20As%20Amended.pdf"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 87,
+      "document": "plaintiff-first-interrogatories.docx.md",
+      "location": "I.B, Instruction 5",
+      "authority_type": "other",
+      "authority": "Attorney-client privilege and work product doctrine",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Privilege and work product protection as grounds for withholding information requiring a privilege log",
+      "quotes": [],
+      "context": "including but not limited to the attorney-client privilege, the work product doctrine, or any other privilege or immunity, You must provide a privilege log in compliance with Federal Rule of Civil Procedure 26(b)(5)(A)",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "No formal citation is given; the reference is to the attorney-client privilege and the work product doctrine as grounds for withholding. Both are established doctrines (Upjohn Co. v. United States, 449 U.S. 383 (1981); Hickman v. Taylor, 329 U.S. 495 (1947); Fed. R. Civ. P. 26(b)(3)). Rule 26(b)(5)(A) requires a party withholding on those grounds to expressly make the claim and describe the withheld material so other parties can assess it. The rule does not use the words \"privilege log\"; a log is the customary means of compliance, so the instruction is a reasonable reading.",
+        "evidence_excerpt": "When a party withholds information otherwise discoverable by claiming that the information is privileged or subject to protection as trial-preparation material, the party must: (i) expressly make the claim; and (ii) describe the nature of the documents, communications, or tangible things not produced or disclosed",
+        "source_urls": [
+          "https://www.law.cornell.edu/rules/frcp/rule_26",
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/",
+          "https://www.courtlistener.com/opinion/104357/hickman-v-taylor/"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 88,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "V.C.2 Anticipated Plaintiff Discovery Tactics",
+      "authority_type": "other",
+      "authority": "Attorney-client privilege and work product doctrine",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Requests about investigation steps and advice received must be met with privilege objections under attorney-client privilege and/or work product doctrine",
+      "quotes": [],
+      "context": "Any such requests must be met with specific privilege objections, including identification of the applicable privilege (attorney-client privilege and/or work product doctrine) and a general description sufficient for the privilege log.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "No formal citation is given. Upjohn (a counsel-directed internal investigation) confirms the attorney-client privilege covers confidential communications made to obtain legal advice, and Hickman and Rule 26(b)(3) protect counsel's work product and mental impressions. Rule 26(b)(5)(A) requires expressly claiming the privilege and describing what is withheld, consistent with the memo's instruction. One limit: Upjohn states the privilege protects communications, not underlying facts, so a privilege objection would not shield the bare facts of what investigative steps were taken. The memo describes an objection posture rather than claiming the facts are privileged, so the proposition is supported.",
+        "evidence_excerpt": "The privilege only protects disclosure of communications; it does not protect disclosure of the underlying facts by those who communicated with the attorney",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/110374/upjohn-co-v-united-states/",
+          "https://www.courtlistener.com/opinion/104357/hickman-v-taylor/",
+          "https://www.law.cornell.edu/rules/frcp/rule_26"
+        ],
+        "confidence": "high"
+      }
+    },
+    {
+      "ref": 89,
+      "document": "defense-discovery-strategy-memo.docx.md",
+      "location": "VIII. Insurance and Reservation of Rights",
+      "authority_type": "other",
+      "authority": "Common interest doctrine / attorney-client privilege",
+      "citation_as_written": "",
+      "pincite": "",
+      "cited_for": "Whitmore-insurer communications beyond policy and reservation letter may be protected by attorney-client privilege or the common interest doctrine",
+      "quotes": [],
+      "context": "may be protected by the attorney-client privilege or the common interest doctrine, depending on the nature and context of the communication.",
+      "found_by": "completeness_pass",
+      "fictional_by_design": false,
+      "fictional_reason": "",
+      "first_check": {
+        "status": "VERIFIED",
+        "authority_exists": "yes",
+        "correct_citation": "",
+        "quote_check": "No quotations attributed; none to check.",
+        "explanation": "No formal citation is given. The common interest doctrine is recognized in the Second Circuit as an extension of the attorney-client privilege (United States v. Schwimmer, 892 F.2d 237, 243-44 (2d Cir. 1989)). Schaeffler v. United States, 806 F.3d 34 (2d Cir. 2015), observes that several courts have held an insurer shares a common legal interest with its insured in the outcome of litigation; that remark is made in passing and rests on district court cases. The memo's hedged statement that insurer communications \"may be protected ... depending on the nature and context\" matches that state of the law.",
+        "evidence_excerpt": "several courts have held that an insurer shares a common legal interest with the insured in the outcome of litigation, even when their potential defenses are not perfectly aligned.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/3153425/schaeffler-v-united-states/",
+          "https://www.courtlistener.com/opinion/534197/united-states-v-martin-schwimmer/"
+        ],
+        "confidence": "high"
+      }
+    }
+  ]
+}
