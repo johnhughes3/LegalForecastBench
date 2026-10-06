@@ -39,12 +39,34 @@ The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regen
 
 ### Harvey LAB human-review appendix
 
-The appendix on the human review of AI-flagged Harvey LAB criteria is generated from the review worksheet (`docs/harvey-lab-audit/litigation-dispute-resolution/human-review/worksheet.md`). The script writes the counts as LaTeX macros in the preamble and the per-criterion entries in the appendix, between `% BEGIN GENERATED LAB REVIEW` markers; the surrounding prose is hand-written. CI fails if the blocks drift from the worksheet.
+The counts in the appendix on the human review of AI-flagged Harvey LAB criteria are generated from the review worksheet (`docs/harvey-lab-audit/litigation-dispute-resolution/human-review/worksheet.md`). The script writes them as LaTeX macros in the preamble and writes the verdict table in the appendix, between `% BEGIN GENERATED LAB REVIEW` markers. CI fails if either block drifts from the worksheet.
+
+The 25 per-criterion entries are edited by hand in the manuscript, which is their source of truth. Each entry quotes Harvey's criterion in a `labquote` block, gives the author's assessment and LAB's own grades in a table, and then the author's analysis. Changing a verdict means changing it in the entry and in the worksheet; the check fails when the two disagree, because the generated counts would then contradict the entries.
 
 ```bash
 uv run --frozen python docs/paper/analysis/lab_review.py --write-manuscript --manuscript docs/paper/LegalForecastBench-paper.tex
 uv run --frozen python docs/paper/analysis/lab_review.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
 ```
+
+### Pangram check of the author-written prose
+
+`analysis/pangram_check.py` renders the manuscript to the plain text a reader sees and sends it to [Pangram](https://www.pangram.com/), an AI-text detector, as one document. It reports Pangram's result for the whole document and how many of its windows were flagged in each section. It is opt-in and is not part of the build or CI: every run spends Pangram credits (about 10,000 words, roughly $5 at the published rate of $0.05 per 100 words), and the script prints its own estimate before sending anything and refuses to send if the estimate exceeds `--max-usd` (default $10).
+
+Text the author did not write is left out, and each omission appears in the document as `[...]`. Left out are passages between `% BEGIN AI-PREPARED` and `% END AI-PREPARED` comment lines in the manuscript, which mark what the paper's AI-use statement discloses as prepared with AI; the criteria and task titles quoted from Harvey LAB in the appendix; tables, figures, display equations, and the bibliography; and the generated blocks. LaTeX commands and source comments are never sent. To leave out another passage, wrap it in the two comment lines; they do not change the compiled paper.
+
+To see exactly what would be sent, without a key and without spending credits, write the document to `docs/paper/build/pangram/paper.txt` (ignored by Git). It can also be pasted into Pangram's web app. This step needs `pandoc`.
+
+```bash
+uv run --frozen python docs/paper/analysis/pangram_check.py --extract-only --manuscript docs/paper/LegalForecastBench-paper.tex
+```
+
+To score it, put a Pangram API key in the `PANGRAM_API_KEY` environment variable and add Pangram's Python SDK for the one run. The script saves Pangram's raw response next to the document; `--verbose` prints an excerpt of every window Pangram did not label human-written, with its section.
+
+```bash
+uv run --frozen --with "pangram-sdk>=1.0" python docs/paper/analysis/pangram_check.py --manuscript docs/paper/LegalForecastBench-paper.tex
+```
+
+`--exclude-section` leaves out a whole section by its key in the printed table or part of its title, for example `--exclude-section A --exclude-section B`. Pangram's limits and prices are taken from its [API reference](https://docs.pangram.com/api-reference/introduction.md) and [input-size note](https://www.pangram.com/knowledge-hub/minimum-and-maximum-input-sizes).
 
 ### Within-case clustering
 

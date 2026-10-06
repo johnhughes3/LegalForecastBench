@@ -1,17 +1,21 @@
-"""Generate the paper's Harvey LAB human-review appendix from the review worksheet.
+"""Generate the counts in the paper's Harvey LAB human-review appendix.
 
-The worksheet (docs/harvey-lab-audit/litigation-dispute-resolution/human-review/
-worksheet.md) is the source of truth for the 25 sampled criteria and the reviewer's
-verdicts, categories, environment verdicts, and notes. This script writes two marked
-blocks in the standalone manuscript:
+The review worksheet (docs/harvey-lab-audit/litigation-dispute-resolution/human-review/
+worksheet.md) records the reviewer's verdict, category, and environment verdict for
+each of the 25 sampled criteria. This script writes two marked blocks in the
+standalone manuscript:
 
 ``% BEGIN GENERATED LAB REVIEW NUMBERS`` (preamble)
     LaTeX macros holding every count and confidence bound the prose cites, so the
-    hand-written text cannot drift from the worksheet.
+    hand-written text cannot drift from the verdicts.
 
-``% BEGIN GENERATED LAB REVIEW ITEMS`` (appendix)
-    The rubric-verdict by environment-verdict table and, for each sampled criterion,
-    the rubric text, verdicts, model-run grades, and the reviewer's analysis.
+``% BEGIN GENERATED LAB REVIEW TABLE`` (appendix)
+    The criterion-verdict by environment-verdict table.
+
+The per-criterion entries in the appendix (quoted criterion, assessment, LAB's
+grades, analysis) are edited by hand in the manuscript, which is their source of
+truth. ``--check`` also fails if a verdict in those entries disagrees with the
+worksheet, because the counts above would then contradict the entries.
 
 Run from the repository root::
 
@@ -35,65 +39,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 AUDIT = ROOT / "docs/harvey-lab-audit/litigation-dispute-resolution"
 REVIEW = AUDIT / "human-review"
-BLOCKS = ("LAB REVIEW NUMBERS", "LAB REVIEW ITEMS")
-HARVEY_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
-
-# Characters pdfLaTeX's default UTF-8 input cannot typeset, mapped to LaTeX.
-UNICODE = {
-    "\u2265": r"$\geq$",
-    "\u2264": r"$\leq$",
-    "\u2212": "$-$",
-    "\u2192": r"$\rightarrow$",
-    "\u00d7": r"$\times$",
-    "\u2026": r"\ldots{}",
-    "\u2122": r"\texttrademark{}",
-    "\u2248": r"$\approx$",
-    "\u00b1": r"$\pm$",
-    "\u03bc": r"$\mu$",
-    "\u00a0": "~",
-}
-# Curly quotes, dashes, section and paragraph signs, and common accented letters.
-SAFE_NON_ASCII = set(
-    "\u201c\u201d\u2018\u2019\u2014\u2013\u00a7\u00b6"
-    "\u00e9\u00e8\u00e1\u00e0\u00ed\u00f3\u00fa\u00f1\u00fc\u00f6\u00e4\u00e7"
-)
-OPENING_QUOTE = re.compile('(^|[\\s(\\[{\u2014\u2013/-])"')
+BLOCKS = ("LAB REVIEW NUMBERS", "LAB REVIEW TABLE")
 
 
-def _scripts() -> tuple[Any, Any]:
-    """The review sampler and model-run helpers, shared with the audit tooling."""
+def _sampler() -> Any:
+    """The review sampler, shared with the audit tooling."""
     sys.path.insert(0, str(ROOT / "scripts"))
-    return (
-        importlib.import_module("harvey_review_sample"),
-        importlib.import_module("harvey_model_runs"),
-    )
-
-
-def tex(text: str) -> str:
-    """Escape worksheet Markdown for LaTeX, keeping emphasis, code, and URLs."""
-    urls: list[str] = []
-
-    def keep_url(match: re.Match[str]) -> str:
-        urls.append(match.group(0).rstrip(".,;)"))
-        trailing = match.group(0)[len(urls[-1]) :]
-        return f"\x00{len(urls) - 1}\x00{trailing}"
-
-    text = re.sub(r"https?://\S+", keep_url, text)
-    text = text.replace("\\", r"\textbackslash{}")
-    for char in "&%$#_{}":
-        text = text.replace(char, "\\" + char)
-    text = text.replace("~", r"\textasciitilde{}").replace("^", r"\textasciicircum{}")
-    text = re.sub(r"\*\*(.+?)\*\*", r"\\textbf{\1}", text)
-    text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"\\emph{\1}", text)
-    text = re.sub(r"`([^`]+)`", r"\\texttt{\1}", text)
-    text = OPENING_QUOTE.sub(r"\1``", text)
-    text = text.replace('"', "''")
-    for char, replacement in UNICODE.items():
-        text = text.replace(char, replacement)
-    bad = {c for c in text if ord(c) > 127 and c not in SAFE_NON_ASCII}
-    if bad:
-        raise SystemExit(f"untypeset characters in worksheet text: {sorted(bad)}")
-    return re.sub(r"\x00(\d+)\x00", lambda m: rf"\url{{{urls[int(m.group(1))]}}}", text)
+    return importlib.import_module("harvey_review_sample")
 
 
 def items(worksheet: str) -> list[dict[str, Any]]:
@@ -137,13 +89,6 @@ def items(worksheet: str) -> list[dict[str, Any]]:
             }
         )
     return out
-
-
-def clean_note(lines: list[str]) -> tuple[str, list[str]]:
-    """Split the note into its opening paragraph and its bullets, minus the label."""
-    first = lines[0].removeprefix("- **Note and source locator:**").strip()
-    bullets = [ln.removeprefix("- ").strip() for ln in lines[1:]]
-    return first.strip(), bullets
 
 
 def statistics(sampler: Any) -> dict[str, Any]:
@@ -264,11 +209,8 @@ def render_numbers(stats: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_items(stats: dict[str, Any], model_runs: Any) -> str:
+def render_table(stats: dict[str, Any]) -> str:
     parsed = items((REVIEW / "worksheet.md").read_text(encoding="utf-8"))
-    sample: list[dict[str, Any]] = json.loads(
-        (REVIEW / "sample.json").read_text(encoding="utf-8")
-    )["sample"]
     env = {i["n"]: i["environment"].split(":", 1)[0].strip() for i in parsed}
     rows = ("Defective", "Arguable", "Not defective")
     out = [
@@ -290,58 +232,43 @@ def render_items(stats: dict[str, Any], model_runs: Any) -> str:
         r"\midrule",
         rf"Total & {total_d} & {len(parsed) - total_d} & {len(parsed)}\\",
         r"\bottomrule\end{tabular}",
-        r"\caption{Reviewer verdicts on the "
+        r"\caption{My verdicts on the "
         + str(stats["sample"])
         + r" sampled criteria, by whether the task environment itself"
         r" contains a defect.}",
         r"\label{tab:labreview}\end{table}",
-        "",
-        r"\subsection*{The sampled criteria}",
-        "Each entry gives the criterion as written, the reviewer's verdicts, how "
-        "LAB's two native judges (Claude Sonnet 4.6 and GPT-5.5) graded the "
-        "GPT-6 Luna and Claude Opus 5.5 runs on that criterion, and the "
-        "reviewer's analysis. Harvey task "
-        rf"files are cited at commit \texttt{{{HARVEY_COMMIT[:8]}}}.",
-        "",
     ]
-    labels = {"pass": "P", "fail": "F"}
-    for item, drawn in zip(parsed, sample, strict=True):
-        verdicts = model_runs.run_verdicts(drawn["task"], item["criterion"])
-        runs = "; ".join(
-            f"{name}: " + "/".join(labels.get(v, "?") for v in verdicts[slug].values())
-            for slug, name in (
-                ("gpt6luna-xhigh", "GPT-6 Luna"),
-                ("opus55-low", "Claude Opus 5.5"),
-            )
-            if slug in verdicts
-        )
-        intro, bullets = clean_note(item["note"])
-        env_text = item["environment"]
-        out += [
-            rf"\subsubsection*{{{item['n']}. {tex(item['title'])}"
-            rf" ({item['criterion']})}}",
-            r"\textit{Criterion.} \textbf{"
-            + tex(item["rubric_title"].rstrip("."))
-            + ".} "
-            rf"{tex(item['rubric_text'])}",
-            "",
-            rf"\textit{{Verdict.}} {tex(item['verdict'])}"
-            + (rf" ({tex(item['category'].rstrip('.'))})" if item["category"] else "")
-            + rf". \textit{{Environment.}} {tex(env_text)}"
-            + ("" if env_text.endswith(".") else ".")
-            + r" \textit{AI auditors' reasoning (reviewer's assessment).} "
-            + f"{tex(item['ai'])}."
-            + r" \textit{Native grades} (Sonnet 4.6/GPT-5.5; P pass, F fail): "
-            + f"{runs}.",
-            "",
-        ]
-        if intro:
-            out += [rf"\textit{{Analysis.}} {tex(intro)}", ""]
-        if bullets:
-            out.append(r"\begin{itemize}")
-            out += [rf"\item {tex(b)}" for b in bullets]
-            out += [r"\end{itemize}", ""]
-    return "\n".join(out).rstrip()
+    return "\n".join(out)
+
+
+ENTRY = re.compile(
+    r"(?s)\\labitem\{(\d+)\}.*?^Criterion & (.+?)\\\\$"
+    r".*?^Task environment & (.+?)\\\\$",
+    re.M,
+)
+
+
+def entry_mismatches(manuscript: str) -> list[str]:
+    """Entries whose verdicts in the manuscript disagree with the worksheet."""
+    parsed = {
+        i["n"]: i for i in items((REVIEW / "worksheet.md").read_text(encoding="utf-8"))
+    }
+    found = {int(m[1]): (m[2], m[3]) for m in ENTRY.finditer(manuscript)}
+    problems = [f"entry {n} is missing" for n in parsed if n not in found]
+    for n, (criterion, environment) in sorted(found.items()):
+        want = parsed.get(n)
+        if want is None:
+            problems.append(f"entry {n} is not in the worksheet")
+            continue
+        if (
+            re.split(r" --- |\\,|$", criterion, maxsplit=1)[0].strip()
+            != want["verdict"]
+        ):
+            problems.append(f"entry {n}: criterion verdict is not {want['verdict']!r}")
+        expected = want["environment"].split(":", 1)[0].strip()
+        if environment.split(":", 1)[0].strip().rstrip(".") != expected:
+            problems.append(f"entry {n}: environment verdict is not {expected!r}")
+    return problems
 
 
 def _block(text: str, name: str) -> tuple[int, int]:
@@ -353,12 +280,8 @@ def _block(text: str, name: str) -> tuple[int, int]:
 
 
 def render_all() -> dict[str, str]:
-    sampler, model_runs = _scripts()
-    stats = statistics(sampler)
-    return {
-        BLOCKS[0]: render_numbers(stats),
-        BLOCKS[1]: render_items(stats, model_runs),
-    }
+    stats = statistics(_sampler())
+    return {BLOCKS[0]: render_numbers(stats), BLOCKS[1]: render_table(stats)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -378,15 +301,21 @@ def main(argv: list[str] | None = None) -> int:
         if text[start:end] != body + "\n":
             stale.append(name)
             text = text[:start] + body + "\n" + text[end:]
+    mismatches = entry_mismatches(text)
+    for problem in mismatches:
+        print(
+            f"appendix entry disagrees with the worksheet: {problem}", file=sys.stderr
+        )
     if args.check:
         if stale:
             print(f"stale generated blocks: {', '.join(stale)}", file=sys.stderr)
+        if stale or mismatches:
             return 1
         print("LAB review blocks match the worksheet")
         return 0
     args.manuscript.write_text(text, encoding="utf-8")
     print(f"updated: {', '.join(stale) or 'nothing (already current)'}")
-    return 0
+    return 1 if mismatches else 0
 
 
 if __name__ == "__main__":
