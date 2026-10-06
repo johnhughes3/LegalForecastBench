@@ -290,53 +290,76 @@ def render_items(stats: dict[str, Any], model_runs: Any) -> str:
         r"\midrule",
         rf"Total & {total_d} & {len(parsed) - total_d} & {len(parsed)}\\",
         r"\bottomrule\end{tabular}",
-        r"\caption{Reviewer verdicts on the "
+        r"\caption{My verdicts on the "
         + str(stats["sample"])
         + r" sampled criteria, by whether the task environment itself"
         r" contains a defect.}",
         r"\label{tab:labreview}\end{table}",
         "",
         r"\subsection*{The sampled criteria}",
-        "Each entry gives the criterion as written, the reviewer's verdicts, how "
-        "LAB's two native judges (Claude Sonnet 4.6 and GPT-5.5) graded the "
-        "GPT-6 Luna and Claude Opus 5.5 runs on that criterion, and the "
-        "reviewer's analysis. Harvey task "
-        rf"files are cited at commit \texttt{{{HARVEY_COMMIT[:8]}}}.",
+        "Each entry has four parts, in the same order. First, an indented block "
+        "quotes the criterion verbatim from Harvey's task file; that text is "
+        "Harvey's, not mine. Second, my assessment gives my verdict on the "
+        "criterion, my verdict on the task environment, and whether the AI "
+        "auditors' reasoning for flagging the criterion was correct. Third, "
+        "LAB's own grading shows how Harvey's two judge models (Claude Sonnet 4.6 "
+        "and GPT-5.5) graded the GPT-6 Luna and Claude Opus 5.5 runs on that "
+        "criterion; those grades are LAB's output and are reported for context, "
+        "not as part of my verdict. Fourth, my analysis explains the verdict. "
+        "Harvey task files are cited at commit "
+        rf"\texttt{{{HARVEY_COMMIT[:8]}}}.",
         "",
     ]
-    labels = {"pass": "P", "fail": "F"}
+    judges = [(j, f"{label} judge") for j, label in model_runs.JUDGES]
+    columns = (
+        r"\noindent\begin{tabular}{@{}>{\raggedright\arraybackslash}p{.25\linewidth}"
+        r">{\raggedright\arraybackslash}p{.71\linewidth}@{}}"
+    )
     for item, drawn in zip(parsed, sample, strict=True):
         verdicts = model_runs.run_verdicts(drawn["task"], item["criterion"])
-        runs = "; ".join(
-            f"{name}: " + "/".join(labels.get(v, "?") for v in verdicts[slug].values())
-            for slug, name in (
-                ("gpt6luna-xhigh", "GPT-6 Luna"),
-                ("opus55-low", "Claude Opus 5.5"),
-            )
-            if slug in verdicts
+        source = (
+            f"https://github.com/harveyai/harvey-labs/blob/{HARVEY_COMMIT}/tasks/"
+            f"litigation-dispute-resolution/{drawn['task']}/task.json"
         )
         intro, bullets = clean_note(item["note"])
-        env_text = item["environment"]
+        verdict = tex(item["verdict"]) + (
+            f" --- {tex(item['category'].rstrip('.'))}" if item["category"] else ""
+        )
         out += [
             rf"\subsubsection*{{{item['n']}. {tex(item['title'])}"
             rf" ({item['criterion']})}}",
-            r"\textit{Criterion.} \textbf{"
-            + tex(item["rubric_title"].rstrip("."))
-            + ".} "
+            rf"\begin{{labquote}}{{Harvey LAB, criterion {item['criterion']}, "
+            rf"\href{{{source}}}{{task file at commit "
+            rf"\texttt{{{HARVEY_COMMIT[:8]}}}}}}}",
+            r"\textbf{" + tex(item["rubric_title"].rstrip(".")) + ".} "
             rf"{tex(item['rubric_text'])}",
+            r"\end{labquote}",
             "",
-            rf"\textit{{Verdict.}} {tex(item['verdict'])}"
-            + (rf" ({tex(item['category'].rstrip('.'))})" if item["category"] else "")
-            + rf". \textit{{Environment.}} {tex(env_text)}"
-            + ("" if env_text.endswith(".") else ".")
-            + r" \textit{AI auditors' reasoning (reviewer's assessment).} "
-            + f"{tex(item['ai'])}."
-            + r" \textit{Native grades} (Sonnet 4.6/GPT-5.5; P pass, F fail): "
-            + f"{runs}.",
-            "",
+            columns,
+            r"\toprule",
+            r"\multicolumn{2}{@{}l@{}}{\textbf{My assessment}}\\",
+            rf"Criterion & {verdict}\\",
+            rf"Task environment & {tex(item['environment'])}\\",
+            rf"AI auditors' reasoning & {tex(item['ai'])}\\",
+            r"\midrule",
+            r"\multicolumn{2}{@{}l@{}}{\textbf{LAB's own grading of two model runs}"
+            r" (Harvey's judges, not my assessment)}\\",
         ]
+        for slug, name in (
+            ("gpt6luna-xhigh", "GPT-6 Luna"),
+            ("opus55-low", "Claude Opus 5.5"),
+        ):
+            if slug in verdicts:
+                grades = "; ".join(
+                    f"{label}: {verdicts[slug].get(judge, '?')}"
+                    for judge, label in judges
+                )
+                out.append(rf"{name} & {grades}\\")
+        out += [r"\bottomrule", r"\end{tabular}", ""]
         if intro:
-            out += [rf"\textit{{Analysis.}} {tex(intro)}", ""]
+            out += [rf"\noindent\textbf{{My analysis.}} {tex(intro)}", ""]
+        elif bullets:
+            out += [r"\noindent\textbf{My analysis.}", ""]
         if bullets:
             out.append(r"\begin{itemize}")
             out += [rf"\item {tex(b)}" for b in bullets]
