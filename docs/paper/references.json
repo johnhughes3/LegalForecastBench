@@ -489,6 +489,17 @@
     "type": "dataset"
   },
   {
+    "key": "labcitecheck",
+    "title": "Citation check of the Harvey LAB litigation and dispute resolution task environments",
+    "authors": [
+      "Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author"
+    ],
+    "year": 2026,
+    "venue": "AI-generated research artifact, not attorney-reviewed",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check",
+    "type": "dataset"
+  },
+  {
     "key": "labtask",
     "title": "Pinned LAB task.json for analyze-counterparty-motion-to-dismiss",
     "authors": [

@@ -508,6 +508,34 @@ Performance on one benchmark may not be indicative of broader quality issues. St
 
 The challenges involved in developing and maintaining acceptable benchmarks for legal tasks call to mind some of the challenges frontier labs have had developing new benchmarks for ocdingtasks. In February 2026, OpenAI publicly criticized SWE-bench Verified (which OpenAI had helped develop), noting that its audit revealed problems involving test requirements and task specification \citep{swecritique}. The rapid capability growth has meant that errors that once might have been unnoticeable now show up in the form of frontier models failing tasks incorrectly because the model is smarter than the benchmark. That dynamic could require greater investment in evaluations  to keep pace with the strength of the underlying models.
 
+\subsection{Citation check of potentially hallucinated cases}
+\label{sec:citecheck}
+Because the rubric audit turned up instances where the rubrics contained hallucinated case law (suggesting that the external experts who were responsible for verification may have relied on inaccurate AI-generated responses to prepare the answer key), I asked AI agents to conduct a separate citation check of all the litigation and dispute resolution tasks to assess the frequency of AI hallucinations in the task environments or rubrics. A citation check is a standard pre-filing procedure where lawyers check every authority cited in a brief, regulatory submission, or other important document to ensure that the authority is cited accurately, contains any quotation attributed to it, and supports the legal proposition for which it is cited.
+
+After excluding errors in case law that were intentionally planted and then tested in rubrics (e.g., an error of law in an opponent's submission that the model was supposed to catch), the AI identified 436 errors that were apparently not intended to be part of the task environment \citep{labcitecheck}:
+
+\begin{table}[ht]\centering\small
+\begin{tabular}{lrr}\toprule
+Finding & All citations & Case citations\\\midrule
+Verified & 2{,}754 & 306\\
+Verified, minor defect (pin cite, loose paraphrase, wrong year) & 346 & 54\\
+Intentional error tested by the rubric (excluded) & 31 & 6\\\midrule
+\multicolumn{3}{@{}l}{\textit{Unintentional errors}}\\
+\quad Cited for a proposition it does not support & 246 & 105\\
+\quad Not found (likely fabricated) & 76 & 60\\
+\quad Garbled citation to a real authority & 58 & 10\\
+\quad Quotation not found in the authority & 40 & 31\\
+\quad Reporter citation belongs to a different case & 16 & 12\\
+\quad Total unintentional errors & 436 & 218\\\midrule
+Source text not accessible & 51 & 6\\\midrule
+Total checked & 3{,}618 & 590\\
+\bottomrule\end{tabular}
+\caption{AI citation check of the \labTasks{} LAB litigation task environments. This table shows the AI findings.}
+\label{tab:citecheck}
+\end{table}
+
+\draft{[[Placeholder: To add results of attorney audit of the results, the hallucinated cases issue was identified only on 10/4/2026, the day before our original intended publication date. We delayed publication to understand how widespread the issue was, and initial spot checks suggest there are a meaningful number of hallucinated citations in the task environments so we need to present that with some validation so the issue is properly quantified.]]}
+
 \subsection{A motion-to-dismiss case study}
 \label{app:lab}
 
@@ -577,6 +605,8 @@ As I am a practicing attorney and do not have any formal training in artificial 
 
 \bibitem{labaudit} GPT-6 Sol audit workers, Claude Opus 5.5 audit workers, Coordinating agents; individual provenance not fully recorded. Harvey LAB litigation and dispute resolution audit: GPT-6 Sol and Claude Opus 5.5. \emph{Local research artifact, pinned September 29, 2026}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359/docs/harvey-lab-audit/litigation-dispute-resolution}.
 \bibitem{labreview} John Hughes. Human review of AI-flagged Harvey LAB litigation criteria: protocol, sample, and worksheet. \emph{Research artifact}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/human-review}.
+
+\bibitem{labcitecheck} Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author. Citation check of the Harvey LAB litigation and dispute resolution task environments. \emph{AI-generated research artifact, not attorney-reviewed}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check}.
 
 \bibitem{labtask} Harvey AI task authors; upstream authorship not individually listed. Pinned LAB task.json for analyze-counterparty-motion-to-dismiss. \emph{Primary online source}, 2026. \url{https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json}.
 
