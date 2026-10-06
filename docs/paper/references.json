@@ -1114,6 +1114,28 @@
     "type": "company report"
   },
   {
+    "key": "labAAboard",
+    "title": "Harvey LAB-AA evaluation results",
+    "authors": [
+      "Artificial Analysis"
+    ],
+    "year": 2026,
+    "venue": "Leaderboard, accessed October 5, 2026",
+    "url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+    "type": "company report"
+  },
+  {
+    "key": "labAAmethod",
+    "title": "Intelligence benchmarking methodology: Harvey LAB-AA",
+    "authors": [
+      "Artificial Analysis"
+    ],
+    "year": 2026,
+    "venue": "Methodology page, accessed October 5, 2026",
+    "url": "https://artificialanalysis.ai/methodology/intelligence-benchmarking#harvey-lab-aa",
+    "type": "company report"
+  },
+  {
     "key": "opusAnnouncement",
     "title": "Opus 4.8, Now Live in Harvey",
     "authors": [
