@@ -398,62 +398,69 @@ Other high-performing models were less sharp. For example, Fable has no errors a
 The normalized costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
 
 \subsection{Evaluating Jev, a non-autoregressive discriminative decision model}
-Jev---described by its developer as a probabilistic ``System One'' model---was evaluated as a separate experiment because its context window and lack of agentic tool calling differ from the document-enabled configurations used with frontier models. \citep{jevdocs}. GPT-5.6 Luna summarized the motion documents, without commentary or analysis. Jev received the summaries, and the unit questions, in a single request per case, without document tools or multiple turns.
+Jev---described by its developer as a probabilistic ``System One'' model---was evaluated as a separate experiment because its context window and lack of agentic tool calling differ from the document-enabled configurations used with frontier models. \citep{jevdocs}. GPT-5.6 Luna summarized the motion documents, without commentary or analysis. Jev received the summaries, and the unit questions, in a single request per case, without document tools or multiple turns. In a second condition, Grok 4.6 prepared a separate set of shorter summaries of the same 482 documents, which Jev received under the same protocol.
 \begin{table}[tb]\centering\small
 \begin{tabular}{lrrr}\toprule
 Condition & Micro Brier & Case Brier & Acc. (\%)\\\midrule
 GPT-5.6 Luna full documents & 0.14322 & 0.15084 & 80.88 \\
 GPT-5.6 Luna summary + high reasoning & 0.15489 & 0.16119 & 78.55 \\
 GPT-6 Luna summary + no reasoning & 0.17152 & 0.18694 & 74.16 \\
-Jev summary + one-shot & 0.36754 & 0.34416 & 32.56 \\
+Jev Luna summary + one-shot & 0.36754 & 0.34416 & 32.56 \\
+Jev Grok summary + one-shot & 0.32725 & 0.30505 & 38.24 \\
 \bottomrule\end{tabular}
-\caption{Results from the Jev experiment, with Luna evaluating the same summaries as a control.}
+\caption{Results from the Jev experiment, with Luna evaluating the same Luna summaries as a control. No control received the Grok summaries.}
 \label{tab:summary}\end{table}
 \begin{figure}[tb]\centering
 \begin{tikzpicture}[every node/.style={font=\small}]
-\draw[gray!18] (0.00000,-.2)--(0.00000,2.500);
+\draw[gray!18] (0.00000,-.2)--(0.00000,3.250);
 \node[anchor=north] at (0.00000,-.3) {0.10};
-\draw[gray!18] (1.45000,-.2)--(1.45000,2.500);
+\draw[gray!18] (1.45000,-.2)--(1.45000,3.250);
 \node[anchor=north] at (1.45000,-.3) {0.15};
-\draw[gray!18] (2.90000,-.2)--(2.90000,2.500);
+\draw[gray!18] (2.90000,-.2)--(2.90000,3.250);
 \node[anchor=north] at (2.90000,-.3) {0.20};
-\draw[gray!18] (4.35000,-.2)--(4.35000,2.500);
+\draw[gray!18] (4.35000,-.2)--(4.35000,3.250);
 \node[anchor=north] at (4.35000,-.3) {0.25};
-\draw[gray!18] (5.80000,-.2)--(5.80000,2.500);
+\draw[gray!18] (5.80000,-.2)--(5.80000,3.250);
 \node[anchor=north] at (5.80000,-.3) {0.30};
-\draw[gray!18] (7.25000,-.2)--(7.25000,2.500);
+\draw[gray!18] (7.25000,-.2)--(7.25000,3.250);
 \node[anchor=north] at (7.25000,-.3) {0.35};
-\draw[gray!18] (8.70000,-.2)--(8.70000,2.500);
+\draw[gray!18] (8.70000,-.2)--(8.70000,3.250);
 \node[anchor=north] at (8.70000,-.3) {0.40};
-\draw[dashed,gray!70] (2.72887,-.2)--(2.72887,2.500);
-\draw[dotted,gray!70] (4.35000,-.2)--(4.35000,2.500);
-\node[anchor=east] at (-.18,0.000) {Jev summaries};
-\draw[gray!50] (7.75870,0.000)--(7.08070,0.000);
-\fill[blue!65!black] (7.75870,0.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (7.08070,0.000) circle (2pt);
-\node[anchor=east] at (-.18,0.750) {GPT-6 Luna summaries};
-\draw[gray!50] (2.07411,0.750)--(2.52134,0.750);
-\fill[blue!65!black] (2.07411,0.750) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.52134,0.750) circle (2pt);
-\node[anchor=east] at (-.18,1.500) {GPT-5.6 Luna summaries};
-\draw[gray!50] (1.59194,1.500)--(1.77464,1.500);
-\fill[blue!65!black] (1.59194,1.500) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (1.77464,1.500) circle (2pt);
-\node[anchor=east] at (-.18,2.250) {GPT-5.6 Luna full};
-\draw[gray!50] (1.25329,2.250)--(1.47422,2.250);
-\fill[blue!65!black] (1.25329,2.250) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (1.47422,2.250) circle (2pt);
+\draw[dashed,gray!70] (2.72887,-.2)--(2.72887,3.250);
+\draw[dotted,gray!70] (4.35000,-.2)--(4.35000,3.250);
+\node[anchor=east] at (-.18,0.000) {Jev Grok summaries};
+\draw[gray!50] (6.59031,0.000)--(5.94637,0.000);
+\fill[blue!65!black] (6.59031,0.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (5.94637,0.000) circle (2pt);
+\node[anchor=east] at (-.18,0.750) {Jev Luna summaries};
+\draw[gray!50] (7.75870,0.750)--(7.08070,0.750);
+\fill[blue!65!black] (7.75870,0.750) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (7.08070,0.750) circle (2pt);
+\node[anchor=east] at (-.18,1.500) {GPT-6 Luna summaries};
+\draw[gray!50] (2.07411,1.500)--(2.52134,1.500);
+\fill[blue!65!black] (2.07411,1.500) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.52134,1.500) circle (2pt);
+\node[anchor=east] at (-.18,2.250) {GPT-5.6 Luna summaries};
+\draw[gray!50] (1.59194,2.250)--(1.77464,2.250);
+\fill[blue!65!black] (1.59194,2.250) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (1.77464,2.250) circle (2pt);
+\node[anchor=east] at (-.18,3.000) {GPT-5.6 Luna full};
+\draw[gray!50] (1.25329,3.000)--(1.47422,3.000);
+\fill[blue!65!black] (1.25329,3.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (1.47422,3.000) circle (2pt);
 \node[anchor=north] at (4.35,-.78) {Brier loss (lower is better)};
 \fill[blue!65!black] (.2,-1.5) circle(2pt);\node[anchor=west] at (.4,-1.5) {Micro Brier};
 \draw[blue!65!black,fill=white] (4.0,-1.5) circle(2pt);\node[anchor=west] at (4.2,-1.5) {Equal-case Brier};
 \draw[dashed,gray!70] (.2,-2.05)--(.6,-2.05);\node[anchor=west,font=\scriptsize] at (.8,-2.05) {Cohort rate (micro only)};\draw[dotted,gray!70] (5.1,-2.05)--(5.5,-2.05);\node[anchor=west,font=\scriptsize] at (5.7,-2.05) {Constant $p=.5$};\end{tikzpicture}
-\caption{Probability quality with a shared summary cache. Both Luna conditions exploit predictive signal in the summaries, while Jev scores worse than the constant $p=0.5$ forecast. The full-document reference changes both information access and interaction. Connecting segments indicate weighting sensitivity, not uncertainty intervals.}\label{fig:summary}\end{figure}
+\caption{Probability quality with a shared summary cache. Both Luna conditions exploit predictive signal in the summaries, while Jev scores worse than the constant $p=0.5$ forecast with either set of summaries. The full-document reference changes both information access and interaction. Connecting segments indicate weighting sensitivity, not uncertainty intervals.}\label{fig:summary}\end{figure}
 
 Jev was not well-calibrated for this task. Jev's micro-Brier of 0.36754 is worse than the 0.25 loss of always reporting $p=0.5$. Its mean predicted dismissal probability was approximately 0.305, while the observed frequency in this data set was 0.736. This resulted in severe underprediction in the aggregate. Its 32.6\% threshold accuracy is also below majority-class prediction.
 
-We tested Luna using the same summaries that Jev received in order to determine whether Jev's underperformance was attributable to receiving only summaries of the litigation documents, rather than the full documents used in our primary evaluation. Luna performed much better than Jev, even when it only had access to the same summary Jev received. GPT-5.6 Luna with the identical summaries achieves micro-Brier 0.15489 and accuracy 78.6\%, demosntrating that the summaries contained useful predictive signal that Jev was unable to exploit (although Luna performed better in the primary evaluation, where it had full document access, which could mean that the summaries lost some relevant signal or that the interactive environment allows for better performance).
+We tested Luna using the same summaries that Jev received in order to determine whether Jev's underperformance was attributable to receiving only summaries of the litigation documents, rather than the full documents used in our primary evaluation. Luna performed much better than Jev, even when it only had access to the same summary Jev received. GPT-5.6 Luna with the identical summaries achieves micro-Brier 0.15489 and accuracy 78.6\%, demonstrating that the summaries contained useful predictive signal that Jev was unable to exploit (although Luna performed better in the primary evaluation, where it had full document access, which could mean that the summaries lost some relevant signal or that the interactive environment allows for better performance).
 
-Summary preparation cost an estimated \$10.32. Successful inference estimates are approximately \$0.044 for Jev, \$1.62 for GPT-5.6 Luna (with high reasoning), and \$0.103 for GPT-6 Luna (which was run without reasoning as a control).
+We also tested whether a different summary pipeline would change Jev's result. With the Grok summaries, Jev improved to micro-Brier 0.32725, equal-case Brier 0.30505, and 38.2\% accuracy; the improvement over Jev with Luna summaries is significant on all three metrics (paired case-cluster bootstrap, Bonferroni-corrected across the six pairs of the four summary conditions and three metrics). Jev nevertheless remained significantly worse than both Luna summary controls and worse than the constant $p=0.5$ forecast; its mean predicted dismissal probability rose only to about 0.356. Because Grok wrote different summaries and no Luna control received them, this compares pipelines; it does not isolate summary quality or model ability.
+
+Summary preparation cost an estimated \$10.32 for the Luna summaries and \$29.99 for the Grok summaries, both reconstructed from recorded usage. An earlier Grok preparation under the standard summary prompt cost a further \$2.00, and \$4.11 in uncertain Grok preparation charges is held separately and excluded from these totals. Successful inference estimates are approximately \$0.044 for Jev with Luna summaries, \$0.020 for Jev with Grok summaries (provider-reported), \$1.62 for GPT-5.6 Luna (with high reasoning), and \$0.103 for GPT-6 Luna (which was run without reasoning as a control).
 
 \section{Potential advantages of real-world litigation data over synthetic data or rubric-based rewards}
 

@@ -197,6 +197,7 @@ def summary_means(data: dict[str, Any]) -> dict[str, float]:
         "gpt-5-6-luna-summaries-high",
         "gpt-6-luna-summaries-none",
         "jev-luna-summaries",
+        "jev-grok-short-summaries",
     )
     missing = [slug for slug in expected if slug not in means]
     if missing:
@@ -258,8 +259,8 @@ def figure3_rows(
         },
         {
             "key": "jev-luna-summaries",
-            "label": "Jev summary + one-shot",
-            "short": "Jev summaries",
+            "label": "Jev Luna summary + one-shot",
+            "short": "Jev Luna summaries",
             "micro_brier": float(summary["jev-luna-summaries"]["micro_brier"]),
             "equal_case_brier": float(
                 summary["jev-luna-summaries"]["equal_case_brier"]
@@ -267,6 +268,19 @@ def figure3_rows(
             "accuracy": float(summary["jev-luna-summaries"]["accuracy"]),
             "mean_predicted_dismissal": means["jev-luna-summaries"],
             "protocol": "summary cache, one-shot",
+        },
+        {
+            # Grok wrote different, shorter summaries: a pipeline comparison.
+            "key": "jev-grok-short-summaries",
+            "label": "Jev Grok summary + one-shot",
+            "short": "Jev Grok summaries",
+            "micro_brier": float(summary["jev-grok-short-summaries"]["micro_brier"]),
+            "equal_case_brier": float(
+                summary["jev-grok-short-summaries"]["equal_case_brier"]
+            ),
+            "accuracy": float(summary["jev-grok-short-summaries"]["accuracy"]),
+            "mean_predicted_dismissal": means["jev-grok-short-summaries"],
+            "protocol": "Grok summary cache, one-shot",
         },
     ]
     rows = [
@@ -376,17 +390,18 @@ def render_figure2(models: list[dict[str, Any]]) -> str:
 
 def render_figure3(data: dict[str, Any], conditions: list[dict[str, Any]]) -> str:
     lines = [r"\begin{tikzpicture}[every node/.style={font=\small}]"]
+    top = f"{(len(conditions) - 1) * 0.75 + 0.25:.3f}"
     for tick in (0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40):
         coordinate = x3(tick)
         lines += [
-            rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},2.500);",
+            rf"\draw[gray!18] ({f5(coordinate)},-.2)--({f5(coordinate)},{top});",
             rf"\node[anchor=north] at ({f5(coordinate)},-.3) {{{tick:.2f}}};",
         ]
     base = float(data["cohort"]["constant_forecast_micro_brier"])
     p_half = constant_brier(data, 0.5)
     lines += [
-        rf"\draw[dashed,gray!70] ({f5(x3(base))},-.2)--({f5(x3(base))},2.500);",
-        rf"\draw[dotted,gray!70] ({f5(x3(p_half))},-.2)--({f5(x3(p_half))},2.500);",
+        rf"\draw[dashed,gray!70] ({f5(x3(base))},-.2)--({f5(x3(base))},{top});",
+        rf"\draw[dotted,gray!70] ({f5(x3(p_half))},-.2)--({f5(x3(p_half))},{top});",
     ]
     for y, condition in enumerate(reversed(conditions), 0):
         micro = x3(float(condition["micro_brier"]))
