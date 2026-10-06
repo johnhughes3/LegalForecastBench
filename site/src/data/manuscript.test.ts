@@ -40,21 +40,18 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.equal(PAPER.title, parsed.title);
 	assert.deepEqual(PAPER.abstract, parsed.abstract);
 	assert.equal(PAPER.abstractIsDraft, parsed.abstractIsDraft);
-	assert.equal(parsed.revisedOn, "2026-10-01");
+	assert.equal(parsed.revisedOn, "2026-10-05");
 	assert.equal(PAPER.revisedOn, parsed.revisedOn);
 	assert.equal(PAPER.workingPdf, WORKING_PAPER_PDF);
 	assert.match(parsed.title, /Legal Reasoning Ability$/);
-	assert.equal(parsed.abstract.length, 3);
-	assert.match(parsed.abstract[0] ?? "", /objectively verifiable tasks/);
+	assert.equal(parsed.abstract.length, 5);
+	assert.match(parsed.abstract[0] ?? "", /objectively verifiable rewards/);
+	assert.match(parsed.abstract[1] ?? "", /erroneous rubrics/);
 	assert.match(
-		parsed.abstract[1] ?? "",
-		/verification of those findings is ongoing/,
-	);
-	assert.match(
-		parsed.abstract[2] ?? "",
+		parsed.abstract[4] ?? "",
 		/91 cases and 387 scored claim–defendant units/,
 	);
-	assert.match(parsed.abstract[2] ?? "", /84\.5%/);
+	assert.match(parsed.abstract[4] ?? "", /84\.5%/);
 	for (const paragraph of parsed.abstract) {
 		assert.doesNotMatch(paragraph, /\\/);
 	}
