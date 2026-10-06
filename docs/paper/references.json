@@ -257,79 +257,6 @@
     "type": "paper"
   },
   {
-    "key": "alphaproof",
-    "title": "Olympiad-level formal mathematical reasoning with reinforcement learning",
-    "authors": [
-      "Thomas Hubert",
-      "Rishi Mehta",
-      "Laurent Sartran",
-      "Miklós Z. Horváth",
-      "Goran Žužić",
-      "Eric Wieser",
-      "Aja Huang",
-      "Julian Schrittwieser",
-      "Yannick Schroecker",
-      "Hussain Masoom",
-      "Ottavia Bertolli",
-      "Tom Zahavy",
-      "Amol Mandhane",
-      "Jessica Yung",
-      "Iuliya Beloshapka",
-      "Borja Ibarz",
-      "Vivek Veeriah",
-      "Lei Yu",
-      "Oliver Nash",
-      "Paul Lezeau",
-      "Salvatore Mercuri",
-      "Calle Sönne",
-      "Bhavik Mehta",
-      "Alex Davies",
-      "Daniel Zheng",
-      "Fabian Pedregosa",
-      "Yin Li",
-      "Ingrid von Glehn",
-      "Mark Rowland",
-      "Samuel Albanie",
-      "Ameya Velingker",
-      "Simon Schmitt",
-      "Edward Lockhart",
-      "Edward Hughes",
-      "Henryk Michalewski",
-      "Nicolas Sonnerat",
-      "Demis Hassabis",
-      "Pushmeet Kohli",
-      "David Silver"
-    ],
-    "year": 2026,
-    "venue": "Nature 651, 607–613; version of record 13 March 2026",
-    "url": "https://www.nature.com/articles/s41586-025-09833-y",
-    "pdf_url": "https://www.nature.com/articles/s41586-025-09833-y.pdf",
-    "type": "paper"
-  },
-  {
-    "key": "navierstokesproof",
-    "title": "Finite Time Blowup for Navier–Stokes",
-    "authors": [
-      "OpenAI"
-    ],
-    "year": 2026,
-    "venue": "Technical manuscript, September 2026; not a prize adjudication",
-    "url": "https://cdn.openai.com/pdf/32d9f210-8b73-45e0-91bc-82a30aef8a9a/navier-stokes.pdf",
-    "pdf_url": "https://cdn.openai.com/pdf/32d9f210-8b73-45e0-91bc-82a30aef8a9a/navier-stokes.pdf",
-    "type": "paper"
-  },
-  {
-    "key": "navierstokesreport",
-    "title": "On the Navier–Stokes Millennium Prize Problem",
-    "authors": [
-      "OpenAI"
-    ],
-    "year": 2026,
-    "venue": "Research announcement, September 8, 2026; updated September 10",
-    "url": "https://openai.com/index/navier-stokes-solution/",
-    "type": "web"
-  },
-  {
     "key": "judgmentbench",
     "title": "JudgmentBench: Comparing Rubric and Preference Evaluation for Quality Assessment",
     "authors": [
@@ -347,68 +274,6 @@
     "venue": "arXiv:2605.25240v3, preprint",
     "url": "https://arxiv.org/abs/2605.25240",
     "pdf_url": "https://arxiv.org/pdf/2605.25240",
-    "type": "paper"
-  },
-  {
-    "key": "sharmaSycophancy",
-    "title": "Towards Understanding Sycophancy in Language Models",
-    "authors": [
-      "Mrinank Sharma",
-      "Meg Tong",
-      "Tomasz Korbak",
-      "David Duvenaud",
-      "Amanda Askell",
-      "Samuel R. Bowman",
-      "Newton Cheng",
-      "Esin Durmus",
-      "Zac Hatfield-Dodds",
-      "Scott R. Johnston",
-      "Shauna Kravec",
-      "Timothy Maxwell",
-      "Sam McCandlish",
-      "Kamal Ndousse",
-      "Oliver Rausch",
-      "Nicholas Schiefer",
-      "Da Yan",
-      "Miranda Zhang",
-      "Ethan Perez"
-    ],
-    "year": 2024,
-    "venue": "ICLR 2024; first posted as arXiv:2310.13548 in 2023",
-    "url": "https://arxiv.org/abs/2310.13548",
-    "pdf_url": "https://arxiv.org/pdf/2310.13548",
-    "type": "paper"
-  },
-  {
-    "key": "shapiraSycophancy",
-    "title": "How RLHF Amplifies Sycophancy",
-    "authors": [
-      "Itai Shapira",
-      "Gerdus Benade",
-      "Ariel D. Procaccia"
-    ],
-    "year": 2026,
-    "venue": "ICML 2026; arXiv:2602.01002",
-    "url": "https://arxiv.org/abs/2602.01002",
-    "pdf_url": "https://arxiv.org/pdf/2602.01002",
-    "type": "paper"
-  },
-  {
-    "key": "rubricsrewards",
-    "title": "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains",
-    "authors": [
-      "Anisha Gunjal",
-      "Anthony Wang",
-      "Elaine Lau",
-      "Vaskar Nath",
-      "Yunzhong He",
-      "Bing Liu",
-      "Sean Hendryx"
-    ],
-    "year": 2026,
-    "venue": "ICLR 2026; proceedings pp. 127924–127945; first posted as arXiv:2507.17746 in 2025",
-    "url": "https://proceedings.iclr.cc/paper_files/paper/2026/hash/cfd7bee7a651ee9af525098ef67a9e45-Abstract-Conference.html",
-    "pdf_url": "https://proceedings.iclr.cc/paper_files/paper/2026/file/cfd7bee7a651ee9af525098ef67a9e45-Paper-Conference.pdf",
     "type": "paper"
   },
   {
@@ -441,37 +306,6 @@
     "venue": "August 20, 2026 company research report",
     "url": "https://www.harvey.ai/blog/post-training-update-harvey-tenet",
     "type": "company report"
-  },
-  {
-    "key": "instructgpt",
-    "title": "Training language models to follow instructions with human feedback",
-    "authors": [
-      "Long Ouyang",
-      "Jeffrey Wu",
-      "Xu Jiang",
-      "Diogo Almeida",
-      "Carroll Wainwright",
-      "Pamela Mishkin",
-      "Chong Zhang",
-      "Sandhini Agarwal",
-      "Katarina Slama",
-      "Alex Ray",
-      "John Schulman",
-      "Jacob Hilton",
-      "Fraser Kelton",
-      "Luke Miller",
-      "Maddie Simens",
-      "Amanda Askell",
-      "Peter Welinder",
-      "Paul F. Christiano",
-      "Jan Leike",
-      "Ryan Lowe"
-    ],
-    "year": 2022,
-    "venue": "NeurIPS 2022",
-    "url": "https://arxiv.org/abs/2203.02155",
-    "pdf_url": "https://papers.neurips.cc/paper_files/paper/2022/file/b1efde53be364a73914f58805a001731-Paper-Conference.pdf",
-    "type": "paper"
   },
   {
     "key": "legalbench",
@@ -536,53 +370,6 @@
     "type": "institutional"
   },
   {
-    "key": "hart",
-    "title": "Positivism and the Separation of Law and Morals",
-    "authors": [
-      "H. L. A. Hart"
-    ],
-    "year": 1958,
-    "venue": "Harvard Law Review 71(4):593–629",
-    "url": "https://www.jstor.org/stable/1338225",
-    "pdf_url": "https://www.law.nyu.edu/sites/default/files/Hart%2C%20H.%20L.%20A.%20%281958%29%20%27Positivism%20and%20the%20Separation%20of%20Law%20and%20Morals%27%20Harvard%20Law%20Review%20Vol.%2071%2C%20No.%204%20%281958%29%20pp.%20593-629.pdf",
-    "type": "paper"
-  },
-  {
-    "key": "fuller",
-    "title": "Positivism and Fidelity to Law—A Reply to Professor Hart",
-    "authors": [
-      "Lon L. Fuller"
-    ],
-    "year": 1958,
-    "venue": "Harvard Law Review 71(4):630–672",
-    "url": "https://www.jstor.org/stable/1338226",
-    "pdf_url": "https://www.law.nyu.edu/sites/default/files/Fuller%2C%20Lon%20L.%20%281958%29%20%27Positivism%20and%20Fidelity%20to%20Law%20%E2%80%94%20A%20Reply%20to%20Professor%20Hart%27%20Harvard%20Law%20Review%20Vol.%2071%2C%20No.%204%20%281958%29%20pp.%20630-672.pdf",
-    "type": "paper"
-  },
-  {
-    "key": "declaratory",
-    "title": "28 U.S.C. § 2201: Creation of Remedy",
-    "authors": [
-      "United States Congress"
-    ],
-    "year": 2026,
-    "venue": "United States Code, text consulted September 29, 2026",
-    "url": "https://www.law.cornell.edu/uscode/text/28/2201",
-    "type": "legal authority"
-  },
-  {
-    "key": "moitie",
-    "title": "Federated Department Stores, Inc. v. Moitie",
-    "authors": [
-      "Supreme Court of the United States"
-    ],
-    "year": 1981,
-    "venue": "452 U.S. 394, 398–399",
-    "url": "https://www.govinfo.gov/content/pkg/USREPORTS-452/pdf/USREPORTS-452-394.pdf",
-    "pdf_url": "https://www.govinfo.gov/content/pkg/USREPORTS-452/pdf/USREPORTS-452-394.pdf",
-    "type": "legal authority"
-  },
-  {
     "key": "brier",
     "title": "Verification of Forecasts Expressed in Terms of Probability",
     "authors": [
@@ -608,18 +395,6 @@
     "type": "paper"
   },
   {
-    "key": "holmes",
-    "title": "The Path of the Law",
-    "authors": [
-      "Oliver Wendell Holmes, Jr."
-    ],
-    "year": 1897,
-    "venue": "Harvard Law Review 10(8):457–478",
-    "url": "https://www.jstor.org/stable/1322028",
-    "pdf_url": "https://archive.org/download/jstor-1322028/1322028.pdf",
-    "type": "paper"
-  },
-  {
     "key": "shadow",
     "title": "Bargaining in the Shadow of the Law: The Case of Divorce",
     "authors": [
@@ -631,18 +406,6 @@
     "url": "https://doi.org/10.2307/795824",
     "pdf_url": "https://openyls.law.yale.edu/bitstream/20.500.13051/15889/2/47_88YaleLJ950_April1979_.pdf",
     "type": "paper"
-  },
-  {
-    "key": "nylawyerskills",
-    "title": "Legal Skills and Professional Values: A Handbook",
-    "authors": [
-      "Paul C. Saunders"
-    ],
-    "year": 2019,
-    "venue": "Journal of the New York State Judicial Institute on Professionalism in the Law, 7(1), Fall 2019",
-    "url": "https://www.nycourts.gov/LegacyPDFS/ip/JIPL/pdf/JIPL%20-%20FINAL%20-%20Skills%20and%20Professional%20Values.pdf",
-    "pdf_url": "https://www.nycourts.gov/LegacyPDFS/ip/JIPL/pdf/JIPL%20-%20FINAL%20-%20Skills%20and%20Professional%20Values.pdf",
-    "type": "report"
   },
   {
     "key": "outcomerl",
@@ -713,6 +476,17 @@
     "type": "primary artifact"
   },
   {
+    "key": "labreview",
+    "title": "Human review of AI-flagged Harvey LAB litigation criteria: protocol, sample, and worksheet",
+    "authors": [
+      "John Hughes"
+    ],
+    "year": 2026,
+    "venue": "Research artifact",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/human-review",
+    "type": "dataset"
+  },
+  {
     "key": "labtask",
     "title": "Pinned LAB task.json for analyze-counterparty-motion-to-dismiss",
     "authors": [
@@ -722,50 +496,6 @@
     "venue": "Primary online source",
     "url": "https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json",
     "type": "primary artifact"
-  },
-  {
-    "key": "jacobswallach",
-    "title": "Measurement and Fairness",
-    "authors": [
-      "Abigail Z. Jacobs",
-      "Hanna Wallach"
-    ],
-    "year": 2021,
-    "venue": "Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency (FAccT), pp. 375–385",
-    "url": "https://doi.org/10.1145/3442188.3445901",
-    "pdf_url": "https://arxiv.org/pdf/1912.05511v3",
-    "type": "paper"
-  },
-  {
-    "key": "amodei",
-    "title": "Concrete Problems in AI Safety",
-    "authors": [
-      "Dario Amodei",
-      "Chris Olah",
-      "Jacob Steinhardt",
-      "Paul Christiano",
-      "John Schulman",
-      "Dan Mané"
-    ],
-    "year": 2016,
-    "venue": "arXiv:1606.06565v2",
-    "url": "https://arxiv.org/abs/1606.06565",
-    "pdf_url": "https://arxiv.org/pdf/1606.06565",
-    "type": "paper"
-  },
-  {
-    "key": "gao",
-    "title": "Scaling Laws for Reward Model Overoptimization",
-    "authors": [
-      "Leo Gao",
-      "John Schulman",
-      "Jacob Hilton"
-    ],
-    "year": 2023,
-    "venue": "ICML 2023, Proceedings of Machine Learning Research 202:10835–10866",
-    "url": "https://proceedings.mlr.press/v202/gao23h.html",
-    "pdf_url": "https://proceedings.mlr.press/v202/gao23h/gao23h.pdf",
-    "type": "paper"
   },
   {
     "key": "ruger",
@@ -834,19 +564,6 @@
     "type": "paper"
   },
   {
-    "key": "medvedeva",
-    "title": "Legal Judgment Prediction: If You Are Going to Do It, Do It Right",
-    "authors": [
-      "Masha Medvedeva",
-      "Pauline McBride"
-    ],
-    "year": 2023,
-    "venue": "Proceedings of the Natural Legal Language Processing Workshop (ACL), 2023, pp. 73–84",
-    "url": "https://aclanthology.org/2023.nllp-1.9/",
-    "pdf_url": "https://aclanthology.org/2023.nllp-1.9.pdf",
-    "type": "paper"
-  },
-  {
     "key": "clcuket",
     "title": "The CLC-UKET Dataset: Benchmarking Case Outcome Prediction for the UK Employment Tribunal",
     "authors": [
@@ -874,27 +591,6 @@
     "venue": "Primary online source",
     "url": "https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark",
     "type": "company report"
-  },
-  {
-    "key": "lightman",
-    "title": "Let’s Verify Step by Step",
-    "authors": [
-      "Hunter Lightman",
-      "Vineet Kosaraju",
-      "Yura Burda",
-      "Harri Edwards",
-      "Bowen Baker",
-      "Teddy Lee",
-      "Jan Leike",
-      "John Schulman",
-      "Ilya Sutskever",
-      "Karl Cobbe"
-    ],
-    "year": 2024,
-    "venue": "ICLR 2024; arXiv:2305.20050",
-    "url": "https://arxiv.org/abs/2305.20050",
-    "pdf_url": "https://arxiv.org/pdf/2305.20050",
-    "type": "paper"
   },
   {
     "key": "autocast",
@@ -951,36 +647,6 @@
     "type": "paper"
   },
   {
-    "key": "miller",
-    "title": "Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations",
-    "authors": [
-      "Evan Miller"
-    ],
-    "year": 2024,
-    "venue": "arXiv preprint",
-    "url": "https://arxiv.org/abs/2411.00640",
-    "pdf_url": "https://arxiv.org/pdf/2411.00640",
-    "type": "paper"
-  },
-  {
-    "key": "swebench",
-    "title": "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?",
-    "authors": [
-      "Carlos E. Jimenez",
-      "John Yang",
-      "Alexander Wettig",
-      "Shunyu Yao",
-      "Kexin Pei",
-      "Ofir Press",
-      "Karthik Narasimhan"
-    ],
-    "year": 2024,
-    "venue": "ICLR 2024",
-    "url": "https://arxiv.org/abs/2310.06770",
-    "pdf_url": "https://arxiv.org/pdf/2310.06770",
-    "type": "paper"
-  },
-  {
     "key": "swecritique",
     "title": "Why SWE-bench Verified no longer measures frontier coding capabilities",
     "authors": [
@@ -1001,30 +667,6 @@
     "venue": "Product documentation, accessed September 29, 2026",
     "url": "https://docs.typesafe.ai/models",
     "type": "company report"
-  },
-  {
-    "key": "dobbs",
-    "title": "Dobbs v. Jackson Women's Health Organization",
-    "authors": [
-      "Supreme Court of the United States"
-    ],
-    "year": 2022,
-    "venue": "597 U.S. 215",
-    "url": "https://www.supremecourt.gov/opinions/21pdf/19-1392_6j37.pdf",
-    "pdf_url": "https://www.supremecourt.gov/opinions/21pdf/19-1392_6j37.pdf",
-    "type": "legal authority"
-  },
-  {
-    "key": "shavell",
-    "title": "Economic Analysis of Litigation and the Legal Process",
-    "authors": [
-      "Steven Shavell"
-    ],
-    "year": 2003,
-    "venue": "NBER Working Paper 9697; chapter 17 of the draft Foundations of Economic Analysis of Law",
-    "url": "https://www.nber.org/papers/w9697",
-    "pdf_url": "https://www.nber.org/system/files/working_papers/w9697/w9697.pdf",
-    "type": "paper"
   },
   {
     "key": "priestklein",
@@ -1052,68 +694,6 @@
     "type": "paper"
   },
   {
-    "key": "jonesbarnes",
-    "title": "Jones v. Barnes",
-    "authors": [
-      "Supreme Court of the United States"
-    ],
-    "year": 1983,
-    "venue": "463 U.S. 745, 751–753",
-    "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep463/usrep463745/usrep463745.pdf",
-    "pdf_url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep463/usrep463745/usrep463745.pdf",
-    "type": "legal authority"
-  },
-  {
-    "key": "lawyercalibration",
-    "title": "Insightful or Wishful: Lawyers’ Ability to Predict Case Outcomes",
-    "authors": [
-      "Jane Goodman-Delahunty",
-      "Pär Anders Granhag",
-      "Maria Hartwig",
-      "Elizabeth F. Loftus"
-    ],
-    "year": 2010,
-    "venue": "Psychology, Public Policy, and Law 16(2):133–157",
-    "url": "https://doi.org/10.1037/a0019060",
-    "pdf_url": "https://bpb-us-e2.wpmucdn.com/faculty.sites.uci.edu/dist/c/571/files/2024/07/Goodman_Granhag_LawyerPrediction_PPPL10-1.pdf",
-    "type": "paper"
-  },
-  {
-    "key": "litigationAdoption",
-    "title": "How AI Agents are Changing the Way Lawyers do Legal Work",
-    "authors": [
-      "Harvey Team"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://www.harvey.ai/blog/ai-agents-for-legal-work",
-    "type": "company report"
-  },
-  {
-    "key": "harveyInitial",
-    "title": "Legal Agent Benchmark: Initial Results",
-    "authors": [
-      "Niko Grupen",
-      "Gabe Pereyra",
-      "Julio Pereyra"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://www.harvey.ai/blog/legal-agent-benchmark-initial-results",
-    "type": "company report"
-  },
-  {
-    "key": "labAA",
-    "title": "Harvey LAB-AA: New Benchmark Evaluating AI on Legal Tasks",
-    "authors": [
-      "Artificial Analysis"
-    ],
-    "year": 2026,
-    "venue": "July 7, 2026, benchmark announcement",
-    "url": "https://artificialanalysis.ai/articles/harvey-lab-aa",
-    "type": "company report"
-  },
-  {
     "key": "labAAboard",
     "title": "Harvey LAB-AA evaluation results",
     "authors": [
@@ -1125,147 +705,6 @@
     "type": "company report"
   },
   {
-    "key": "labAAmethod",
-    "title": "Intelligence benchmarking methodology: Harvey LAB-AA",
-    "authors": [
-      "Artificial Analysis"
-    ],
-    "year": 2026,
-    "venue": "Methodology page, accessed October 5, 2026",
-    "url": "https://artificialanalysis.ai/methodology/intelligence-benchmarking#harvey-lab-aa",
-    "type": "company report"
-  },
-  {
-    "key": "opusAnnouncement",
-    "title": "Opus 4.8, Now Live in Harvey",
-    "authors": [
-      "Harvey Team"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://www.harvey.ai/blog/opus-4-8-now-live-in-harvey",
-    "type": "company report"
-  },
-  {
-    "key": "fableAnnouncement",
-    "title": "Fable 5, Now Available in Harvey",
-    "authors": [
-      "Harvey Team"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://www.harvey.ai/blog/fable-5-now-available-in-harvey",
-    "type": "company report"
-  },
-  {
-    "key": "sonnetAnnouncement",
-    "title": "Claude Sonnet 5, Now Live in Harvey",
-    "authors": [
-      "Harvey Team"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://www.harvey.ai/blog/sonnet-5-in-harvey",
-    "type": "company report"
-  },
-  {
-    "key": "atlantic",
-    "title": "Atlantic Marine Construction Co. v. United States District Court",
-    "authors": [
-      "United States Supreme Court"
-    ],
-    "year": 2013,
-    "venue": "571 U.S.49,59–66 (2013)",
-    "url": "https://www.law.cornell.edu/supremecourt/text/12-929",
-    "pdf_url": "https://www.law.cornell.edu/supct/pdf/12-929.pdf",
-    "type": "legal authority"
-  },
-  {
-    "key": "texasLimitations",
-    "title": "Texas Civil Practice and Remedies Code, Chapter 16",
-    "authors": [
-      "Texas Legislature"
-    ],
-    "year": 2026,
-    "venue": "Texas Civil Practice and Remedies Code § 16.070, accessed September 29, 2026",
-    "url": "https://statutes.capitol.texas.gov/Docs/CP/htm/CP.16.htm#16.070",
-    "type": "legal authority"
-  },
-  {
-    "key": "jones",
-    "title": "Jones v. Bock",
-    "authors": [
-      "Supreme Court of the United States"
-    ],
-    "year": 2007,
-    "venue": "549 U.S.199,215",
-    "url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep549/usrep549199/usrep549199.pdf",
-    "pdf_url": "https://tile.loc.gov/storage-services/service/ll/usrep/usrep549/usrep549199/usrep549199.pdf",
-    "type": "legal authority"
-  },
-  {
-    "key": "italiancowboy",
-    "title": "Italian Cowboy Partners, Ltd. v. Prudential Insurance Co. of America",
-    "authors": [
-      "Supreme Court of Texas"
-    ],
-    "year": 2011,
-    "venue": "341 S.W.3d 323, 334–37 (Tex. 2011)",
-    "url": "https://www.txcourts.gov/media/819896/OpinionsFY2011.pdf",
-    "pdf_url": "https://www.txcourts.gov/media/819896/OpinionsFY2011.pdf",
-    "type": "legal authority"
-  },
-  {
-    "key": "claynavierstokes",
-    "title": "Navier-Stokes Announcement",
-    "authors": [
-      "Clay Mathematics Institute"
-    ],
-    "year": 2026,
-    "venue": "Institutional announcement, September 11, 2026",
-    "url": "https://www.claymath.org/news/navier-stokes-announcement/",
-    "type": "web"
-  },
-  {
-    "key": "stubenbergmbe",
-    "title": "How AI Stacks Up Against the Multistate Bar Exam",
-    "authors": [
-      "Matthew Stubenberg",
-      "Chloe Berridge",
-      "Thomas Smith",
-      "Joshua Casey"
-    ],
-    "year": 2025,
-    "venue": "University of Hawai'i Richardson School of Law Research Paper No. 5291811; SSRN working paper, May 12, 2025",
-    "url": "https://doi.org/10.2139/ssrn.5291811",
-    "type": "paper",
-    "note": "Describes the earlier study; does not substantiate the subsequent 2026 perfect-score report."
-  },
-  {
-    "key": "stubenbergperfect",
-    "title": "AI model achieves 100% on MBE bar exam questions",
-    "authors": [
-      "Matthew Stubenberg"
-    ],
-    "year": 2026,
-    "venue": "Researcher's online benchmark update, LinkedIn; accessed September 30, 2026",
-    "url": "https://www.linkedin.com/posts/matthew-stubenberg_well-it-finally-happened-an-ai-model-correctly-activity-7482410775534448641-urAX",
-    "type": "web",
-    "note": "Primary researcher reports Claude Fable 5 scoring 210/210 on MBE practice questions; not an administered bar exam or a peer-reviewed result."
-  },
-  {
-    "key": "valslegalbench",
-    "title": "LegalBench Leaderboard and Methodology",
-    "authors": [
-      "Vals AI"
-    ],
-    "year": 2026,
-    "venue": "Benchmark-provider results and commentary; updated September 27, 2026; accessed September 30, 2026",
-    "url": "https://www.vals.ai/benchmarks/legal_bench",
-    "type": "web",
-    "note": "Saturation assessment concerns limited frontier discrimination of the overall score near 88%; the provider also notes remaining differences by reasoning type."
-  },
-  {
     "key": "makicc",
     "title": "Analysing Intraclass Correlation for Dichotomous Variables",
     "authors": [
@@ -1274,19 +713,6 @@
     "year": 1988,
     "venue": "Journal of the Royal Statistical Society, Series C (Applied Statistics), 37(3):344–352",
     "url": "https://doi.org/10.2307/2347309",
-    "type": "paper"
-  },
-  {
-    "key": "cameronmiller",
-    "title": "A Practitioner's Guide to Cluster-Robust Inference",
-    "authors": [
-      "A. Colin Cameron",
-      "Douglas L. Miller"
-    ],
-    "year": 2015,
-    "venue": "Journal of Human Resources, 50(2):317–372",
-    "url": "https://doi.org/10.3368/jhr.50.2.317",
-    "pdf_url": "https://cameron.econ.ucdavis.edu/research/Cameron_Miller_JHR_2015.pdf",
     "type": "paper"
   },
   {
