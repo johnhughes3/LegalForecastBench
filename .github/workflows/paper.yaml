@@ -165,8 +165,9 @@ jobs:
         env:
           PANGRAM_API_KEY: ${{ secrets.PANGRAM_API_KEY }}
           CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
-          # Fail when more than this share of the scored text reads as AI.
-          MAX_AI_FRACTION: ${{ vars.PANGRAM_MAX_AI_FRACTION || '0.10' }}
+          # Fail unless Pangram classifies essentially all of the scored text
+          # as human-written: at most this share may be AI or AI-assisted.
+          MAX_AI_FRACTION: ${{ vars.PANGRAM_MAX_AI_FRACTION || '0.03' }}
         run: |
           set -euo pipefail
           args=(--manuscript "$MANUSCRIPT" --out "$OUT" --verbose
