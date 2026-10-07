@@ -68,6 +68,16 @@ uv run --frozen --with "pangram-sdk>=1.0" python docs/papers/pangram_check.py --
 
 In CI, the Paper workflow's *Pangram check of author prose* job runs this on every pull request from this repository and fails unless Pangram classifies all of the scored text as human-written: any passage it labels AI-generated or AI-assisted fails the check (override with the `PANGRAM_MAX_AI_FRACTION` repository variable). It needs the `PANGRAM_API_KEY` repository secret. It skips scoring when the pull request leaves the scored text identical to the base branch's (for example a dependency bump or a PDF rebuild), and it caches each result by the exact text sent, so later commits and reruns in the same pull request reuse it rather than paying again; the report appears in the job summary, and the scored text and Pangram's response are uploaded as an artifact. Forks and Dependabot pull requests are not scored.
 
+#### The website's own prose
+
+`scripts/pangram_site.py` runs the same check over the built website, other than the paper. It reads `site/dist` (run `pnpm --dir site build` first), keeps the visible text of each page's main content, and leaves out the `/paper/` page; the Harvey LAB deliverable, task, and review pages, which hold AI model output, Harvey's task material, and AI audit findings; navigation, headers, footers, tables, code, and hidden elements; fragments under five words, such as statistic tiles; and any paragraph already scored on an earlier page, ignoring numbers, so template text on the model pages counts once. The rest, about 13,000 words, goes to Pangram as one document for roughly $6.50; the script refuses to send above `--max-usd` (default $15) and reports, for each page, how many of the windows covering it Pangram flagged. It is not run in CI.
+
+```bash
+pnpm --dir site build
+uv run --frozen python scripts/pangram_site.py --extract-only
+uv run --frozen --with pangram-sdk==1.0.0 python scripts/pangram_site.py --verbose
+```
+
 `--exclude-section` leaves out a whole section by its key in the printed table or part of its title, for example `--exclude-section A --exclude-section B`. Pangram's limits and prices are taken from its [API reference](https://docs.pangram.com/api-reference/introduction.md) and [input-size note](https://www.pangram.com/knowledge-hub/minimum-and-maximum-input-sizes).
 
 ### Within-case clustering
