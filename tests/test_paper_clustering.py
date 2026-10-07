@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from docs.paper.analysis import clustering
+from docs.papers.legalforecastbench.analysis import clustering
 
 
 def _write_fixture(

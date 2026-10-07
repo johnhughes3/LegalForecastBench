@@ -1,6 +1,6 @@
 # LegalForecastBench working paper
 
-[Manuscript source](LegalForecastBench-paper.tex) · [Reference metadata](references.json) · [Numerical inputs](data/empirical.json)
+[Manuscript source](legalforecastbench/LegalForecastBench-paper.tex) · [Reference metadata](legalforecastbench/references.json) · [Numerical inputs](legalforecastbench/data/empirical.json)
 
 This directory is the canonical home of the working manuscript, **LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability**. The paper reports the seventeen-configuration ranked comparison on 91 cases and 387 claim–defendant units, a separate summary experiment, and the proposed outcome-feedback research direction. That comparison matches the ranked leaderboard. The four summary conditions are reported separately and are not in the main table. GPT-4.1 is a reference and is not ranked. Draft annotations remain visible; a successful build is not a claim that the paper has completed scientific or editorial review.
 
@@ -11,15 +11,15 @@ Edit `LegalForecastBench-paper.tex`. Its bibliography and vector figures are emb
 From the repository root, with TeX Live and `latexmk` installed:
 
 ```bash
-bash docs/paper/build.sh
+bash docs/papers/build.sh
 ```
 
-The output is `docs/paper/build/LegalForecastBench-paper.pdf`. Build products are ignored by Git. The script treats unresolved references and citations as errors and disables shell escape.
+The output is `docs/papers/legalforecastbench/build/LegalForecastBench-paper.pdf`. Build products are ignored by Git. The script treats unresolved references and citations as errors and disables shell escape.
 
 To use the same pinned TeX Live image as CI, with Docker available:
 
 ```bash
-bash docs/paper/build.sh --container
+bash docs/papers/build.sh --container
 ```
 
 The image reference is fixed by digest in [texlive-image.txt](texlive-image.txt), using the smaller `texlive-small` distribution from the [TeX Live containers maintained by Xu Cheng](https://github.com/xu-cheng/latex-docker). It targets `linux/amd64`; other architectures need Docker emulation. The container reads the checkout and writes only the build directory, with network access disabled during compilation. PDF metadata dates use the month, day, and year in the manuscript's `\date` line, so a later commit does not change the file. Locally edited sources produce working-tree previews, not a published paper version.
@@ -31,11 +31,11 @@ The empirical inputs are aggregate results and references to result files alread
 Regenerate the three result figures and their CSV data using Python's standard library:
 
 ```bash
-uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py
-uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --no-project --python 3.14 python docs/papers/legalforecastbench/figures/make_figures.py
+uv run --no-project --python 3.14 python docs/papers/legalforecastbench/figures/make_figures.py --check --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
-The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regenerated result-figure bodies into the manuscript when changing the numerical inputs, preserving the standalone editor format. The check compares those bodies with the manuscript and fails on drift. The conceptual pipeline diagram is authored separately. CI runs this check before compiling. See the [figure reproduction notes](figures/README.md) for the manuscript panel and input limits.
+The generator writes `figures/figures-inline.tex` and three CSVs. Copy the regenerated result-figure bodies into the manuscript when changing the numerical inputs, preserving the standalone editor format. The check compares those bodies with the manuscript and fails on drift. The conceptual pipeline diagram is authored separately. CI runs this check before compiling. See the [figure reproduction notes](legalforecastbench/figures/README.md) for the manuscript panel and input limits.
 
 ### Harvey LAB human-review appendix
 
@@ -44,8 +44,8 @@ The counts in the appendix on the human review of AI-flagged Harvey LAB criteria
 The 25 per-criterion entries are edited by hand in the manuscript, which is their source of truth. Each entry quotes Harvey's criterion in a `labquote` block, gives the author's assessment and LAB's own grades in a table, and then the author's analysis. Changing a verdict means changing it in the entry and in the worksheet; the check fails when the two disagree, because the generated counts would then contradict the entries.
 
 ```bash
-uv run --frozen python docs/paper/analysis/lab_review.py --write-manuscript --manuscript docs/paper/LegalForecastBench-paper.tex
-uv run --frozen python docs/paper/analysis/lab_review.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --write-manuscript --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --check --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
 ### Pangram check of the author-written prose
@@ -54,16 +54,16 @@ uv run --frozen python docs/paper/analysis/lab_review.py --check --manuscript do
 
 Text the author did not write is left out, and each omission appears in the document as `[...]`. Left out are passages between `% BEGIN AI-PREPARED` and `% END AI-PREPARED` comment lines in the manuscript, which mark what the paper's AI-use statement discloses as prepared with AI; the criteria and task titles quoted from Harvey LAB in the appendix; tables, figures, display equations, and the bibliography; and the generated blocks. LaTeX commands and source comments are never sent. To leave out another passage, wrap it in the two comment lines; they do not change the compiled paper.
 
-To see exactly what would be sent, without a key and without spending credits, write the document to `docs/paper/build/pangram/paper.txt` (ignored by Git). It can also be pasted into Pangram's web app. This step needs `pandoc`.
+To see exactly what would be sent, without a key and without spending credits, write the document to `docs/papers/legalforecastbench/build/pangram/paper.txt` (ignored by Git). It can also be pasted into Pangram's web app. This step needs `pandoc`.
 
 ```bash
-uv run --frozen python docs/paper/analysis/pangram_check.py --extract-only --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/pangram_check.py --extract-only --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
 To score it, put a Pangram API key in the `PANGRAM_API_KEY` environment variable and add Pangram's Python SDK for the one run. The script saves Pangram's raw response next to the document; `--verbose` prints an excerpt of every window Pangram did not label human-written, with its section.
 
 ```bash
-uv run --frozen --with "pangram-sdk>=1.0" python docs/paper/analysis/pangram_check.py --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen --with "pangram-sdk>=1.0" python docs/papers/pangram_check.py --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
 In CI, the Paper workflow's *Pangram check of author prose* job runs this on every pull request from this repository and fails unless Pangram classifies all of the scored text as human-written: any passage it labels AI-generated or AI-assisted fails the check (override with the `PANGRAM_MAX_AI_FRACTION` repository variable). It needs the `PANGRAM_API_KEY` repository secret. It skips scoring when the pull request leaves the scored text identical to the base branch's (for example a dependency bump or a PDF rebuild), and it caches each result by the exact text sent, so later commits and reruns in the same pull request reuse it rather than paying again; the report appears in the job summary, and the scored text and Pangram's response are uploaded as an artifact. Forks and Dependabot pull requests are not scored.
@@ -72,11 +72,11 @@ In CI, the Paper workflow's *Pangram check of author prose* job runs this on eve
 
 ### Within-case clustering
 
-The [clustering analysis](analysis/README.md) reads the public unit-level exports listed in the significance input manifest. It regenerates outcome, prediction-error, and Brier-loss ICCs, bootstrap intervals, a label-permutation test, and the manuscript paragraph:
+The [clustering analysis](legalforecastbench/analysis/README.md) reads the public unit-level exports listed in the significance input manifest. It regenerates outcome, prediction-error, and Brier-loss ICCs, bootstrap intervals, a label-permutation test, and the manuscript paragraph:
 
 ```bash
-uv run --frozen python docs/paper/analysis/clustering.py --write-manuscript --manuscript docs/paper/LegalForecastBench-paper.tex
-uv run --frozen python docs/paper/analysis/clustering.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/legalforecastbench/analysis/clustering.py --write-manuscript --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/legalforecastbench/analysis/clustering.py --check --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
 The write command updates only the marked clustering paragraph, leaving the rest of the manuscript editable in a standalone LaTeX editor. CI reruns the analysis and rejects stale numerical outputs or manuscript text when inputs change. See the analysis notes for custom cohorts, weighting, and assumptions.
@@ -90,7 +90,7 @@ The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to thi
 That working file is replaced when the manuscript changes. An immutable version is a separate, deliberate publication. Resolve the visible draft annotations and run:
 
 ```bash
-bash docs/paper/build.sh --container --release
+bash docs/papers/build.sh --container --release
 ```
 
 Add the reviewed PDF under a new name such as `site/public/paper/legalforecastbench-v0.1.pdf`, record the source revision in the publication PR, and append the version, date, and results release in `paper.ts`. Leave older version files unchanged. A correction is a new version with a change note. The preview artifact alone is not a published version.

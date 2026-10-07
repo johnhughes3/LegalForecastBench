@@ -59,12 +59,14 @@ def test_pdf_date_comes_from_the_manuscript(tmp_path: Path) -> None:
 
 
 def test_container_build_retries_a_stalled_image_pull(tmp_path: Path) -> None:
-    paper_dir = tmp_path / "docs" / "paper"
+    tools_dir = tmp_path / "docs" / "papers"
+    paper_dir = tools_dir / "legalforecastbench"
     paper_dir.mkdir(parents=True)
-    shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper_dir / "build.sh")
+    shutil.copy2(ROOT / "docs" / "papers" / "build.sh", tools_dir / "build.sh")
     shutil.copy2(
-        ROOT / "docs" / "paper" / "texlive-image.txt", paper_dir / "texlive-image.txt"
+        ROOT / "docs" / "papers" / "texlive-image.txt", tools_dir / "texlive-image.txt"
     )
+    (paper_dir / "LegalForecastBench-paper.tex").write_text("Settled prose.\n")
     log = tmp_path / "docker.log"
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -87,7 +89,7 @@ def test_container_build_retries_a_stalled_image_pull(tmp_path: Path) -> None:
     )
     docker.chmod(0o755)
     result = subprocess.run(
-        ["bash", str(paper_dir / "build.sh"), "--container"],
+        ["bash", str(tools_dir / "build.sh"), "--container"],
         env={
             **os.environ,
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
@@ -115,12 +117,14 @@ def test_container_build_retries_a_stalled_image_pull(tmp_path: Path) -> None:
 def test_container_build_runs_as_mapped_root_under_rootless_docker(
     tmp_path: Path,
 ) -> None:
-    paper_dir = tmp_path / "docs" / "paper"
+    tools_dir = tmp_path / "docs" / "papers"
+    paper_dir = tools_dir / "legalforecastbench"
     paper_dir.mkdir(parents=True)
-    shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper_dir / "build.sh")
+    shutil.copy2(ROOT / "docs" / "papers" / "build.sh", tools_dir / "build.sh")
     shutil.copy2(
-        ROOT / "docs" / "paper" / "texlive-image.txt", paper_dir / "texlive-image.txt"
+        ROOT / "docs" / "papers" / "texlive-image.txt", tools_dir / "texlive-image.txt"
     )
+    (paper_dir / "LegalForecastBench-paper.tex").write_text("Settled prose.\n")
     args = tmp_path / "run-args"
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -136,7 +140,7 @@ def test_container_build_runs_as_mapped_root_under_rootless_docker(
     )
     docker.chmod(0o755)
     result = subprocess.run(
-        ["bash", str(paper_dir / "build.sh"), "--container"],
+        ["bash", str(tools_dir / "build.sh"), "--container"],
         env={
             **os.environ,
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
@@ -162,10 +166,10 @@ def test_pdf_date_requires_a_manuscript_date(tmp_path: Path) -> None:
 
 def test_publish_working_copy_commits_only_a_changed_pdf(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
-    paper_dir = repo / "docs" / "paper"
-    build_dir = paper_dir / "build"
+    tools_dir = repo / "docs" / "papers"
+    build_dir = tools_dir / "legalforecastbench" / "build"
     build_dir.mkdir(parents=True)
-    shutil.copy2(ROOT / "docs" / "paper" / "publish-working-copy.sh", paper_dir)
+    shutil.copy2(ROOT / "docs" / "papers" / "publish-working-copy.sh", tools_dir)
     pdf = build_dir / "LegalForecastBench-paper.pdf"
     pdf.write_bytes(b"%PDF-1.4\nfirst\n")
     gitconfig = tmp_path / "gitconfig"
@@ -205,7 +209,7 @@ def test_publish_working_copy_commits_only_a_changed_pdf(tmp_path: Path) -> None
 
 def _publish(repo: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["bash", str(repo / "docs" / "paper" / "publish-working-copy.sh")],
+        ["bash", str(repo / "docs" / "papers" / "publish-working-copy.sh")],
         cwd=repo,
         env=env,
         capture_output=True,
@@ -222,9 +226,10 @@ def _build_preview(
     record_epoch: bool = False,
     source_date_epoch: str | None = "1",
 ) -> subprocess.CompletedProcess[str]:
-    paper_dir = tmp_path / "docs" / "paper"
+    tools_dir = tmp_path / "docs" / "papers"
+    paper_dir = tools_dir / "legalforecastbench"
     paper_dir.mkdir(parents=True)
-    shutil.copy2(ROOT / "docs" / "paper" / "build.sh", paper_dir / "build.sh")
+    shutil.copy2(ROOT / "docs" / "papers" / "build.sh", tools_dir / "build.sh")
     (paper_dir / "LegalForecastBench-paper.tex").write_text(manuscript)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -249,7 +254,7 @@ def _build_preview(
     else:
         env.pop("SOURCE_DATE_EPOCH", None)
     return subprocess.run(
-        ["bash", str(paper_dir / "build.sh"), "--release"],
+        ["bash", str(tools_dir / "build.sh"), "--release"],
         env=env,
         capture_output=True,
         text=True,

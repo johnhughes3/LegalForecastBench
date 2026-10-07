@@ -7,8 +7,8 @@ This analysis measures association among claim–defendant units sharing a case.
 From the repository root:
 
 ```bash
-uv run --frozen python docs/paper/analysis/clustering.py --write-manuscript --manuscript docs/paper/LegalForecastBench-paper.tex
-uv run --frozen python docs/paper/analysis/clustering.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/legalforecastbench/analysis/clustering.py --write-manuscript --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+uv run --frozen python docs/papers/legalforecastbench/analysis/clustering.py --check --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
 The first command writes [results.json](results.json), [summary.tex](summary.tex), and the paragraph between the manuscript's `BEGIN GENERATED CLUSTERING` and `END GENERATED CLUSTERING` comments. The rest of the manuscript is untouched. The second recomputes the analysis and fails if those results or the marked paragraph are stale; the Paper workflow runs it before compiling the PDF. A changed dataset therefore requires regenerating and reviewing the results alongside the source change.

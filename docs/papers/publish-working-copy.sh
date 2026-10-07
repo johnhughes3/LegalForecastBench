@@ -4,14 +4,14 @@
 # a commit that does not already have the Python quality gates check.
 set -euo pipefail
 
-paper_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-repo_root=$(cd -- "$paper_dir/../.." && pwd)
+tools_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd -- "$tools_dir/../.." && pwd)
 rel=site/public/paper/legalforecastbench-working.pdf
-built="$paper_dir/build/LegalForecastBench-paper.pdf"
+built="$tools_dir/legalforecastbench/build/LegalForecastBench-paper.pdf"
 dest="$repo_root/$rel"
 
 if [[ ! -f "$built" ]]; then
-  printf 'Missing compiled PDF: %s\nRun bash docs/paper/build.sh first.\n' "$built" >&2
+  printf 'Missing compiled PDF: %s\nRun bash docs/papers/build.sh first.\n' "$built" >&2
   exit 1
 fi
 

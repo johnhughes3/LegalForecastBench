@@ -3,8 +3,8 @@
 Run from the repository root:
 
 ```bash
-uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py
-uv run --no-project --python 3.14 python docs/paper/figures/make_figures.py --check --manuscript docs/paper/LegalForecastBench-paper.tex
+uv run --no-project --python 3.14 python docs/papers/legalforecastbench/figures/make_figures.py
+uv run --no-project --python 3.14 python docs/papers/legalforecastbench/figures/make_figures.py --check --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
 
 The generator uses Python's standard library and [the empirical inputs](../data/empirical.json). Mean summary probabilities are recomputed from the three public JSONL exports named in that file; missing exports are errors. Input paths are relative to the repository, with the public source revision recorded in the empirical provenance. The code does not fetch court documents or call models.

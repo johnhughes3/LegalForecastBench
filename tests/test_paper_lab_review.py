@@ -9,11 +9,11 @@ from types import ModuleType
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-MANUSCRIPT = ROOT / "docs/paper/LegalForecastBench-paper.tex"
+MANUSCRIPT = ROOT / "docs/papers/legalforecastbench/LegalForecastBench-paper.tex"
 
 
 def _load() -> ModuleType:
-    path = ROOT / "docs/paper/analysis/lab_review.py"
+    path = ROOT / "docs/papers/legalforecastbench/analysis/lab_review.py"
     spec = importlib.util.spec_from_file_location("lab_review", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)

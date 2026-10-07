@@ -1,10 +1,10 @@
 {
   "authenticated_source_profiles": [],
   "dynamic_imports": {
-    "docs/paper/analysis/lab_review.py": [
+    "docs/papers/legalforecastbench/analysis/lab_review.py": [
       "harvey_review_sample"
     ],
-    "docs/paper/analysis/pangram_check.py": [
+    "docs/papers/pangram_check.py": [
       "pangram"
     ],
     "examples/adapters/claude-agent-sdk/adapter.py": [
@@ -60,10 +60,9 @@
     "legalforecast"
   ],
   "file_relative_resolution": [
-    "docs/paper/analysis/clustering.py",
-    "docs/paper/analysis/lab_review.py",
-    "docs/paper/analysis/pangram_check.py",
-    "docs/paper/figures/make_figures.py",
+    "docs/papers/legalforecastbench/analysis/clustering.py",
+    "docs/papers/legalforecastbench/analysis/lab_review.py",
+    "docs/papers/legalforecastbench/figures/make_figures.py",
     "examples/adapters/claude-agent-sdk/adapter.py",
     "examples/adapters/codex-cli/adapter.py",
     "examples/adapters/openai-responses/adapter.py",

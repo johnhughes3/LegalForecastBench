@@ -19,11 +19,11 @@ Scoring is opt-in and spends Pangram credits. It needs ``pandoc``, the Pangram S
 and an API key in the ``PANGRAM_API_KEY`` environment variable. Run from the
 repository root::
 
-    uv run --frozen python docs/paper/analysis/pangram_check.py --extract-only \\
-        --manuscript docs/paper/LegalForecastBench-paper.tex
+    uv run --frozen python docs/papers/pangram_check.py --extract-only \\
+        --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
     uv run --frozen --with "pangram-sdk>=1.0" python \\
-        docs/paper/analysis/pangram_check.py \\
-        --manuscript docs/paper/LegalForecastBench-paper.tex
+        docs/papers/pangram_check.py \\
+        --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 
 ``--extract-only`` needs neither the SDK nor a key: it writes the exact document and
 prints the section table, for inspection or for pasting into Pangram's web app.
@@ -41,11 +41,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, NamedTuple
 
-HERE = Path(__file__).resolve().parent
-DEFAULT_OUT = HERE.parent / "build" / "pangram"
 KEY_VARIABLE = "PANGRAM_API_KEY"
 
-# Pangram's published limits (docs/paper/README.md links the sources): a minimum
+# Pangram's published limits (docs/papers/README.md links the sources): a minimum
 # input of 50 words, and 18,725 words per scan in the web app, which is used here
 # as the per-request ceiling because the API documentation states none.
 MIN_WORDS = 50
@@ -281,7 +279,7 @@ def _client() -> Any:
     except ImportError as exc:
         raise SystemExit(
             "the Pangram SDK is not installed; rerun with: uv run --frozen "
-            '--with "pangram-sdk>=1.0" python docs/paper/analysis/pangram_check.py ...'
+            '--with "pangram-sdk>=1.0" python docs/papers/pangram_check.py ...'
         ) from exc
     return sdk.Pangram()
 
@@ -328,9 +326,9 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--out",
         type=Path,
-        default=DEFAULT_OUT,
+        default=None,
         help="directory for the document sent and Pangram's raw response "
-        "(default: docs/paper/build/pangram, which Git ignores)",
+        "(default: build/pangram next to the manuscript, which Git ignores)",
     )
     parser.add_argument(
         "--extract-only",
@@ -378,6 +376,8 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _arguments(argv)
+    if args.out is None:
+        args.out = args.manuscript.parent / "build" / "pangram"
     sending = not args.extract_only and args.response is None
     if sending and not os.environ.get(KEY_VARIABLE):
         raise SystemExit(f"{KEY_VARIABLE} is not set; set it or pass --extract-only")

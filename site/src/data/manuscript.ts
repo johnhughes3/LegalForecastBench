@@ -8,7 +8,8 @@ import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MANUSCRIPT = "docs/paper/LegalForecastBench-paper.tex";
+const MANUSCRIPT =
+	"docs/papers/legalforecastbench/LegalForecastBench-paper.tex";
 
 export interface Manuscript {
 	title: string;

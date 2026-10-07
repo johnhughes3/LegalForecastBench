@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { parseManuscript, repositoryRootFrom } from "./manuscript.js";
 import { PAPER, WORKING_PAPER_PDF } from "./paper.js";
 
-const manuscriptFile = "docs/paper/LegalForecastBench-paper.tex";
+const manuscriptFile =
+	"docs/papers/legalforecastbench/LegalForecastBench-paper.tex";
 const manuscriptPath = fileURLToPath(
 	new URL(`../../../${manuscriptFile}`, import.meta.url),
 );
