@@ -90,13 +90,15 @@ jobs:
   pangram:
     name: Pangram check of author prose
     # Scoring spends Pangram credits, so it runs only for pull requests from
-    # this repository (forks have no secret) and on manual dispatch. It skips
+    # this repository (forks have no secret), not Dependabot's (dependency
+    # bumps do not touch the prose and get no secret), and on manual dispatch. It skips
     # scoring when the text is identical to the base branch's, and caches each
     # result by the exact text sent, so reruns and PDF-only commits are free.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login != 'dependabot[bot]')
     permissions:
       contents: read
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
