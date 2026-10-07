@@ -53,7 +53,7 @@ export function releaseDescription(): string {
 		.map((model) => model.display_name);
 	const reference =
 		references.length > 0
-			? `, plus the ${references.join(", ")} reference,`
+			? `, plus ${references.join(", ")} as a historical reference for non-thinking models,`
 			: "";
 	return `Forecasts by ${primarySnapshot.models.length} ranked AI model configurations${reference} of whether each challenged claim in ${cohort.case_count} federal motions to dismiss would be fully dismissed, scored against the actual rulings (${cohort.unit_count} claim-defendant units).`;
 }

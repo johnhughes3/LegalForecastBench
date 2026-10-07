@@ -49,7 +49,7 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.equal(PAPER.title, parsed.title);
 	assert.deepEqual(PAPER.abstract, parsed.abstract);
 	assert.equal(PAPER.abstractIsDraft, parsed.abstractIsDraft);
-	assert.equal(parsed.revisedOn, "2026-10-06");
+	assert.equal(parsed.revisedOn, "2026-10-07");
 	assert.equal(PAPER.revisedOn, parsed.revisedOn);
 	assert.equal(PAPER.workingPdf, WORKING_PAPER_PDF);
 	assert.match(parsed.title, /Legal Reasoning Ability$/);
