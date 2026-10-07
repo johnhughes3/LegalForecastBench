@@ -1859,6 +1859,23 @@
         "nonblank_line_count": 303,
         "top_level_definition_count": 11
       },
+      "scripts/harvey_citation_sample.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "render",
+        "largest_symbol_lines": 67,
+        "layer": "entrypoint",
+        "line_count": 263,
+        "nonblank_line_count": 226,
+        "top_level_definition_count": 11
+      },
       "scripts/probe_openai_compatible_provider.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
@@ -1939,10 +1956,10 @@
         ],
         "lane_owner": "other",
         "largest_symbol": "verify",
-        "largest_symbol_lines": 76,
+        "largest_symbol_lines": 77,
         "layer": "application",
-        "line_count": 96,
-        "nonblank_line_count": 89,
+        "line_count": 97,
+        "nonblank_line_count": 90,
         "top_level_definition_count": 1
       },
       "tests/fixtures/local_cli_fake_cli.py": {

@@ -9,6 +9,7 @@ This check covers every citation to legal authority in Harvey LAB's `litigation-
 |---|---|
 | [`problems.md`](problems.md) | Every citation whose final status is a problem, by task, with the finding |
 | [`rubric-intent.json`](rubric-intent.json) | For each problem citation, whether the task instructions or a rubric criterion asks the model to catch it, and whether a criterion rewards relying on it |
+| [`attorney-review/`](attorney-review/README.md) | Protocol, seeded sample, and worksheet for an attorney's review of a random sample of the problem findings |
 | [`summary.json`](summary.json) | The counts in this README, by status, authority type, location, and task |
 | `results/<task>.json` | Every citation in the task: where it appears, what it is cited for, quotations attributed to it, the first check (status, explanation, source URLs, excerpt read), and the second check where one was made |
 
