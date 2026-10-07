@@ -5,6 +5,7 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 ## 1. draft-jury-instructions — citation 48 (first ten)
 
 - **Document:** [partial-summary-judgment-order.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-jury-instructions/documents/partial-summary-judgment-order.docx), IV.D Count IV, para 3
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-jury-instructions/task.json)
 - **Authority as written:** Karnes v. Doctors Hospital, 51 Ohio St.3d 139, 142, 555 N.E.2d 280 (1990) (pin 142)
 - **Cited for:** General disclaimer may be insufficient to negate specific representations regarding termination procedures
 - **Context:** (holding that a general disclaimer may be insufficient to negate specific representations regarding termination procedures)
@@ -19,13 +20,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: Karnes)
+- **AI's reading of the rubric:** SJ order cites Karnes for the opposite of its holding. The finding shows the case does not support the order's proposition, but does not show the proposition (a disclaimer does not always negate specific handbook commitments; jury question) wrong under Ohio law, and the SJ order makes it law of the case; C-018/C-019 adopt that proposition without citing this case, so this is not counted as rubric reliance. No criterion asks the model to check the order's authorities.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 2. review-counterpartys-proposed-jury-instructions — citation 77 (first ten)
 
 - **Document:** [defense-proposed-jury-instructions.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/documents/defense-proposed-jury-instructions.docx), Instruction No. 6
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/task.json)
 - **Authority as written:** Eleventh Circuit Pattern Jury Instruction 1.3
 - **Cited for:** Parties equal before the law
 - **Context:** Authority: Eleventh Circuit Pattern Jury Instruction 1.3.
@@ -41,13 +51,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 1.3)
+- **AI's reading of the rubric:** No criterion addresses Instruction 6 or its pattern-number cite.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 3. review-counterpartys-proposed-jury-instructions — citation 103 (first ten)
 
 - **Document:** [defense-proposed-jury-instructions.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/documents/defense-proposed-jury-instructions.docx), Instruction No. 28
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/task.json)
 - **Authority as written:** Eleventh Circuit Pattern Jury Instruction 4.12
 - **Cited for:** Causation
 - **Context:** Authority: O.C.G.A. § 51-12-9; Eleventh Circuit Pattern Jury Instruction 4.12.
@@ -62,13 +81,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 4.12)
+- **AI's reading of the rubric:** No criterion addresses Instruction 28 or its cite to pattern 4.12 (an ADA instruction).
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 4. draft-motion-to-dismiss-brief — citation 82 (first ten)
 
 - **Document:** [key-case-law-compilation-defense-research-memo.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-to-dismiss-brief/documents/key-case-law-compilation-defense-research-memo.docx), Section V.A (Riverside National Bank v. Lewis)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-to-dismiss-brief/task.json)
 - **Authority as written:** Riverside National Bank v. Lewis, 603 S.W.2d 169 (Tex. 1980) (pin 173)
 - **Cited for:** Broad DTPA consumer definition; nexus between deceptive act and goods/services
 - **Quoted as:** “nexus”
@@ -84,13 +112,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: Riverside, Lewis)
+- **AI's reading of the rubric:** No criterion names Riverside National Bank or asks the model to verify the memo's DTPA consumer-status authority. No instruction or criterion asks the model to check the research memo's or the parties' authorities; the 'internal memo flagging threshold issues' instruction is aimed at jurisdiction (C-013–C-017, C-064–C-066).
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 5. assess-settlement-value-range — citation 42 (first ten)
 
 - **Document:** [defense-mediation-brief.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/documents/defense-mediation-brief.docx), III.B Apex's Modification Was the Proximate Cause (para 3)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json)
 - **Authority as written:** O.R.C. § 2307.76(A)(2) (pin (A)(2))
 - **Cited for:** Manufacturer defense where product altered or modified after leaving manufacturer's control and alteration was a proximate cause of harm
 - **Context:** See O.R.C. § 2307.76(A)(2) (providing a defense where the product was altered or modified after it left the manufacturer's control, and such alteration or modification was a proximate cause of the harm).
@@ -105,13 +142,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 2307.76(A)(2))
+- **AI's reading of the rubric:** R.C. 2307.76(A)(2) cited for a modification defense; C-013/C-014 treat Apex's modification as a comparative-fault fact without citing or testing this statute.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 6. draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence — citation 80 (first ten)
 
 - **Document:** [osha-citation.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence/documents/osha-citation.docx), Posting Requirement
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence/task.json)
 - **Authority as written:** Occupational Safety and Health Act of 1970, Section 17(l), 29 U.S.C. 666(l), Section 17(l) of the Occupational Safety and Health Act of 1970, 29 U.S.C. § 666(l)
 - **Cited for:** Additional citations and penalties for failure to comply with posting requirement
 - **Context:** may result in the issuance of additional citations and penalties under Section 17(l) of the Occupational Safety and Health Act of 1970, 29 U.S.C. § 666(l).
@@ -127,13 +173,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 17(l), 666(l))
+- **AI's reading of the rubric:** Wrong OSH Act subsection for the posting-penalty notice; no criterion reaches it.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 7. draft-opposition-to-motion-to-dismiss — citation 78 (first ten)
 
 - **Document:** [defendants-mtd-memorandum.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/documents/defendants-mtd-memorandum.docx), Table of Authorities, Cases (Deming)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json)
 - **Authority as written:** Deming v. Nationwide Mut. Ins. Co., 279 Conn. 745 (2006)
 - **Cited for:** Severability and reformation of restrictive covenants (TOA entry)
 - **Context:** *Deming v. Nationwide Mut. Ins. Co.*, 279 Conn. 745 (2006) | 13
@@ -149,13 +204,28 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** C-011 (searched for: Deming, Nationwide)
+- **AI's reading of the rubric:** No instruction or criterion asks the model to identify, flag, correct, or avoid this authority or citation errors in this document. TOA entry for Deming. C-011 does reward citing Deming for reformation, an unsupported proposition recorded separately at ref 146.
+
+<details><summary>Text of those criteria</summary>
+
+> **C-011. ISSUE_001 — Citation to CT reformation case law** PASS if the brief cites Connecticut case law supporting reformation of restrictive covenants (e.g., Deming v. Nationwide Mutual Insurance Co., Robert S. Weiss & Associates v. Wiederlight, or other relevant Connecticut authority on the reasonable modification standard). FAIL if no Connecticut case law on reformation or blue-penciling of non-competes is cited.
+
+</details>
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 8. draft-opposition-to-motion-to-dismiss — citation 86 (first ten)
 
 - **Document:** [defendants-mtd-memorandum.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/documents/defendants-mtd-memorandum.docx), Table of Authorities, Cases (MacDermid)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json)
 - **Authority as written:** MacDermid, Inc. v. Deiter, 702 F.3d 725 (2d Cir. 2012)
 - **Cited for:** Trade secret specificity (TOA entry)
 - **Context:** *MacDermid, Inc. v. Deiter*, 702 F.3d 725 (2d Cir. 2012) | 17
@@ -170,13 +240,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: MacDermid, Deiter)
+- **AI's reading of the rubric:** No instruction or criterion asks the model to identify, flag, correct, or avoid this authority or citation errors in this document; TOA entry.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 9. draft-responses-to-interrogatories — citation 126 (first ten)
 
 - **Document:** [case-management-order.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-responses-to-interrogatories/documents/case-management-order.docx), Section 4(e), Discovery Disputes (line 50)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-responses-to-interrogatories/task.json)
 - **Authority as written:** W.D. Pa. Local Rule 37.1, Local Rule 37.1 of the Western District of Pennsylvania
 - **Cited for:** Meet-and-confer requirement before discovery motion
 - **Context:** as required by Fed. R. Civ. P. 37(a)(1) and Local Rule 37.1 of the Western District of Pennsylvania.
@@ -192,13 +271,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 37.1)
+- **AI's reading of the rubric:** No criterion reaches the CMO's characterization of W.D. Pa. LCvR 37.1.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 10. review-counterpartys-proposed-jury-instructions — citation 76 (first ten)
 
 - **Document:** [defense-proposed-jury-instructions.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/documents/defense-proposed-jury-instructions.docx), Instruction No. 5
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/task.json)
 - **Authority as written:** Eleventh Circuit Pattern Jury Instruction 3.1
 - **Cited for:** Burden of proof - preponderance of the evidence
 - **Context:** Authority: Eleventh Circuit Pattern Jury Instruction 3.1.
@@ -214,13 +302,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 3.1)
+- **AI's reading of the rubric:** No criterion flags Instruction 5's wrong pattern number. C-029 lists No. 5 as an example of an unobjectionable instruction, which shows the author did not see the defect, but C-029 passes on any two proper instructions, so flagging this cite costs nothing.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 11. draft-opposition-to-motion-to-dismiss — citation 40 (second ten (only if needed))
 
 - **Document:** [defendants-mtd-memorandum.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/documents/defendants-mtd-memorandum.docx), IV.A, para. 1
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json)
 - **Authority as written:** Robert S. Weiss & Associates, Inc. v. Wiederlight, Robert S. Weiss & Assocs., Inc. v. Wiederlight, 208 Conn. 525, 529 (1988) (pin 529)
 - **Cited for:** Courts examine whether restriction is reasonable in view of needs of parties, public and circumstances
 - **Quoted as:** “is reasonable in view of the needs of the parties, the needs of the public, and the circumstances of the particular case”
@@ -237,13 +334,28 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** C-011 (searched for: Robert, Wiederlight)
+- **AI's reading of the rubric:** No instruction or criterion asks the model to identify, flag, correct, or avoid this authority or citation errors in this document (C-063/C-009 rebut the MTD on the merits, not this misquote). C-011 does reward citing Weiss, but for reformation, a different unsupported proposition recorded separately at ref 147.
+
+<details><summary>Text of those criteria</summary>
+
+> **C-011. ISSUE_001 — Citation to CT reformation case law** PASS if the brief cites Connecticut case law supporting reformation of restrictive covenants (e.g., Deming v. Nationwide Mutual Insurance Co., Robert S. Weiss & Associates v. Wiederlight, or other relevant Connecticut authority on the reasonable modification standard). FAIL if no Connecticut case law on reformation or blue-penciling of non-competes is cited.
+
+</details>
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 12. identify-issues-in-counterparty-interrogatories — citation 75 (second ten (only if needed))
 
 - **Document:** [defense-discovery-strategy-memo.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-interrogatories/documents/defense-discovery-strategy-memo.docx), IV.C Waiver Risk
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/identify-issues-in-counterparty-interrogatories/task.json)
 - **Authority as written:** Louisiana Stadium & Exposition Dist. v. Sedgewick Valemont, Pierce, Fenner & Smith Inc. (apparently Merrill Lynch, Pierce, Fenner & Smith Inc.), 626 F.3d 156 (2d Cir. 2010)
 - **Cited for:** Second Circuit waiver of right to compel arbitration through litigation conduct (note: party name in document appears garbled relative to the reported case)
 - **Context:** Louisiana Stadium & Exposition Dist. v. Sedgewick Valemont, Pierce, Fenner & Smith Inc., 626 F.3d 156 (2d Cir. 2010).
@@ -259,13 +371,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: Louisiana, Sedgewick)
+- **AI's reading of the rubric:** Strategy memo garbles the party name of Louisiana Stadium v. Merrill Lynch (cite and proposition correct); C-033/C-034 address arbitration-waiver risk without citing or testing this case.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 13. assess-settlement-value-range — citation 84 (second ten (only if needed))
 
 - **Document:** [defense-mediation-brief.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/documents/defense-mediation-brief.docx), IV.A Economic Damages, Discount Rate / III.A para 3 (Ohio law on compliance with standards)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json)
 - **Authority as written:** Ohio law on compliance with industry safety standards as evidence of non-defect
 - **Cited for:** Under Ohio law, compliance with applicable industry safety standards at time of manufacture is strong evidence a product was not defectively designed
 - **Quoted as:** “generally recognized and prevailing standard”
@@ -282,13 +403,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none
+- **AI's reading of the rubric:** Same R.C. 2307.75 standards-compliance defect as ref 41; no criterion reaches it.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 14. draft-motion-for-summary-judgment — citation 48 (second ten (only if needed))
 
 - **Document:** [plaintiff-interrogatory-responses.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-summary-judgment/documents/plaintiff-interrogatory-responses.docx), Interrogatory No. 7 (response)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-for-summary-judgment/task.json)
 - **Authority as written:** Rule 33(a)(2) (pin (a)(2))
 - **Cited for:** Objection that contention interrogatory seeks legal theories and mental impressions
 - **Context:** further objecting to the extent that this interrogatory is a contention interrogatory that seeks disclosure of Plaintiff's legal theories and mental impressions in a manner inconsistent with Rule 33(a)(2)
@@ -304,13 +434,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 33(a))
+- **AI's reading of the rubric:** No criterion reaches the interrogatory response's Rule 33(a)(2) objection.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 15. assess-settlement-value-range — citation 122 (second ten (only if needed))
 
 - **Document:** [comparable-outcomes-summary.xlsx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/documents/comparable-outcomes-summary.xlsx), Comparable Outcomes, row 6 (B6)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json)
 - **Authority as written:** Williams v. PressForce Corp. (Hamilton County, OH, 2019)
 - **Cited for:** Four-finger amputation; plaintiff bypassed guard; $3.9M settlement
 - **Context:** Settlement of $3.9M despite disputed liability and plaintiff fault suggests Holt matter should command a higher figure.
@@ -325,13 +464,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: Williams, PressForce)
+- **AI's reading of the rubric:** Fictional scenario comparable; no criterion asks the model to verify it, and no criterion names Williams v. PressForce.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 16. draft-motion-to-dismiss-brief — citation 287 (second ten (only if needed))
 
 - **Document:** [arcadias-response-to-meridians-dtpa-letter.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-to-dismiss-brief/documents/arcadias-response-to-meridians-dtpa-letter.docx), Part II, paragraph beginning 'We are prepared to produce'
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-motion-to-dismiss-brief/task.json)
 - **Authority as written:** Cameron v. Terrell & Garrett, Inc., 618 S.W.2d 535, 541 (Tex. 1981) (pin 541)
 - **Cited for:** DTPA exemptions are affirmative defenses to be proved by the party claiming them
 - **Context:** the burden of establishing the applicability of a DTPA exemption rests on the party asserting it — in this case, Meridian. See Cameron v. Terrell & Garrett, Inc., 618 S.W.2d 535, 541 (Tex. 1981) (exemptions from the DTPA are affirmative defenses to be proved by the party claiming them).
@@ -347,13 +495,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: Cameron, Terrell)
+- **AI's reading of the rubric:** Authority in Arcadia's DTPA letter; no criterion names it or asks the model to rebut the letter's authorities.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 17. draft-opposition-to-motion-to-dismiss — citation 23 (second ten (only if needed))
 
 - **Document:** [verified-complaint.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/documents/verified-complaint.docx), Prayer for Relief (e)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/draft-opposition-to-motion-to-dismiss/task.json)
 - **Authority as written:** DTSA and CUTSA attorneys' fees, 18 U.S.C. § 1836(b)(3)(D); Conn. Gen. Stat. § 35-52(c)
 - **Cited for:** Attorneys' fees and costs
 - **Context:** pursuant to the Defend Trade Secrets Act, 18 U.S.C. § 1836(b)(3)(D), and the Connecticut Uniform Trade Secrets Act, Conn. Gen. Stat. § 35-52(c)
@@ -369,13 +526,30 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** C-024, C-035 (searched for: 1836(b), 52(c))
+- **AI's reading of the rubric:** No instruction or criterion asks the model to identify, flag, correct, or avoid this authority or citation errors in this document; C-047 cites CUTSA only generally as Conn. Gen. Stat. § 35-50 et seq., not § 35-52 for remedies.
+
+<details><summary>Text of those criteria</summary>
+
+> **C-024. ISSUE_006 — Broad construction of DTSA commerce element** PASS if the brief notes or argues that the interstate commerce element under 18 U.S.C. § 1836(b)(1) is broadly construed by courts and is satisfied where the trade secret is related to a product or service used in or intended for use in interstate commerce. FAIL if the brief does not discuss the breadth of the DTSA commerce element or cite 18 U.S.C. § 1836.
+>
+> **C-035. ISSUE_011 — DTSA provides for threatened misappropriation** PASS if the brief argues that under the DTSA, threatened misappropriation is independently actionable, citing or referencing 18 U.S.C. § 1836(b)(3)(A) or the statutory provision allowing relief for threatened misappropriation. FAIL if the brief does not invoke the DTSA's provision for threatened misappropriation in addressing the ripeness argument.
+
+</details>
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 18. review-counterpartys-proposed-jury-instructions — citation 88 (second ten (only if needed))
 
 - **Document:** [defense-proposed-jury-instructions.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/documents/defense-proposed-jury-instructions.docx), Instruction No. 15
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/review-counterpartys-proposed-jury-instructions/task.json)
 - **Authority as written:** Penalty Kick Mgmt. Ltd. v. Coca Cola Co., 318 Ga. App. 586 (2012)
 - **Cited for:** Definition of 'readily ascertainable'
 - **Context:** Authority: O.C.G.A. § 10-1-761(4); Penalty Kick Mgmt. Ltd. v. Coca Cola Co., 318 Ga. App. 586 (2012).
@@ -391,13 +565,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: Penalty, Coca)
+- **AI's reading of the rubric:** No criterion flags Instruction 15's Penalty Kick cite (Ga. App. reporter cite that resolves to a different case). C-029 names No. 15 as an example of a proper instruction, showing the author missed the defect, but credit does not require naming it.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 19. research-corporate-veil-piercing-standards-across-target-jurisdictions — citation 11 (second ten (only if needed))
 
 - **Document:** [iepa-enforcement-complaint.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/research-corporate-veil-piercing-standards-across-target-jurisdictions/documents/iepa-enforcement-complaint.docx), Para. 31
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/research-corporate-veil-piercing-standards-across-target-jurisdictions/task.json)
 - **Authority as written:** 40 C.F.R. § 262.17 and 35 Ill. Admin. Code § 722.134, 40 C.F.R. § 262.17; 35 Ill. Admin. Code § 722.134
 - **Cited for:** Ninety-day generator accumulation limits exceeded, triggering permit requirement
 - **Context:** exceeded the ninety-day generator accumulation limits established under 40 C.F.R. § 262.17 and 35 Ill. Admin. Code § 722.134
@@ -413,13 +596,22 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 262.17, 722.134)
+- **AI's reading of the rubric:** No criterion reaches the cite to repealed 35 Ill. Admin. Code § 722.134.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 
 ## 20. assess-settlement-value-range — citation 86 (second ten (only if needed))
 
 - **Document:** [aldrich-economic-report.docx](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/documents/aldrich-economic-report.docx), Section IV, Past Medical Expenses, para. 5 (line 89)
+- **Task file (instructions and rubric):** [task.json](https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/assess-settlement-value-range/task.json)
 - **Authority as written:** Ohio Revised Code § 2315.20
 - **Cited for:** Collateral source rule permits recovery of the full value of medical services regardless of the source of payment
 - **Context:** Under Ohio Revised Code § 2315.20 and applicable Ohio case law, the collateral source rule permits recovery of the full value of medical services regardless of the source of payment.
@@ -434,7 +626,15 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
+**How the rubric treats it**
+
+- **Does the rubric ask the model to catch this error?** No. An AI review of the task instructions and every criterion found no criterion targeting it.
+- **Does a criterion reward relying on it?** No.
+- **Criteria that name this authority:** none (searched for: 2315.20)
+- **AI's reading of the rubric:** Aldrich report's collateral-source characterization of R.C. 2315.20; C-011/C-012 address the workers' comp lien amount and its effect on net recovery, not the collateral-source statute.
+
 - **Verdict:** 
 - **Error type, if confirmed:** 
+- **Rubric relevance (optional):** 
 - **Note:** 
 

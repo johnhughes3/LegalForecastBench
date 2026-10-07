@@ -34,6 +34,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 CHECK_DIR = ROOT / "docs/harvey-lab-audit/litigation-dispute-resolution/citation-check"
 REVIEW_DIR = CHECK_DIR / "attorney-review"
+UPSTREAM = ROOT / "site/src/data/lab/upstream"
 HARVEY_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
 TASK_URL = (
     "https://github.com/harveyai/harvey-labs/blob/"
@@ -98,6 +99,72 @@ def _passage(text_dir: Path | None, task: str, document: str, context: str) -> s
     return ("…" if start else "") + body[start:end] + ("…" if end < len(body) else "")
 
 
+def _criteria(task: str) -> list[Json]:
+    data: Json = json.loads((UPSTREAM / f"{task}.json").read_text(encoding="utf-8"))
+    return list(data["criteria"])
+
+
+GENERIC = set(
+    "inc corp corporation company co llc ltd lp llp assocs associates assn bank "
+    "national first american international systems services group holdings "
+    "hospital doctors health insurance mutual life trust partners industries "
+    "technologies the of and for in re ex rel state states united city county "
+    "commonwealth people department board commission authority".split()
+)
+
+
+def _keys(authority: str, citation: str) -> list[str]:
+    """Tokens that identify an authority in rubric text: the first distinctive word
+    of each party's name for a case, otherwise the section or rule number."""
+    text = f"{authority} {citation}"
+    parties = re.split(r"\s+v\.?\s+", authority, maxsplit=1)
+    if len(parties) == 2:
+        keys: list[str] = []
+        for party in parties:
+            words = re.findall(r"[A-Z][A-Za-z'\u2019-]{2,}", party)
+            keys += [w for w in words if w.lower().strip(".") not in GENERIC][:1]
+        return keys
+    numbers = re.findall(r"\d+(?:\.\d+)+(?:\([\w.]+\))*|\d+\([a-z]\)", text)
+    return list(dict.fromkeys(numbers))
+
+
+def _rubric(row: Json, c: Json) -> list[str]:
+    """How the task's rubric relates to this citation, from the rubric-intent review
+    and from criteria whose text names the authority."""
+    criteria = _criteria(row["task"])
+    by_id = {k["id"]: k for k in criteria}
+    keys = _keys(_block(c["authority"]), _block(c["citation_as_written"]))
+    naming = [
+        k["id"]
+        for k in criteria
+        if any(t in f"{k['title']} {k['match_criteria']}" for t in keys)
+    ]
+    relying: list[str] = [
+        str(i) for i in list(row.get("relying_criteria") or []) if str(i) in by_id
+    ]
+    out = [
+        "- **Does the rubric ask the model to catch this error?** No. An AI review "
+        "of the task instructions and every criterion found no criterion targeting it.",
+        "- **Does a criterion reward relying on it?** "
+        + (f"Yes: {', '.join(relying)}." if relying else "No."),
+        "- **Criteria that name this authority:** "
+        + (", ".join(naming) if naming else "none")
+        + (f" (searched for: {', '.join(keys)})" if keys else ""),
+        f"- **AI's reading of the rubric:** {_block(row.get('reason', ''))}",
+    ]
+    shown: list[str] = list(dict.fromkeys(relying + naming))
+    if shown:
+        out += ["", "<details><summary>Text of those criteria</summary>", ""]
+        out += [
+            f"> **{i}. {_block(by_id[i]['title'])}** "
+            f"{_block(by_id[i]['match_criteria'])}\n>"
+            for i in shown
+        ]
+        out[-1] = out[-1].removesuffix("\n>")
+        out += ["", "</details>"]
+    return out
+
+
 def render(sample: list[Json], text_dir: Path | None = None) -> str:
     """The reviewer's worksheet: one entry per sampled citation, in draw order."""
     out = [
@@ -117,6 +184,8 @@ def render(sample: list[Json], text_dir: Path | None = None) -> str:
             "",
             f"- **Document:** [{c['document'].removesuffix('.md')}]"
             f"({_source(row['task'], c['document'])}), {_block(c['location'])}",
+            f"- **Task file (instructions and rubric):** "
+            f"[task.json]({TASK_URL}/{row['task']}/task.json)",
             "- **Authority as written:** "
             + (
                 _block(c["citation_as_written"])
@@ -157,10 +226,12 @@ def render(sample: list[Json], text_dir: Path | None = None) -> str:
                 "",
                 "</details>",
             ]
+        out += ["", "**How the rubric treats it**", "", *_rubric(row, c)]
         out += [
             "",
             "- **Verdict:** ",
             "- **Error type, if confirmed:** ",
+            "- **Rubric relevance (optional):** ",
             "- **Note:** ",
             "",
         ]
