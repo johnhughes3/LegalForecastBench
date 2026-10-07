@@ -289,14 +289,52 @@ def is_flagged(window: dict[str, Any]) -> bool:
     return not str(window.get("label", "")).startswith("Human")
 
 
-def locate(text: str, window: dict[str, Any], after: int) -> int:
-    """Character offset of a window in the sent text, or -1 if it cannot be placed."""
-    snippet = str(window.get("text", ""))[:60]
-    found = text.find(snippet, after) if snippet.strip() else -1
-    if found < 0 and snippet.strip():
-        found = text.find(snippet)
-    start = window.get("start_index")
-    return found if found >= 0 else start if isinstance(start, int) else -1
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def window_owners(
+    text: str,
+    spans: list[tuple[int, int]],
+    windows: list[dict[str, Any]],
+) -> list[list[int]]:
+    """For each window, the indices of the units whose text it overlaps.
+
+    Pangram's windows can run for hundreds of words across unit boundaries, and its
+    character offsets are computed on its own normalized text, so each window is
+    placed by matching its opening words in the whitespace-collapsed document. An
+    empty list means the window could not be placed.
+    """
+    flat = _flat(text)
+    starts = [len(_flat(text[:a] + "x")) - 1 for a, _ in spans]
+    ends = [len(_flat(text[:b] + "x")) - 1 for _, b in spans]
+    owners: list[list[int]] = []
+    position = 0
+    for window in windows:
+        body = _flat(str(window.get("text", "")))
+        at = -1
+        for size in (80, 40, 20):
+            probe = body[:size]
+            if not probe:
+                break
+            at = flat.find(probe, position)
+            if at < 0:
+                at = flat.find(probe)
+            if at >= 0:
+                break
+        if at < 0:
+            owners.append([])
+            continue
+        position = at
+        end = at + max(len(body), 1)
+        owners.append(
+            [
+                i
+                for i, (a, b) in enumerate(zip(starts, ends, strict=True))
+                if a < end and at < b
+            ]
+        )
+    return owners
 
 
 def describe(result: dict[str, Any]) -> str:
@@ -374,56 +412,41 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _arguments(argv)
-    if args.out is None:
-        args.out = args.manuscript.parent / "build" / "pangram"
-    sending = not args.extract_only and args.response is None
-    if sending and not os.environ.get(KEY_VARIABLE):
-        raise SystemExit(f"{KEY_VARIABLE} is not set; set it or pass --extract-only")
-    if shutil.which("pandoc") is None:
-        raise SystemExit("pandoc is required to convert the manuscript to plain text")
-    client = _client() if sending else None
+def score(
+    units: list[Unit],
+    *,
+    out: Path,
+    client: Any,
+    response: Path | None = None,
+    model: str = "default",
+    fail_above: float | None = None,
+    verbose: bool = False,
+    note: str = "",
+    text_name: str = "paper.txt",
+    response_name: str = "response.json",
+) -> int:
+    """Send ``units`` to Pangram as one document (or report a saved response),
+    print a table of windows flagged per unit, and apply the optional gate.
 
-    units = exclude(
-        manuscript_units(args.manuscript.read_text(encoding="utf-8")),
-        args.exclude_section,
-    )
+    ``client`` is None for extract-only runs. The caller checks the key, the word
+    ceiling, and the spending cap before calling.
+    """
     text, spans = document(units)
-    words = sum(u.words for u in units)
-    if words < MIN_WORDS:
-        raise SystemExit(f"only {words} words of author prose; nothing to score")
-    if words > MAX_WORDS:
-        raise SystemExit(
-            f"{words:,} words is over Pangram's {MAX_WORDS:,}-word ceiling; leave "
-            "out a section with --exclude-section"
-        )
-    blocks = -(-len(text.split()) // BLOCK_WORDS)
-    print(
-        f"One document, {words:,} words of author prose: about {blocks} billable "
-        f"{BLOCK_WORDS}-word blocks, or ${blocks * USD_PER_BLOCK:.2f} at Pangram's "
-        "published realtime rate (an estimate; Pangram's own count governs).\n"
-    )
-    if sending and blocks * USD_PER_BLOCK > args.max_usd:
-        raise SystemExit(
-            f"estimated ${blocks * USD_PER_BLOCK:.2f} exceeds --max-usd "
-            f"{args.max_usd:.2f}; raise it to send"
-        )
-    args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "paper.txt").write_text(text + "\n", encoding="utf-8")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / text_name).write_text(text + "\n", encoding="utf-8")
 
     details: list[str] = []
     result: dict[str, Any] | None = None
-    if args.response is not None:
-        result = json.loads(args.response.read_text(encoding="utf-8"))
-        print(f"Reusing the saved response in {args.response}.\n")
+    if response is not None:
+        result = json.loads(response.read_text(encoding="utf-8"))
+        print(f"Reusing the saved response in {response}.\n")
     elif client is not None:
         try:
-            result = client.predict(text, model=args.model)
+            result = client.predict(text, model=model)
         except (ValueError, TimeoutError) as exc:
             print(f"Pangram request failed: {exc}")
             return 1
-        (args.out / "response.json").write_text(
+        (out / response_name).write_text(
             json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
     if result is None:
@@ -431,26 +454,27 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"Whole document: {describe(result)}\n")
         counts = [[0, 0] for _ in units]
-        unplaced = position = 0
+        unplaced = 0
         windows: list[dict[str, Any]] = result.get("windows") or []
-        for window in windows:
-            at = locate(text, window, position)
-            owner = next((i for i, (a, b) in enumerate(spans) if a <= at < b), None)
-            if owner is None:
+        for window, owners in zip(
+            windows, window_owners(text, spans, windows), strict=True
+        ):
+            if not owners:
                 unplaced += 1
                 continue
-            position = at
-            counts[owner][0] += 1
+            for owner in owners:
+                counts[owner][0] += 1
+                counts[owner][1] += is_flagged(window)
             if is_flagged(window):
-                counts[owner][1] += 1
+                where = ", ".join(units[i].key for i in owners)
                 details.append(
-                    f"[{units[owner].key}] {window.get('label')} "
+                    f"[{where}] {window.get('label')} "
                     f"(score {window.get('ai_assistance_score')}, "
                     f"confidence {window.get('confidence')}): "
                     f"{' '.join(str(window.get('text', '')).split())[:300]}"
                 )
         outcomes = [
-            f"{flagged} of {total} windows flagged" if u.words else "nothing sent"
+            f"in {flagged} of {total} windows flagged" if u.words else "nothing sent"
             for u, (total, flagged) in zip(units, counts, strict=True)
         ]
         if unplaced:
@@ -469,30 +493,84 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"{unit.key:<{width}}  {unit.words:>6,}  {title:<{TITLE_WIDTH}}  {outcome}"
         )
-    if args.verbose and details:
+    if verbose and details:
         print("\nFlagged windows\n" + "\n".join(details))
-    print(
-        f"\nThis is not a check of the whole paper. Left out and shown as {OMITTED} "
-        f"in the document: {REMOVED}."
-    )
-    print(f"Document sent and any raw response: {args.out}")
-    if result is not None and args.fail_above is not None:
+    if note:
+        print(f"\n{note}")
+    print(f"Document sent and any raw response: {out}")
+    if result is not None and fail_above is not None:
         fraction = float(result.get("fraction_ai") or 0) + float(
             result.get("fraction_ai_assisted") or 0
         )
-        if fraction > args.fail_above:
+        if fraction > fail_above:
             print(
                 f"\nFAIL: Pangram classifies {fraction:.2f} of the text as AI or "
-                f"AI-assisted, above {args.fail_above:.2f}. Rewrite the flagged "
+                f"AI-assisted, above {fail_above:.2f}. Rewrite the flagged "
                 "windows above, or mark disclosed passages with "
                 "% BEGIN/END AI-PREPARED."
             )
             return 1
         print(
             f"\nPASS: Pangram classifies {fraction:.2f} of the text as AI or "
-            f"AI-assisted, at most {args.fail_above:.2f}."
+            f"AI-assisted, at most {fail_above:.2f}."
         )
     return 0
+
+
+def estimate(text: str) -> tuple[int, float]:
+    """Billable 100-word blocks and dollars at Pangram's published rate."""
+    blocks = -(-len(text.split()) // BLOCK_WORDS)
+    return blocks, blocks * USD_PER_BLOCK
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _arguments(argv)
+    if args.out is None:
+        args.out = args.manuscript.parent / "build" / "pangram"
+    sending = not args.extract_only and args.response is None
+    if sending and not os.environ.get(KEY_VARIABLE):
+        raise SystemExit(f"{KEY_VARIABLE} is not set; set it or pass --extract-only")
+    if shutil.which("pandoc") is None:
+        raise SystemExit("pandoc is required to convert the manuscript to plain text")
+    client = _client() if sending else None
+
+    units = exclude(
+        manuscript_units(args.manuscript.read_text(encoding="utf-8")),
+        args.exclude_section,
+    )
+    text, _ = document(units)
+    words = sum(u.words for u in units)
+    if words < MIN_WORDS:
+        raise SystemExit(f"only {words} words of author prose; nothing to score")
+    if words > MAX_WORDS:
+        raise SystemExit(
+            f"{words:,} words is over Pangram's {MAX_WORDS:,}-word ceiling; leave "
+            "out a section with --exclude-section"
+        )
+    blocks, dollars = estimate(text)
+    print(
+        f"One document, {words:,} words of author prose: about {blocks} billable "
+        f"{BLOCK_WORDS}-word blocks, or ${dollars:.2f} at Pangram's "
+        "published realtime rate (an estimate; Pangram's own count governs).\n"
+    )
+    if sending and dollars > args.max_usd:
+        raise SystemExit(
+            f"estimated ${dollars:.2f} exceeds --max-usd "
+            f"{args.max_usd:.2f}; raise it to send"
+        )
+    return score(
+        units,
+        out=args.out,
+        client=client,
+        response=args.response,
+        model=args.model,
+        fail_above=args.fail_above,
+        verbose=args.verbose,
+        note=(
+            f"This is not a check of the whole paper. Left out and shown as "
+            f"{OMITTED} in the document: {REMOVED}."
+        ),
+    )
 
 
 if __name__ == "__main__":

@@ -180,6 +180,23 @@
         "nonblank_line_count": 487,
         "top_level_definition_count": 21
       },
+      "docs/papers/pangram_check.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "score",
+        "largest_symbol_lines": 103,
+        "layer": "application",
+        "line_count": 577,
+        "nonblank_line_count": 518,
+        "top_level_definition_count": 18
+      },
       "examples/adapters/claude-agent-sdk/adapter.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
@@ -1858,6 +1875,23 @@
         "line_count": 334,
         "nonblank_line_count": 289,
         "top_level_definition_count": 14
+      },
+      "scripts/pangram_site.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "_Visible",
+        "largest_symbol_lines": 65,
+        "layer": "entrypoint",
+        "line_count": 350,
+        "nonblank_line_count": 315,
+        "top_level_definition_count": 8
       },
       "scripts/probe_openai_compatible_provider.py": {
         "cycle_id": "",
