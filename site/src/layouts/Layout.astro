@@ -12,6 +12,7 @@ import { AUTHOR, REPO } from "../data/author";
 import { defaultOgImage, OG_HEIGHT, OG_WIDTH } from "../og/routes";
 import { crumbsFor } from "../seo/crumbs";
 import { type JsonLdNode, jsonLdScript, pageGraph } from "../seo/jsonld";
+import { markdownDestination } from "../seo/negotiate";
 import { documentTitle } from "../seo/titles";
 
 interface Props {
@@ -56,6 +57,10 @@ const graph =
 			})
 		: undefined;
 const path = Astro.url.pathname;
+// The page's markdown copy, for agents. Pages outside the table have none.
+const markdownCopy = isNotFound
+	? null
+	: markdownDestination(path, "text/markdown");
 // Articles keep their pre-reorganization URLs; `also` maps them to the
 // section they now belong to so the nav still marks where the reader is.
 const nav = [
@@ -101,6 +106,7 @@ const onPaper = path.startsWith("/paper/");
 		<meta name="twitter:image:alt" content={pageTitle} />
 		<meta name="twitter:creator" content={AUTHOR.xHandle} />
 		{!isNotFound && <link rel="canonical" href={canonical} />}
+		{markdownCopy && <link rel="alternate" type="text/markdown" href={markdownCopy} />}
 		{!isNotFound && <link rel="describedby" href="/llms.txt" type="text/plain" />}
 		{!isNotFound && <link rel="service-doc" href="/llms-full.txt" type="text/plain" />}
 		{!isNotFound && <link rel="sitemap" href="/sitemap-index.xml" type="application/xml" />}

@@ -2,6 +2,7 @@ import type { Faq } from "./faqs.js";
 import {
 	AUTHOR,
 	authorId,
+	LEGALQUANTS,
 	LOGO_PATH,
 	organizationId,
 	REPO,
@@ -74,8 +75,14 @@ export function personNode(): JsonLdNode {
 		"@type": "Person",
 		"@id": authorId,
 		name: AUTHOR.name,
+		alternateName: AUTHOR.alternateName,
 		url: AUTHOR.site,
 		sameAs: [AUTHOR.github, AUTHOR.linkedin, AUTHOR.x],
+		memberOf: {
+			"@type": "Organization",
+			name: LEGALQUANTS.name,
+			url: LEGALQUANTS.url,
+		},
 	};
 }
 

@@ -79,7 +79,7 @@ jobs:
       - name: Require the website PDF to match the compile
         run: |
           set -euo pipefail
-          committed=site/public/papers/legalforecastbench-working.pdf
+          committed=site/public/paper/legalforecastbench-working.pdf
           if cmp -s docs/paper/build/LegalForecastBench-paper.pdf "$committed"; then
             exit 0
           fi

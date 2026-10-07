@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use LegalForecastBench or its LegalForecast-MTD task, please cite it as below."
+message: "If you use LegalForecastBench or its LegalForecast-MTD task, please cite the working paper under preferred-citation. The fields above it describe the software release."
 title: "LegalForecastBench: Forecasting Federal Motions to Dismiss (LegalForecast-MTD)"
 version: "2026-09-27"
 date-released: 2026-09-27
@@ -10,3 +10,20 @@ authors:
     name-suffix: "III"
 url: "https://www.legalforecastbench.org"
 repository-code: "https://github.com/johnhughes3/LegalForecastBench"
+# The working paper. The website builds its paper citation, `datePublished`,
+# and Scholar tags from this block, and a site test holds the title to the
+# manuscript's. `date-published` is the first posting and does not move with
+# manuscript edits; keep `year` and `month` in step with it. When the paper
+# has a DOI (arXiv issues one), add a `doi:` line here and nothing else.
+preferred-citation:
+  type: generic
+  title: "LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability"
+  authors:
+    - family-names: "Hughes"
+      given-names: "John J."
+      name-suffix: "III"
+  year: 2026
+  month: 10
+  date-published: 2026-10-06
+  notes: "Working paper"
+  url: "https://www.legalforecastbench.org/paper/"

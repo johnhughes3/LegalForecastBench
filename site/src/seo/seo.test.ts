@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { WORKING_PAPER_PDF } from "../data/paper.js";
 import { prefersMarkdown } from "./accept.js";
 import { COPY } from "./copy.js";
 import { FAQS } from "./faqs.js";
@@ -72,19 +73,26 @@ test("vercel rewrites match the negotiation table and every public page", () => 
 	assert.equal(markdownDestination("/llms.txt", "text/plain"), null);
 });
 
-test("llms.txt lists canonical pages and not agent URLs", () => {
+test("llms.txt links each page's markdown copy and promises no negotiation", () => {
+	const docs = publicPaths();
 	const text = llmsTxt(
-		publicPaths().map((doc) => ({
+		docs.map((doc) => ({
 			...doc,
 			title: doc.slug,
 			description: "",
 			markdown: "",
 		})),
 	);
-	assert.match(text, /Accept: text\/markdown/);
-	assert.doesNotMatch(text, /\/agent\//);
-	assert.match(text, /https:\/\/www\.legalforecastbench\.org\/results\//);
-	assert.doesNotMatch(text, /\.md\)/);
+	for (const doc of docs) {
+		assert.ok(
+			text.includes(
+				`](https://www.legalforecastbench.org/agent/${doc.slug}.md)`,
+			),
+			doc.slug,
+		);
+	}
+	// Accept-header negotiation does not work as deployed; see negotiate.ts.
+	assert.doesNotMatch(text, /Accept:/);
 });
 
 test("mdx cleanup keeps code and drops components", () => {
@@ -125,10 +133,10 @@ test("sitemap skips agent files and uses real dates", () => {
 	assert.equal(lastmodFor("/findings/confident-misses/"), "2026-09-27");
 });
 
-test("robots allows the site and hides negotiation files", () => {
+test("robots allows the site, including the markdown copies llms.txt links", () => {
 	const text = robotsTxt(new URL("https://www.legalforecastbench.org"));
 	assert.match(text, /Allow: \//);
-	assert.match(text, /Disallow: \/agent\//);
+	assert.doesNotMatch(text, /Disallow/);
 	assert.match(
 		text,
 		/Sitemap: https:\/\/www\.legalforecastbench\.org\/sitemap-index\.xml/,
@@ -166,6 +174,17 @@ test("project and author identities are distinct", () => {
 	]);
 	assert.ok(Array.isArray(personNode().sameAs));
 	assert.notDeepEqual(project.sameAs, personNode().sameAs);
+});
+
+test("the author resolves under both spellings and belongs to LegalQuants", () => {
+	const person = personNode();
+	assert.equal(person.name, "John J. Hughes, III");
+	assert.equal(person.alternateName, "John J. Hughes III");
+	assert.deepEqual(person.memberOf, {
+		"@type": "Organization",
+		name: "LegalQuants",
+		url: "https://www.legalquants.com/",
+	});
 });
 
 test("paper full text is associated with its article, without inventing a PDF", () => {
@@ -209,7 +228,7 @@ test("robots names the AI crawlers and gives them the rules everyone gets", () =
 		robotsTxt(new URL("https://www.legalforecastbench.org")),
 	);
 	const everyone = groups.get("*");
-	assert.deepEqual(everyone, ["Allow: /", "Disallow: /agent/"]);
+	assert.deepEqual(everyone, ["Allow: /"]);
 	for (const crawler of [
 		"GPTBot",
 		"OAI-SearchBot",
@@ -238,6 +257,16 @@ test("only the negotiation files carry a noindex header", () => {
 	assert.deepEqual(tagged, ["/agent/(.*)"]);
 });
 
+test("the earlier PDF directory redirects to the one beside the abstract", () => {
+	const vercel = JSON.parse(
+		readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"),
+	) as { redirects: unknown };
+	assert.deepEqual(vercel.redirects, [
+		{ source: "/papers/:file", destination: "/paper/:file", permanent: true },
+	]);
+	assert.equal(WORKING_PAPER_PDF, "/paper/legalforecastbench-working.pdf");
+});
+
 test("llms.txt describes each page and links the data and citation files", () => {
 	const text = llmsTxt([
 		{
@@ -249,13 +278,15 @@ test("llms.txt describes each page and links the data and citation files", () =>
 		},
 	]);
 	const site = "https://www.legalforecastbench.org";
-	assert.ok(text.includes(`- [Results](${site}/results/): Ranked scores.`));
+	assert.ok(
+		text.includes(`- [Results](${site}/agent/results.md): Ranked scores.`),
+	);
 	for (const path of [
 		"/data/current.json",
 		"/data/significance/comparison.json",
 		"/data/sources.json",
 		"/data/costs.json",
-		"/papers/legalforecastbench-working.pdf",
+		"/paper/legalforecastbench-working.pdf",
 		"/lab/",
 	]) {
 		assert.ok(text.includes(`](${site}${path})`), path);

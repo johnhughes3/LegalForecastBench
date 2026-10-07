@@ -6,7 +6,7 @@ set -euo pipefail
 
 paper_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd -- "$paper_dir/../.." && pwd)
-rel=site/public/papers/legalforecastbench-working.pdf
+rel=site/public/paper/legalforecastbench-working.pdf
 built="$paper_dir/build/LegalForecastBench-paper.pdf"
 dest="$repo_root/$rel"
 

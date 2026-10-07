@@ -14,7 +14,11 @@ import { publishedFindings } from "../data/findings.js";
 import { repositoryRoot } from "../data/manuscript.js";
 import { formatPercent } from "../data/metrics.js";
 import { PAPER } from "../data/paper.js";
-import { primarySnapshot, snapshot } from "../data/results.js";
+import {
+	primarySnapshot,
+	releaseDescription,
+	snapshot,
+} from "../data/results.js";
 import { supplementaryRows } from "../data/supplementary-results.js";
 import type { AgentDocument } from "./agent-document.js";
 import { COPY } from "./copy.js";
@@ -51,10 +55,6 @@ function homeMarkdown(): string {
 			lines.push(`[${faq.hrefLabel}](${absoluteUrl(faq.href)})`, "");
 		}
 	}
-	lines.push(
-		"Send `Accept: text/markdown` against any page URL for markdown at that same address.",
-		"",
-	);
 	return lines.join("\n");
 }
 
@@ -210,10 +210,10 @@ function experimentMarkdown(): string {
 }
 
 function dataMarkdown(): string {
-	const { cohort, provenance } = snapshot;
+	const { provenance } = snapshot;
 	return [
 		header(COPY.data.title, COPY.data.description, "/data/"),
-		`Forecasts by ${snapshot.models.length} model configurations of whether each challenged claim in ${cohort.case_count} federal motions to dismiss would be fully dismissed, scored against the actual rulings (${cohort.unit_count} claim-defendant units).`,
+		releaseDescription(),
 		"",
 		`- Release: ${provenance.release}`,
 		`- Main results JSON: ${absoluteUrl("/data/current.json")}`,

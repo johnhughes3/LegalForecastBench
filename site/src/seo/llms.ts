@@ -51,16 +51,18 @@ export function llmsTxt(docs: readonly AgentDocument[]): string {
 		"",
 		"## For AI agents",
 		"",
-		"Send `Accept: text/markdown` or `Accept: text/plain` against any page URL on this site to receive markdown at that same address. Do not request a separate `.md` URL.",
+		"Each page below links to its markdown copy. The `Canonical:` line at the top of each copy gives the HTML page to cite.",
 		"",
-		`Index of the full text: ${absoluteUrl("/llms-full.txt")}`,
+		`Every copy in one file: ${absoluteUrl("/llms-full.txt")}`,
 		`Sitemap: ${absoluteUrl("/sitemap-index.xml")}`,
 		"",
 		"## Pages",
 		"",
 	];
 	for (const doc of docs) {
-		lines.push(entry(doc.title, absoluteUrl(doc.path), doc.description));
+		lines.push(
+			entry(doc.title, absoluteUrl(`/agent/${doc.slug}.md`), doc.description),
+		);
 	}
 	lines.push(
 		"",
