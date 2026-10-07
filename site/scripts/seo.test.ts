@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { AUTHOR } from "../src/data/author";
-import { PAPER } from "../src/data/paper";
+import { currentPaper, PAPER } from "../src/data/paper";
 
 test("built paper exposes Scholar metadata and identical same-directory full text", () => {
 	const html = readFileSync("dist/paper/index.html", "utf8");
@@ -17,6 +17,10 @@ test("built paper exposes Scholar metadata and identical same-directory full tex
 	assert.match(
 		metadata.get("citation_publication_date") ?? "",
 		/^\d{4}\/\d{2}\/\d{2}$/,
+	);
+	assert.equal(
+		metadata.get("citation_publication_date"),
+		(currentPaper?.date ?? PAPER.revisedOn)?.replaceAll("-", "/"),
 	);
 	const abstractUrl = new URL(metadata.get("citation_abstract_html_url") ?? "");
 	const pdfUrl = new URL(metadata.get("citation_pdf_url") ?? "");
