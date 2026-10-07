@@ -1,7 +1,7 @@
 {
   "authenticated_source_profiles": [],
   "dynamic_imports": {
-    "docs/papers/legalforecastbench/analysis/lab_review.py": [
+    "docs/papers/lab-audit/analysis/lab_review.py": [
       "harvey_review_sample"
     ],
     "docs/papers/pangram_check.py": [
@@ -60,8 +60,8 @@
     "legalforecast"
   ],
   "file_relative_resolution": [
+    "docs/papers/lab-audit/analysis/lab_review.py",
     "docs/papers/legalforecastbench/analysis/clustering.py",
-    "docs/papers/legalforecastbench/analysis/lab_review.py",
     "docs/papers/legalforecastbench/figures/make_figures.py",
     "examples/adapters/claude-agent-sdk/adapter.py",
     "examples/adapters/codex-cli/adapter.py",

@@ -32,9 +32,22 @@ concurrency:
 
 jobs:
   build:
-    name: Compile working paper
+    name: Compile ${{ matrix.name }} paper
     permissions:
       contents: read
+    strategy:
+      # One paper's failure should not cancel the other's compile.
+      fail-fast: false
+      matrix:
+        include:
+          - name: legalforecastbench
+            manuscript: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+            built: docs/papers/legalforecastbench/build/LegalForecastBench-paper.pdf
+            pdf: site/public/paper/legalforecastbench-working.pdf
+          - name: lab-audit
+            manuscript: docs/papers/lab-audit/LAB-audit-paper.tex
+            built: docs/papers/lab-audit/build/LAB-audit-paper.pdf
+            pdf: docs/papers/lab-audit/LAB-audit-paper.pdf
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     # The small pinned image needs no runtime package installation. Two
     # bounded pulls keep a registry stall from consuming the whole job.
@@ -50,48 +63,58 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Check generated figures against the manuscript
+        if: matrix.name == 'legalforecastbench'
         run: >-
           uv run --no-project --python 3.14 python
           docs/papers/legalforecastbench/figures/make_figures.py --check
           --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 
       - name: Check clustering analysis against the manuscript
+        if: matrix.name == 'legalforecastbench'
         run: >-
           uv run --frozen python docs/papers/legalforecastbench/analysis/clustering.py --check
           --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 
-      - name: Check the LAB human-review appendix against the worksheet
+      - name: Check the LAB human-review numbers against the worksheet
+        env:
+          MANUSCRIPT: ${{ matrix.manuscript }}
         run: >-
-          uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --check
-          --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+          uv run --frozen python docs/papers/lab-audit/analysis/lab_review.py --check
+          --manuscript "$MANUSCRIPT"
 
       - name: Compile with pinned TeX Live
-        run: bash docs/papers/build.sh --container
+        env:
+          PAPER: ${{ matrix.name }}
+        run: bash docs/papers/build.sh --paper "$PAPER" --container
 
       - name: Upload PDF preview
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: legalforecastbench-paper-${{ github.sha }}
-          path: docs/papers/legalforecastbench/build/LegalForecastBench-paper.pdf
+          name: ${{ matrix.name }}-paper-${{ github.sha }}
+          path: ${{ matrix.built }}
           if-no-files-found: error
           retention-days: 30
 
       # main rejects a workflow-token push: the new commit would not already
-      # have the required Python quality gates check. The website PDF has to
+      # have the required Python quality gates check. The committed PDF has to
       # arrive in the same pull request as the manuscript change.
-      - name: Require the website PDF to match the compile
+      - name: Require the committed PDF to match the compile
+        env:
+          PAPER: ${{ matrix.name }}
+          BUILT: ${{ matrix.built }}
+          COMMITTED: ${{ matrix.pdf }}
         run: |
           set -euo pipefail
-          committed=site/public/paper/legalforecastbench-working.pdf
-          if cmp -s docs/papers/legalforecastbench/build/LegalForecastBench-paper.pdf "$committed"; then
+          if cmp -s "$BUILT" "$COMMITTED"; then
             exit 0
           fi
-          printf 'The compiled PDF differs from %s.\n' "$committed" >&2
-          printf 'Download the legalforecastbench-paper artifact from this run and commit that file.\n' >&2
+          printf 'The compiled PDF differs from %s.\n' "$COMMITTED" >&2
+          printf 'Download the %s-paper artifact from this run and commit that file,\n' "$PAPER" >&2
+          printf 'or run bash docs/papers/check-pdfs.sh locally.\n' >&2
           exit 1
 
   pangram:
-    name: Pangram check of author prose
+    name: Pangram check of ${{ matrix.name }} prose
     # Scoring spends Pangram credits, so it runs only for pull requests from
     # this repository (forks have no secret), not Dependabot's (dependency
     # bumps do not touch the prose and get no secret), and on manual dispatch. It skips
@@ -104,11 +127,20 @@ jobs:
        github.event.pull_request.user.login != 'dependabot[bot]')
     permissions:
       contents: read
+    strategy:
+      # Canceling a sibling mid-scan would discard a paid result before it is cached.
+      fail-fast: false
+      matrix:
+        include:
+          - name: legalforecastbench
+            manuscript: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+          - name: lab-audit
+            manuscript: docs/papers/lab-audit/LAB-audit-paper.tex
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 10
     env:
-      OUT: docs/papers/legalforecastbench/build/pangram
-      MANUSCRIPT: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+      OUT: docs/papers/${{ matrix.name }}/build/pangram
+      MANUSCRIPT: ${{ matrix.manuscript }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,7 +157,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
-          sparse-checkout: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+          # A paper new in this pull request is absent here and is scored in full.
+          sparse-checkout: ${{ matrix.manuscript }}
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -157,13 +190,14 @@ jobs:
         id: cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: docs/papers/legalforecastbench/build/pangram/response.json
-          key: pangram-${{ steps.extract.outputs.hash }}
+          path: ${{ env.OUT }}/response.json
+          key: pangram-${{ matrix.name }}-${{ steps.extract.outputs.hash }}
 
       - name: Score with Pangram
         if: steps.extract.outputs.unchanged != 'true'
         env:
           PANGRAM_API_KEY: ${{ secrets.PANGRAM_API_KEY }}
+          PAPER: ${{ matrix.name }}
           CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
           # Fail unless Pangram classifies all of the scored text as
           # human-written: no part of it may be AI or AI-assisted.
@@ -183,7 +217,7 @@ jobs:
             docs/papers/pangram_check.py "${args[@]}" \
             | tee "$OUT/report.txt" || status=$?
           {
-            echo '### Pangram check of author prose'
+            echo "### Pangram check of $PAPER prose"
             echo
             echo '```'
             cat "$OUT/report.txt"
@@ -192,17 +226,17 @@ jobs:
           exit "$status"
 
       - name: Save the result for this text
-        if: always() && steps.extract.outputs.unchanged != 'true' && steps.cache.outputs.cache-hit != 'true' && hashFiles('docs/papers/legalforecastbench/build/pangram/response.json') != ''
+        if: always() && steps.extract.outputs.unchanged != 'true' && steps.cache.outputs.cache-hit != 'true' && hashFiles(format('docs/papers/{0}/build/pangram/response.json', matrix.name)) != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: docs/papers/legalforecastbench/build/pangram/response.json
-          key: pangram-${{ steps.extract.outputs.hash }}
+          path: ${{ env.OUT }}/response.json
+          key: pangram-${{ matrix.name }}-${{ steps.extract.outputs.hash }}
 
       - name: Upload the scored text and response
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: pangram-${{ github.sha }}
-          path: docs/papers/legalforecastbench/build/pangram/
+          name: pangram-${{ matrix.name }}-${{ github.sha }}
+          path: ${{ env.OUT }}/
           if-no-files-found: ignore
           retention-days: 30

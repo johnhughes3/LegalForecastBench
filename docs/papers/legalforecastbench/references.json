@@ -277,37 +277,6 @@
     "type": "paper"
   },
   {
-    "key": "harveyTraining",
-    "title": "Training a Legal Agent with Applied Compute",
-    "authors": [
-      "Niko Grupen",
-      "Julio Pereyra",
-      "Gabe Pereyra",
-      "Rhythm Garg",
-      "Jacob Phillips",
-      "Raymond Feng"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://www.harvey.ai/blog/training-a-legal-agent-with-applied-compute",
-    "type": "company report"
-  },
-  {
-    "key": "tenet",
-    "title": "Harvey Tenet Research Preview",
-    "authors": [
-      "Calvin Qi",
-      "Vasudha Rengarajan",
-      "Julio Pereyra",
-      "Niko Grupen",
-      "Gabe Pereyra"
-    ],
-    "year": 2026,
-    "venue": "August 20, 2026 company research report",
-    "url": "https://www.harvey.ai/blog/post-training-update-harvey-tenet",
-    "type": "company report"
-  },
-  {
     "key": "legalbench",
     "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
     "authors": [
@@ -397,6 +366,19 @@
     "type": "paper"
   },
   {
+    "key": "securitiesFilings2024",
+    "title": "Securities Class Action Filings—2024 Year in Review",
+    "authors": [
+      "Cornerstone Research",
+      "Stanford Law School Securities Class Action Clearinghouse"
+    ],
+    "type": "report",
+    "venue": "Cornerstone Research and Stanford Law School Securities Class Action Clearinghouse",
+    "year": 2025,
+    "url": "https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf",
+    "pdf_url": "https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf"
+  },
+  {
     "key": "shadow",
     "title": "Bargaining in the Shadow of the Law: The Case of Divorce",
     "authors": [
@@ -463,52 +445,6 @@
     "url": "https://arxiv.org/abs/2602.04690",
     "pdf_url": "https://arxiv.org/pdf/2602.04690",
     "type": "paper"
-  },
-  {
-    "key": "labaudit",
-    "title": "Harvey LAB litigation and dispute resolution audit: GPT-6 Sol and Claude Opus 5.5",
-    "authors": [
-      "GPT-6 Sol audit workers",
-      "Claude Opus 5.5 audit workers",
-      "Coordinating agents; individual provenance not fully recorded"
-    ],
-    "year": 2026,
-    "venue": "Local research artifact, pinned September 29, 2026",
-    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359/docs/harvey-lab-audit/litigation-dispute-resolution",
-    "type": "primary artifact"
-  },
-  {
-    "key": "labreview",
-    "title": "Human review of AI-flagged Harvey LAB litigation criteria: protocol, sample, and worksheet",
-    "authors": [
-      "John Hughes"
-    ],
-    "year": 2026,
-    "venue": "Research artifact",
-    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/human-review",
-    "type": "dataset"
-  },
-  {
-    "key": "labcitecheck",
-    "title": "Citation check of the Harvey LAB litigation and dispute resolution task environments",
-    "authors": [
-      "Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author"
-    ],
-    "year": 2026,
-    "venue": "AI-generated research artifact, not attorney-reviewed",
-    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check",
-    "type": "dataset"
-  },
-  {
-    "key": "labtask",
-    "title": "Pinned LAB task.json for analyze-counterparty-motion-to-dismiss",
-    "authors": [
-      "Harvey AI task authors; upstream authorship not individually listed"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json",
-    "type": "primary artifact"
   },
   {
     "key": "ruger",
@@ -593,19 +529,6 @@
     "type": "paper"
   },
   {
-    "key": "harveyResearchLab",
-    "title": "How Harvey Built a Research Lab on a Budget",
-    "authors": [
-      "Gabe Pereyra"
-    ],
-    "year": 2026,
-    "venue": "Sequoia Capital, Own Your Intelligence; August 11, 2026",
-    "url": "https://www.youtube.com/watch?v=MGouk8W51v0&t=251s",
-    "accessed": "2026-10-06",
-    "notes": "Slide at 4:11, Scale with expert data providers, states that Mercor and Snorkel run expert review and verification of every generated LAB task.",
-    "type": "video"
-  },
-  {
     "key": "harveyLAB",
     "title": "Introducing Harvey's Legal Agent Benchmark",
     "authors": [
@@ -673,17 +596,6 @@
     "type": "paper"
   },
   {
-    "key": "swecritique",
-    "title": "Why SWE-bench Verified no longer measures frontier coding capabilities",
-    "authors": [
-      "OpenAI"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/",
-    "type": "company report"
-  },
-  {
     "key": "jevdocs",
     "title": "Models: Jev and the System One Interface",
     "authors": [
@@ -720,17 +632,6 @@
     "type": "paper"
   },
   {
-    "key": "labAAboard",
-    "title": "Harvey LAB-AA evaluation results",
-    "authors": [
-      "Artificial Analysis"
-    ],
-    "year": 2026,
-    "venue": "Leaderboard, accessed October 5, 2026",
-    "url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
-    "type": "company report"
-  },
-  {
     "key": "makicc",
     "title": "Analysing Intraclass Correlation for Dichotomous Variables",
     "authors": [
@@ -742,16 +643,13 @@
     "type": "paper"
   },
   {
-    "key": "securitiesFilings2024",
-    "title": "Securities Class Action Filings—2024 Year in Review",
+    "key": "labauditpaper",
+    "title": "Auditing Harvey's Legal Agent Benchmark: Rubric and Citation Errors in Litigation Tasks",
     "authors": [
-      "Cornerstone Research",
-      "Stanford Law School Securities Class Action Clearinghouse"
+      "John J. Hughes, III"
     ],
-    "type": "report",
-    "venue": "Cornerstone Research and Stanford Law School Securities Class Action Clearinghouse",
-    "year": 2025,
-    "url": "https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf",
-    "pdf_url": "https://securities.stanford.edu/research-reports/1996-2024/Securities-Class-Action-Filings-2024-Year-in-Review.pdf"
+    "year": 2026,
+    "venue": "Working paper, forthcoming",
+    "type": "paper"
   }
 ]

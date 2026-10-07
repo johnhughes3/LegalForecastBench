@@ -26,7 +26,7 @@ This index covers the current public contracts, operator guides, and reproducibl
 
 ## Research References
 
-- [Working paper and PDF build](papers/README.md): canonical LaTeX manuscript, public numerical inputs, reference metadata, CI previews, and versioned publication instructions.
+- [Working papers and PDF builds](papers/README.md): the LegalForecastBench and Harvey LAB audit manuscripts, public numerical inputs, reference metadata, committed-PDF checks, CI previews, and versioned publication instructions.
 - [Paper figure reproduction](papers/legalforecastbench/figures/README.md): regenerate the manuscript CSVs and inline TikZ result figures from public inputs.
 - [Paper clustering analysis](papers/legalforecastbench/analysis/README.md) — Reproduce within-case dependence estimates and refresh the manuscript statistics.
 - [Rationale review export](rationale-audit.md): prepare private, model-blinded case assessments and unit rationales from saved forecasts for qualitative review.

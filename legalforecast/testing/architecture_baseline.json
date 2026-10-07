@@ -127,6 +127,23 @@
       ]
     ],
     "files": {
+      "docs/papers/lab-audit/analysis/lab_review.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "statistics",
+        "largest_symbol_lines": 67,
+        "layer": "application",
+        "line_count": 342,
+        "nonblank_line_count": 302,
+        "top_level_definition_count": 10
+      },
       "docs/papers/legalforecastbench/analysis/clustering.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -144,23 +161,6 @@
         "line_count": 685,
         "nonblank_line_count": 611,
         "top_level_definition_count": 19
-      },
-      "docs/papers/legalforecastbench/analysis/lab_review.py": {
-        "cycle_id": "",
-        "disposition_kind": "below-watch",
-        "disposition_owner": "other",
-        "fan_in": 0,
-        "fan_out": 0,
-        "flags": [
-          "relative-path"
-        ],
-        "lane_owner": "other",
-        "largest_symbol": "statistics",
-        "largest_symbol_lines": 67,
-        "layer": "application",
-        "line_count": 324,
-        "nonblank_line_count": 285,
-        "top_level_definition_count": 10
       },
       "docs/papers/legalforecastbench/figures/make_figures.py": {
         "cycle_id": "",
