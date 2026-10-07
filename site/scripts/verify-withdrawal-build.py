@@ -72,7 +72,7 @@ def verify(
     historical = json.loads((built / "historical-aggregates.json").read_text())
     assert historical["status"] == "superseded" and len(historical["models"]) == 7
     index = (built / "index.html").read_text()
-    assert "10 models plus the GPT-4.1 reference, on 1 cases and 2 units" in index
+    assert "10 models plus GPT-4.1 as a historical reference for non-thinking models, on 1 cases and 2 units" in index
     assert "historical-aggregates.json" in index
     summary = (ROOT / "site/dist/experiments/summary-pipelines/index.html").read_text()
     assert "Summary forecasts on the retained cohort" in summary and "0.1000" in summary
