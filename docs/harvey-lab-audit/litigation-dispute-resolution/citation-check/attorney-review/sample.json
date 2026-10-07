@@ -1,0 +1,110 @@
+{
+  "population": "unintentional problem citations in rubric-intent.json",
+  "population_size": 436,
+  "seed": 20261007,
+  "method": "random.Random(seed).sample over the population sorted by (task, ref); review order is draw order",
+  "draw_size": 20,
+  "first_stage": 10,
+  "sample": [
+    {
+      "task": "draft-jury-instructions",
+      "ref": 48,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "ref": 77,
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "ref": 103,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "draft-motion-to-dismiss-brief",
+      "ref": 82,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "assess-settlement-value-range",
+      "ref": 42,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+      "ref": 80,
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "task": "draft-opposition-to-motion-to-dismiss",
+      "ref": 78,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "draft-opposition-to-motion-to-dismiss",
+      "ref": 86,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "draft-responses-to-interrogatories",
+      "ref": 126,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "ref": 76,
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "task": "draft-opposition-to-motion-to-dismiss",
+      "ref": 40,
+      "final_status": "MISQUOTED"
+    },
+    {
+      "task": "identify-issues-in-counterparty-interrogatories",
+      "ref": 75,
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "task": "assess-settlement-value-range",
+      "ref": 84,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "draft-motion-for-summary-judgment",
+      "ref": 48,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "assess-settlement-value-range",
+      "ref": 122,
+      "final_status": "NOT_FOUND_LIKELY_FABRICATED"
+    },
+    {
+      "task": "draft-motion-to-dismiss-brief",
+      "ref": 287,
+      "final_status": "MISCHARACTERIZED"
+    },
+    {
+      "task": "draft-opposition-to-motion-to-dismiss",
+      "ref": 23,
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "task": "review-counterpartys-proposed-jury-instructions",
+      "ref": 88,
+      "final_status": "CITATION_POINTS_TO_DIFFERENT_CASE"
+    },
+    {
+      "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+      "ref": 11,
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "task": "assess-settlement-value-range",
+      "ref": 86,
+      "final_status": "MISCHARACTERIZED"
+    }
+  ]
+}
