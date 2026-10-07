@@ -1870,11 +1870,11 @@
         ],
         "lane_owner": "scripts",
         "largest_symbol": "render",
-        "largest_symbol_lines": 67,
+        "largest_symbol_lines": 71,
         "layer": "entrypoint",
-        "line_count": 263,
-        "nonblank_line_count": 226,
-        "top_level_definition_count": 11
+        "line_count": 334,
+        "nonblank_line_count": 289,
+        "top_level_definition_count": 14
       },
       "scripts/probe_openai_compatible_provider.py": {
         "cycle_id": "",

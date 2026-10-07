@@ -22,6 +22,7 @@ For each entry, read the citation where it appears in the task document, the aut
   - **Minor defect only**: the authority supports the proposition, but a pin cite, year, or similar detail is off.
   - **Not an error**: the citation is accurate.
 - **Error type, if confirmed**: the AI's category if it is right, otherwise the correct one.
+- **Rubric relevance (optional)**: whether the task's rubric tests the point the citation is used for, rewards relying on it, or ignores it. Each entry lists what an AI review of the rubric found and the text of any criterion that names the authority. This field does not affect the verdict or the count.
 - **Note**: what the authority actually says, with a locator, where useful.
 
 Only "Confirmed error" counts as confirmed.
