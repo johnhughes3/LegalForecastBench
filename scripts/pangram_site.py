@@ -111,6 +111,7 @@ class _Visible(HTMLParser):
         self._muted = 0  # open elements since entering a skipped or hidden one
         self._buffer: list[str] = []
         self._buffer_in_main = False
+        self._breaks: list[bool] = []  # per open element: does it end a paragraph?
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "title" and not self._muted and not self.title:
@@ -130,7 +131,16 @@ class _Visible(HTMLParser):
         if tag == "main":
             self.has_main = True
             self._main_depth += 1
-        if tag in BLOCKS:
+        # Tooltips and display-block spans read as their own paragraphs; left
+        # inline, a shared definition fuses with each row's own sentence and
+        # escapes the repeat filter.
+        breaks = (
+            tag in BLOCKS
+            or values.get("role") == "tooltip"
+            or "block" in (values.get("class") or "").split()
+        )
+        self._breaks.append(breaks)
+        if breaks:
             self._flush()
 
     def handle_endtag(self, tag: str) -> None:
@@ -141,7 +151,7 @@ class _Visible(HTMLParser):
         if self._muted:
             self._muted -= 1
             return
-        if tag in BLOCKS or tag == "main":
+        if (self._breaks.pop() if self._breaks else False) or tag == "main":
             self._flush()
         if tag == "main" and self._main_depth:
             self._main_depth -= 1

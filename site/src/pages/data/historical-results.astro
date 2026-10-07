@@ -14,9 +14,10 @@ const names: Record<string, string> = {
 	"openai:gpt-5.6-luna": "GPT-5.6 Luna",
 };
 ---
-<Layout title="Historical full-packet results" description="Separate exploratory results reconstructed from two saved runs on the earlier 100-case corpus, with prediction failures and outcome coverage disclosed.">
+<Layout title="Superseded full-packet results" description="Separate exploratory results reconstructed from two saved runs on the earlier 100-case corpus, with prediction failures and outcome coverage disclosed.">
   <section class="prose-lfb prose mx-auto max-w-4xl px-4 pt-14 sm:px-6">
-    <a href="/data/run-notes/">← Run notes</a>
+    <a href="/data/">← Data &amp; code</a>
+    <p><strong>Superseded.</strong> Kept for the record; not part of the current results.</p>
     <h1>Historical full-packet results</h1>
     <p>These two saved runs used the earlier 100-case corpus, before the corpus factory cutover. They are exploratory historical results: the earlier corpus had missing filed oppositions, and these results are separate from the current {snapshot.cohort.case_count}-case comparison and its rankings.</p>
     <p>Both configurations requested high reasoning with the older Inspect AI full-packet backend. Each case recorded one model request and no tool calls. These records do not establish execution with the current native document-tool agent. GPT-5.6 Luna requested the Flex service tier.</p>

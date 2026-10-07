@@ -74,6 +74,86 @@
 			"source": "/papers/:file",
 			"destination": "/paper/:file",
 			"permanent": true
+		},
+		{
+			"source": "/results/",
+			"destination": "/",
+			"permanent": true
+		},
+		{
+			"source": "/results",
+			"destination": "/",
+			"permanent": true
+		},
+		{
+			"source": "/methods/",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/methods",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/approach/",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/approach",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/analysis/",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/analysis",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/findings/:path*",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/findings",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/experiments/:path*",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/experiments",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/data/run-notes/",
+			"destination": "/data/",
+			"permanent": true
+		},
+		{
+			"source": "/data/run-notes",
+			"destination": "/data/",
+			"permanent": true
+		},
+		{
+			"source": "/lab/:path*",
+			"destination": "/paper/",
+			"permanent": true
+		},
+		{
+			"source": "/lab",
+			"destination": "/paper/",
+			"permanent": true
 		}
 	],
 	"rewrites": [
@@ -89,7 +169,7 @@
 			"destination": "/agent/home.md"
 		},
 		{
-			"source": "^/(results|methods|paper|analysis|approach)/$",
+			"source": "^/(paper|data)/$",
 			"has": [
 				{
 					"type": "header",
@@ -100,29 +180,7 @@
 			"destination": "/agent/$1.md"
 		},
 		{
-			"source": "^/data/$",
-			"has": [
-				{
-					"type": "header",
-					"key": "accept",
-					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
-				}
-			],
-			"destination": "/agent/data.md"
-		},
-		{
-			"source": "^/data/run-notes/$",
-			"has": [
-				{
-					"type": "header",
-					"key": "accept",
-					"value": "^(?=.*(?:text/plain|text/markdown))(?!.*text/html.*(?:text/plain|text/markdown)).*"
-				}
-			],
-			"destination": "/agent/data/run-notes.md"
-		},
-		{
-			"source": "^/(models|findings|experiments)/([^/]+)/$",
+			"source": "^/(models)/([^/]+)/$",
 			"has": [
 				{
 					"type": "header",

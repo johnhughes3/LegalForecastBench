@@ -32,19 +32,9 @@ const HAS = [
 export function negotiationRewrites(): NegotiationRewrite[] {
 	return [
 		{ source: "/", has: HAS, destination: "/agent/home.md" },
+		{ source: "^/(paper|data)/$", has: HAS, destination: "/agent/$1.md" },
 		{
-			source: "^/(results|methods|paper|analysis|approach)/$",
-			has: HAS,
-			destination: "/agent/$1.md",
-		},
-		{ source: "^/data/$", has: HAS, destination: "/agent/data.md" },
-		{
-			source: "^/data/run-notes/$",
-			has: HAS,
-			destination: "/agent/data/run-notes.md",
-		},
-		{
-			source: "^/(models|findings|experiments)/([^/]+)/$",
+			source: "^/(models)/([^/]+)/$",
 			has: HAS,
 			destination: "/agent/$1/$2.md",
 		},

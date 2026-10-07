@@ -59,6 +59,20 @@ def test_page_text_keeps_main_prose_only() -> None:
         assert hidden not in joined
 
 
+def test_tooltips_and_block_spans_are_their_own_paragraphs() -> None:
+    row = (
+        '<li>{name} <span role="tooltip"><span class="block">Eligible: the '
+        "provider reports a cutoff before the first decision.</span>"
+        '<span class="mt-1 block">The {name} cutoff predates the decision.</span>'
+        "</span> tail</li>"
+    )
+    html = "<main><ul>" + row.format(name="Alpha") + row.format(name="Bravo")
+    _, paragraphs = pangram_site.page_text(html + "</ul></main>")
+    definition = "Eligible: the provider reports a cutoff before the first decision."
+    assert paragraphs.count(definition) == 2
+    assert "The Alpha cutoff predates the decision." in paragraphs
+
+
 def _site(tmp_path: Path) -> Path:
     dist = tmp_path / "dist"
     pages = {

@@ -12,38 +12,9 @@ export const SECTION_CARDS = {
 		title:
 			"Can frontier models predict how federal judges rule on motions to dismiss?",
 	},
-	results: {
-		eyebrow: "Results",
-		title: "How well each model forecast federal motion-to-dismiss rulings",
-	},
-	analysis: {
-		eyebrow: "Analysis",
-		title: "What the forecasts show, and why the task matters",
-	},
 	paper: {
 		eyebrow: "Working paper",
 		title: "Forecasting judicial decisions as a test of legal reasoning",
-	},
-	approach: {
-		eyebrow: "Approach",
-		title: "Law can be a verifiable domain",
-	},
-	experiments: {
-		eyebrow: "Experiments",
-		title:
-			"Controlled comparisons that vary the input, harness, or reasoning setting",
-	},
-	findings: {
-		eyebrow: "Findings",
-		title: "Reports and notes on AI models and legal forecasting",
-	},
-	lab: {
-		eyebrow: "LAB explorer",
-		title: "Harvey LAB litigation tasks, AI audits, and a litigator's review",
-	},
-	methods: {
-		eyebrow: "Methods",
-		title: "How the benchmark builds cases, runs models, and scores forecasts",
 	},
 	data: {
 		eyebrow: "Data & code",

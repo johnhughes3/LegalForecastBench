@@ -1,6 +1,5 @@
 import { WORKING_PAPER_PDF } from "../data/paper.js";
 import type { AgentDocument } from "./agent-document.js";
-import { COPY } from "./copy.js";
 import { absoluteUrl, REPO } from "./identity.js";
 
 /** `- [title](url): description`, the entry form the llms.txt convention uses. */
@@ -71,10 +70,6 @@ export function llmsTxt(docs: readonly AgentDocument[]): string {
 		"The data is licensed under CC BY 4.0 and the code under the Apache License 2.0.",
 		"",
 		...resources(),
-		"",
-		"## Optional",
-		"",
-		entry(COPY.lab.title, absoluteUrl("/lab/"), COPY.lab.description),
 		"",
 	);
 	return lines.join("\n");

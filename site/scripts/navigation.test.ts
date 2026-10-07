@@ -48,7 +48,7 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						viewport: { width, height: 900 },
 						colorScheme,
 					});
-					await page.goto(`http://127.0.0.1:${address.port}/approach/`);
+					await page.goto(`http://127.0.0.1:${address.port}/data/`);
 					await page.evaluate(() => document.fonts.ready);
 					const context = `${width}px ${colorScheme}`;
 					assert.ok(
@@ -67,12 +67,12 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 					const narrow = width < 640;
 					assert.equal(
 						await nav.getByRole("link").count(),
-						narrow ? 6 : 5,
+						narrow ? 3 : 2,
 						context,
 					);
 					assert.equal(
 						await nav
-							.getByRole("link", { name: "Analysis", exact: true })
+							.getByRole("link", { name: "Data & Code", exact: true })
 							.getAttribute("aria-current"),
 						"page",
 					);
@@ -111,11 +111,8 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						);
 					}
 					// Tab to the last link: the mobile scroller must reveal keyboard focus.
-					await nav
-						.getByRole("link", { name: "Overview", exact: true })
-						.focus();
-					for (let index = 0; index < 4; index++)
-						await page.keyboard.press("Tab");
+					await nav.getByRole("link", { name: "Results", exact: true }).focus();
+					await page.keyboard.press("Tab");
 					const lastLink = nav.getByRole("link", {
 						name: "Data & Code",
 						exact: true,
@@ -136,75 +133,18 @@ test("navigation fits desktop, tablet, and narrow mobile widths", async () => {
 						await page.locator("html").getAttribute("data-theme"),
 						colorScheme === "light" ? "dark" : "light",
 					);
-					await page.goto(`http://127.0.0.1:${address.port}/methods/`);
+					await page.goto(`http://127.0.0.1:${address.port}/`);
 					const dismissalRate = formatPercent(
 						snapshot.cohort.dismissed_unit_count / snapshot.cohort.unit_count,
 					);
 					const dismissalStat = page
-						.getByText("Units dismissed", { exact: true })
+						.getByText("Dismissal base rate", { exact: true })
 						.locator("..");
 					assert.equal(
 						await dismissalStat.locator("p").first().textContent(),
 						dismissalRate,
-						`${context}: methods cohort rate matches the shared formatter`,
+						`${context}: home cohort rate matches the shared formatter`,
 					);
-					assert.equal(
-						await page
-							.getByText(
-								`Always forecast the cohort's dismissal rate (${dismissalRate})`,
-								{ exact: true },
-							)
-							.count(),
-						1,
-						`${context}: methods baseline uses the same rate`,
-					);
-					await page
-						.getByText("Show the full technical methods", { exact: true })
-						.click();
-					assert.equal(
-						await page
-							.getByRole("heading", {
-								name: "Construct And Intended Use",
-								level: 3,
-								exact: true,
-							})
-							.count(),
-						1,
-						`${context}: technical sections nest beneath the appendix`,
-					);
-					assert.equal(
-						await page
-							.getByRole("heading", {
-								name: "Model eligibility and contamination",
-								level: 4,
-								exact: true,
-							})
-							.count(),
-						1,
-						`${context}: technical subsections retain their hierarchy`,
-					);
-					if (width === 390) {
-						await page.goto(
-							`http://127.0.0.1:${address.port}/findings/first-release/`,
-						);
-						const region = page.getByRole("region", {
-							name: "High-confidence predictions",
-						});
-						assert.equal(await region.getAttribute("tabindex"), "0");
-						await region.focus();
-						assert.ok(
-							await region.evaluate(
-								(element) => element === document.activeElement,
-							),
-						);
-						await page.keyboard.press("ArrowRight");
-						await page.waitForFunction(
-							() =>
-								(document.querySelector(
-									'[aria-label="High-confidence predictions"]',
-								)?.scrollLeft ?? 0) > 0,
-						);
-					}
 					await page.close();
 				}
 			}

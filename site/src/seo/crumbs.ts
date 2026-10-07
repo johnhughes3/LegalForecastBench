@@ -10,19 +10,8 @@ export function crumbsFor(pathname: string, leaf: string): Crumb[] {
 	if (path === "/" || path === "/404/") return [];
 	const parts = path.split("/").filter(Boolean);
 	const first = parts[0];
-	const items: Crumb[] = [{ name: "Overview", path: "/" }];
-	if (first === "models") {
-		items.push({ name: "Results", path: "/results/" });
-	} else if (
-		first === "findings" ||
-		first === "experiments" ||
-		first === "approach"
-	) {
-		items.push({ name: "Analysis", path: "/analysis/" });
-	} else if (first === "lab") {
-		items.push({ name: "Analysis", path: "/analysis/" });
-		if (parts.length > 1) items.push({ name: "LAB explorer", path: "/lab/" });
-	} else if (first === "data" && parts.length > 1) {
+	const items: Crumb[] = [{ name: "Home", path: "/" }];
+	if (first === "data" && parts.length > 1) {
 		items.push({ name: "Data and code", path: "/data/" });
 	}
 	const parent = items[items.length - 1];

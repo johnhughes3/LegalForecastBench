@@ -18,7 +18,11 @@ const types: Record<string, string> = {
 };
 const TASK = "assess-reasonableness-of-staffing-levels-on-litigation-invoice";
 
-test("the LAB explorer works end to end in a browser", async () => {
+// The explorer's pages live in src/pages/_lab, which Astro does not route, until
+// the LAB audit paper is published; rename the directory back to relaunch.
+test("the LAB explorer works end to end in a browser", {
+	skip: "the LAB explorer is offline until the audit paper is published",
+}, async () => {
 	const server = createServer(async (request, response) => {
 		const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
 		const file = resolve(

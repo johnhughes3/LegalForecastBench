@@ -61,23 +61,15 @@ const path = Astro.url.pathname;
 const markdownCopy = isNotFound
 	? null
 	: markdownDestination(path, "text/markdown");
-// Articles keep their pre-reorganization URLs; `also` maps them to the
-// section they now belong to so the nav still marks where the reader is.
+// `also` maps pages under another prefix to the section they belong to, so
+// the nav still marks where the reader is.
 const nav = [
-	{ href: "/", label: "Overview", also: [] },
-	{ href: "/results/", label: "Results", also: ["/models/"] },
-	{ href: "/methods/", label: "Methods", also: [] },
-	{
-		href: "/analysis/",
-		label: "Analysis",
-		also: ["/findings/", "/experiments/", "/approach/", "/lab/"],
-	},
+	{ href: "/", label: "Results", also: ["/models/"] },
 	{ href: "/data/", label: "Data & Code", also: [] },
 ];
 const isActive = (item: (typeof nav)[number]) =>
-	item.href === "/"
-		? path === "/"
-		: [item.href, ...item.also].some((prefix) => path.startsWith(prefix));
+	(item.href === "/" ? path === "/" : path.startsWith(item.href)) ||
+	item.also.some((prefix) => path.startsWith(prefix));
 const onPaper = path.startsWith("/paper/");
 ---
 
