@@ -191,6 +191,17 @@ function toPlain(input: string): string {
 			i += 2;
 			continue;
 		}
+		// TeX double quotes. Left raw, they reach the page and its metadata as backticks.
+		if (input.startsWith("``", i)) {
+			out += "\u201c";
+			i += 2;
+			continue;
+		}
+		if (input.startsWith("''", i)) {
+			out += "\u201d";
+			i += 2;
+			continue;
+		}
 		const ch = input[i] ?? "";
 		if (ch === "~") {
 			out += " ";

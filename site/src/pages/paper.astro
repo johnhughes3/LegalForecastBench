@@ -46,7 +46,7 @@ const articleLd = scholarlyArticle({
 >
 	<Fragment slot="head">
 		<meta name="citation_title" content={PAPER.title} />
-		<meta name="citation_author" content={PAPER.author} />
+		<meta name="citation_author" content={AUTHOR.citationName} />
 		{paperDate && <meta name="citation_publication_date" content={paperDate.replaceAll("-", "/")} />}
 		<meta name="citation_abstract_html_url" content={new URL("/paper/", Astro.site).href} />
 		{pdfUrl && <meta name="citation_pdf_url" content={pdfUrl} />}
