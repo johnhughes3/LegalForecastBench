@@ -1,10 +1,8 @@
 ---
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import cff from "../../../CITATION.cff?raw";
 import CiteBox from "../components/CiteBox.astro";
 import { AUTHOR, REPO } from "../data/author";
-import { parseCitation } from "../data/citation";
 import { repositoryRoot } from "../data/manuscript";
 import { currentPaper, PAPER } from "../data/paper";
 import Layout from "../layouts/Layout.astro";
@@ -23,14 +21,21 @@ const fmt = (iso: string) =>
 		timeZone: "UTC",
 	});
 const history = [...PAPER.versions].reverse();
-const citation = parseCitation(cff);
+// Cite the current paper version, not CITATION.cff's software release date.
+const paperDate = currentPaper?.date ?? PAPER.revisedOn;
+// Scholar requires the full-text PDF in the abstract page's directory.
+// The static reading alias serves the existing PDF without changing its URL.
+const pdfUrl = workingPdfOnDisk
+	? new URL("/paper/legalforecastbench-working.pdf", Astro.site).href
+	: undefined;
 const articleLd = scholarlyArticle({
 	headline: PAPER.title,
 	description: PAPER.abstract.join(" "),
 	url: new URL("/paper/", Astro.site).href,
 	authorName: PAPER.author,
-	datePublished: citation.date,
+	datePublished: paperDate,
 	dateModified: PAPER.revisedOn,
+	...(pdfUrl ? { pdfUrl } : {}),
 });
 ---
 
@@ -39,13 +44,20 @@ const articleLd = scholarlyArticle({
 	description={`${PAPER.title}. ${PAPER.status} by ${PAPER.author}.`}
 	schema={[articleLd]}
 >
+	<Fragment slot="head">
+		<meta name="citation_title" content={PAPER.title} />
+		<meta name="citation_author" content={PAPER.author} />
+		{paperDate && <meta name="citation_publication_date" content={paperDate.replaceAll("-", "/")} />}
+		<meta name="citation_abstract_html_url" content={new URL("/paper/", Astro.site).href} />
+		{pdfUrl && <meta name="citation_pdf_url" content={pdfUrl} />}
+	</Fragment>
 	<article class="mx-auto max-w-4xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">{PAPER.status}{currentPaper && ` · v${currentPaper.version} · ${fmt(currentPaper.date)}`}</p>
 		<h1 class="mt-3 font-serif text-3xl font-medium leading-tight tracking-tight sm:text-5xl">{PAPER.title}</h1>
 		<p class="mt-5 text-base text-ink-2"><a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{PAPER.author}</a></p>
 		<p class="mt-2 text-sm text-ink-3">
-			{citation.date && <><span>Citation date </span><time datetime={citation.date}>{fmt(citation.date)}</time></>}
-			{PAPER.revisedOn && PAPER.revisedOn !== citation.date && (
+			{paperDate && <><span>Current paper citation date </span><time datetime={paperDate}>{fmt(paperDate)}</time></>}
+			{PAPER.revisedOn && PAPER.revisedOn !== paperDate && (
 				<> · Manuscript updated <time datetime={PAPER.revisedOn}>{fmt(PAPER.revisedOn)}</time></>
 			)}
 		</p>

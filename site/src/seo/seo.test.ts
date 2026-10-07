@@ -6,7 +6,14 @@ import { prefersMarkdown } from "./accept.js";
 import { COPY } from "./copy.js";
 import { FAQS } from "./faqs.js";
 import { originUrl } from "./identity.js";
-import { faqPageNode, jsonLdScript, pageGraph } from "./jsonld.js";
+import {
+	faqPageNode,
+	jsonLdScript,
+	organizationNode,
+	pageGraph,
+	personNode,
+	scholarlyArticle,
+} from "./jsonld.js";
 import { lastmodFor } from "./lastmod.js";
 import { llmsTxt } from "./llms.js";
 import { mdxToMarkdown, stripJsxOutsideCode } from "./markdown.js";
@@ -148,4 +155,29 @@ test("the homepage graph cites the visible FAQ and the organization", () => {
 	for (const faq of FAQS) {
 		assert.match(serialized, new RegExp(faq.question.replaceAll("?", "\\?")));
 	}
+});
+
+test("project and author identities are distinct", () => {
+	const project = organizationNode(originUrl());
+	assert.deepEqual(project.sameAs, [
+		"https://github.com/johnhughes3/LegalForecastBench",
+	]);
+	assert.ok(Array.isArray(personNode().sameAs));
+	assert.notDeepEqual(project.sameAs, personNode().sameAs);
+});
+
+test("paper full text is associated with its article, without inventing a PDF", () => {
+	const input = {
+		headline: "Paper title",
+		description: "Abstract",
+		url: "https://www.legalforecastbench.org/paper/",
+		authorName: "John J. Hughes, III",
+	};
+	assert.equal(scholarlyArticle(input).encoding, undefined);
+	const pdfUrl = `${input.url}legalforecastbench-working.pdf`;
+	assert.deepEqual(scholarlyArticle({ ...input, pdfUrl }).encoding, {
+		"@type": "MediaObject",
+		contentUrl: pdfUrl,
+		encodingFormat: "application/pdf",
+	});
 });

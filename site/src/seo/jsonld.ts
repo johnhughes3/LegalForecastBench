@@ -45,7 +45,9 @@ export function organizationNode(site: URL): JsonLdNode {
 			"@type": "ImageObject",
 			url: new URL(LOGO_PATH, site).href,
 		},
-		sameAs: [REPO, AUTHOR.github, AUTHOR.linkedin, AUTHOR.x],
+		// The project repository identifies the benchmark; the author's profiles
+		// identify the Person node, not this organization.
+		sameAs: [REPO],
 		contactPoint: {
 			"@type": "ContactPoint",
 			contactType: "author",
@@ -128,6 +130,7 @@ export function scholarlyArticle(input: {
 	datePublished?: string | null;
 	dateModified?: string | null;
 	image?: string;
+	pdfUrl?: string;
 }): JsonLdNode {
 	const modified =
 		input.dateModified && input.dateModified !== input.datePublished
@@ -146,6 +149,13 @@ export function scholarlyArticle(input: {
 		dateModified: modified,
 		image: input.image,
 		inLanguage: "en",
+		encoding: input.pdfUrl
+			? {
+					"@type": "MediaObject",
+					contentUrl: input.pdfUrl,
+					encodingFormat: "application/pdf",
+				}
+			: undefined,
 	});
 }
 
