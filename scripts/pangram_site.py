@@ -320,6 +320,16 @@ def main(argv: list[str] | None = None) -> int:
             f"estimated ${dollars:.2f} exceeds --max-usd {args.max_usd:.2f}; "
             "raise it to send"
         )
+    short = [
+        n
+        for n, d in enumerate(documents, 1)
+        if sum(u.words for u in d) < pangram.MIN_WORDS
+    ]
+    if short and sending:
+        raise SystemExit(
+            f"document(s) {', '.join(map(str, short))} have fewer than "
+            f"{pangram.MIN_WORDS} words, Pangram's minimum; widen --only"
+        )
     client = pangram._client() if sending else None
     status = 0
     for number, document in enumerate(documents, 1):

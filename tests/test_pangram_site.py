@@ -138,3 +138,17 @@ def test_a_window_counts_for_every_page_it_overlaps() -> None:
     ]
     owners = pangram_site.pangram.window_owners(text, spans, windows)
     assert owners == [[0, 1], [2], []]
+
+
+def test_a_document_under_pangrams_minimum_is_refused_before_sending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(pangram_site.pangram.KEY_VARIABLE, "placeholder")
+
+    def refuse() -> None:
+        raise AssertionError("no request may be sent")
+
+    monkeypatch.setattr(pangram_site.pangram, "_client", refuse)
+    dist = _site(tmp_path)
+    with pytest.raises(SystemExit, match="Pangram's minimum"):
+        pangram_site.main(["--dist", str(dist), "--out", str(tmp_path / "o")])
