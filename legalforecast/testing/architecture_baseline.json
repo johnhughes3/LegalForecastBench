@@ -158,8 +158,8 @@
         "largest_symbol": "statistics",
         "largest_symbol_lines": 67,
         "layer": "application",
-        "line_count": 322,
-        "nonblank_line_count": 283,
+        "line_count": 324,
+        "nonblank_line_count": 285,
         "top_level_definition_count": 10
       },
       "docs/papers/legalforecastbench/figures/make_figures.py": {

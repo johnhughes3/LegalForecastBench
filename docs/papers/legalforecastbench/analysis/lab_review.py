@@ -19,9 +19,11 @@ worksheet, because the counts above would then contradict the entries.
 
 Run from the repository root::
 
-    uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --check \\
+    uv run --frozen python \\
+        docs/papers/legalforecastbench/analysis/lab_review.py --check \\
         --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
-    uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --write-manuscript \\
+    uv run --frozen python \\
+        docs/papers/legalforecastbench/analysis/lab_review.py --write-manuscript \\
         --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 """
 

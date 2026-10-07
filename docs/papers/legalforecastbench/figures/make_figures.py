@@ -8,8 +8,8 @@ match the current manuscript bodies; they are deliberately not the historical
 Matplotlib/PGFPlots figures in the research workspace.
 
 Use ``--check`` in CI to verify committed generated artifacts.  Add
-``--manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex`` to compare every
-generated TikZ block with the standalone manuscript.
+``--manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex``
+to compare every generated TikZ block with the standalone manuscript.
 """
 
 from __future__ import annotations

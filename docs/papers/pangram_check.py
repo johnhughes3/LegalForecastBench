@@ -43,7 +43,7 @@ from typing import Any, NamedTuple
 
 KEY_VARIABLE = "PANGRAM_API_KEY"
 
-# Pangram's published limits (docs/papers/legalforecastbench/README.md links the sources): a minimum
+# Pangram's published limits (docs/papers/README.md links the sources): a minimum
 # input of 50 words, and 18,725 words per scan in the web app, which is used here
 # as the per-request ceiling because the API documentation states none.
 MIN_WORDS = 50
