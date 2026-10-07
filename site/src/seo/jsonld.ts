@@ -6,6 +6,7 @@ import {
 	organizationId,
 	REPO,
 	SITE_NAME,
+	SITE_ORIGIN,
 	websiteId,
 } from "./identity.js";
 
@@ -159,12 +160,33 @@ export function scholarlyArticle(input: {
 	});
 }
 
+/** What the downloads report for each model configuration. */
+const DATASET_VARIABLES = [
+	"Micro Brier score",
+	"Equal-case Brier score",
+	"Unit accuracy",
+	"Estimated standard-rate cost",
+];
+
+const DATASET_KEYWORDS = [
+	"legal AI benchmark",
+	"motion to dismiss",
+	"judicial outcome forecasting",
+	"federal courts",
+	"Brier score",
+	"large language model evaluation",
+];
+
 export function datasetNode(input: {
 	name: string;
 	description: string;
 	url: string;
 	temporalCoverage: string;
-	contentUrl: string;
+	/** Release identifier shown on the data page. */
+	version: string;
+	dateModified: string;
+	/** JSON downloads linked from the data page; the first is the main file. */
+	downloads: readonly { name: string; contentUrl: string }[];
 }): JsonLdNode {
 	return {
 		"@type": "Dataset",
@@ -174,17 +196,34 @@ export function datasetNode(input: {
 		url: input.url,
 		creator: { "@id": authorId },
 		publisher: { "@id": organizationId },
+		version: input.version,
+		dateModified: input.dateModified,
 		temporalCoverage: input.temporalCoverage,
+		spatialCoverage: "United States",
+		keywords: DATASET_KEYWORDS,
+		variableMeasured: DATASET_VARIABLES,
 		isAccessibleForFree: true,
 		license: "https://creativecommons.org/licenses/by/4.0/",
-		distribution: [
-			{
-				"@type": "DataDownload",
-				encodingFormat: "application/json",
-				contentUrl: input.contentUrl,
-			},
-		],
+		distribution: input.downloads.map((download) => ({
+			"@type": "DataDownload",
+			name: download.name,
+			encodingFormat: "application/json",
+			contentUrl: download.contentUrl,
+		})),
+	};
+}
+
+/** The repository, as its own node: `codeRepository` is not a Dataset property. */
+export function softwareSourceCodeNode(): JsonLdNode {
+	return {
+		"@type": "SoftwareSourceCode",
+		"@id": `${SITE_ORIGIN}/#code`,
+		name: SITE_NAME,
+		description: "Benchmark code, prompts, scorer, and model registries.",
+		url: REPO,
 		codeRepository: REPO,
+		license: "https://www.apache.org/licenses/LICENSE-2.0",
+		author: { "@id": authorId },
 	};
 }
 

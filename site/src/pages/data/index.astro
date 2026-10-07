@@ -10,7 +10,7 @@ import {
 } from "../../data/supplementary-results";
 import Layout from "../../layouts/Layout.astro";
 import { COPY } from "../../seo/copy";
-import { datasetNode } from "../../seo/jsonld";
+import { datasetNode, softwareSourceCodeNode } from "../../seo/jsonld";
 
 const { provenance, cohort } = snapshot;
 const nameOf = (slug: string) =>
@@ -28,11 +28,24 @@ const datasetLd = datasetNode({
 	description: datasetDescription,
 	url: new URL("/data/", Astro.site).href,
 	temporalCoverage: `${cohort.decision_window.start}/${cohort.decision_window.end}`,
-	contentUrl: new URL("/data/current.json", Astro.site).href,
+	version: provenance.release,
+	dateModified: snapshot.as_of,
+	downloads: [
+		{ name: "Ranked results", path: "/data/current.json" },
+		{
+			name: "Paired significance analysis",
+			path: "/data/significance/comparison.json",
+		},
+		{ name: "Run and release provenance", path: "/data/sources.json" },
+		{ name: "Cost evidence", path: "/data/costs.json" },
+	].map(({ name, path }) => ({
+		name,
+		contentUrl: new URL(path, Astro.site).href,
+	})),
 });
 ---
 
-<Layout title={COPY.data.title} description={COPY.data.description} schema={[datasetLd]}>
+<Layout title={COPY.data.title} description={COPY.data.description} schema={[datasetLd, softwareSourceCodeNode()]}>
 	<section class="mx-auto max-w-5xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">Data &amp; code</p>
 		<div class="mt-3 flex flex-wrap items-end justify-between gap-4">

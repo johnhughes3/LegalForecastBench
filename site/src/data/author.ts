@@ -1,6 +1,12 @@
 /** Author and project links shared by the header, footer, homepage, and paper page. */
 export const AUTHOR = {
 	name: "John J. Hughes, III",
+	/**
+	 * `Family Suffix, Given` for bibliographic tags. Google Scholar reads a
+	 * comma as "Last, First", so the display name would index "III" as the
+	 * given name.
+	 */
+	citationName: "Hughes III, John J.",
 	site: "https://www.johnjhughesiii.com/",
 	research: "https://www.johnjhughesiii.com/research/",
 	contact: "https://www.johnjhughesiii.com/contact/",

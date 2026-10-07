@@ -35,6 +35,15 @@ Second paragraph uses \emph{forecasting} and drops \citep{brier}.}
 	assert.equal(parsed.revisedOn, null);
 });
 
+test("TeX double quotes become typographic quotes", () => {
+	const parsed = parseManuscript(
+		"\\title{T}\n\\begin{abstract}\nSo-called ``legal experts'' aren't a tribunal.\n\\end{abstract}\n",
+	);
+	assert.deepEqual(parsed.abstract, [
+		"So-called \u201clegal experts\u201d aren't a tribunal.",
+	]);
+});
+
 test("the paper page reads the checked-in manuscript", () => {
 	const parsed = parseManuscript(readFileSync(manuscriptPath, "utf8"));
 	assert.equal(PAPER.title, parsed.title);
@@ -53,6 +62,7 @@ test("the paper page reads the checked-in manuscript", () => {
 	);
 	assert.match(parsed.abstract[4] ?? "", /84\.5%/);
 	for (const paragraph of parsed.abstract) {
+		assert.doesNotMatch(paragraph, /``|''/);
 		assert.doesNotMatch(paragraph, /\\/);
 	}
 	assert.equal(
