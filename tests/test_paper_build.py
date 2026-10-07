@@ -183,7 +183,7 @@ def test_publish_working_copy_commits_only_a_changed_pdf(tmp_path: Path) -> None
     assert first.returncode == 0, first.stderr
     assert first.stdout.strip() == "UPDATED"
     assert (
-        repo / "site" / "public" / "papers" / "legalforecastbench-working.pdf"
+        repo / "site" / "public" / "paper" / "legalforecastbench-working.pdf"
     ).read_bytes() == pdf.read_bytes()
     second = _publish(repo, env)
     assert second.returncode == 0, second.stderr

@@ -83,7 +83,7 @@ The research archive, downloaded third-party papers, source credibility notes, a
 
 ## CI previews and the public paper page
 
-The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to this directory with the pinned TeX Live image and uploads a 30-day preview artifact. It fails when that PDF differs from `site/public/papers/legalforecastbench-working.pdf`. Commit the artifact in the same pull request. main cannot accept an automatic follow-up commit, because every commit there must already have passed the Python tests. The site serves the committed file at `/papers/legalforecastbench-working.pdf`. The paper page reads its title and abstract from `LegalForecastBench-paper.tex` while the site builds, so those update with the manuscript and do not have a second copy in [paper.ts](../../site/src/data/paper.ts).
+The [Paper workflow](../../.github/workflows/paper.yaml) compiles changes to this directory with the pinned TeX Live image and uploads a 30-day preview artifact. It fails when that PDF differs from `site/public/paper/legalforecastbench-working.pdf`. Commit the artifact in the same pull request. main cannot accept an automatic follow-up commit, because every commit there must already have passed the Python tests. The site serves the committed file at `/paper/legalforecastbench-working.pdf`. The paper page reads its title and abstract from `LegalForecastBench-paper.tex` while the site builds, so those update with the manuscript and do not have a second copy in [paper.ts](../../site/src/data/paper.ts).
 
 That working file is replaced when the manuscript changes. An immutable version is a separate, deliberate publication. Resolve the visible draft annotations and run:
 
@@ -91,4 +91,4 @@ That working file is replaced when the manuscript changes. An immutable version 
 bash docs/paper/build.sh --container --release
 ```
 
-Add the reviewed PDF under a new name such as `site/public/papers/legalforecastbench-v0.1.pdf`, record the source revision in the publication PR, and append the version, date, and results release in `paper.ts`. Leave older version files unchanged. A correction is a new version with a change note. The preview artifact alone is not a published version.
+Add the reviewed PDF under a new name such as `site/public/paper/legalforecastbench-v0.1.pdf`, record the source revision in the publication PR, and append the version, date, and results release in `paper.ts`. Leave older version files unchanged. A correction is a new version with a change note. The preview artifact alone is not a published version.

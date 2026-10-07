@@ -69,6 +69,13 @@
 			]
 		}
 	],
+	"redirects": [
+		{
+			"source": "/papers/:file",
+			"destination": "/paper/:file",
+			"permanent": true
+		}
+	],
 	"rewrites": [
 		{
 			"source": "/",

@@ -1,4 +1,4 @@
-import { AUTHOR, REPO } from "../data/author.js";
+import { AUTHOR, LEGALQUANTS, REPO } from "../data/author.js";
 
 /** Public origin. `astro.config` and every absolute URL on the site read this. */
 export const SITE_ORIGIN = (
@@ -25,4 +25,4 @@ export const organizationId = `${SITE_ORIGIN}/#organization`;
 export const websiteId = `${SITE_ORIGIN}/#website`;
 export const authorId = `${SITE_ORIGIN}/#author`;
 
-export { AUTHOR, REPO };
+export { AUTHOR, LEGALQUANTS, REPO };

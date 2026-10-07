@@ -15,8 +15,14 @@ const HAS = [
 ];
 
 /**
- * Header rewrites for the canonical URL. Destinations live under `/agent/`
- * and are disallowed in robots.txt. They are not linked or sitemapped.
+ * Header rewrites for the canonical URL, kept for a tested follow-up.
+ *
+ * As deployed they do not fire. Vercel gives the filesystem precedence over
+ * `rewrites`, and every page here is a static file. The `^` and `$` in these
+ * sources are also read as literal characters. Until that is fixed and
+ * checked against a live deployment, agents reach the markdown copies by
+ * their own URLs: llms.txt links them and each page names its copy in a
+ * `<link rel="alternate" type="text/markdown">`, via `markdownDestination`.
  *
  * Vercel compiles `source` with path-to-regexp, which rejects `?` (`/?` is
  * read as a modifier, not an optional slash). These patterns use the trailing

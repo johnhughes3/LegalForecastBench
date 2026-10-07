@@ -17,11 +17,13 @@ export const AI_CRAWLERS = [
 	"CCBot",
 ] as const;
 
-const RULES = ["Allow: /", "Disallow: /agent/"];
+const RULES = ["Allow: /"];
 
 /**
- * Crawlers may read the public site. The negotiation files are not a second copy.
- * A crawler obeys only its most specific group, so the named group repeats the rules.
+ * Crawlers may read the whole public site. llms.txt links the markdown copies
+ * under /agent/, so they are not disallowed; their `X-Robots-Tag: noindex`
+ * header keeps them out of search results, and a crawler has to be able to
+ * fetch a file to see that header.
  */
 export function robotsTxt(site: URL): string {
 	const sitemap = new URL("sitemap-index.xml", site).href;

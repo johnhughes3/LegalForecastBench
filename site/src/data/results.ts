@@ -40,3 +40,20 @@ export const primarySnapshot = {
 			!REFERENCE_SLUGS.has(pair.better) && !REFERENCE_SLUGS.has(pair.worse),
 	),
 };
+
+/**
+ * One sentence on what the release scores. The data page's JSON-LD and its
+ * markdown copy share it, so the count cannot differ between them. References
+ * are named apart from the ranked configurations the paper counts.
+ */
+export function releaseDescription(): string {
+	const { cohort } = snapshot;
+	const references = snapshot.models
+		.filter((model) => REFERENCE_SLUGS.has(model.slug))
+		.map((model) => model.display_name);
+	const reference =
+		references.length > 0
+			? `, plus the ${references.join(", ")} reference,`
+			: "";
+	return `Forecasts by ${primarySnapshot.models.length} ranked AI model configurations${reference} of whether each challenged claim in ${cohort.case_count} federal motions to dismiss would be fully dismissed, scored against the actual rulings (${cohort.unit_count} claim-defendant units).`;
+}

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import CiteBox from "../components/CiteBox.astro";
 import { AUTHOR, REPO } from "../data/author";
 import { repositoryRoot } from "../data/manuscript";
-import { currentPaper, PAPER } from "../data/paper";
+import { currentPaper, PAPER, PAPER_CITATION } from "../data/paper";
 import Layout from "../layouts/Layout.astro";
 import { COPY } from "../seo/copy";
 import { scholarlyArticle } from "../seo/jsonld";
@@ -21,12 +21,12 @@ const fmt = (iso: string) =>
 		timeZone: "UTC",
 	});
 const history = [...PAPER.versions].reverse();
-// Cite the current paper version, not CITATION.cff's software release date.
-const paperDate = currentPaper?.date ?? PAPER.revisedOn;
-// Scholar requires the full-text PDF in the abstract page's directory.
-// The static reading alias serves the existing PDF without changing its URL.
+// First publication is fixed in CITATION.cff. The manuscript date only
+// drives `dateModified`.
+const paperDate = PAPER.publishedOn;
+const revisedLater = PAPER.revisedOn !== null && PAPER.revisedOn > paperDate;
 const pdfUrl = workingPdfOnDisk
-	? new URL("/paper/legalforecastbench-working.pdf", Astro.site).href
+	? new URL(PAPER.workingPdf, Astro.site).href
 	: undefined;
 const articleLd = scholarlyArticle({
 	headline: PAPER.title,
@@ -34,7 +34,7 @@ const articleLd = scholarlyArticle({
 	url: new URL("/paper/", Astro.site).href,
 	authorName: PAPER.author,
 	datePublished: paperDate,
-	dateModified: PAPER.revisedOn,
+	dateModified: revisedLater ? PAPER.revisedOn : null,
 	...(pdfUrl ? { pdfUrl } : {}),
 });
 ---
@@ -47,7 +47,8 @@ const articleLd = scholarlyArticle({
 	<Fragment slot="head">
 		<meta name="citation_title" content={PAPER.title} />
 		<meta name="citation_author" content={AUTHOR.citationName} />
-		{paperDate && <meta name="citation_publication_date" content={paperDate.replaceAll("-", "/")} />}
+		<meta name="citation_publication_date" content={paperDate.replaceAll("-", "/")} />
+		{PAPER_CITATION.doi && <meta name="citation_doi" content={PAPER_CITATION.doi} />}
 		<meta name="citation_abstract_html_url" content={new URL("/paper/", Astro.site).href} />
 		{pdfUrl && <meta name="citation_pdf_url" content={pdfUrl} />}
 	</Fragment>
@@ -56,8 +57,8 @@ const articleLd = scholarlyArticle({
 		<h1 class="mt-3 font-serif text-3xl font-medium leading-tight tracking-tight sm:text-5xl">{PAPER.title}</h1>
 		<p class="mt-5 text-base text-ink-2"><a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{PAPER.author}</a></p>
 		<p class="mt-2 text-sm text-ink-3">
-			{paperDate && <><span>Current paper citation date </span><time datetime={paperDate}>{fmt(paperDate)}</time></>}
-			{PAPER.revisedOn && PAPER.revisedOn !== paperDate && (
+			<span>First posted </span><time datetime={paperDate}>{fmt(paperDate)}</time>
+			{PAPER.revisedOn && revisedLater && (
 				<> · Manuscript updated <time datetime={PAPER.revisedOn}>{fmt(PAPER.revisedOn)}</time></>
 			)}
 		</p>
