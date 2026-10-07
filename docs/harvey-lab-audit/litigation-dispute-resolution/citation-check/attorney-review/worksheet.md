@@ -27,8 +27,8 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: Karnes)
 - **AI's reading of the rubric:** SJ order cites Karnes for the opposite of its holding. The finding shows the case does not support the order's proposition, but does not show the proposition (a disclaimer does not always negate specific handbook commitments; jury question) wrong under Ohio law, and the SJ order makes it law of the case; C-018/C-019 adopt that proposition without citing this case, so this is not counted as rubric reliance. No criterion asks the model to check the order's authorities.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
 - **Note:** 
 
@@ -58,10 +58,10 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: 1.3)
 - **AI's reading of the rubric:** No criterion addresses Instruction 6 or its pattern-number cite.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Wrong citation to a real authority
 - **Rubric relevance (optional):** 
-- **Note:** 
+- **Note:** Checked against every edition of the Eleventh Circuit Civil Pattern Jury Instructions available from the court (2005; 2013; 2018; revisions of Mar. 2022, Apr. 2024, Sept. 2025, Dec. 2025): the number never carried this content. 1.3 is Official English Translation/Interpretation from 2013 on; the equality sentence is 3.2.2 (2013 on) or Basic 2.2 (2005).
 
 ## 3. review-counterpartys-proposed-jury-instructions — citation 103 (first ten)
 
@@ -88,10 +88,10 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: 4.12)
 - **AI's reading of the rubric:** No criterion addresses Instruction 28 or its cite to pattern 4.12 (an ADA instruction).
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
-- **Note:** 
+- **Note:** Checked against every edition of the Eleventh Circuit Civil Pattern Jury Instructions available from the court (2005; 2013; 2018; revisions of Mar. 2022, Apr. 2024, Sept. 2025, Dec. 2025): the number never carried this content. 4.12 is the ADA reasonable-accommodation instruction from 2013 on and does not exist in 2005; no edition has a general proximate-cause instruction, so O.C.G.A. § 51-12-9 is the only support.
 
 ## 4. draft-motion-to-dismiss-brief — citation 82 (first ten)
 
@@ -119,8 +119,8 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: Riverside, Lewis)
 - **AI's reading of the rubric:** No criterion names Riverside National Bank or asks the model to verify the memo's DTPA consumer-status authority. No instruction or criterion asks the model to check the research memo's or the parties' authorities; the 'internal memo flagging threshold issues' instruction is aimed at jurisdiction (C-013–C-017, C-064–C-066).
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
 - **Note:** 
 
@@ -149,8 +149,8 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: 2307.76(A)(2))
 - **AI's reading of the rubric:** R.C. 2307.76(A)(2) cited for a modification defense; C-013/C-014 treat Apex's modification as a comparative-fault fact without citing or testing this statute.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
 - **Note:** 
 
@@ -180,10 +180,10 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: 17(l), 666(l))
 - **AI's reading of the rubric:** Wrong OSH Act subsection for the posting-penalty notice; no criterion reaches it.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Wrong citation to a real authority
 - **Rubric relevance (optional):** 
-- **Note:** 
+- **Note:** One-letter slip: § 17(l) / § 666(l) (payment of civil penalties) for § 17(i) / § 666(i) (posting-requirement penalties), in the agency's citation notice.
 
 ## 7. draft-opposition-to-motion-to-dismiss — citation 78 (first ten)
 
@@ -217,8 +217,8 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 
 </details>
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
 - **Note:** 
 
@@ -247,8 +247,8 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: MacDermid, Deiter)
 - **AI's reading of the rubric:** No instruction or criterion asks the model to identify, flag, correct, or avoid this authority or citation errors in this document; TOA entry.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
 - **Note:** 
 
@@ -278,8 +278,8 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: 37.1)
 - **AI's reading of the rubric:** No criterion reaches the CMO's characterization of W.D. Pa. LCvR 37.1.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Mischaracterized (cited for a proposition it does not support)
 - **Rubric relevance (optional):** 
 - **Note:** 
 
@@ -309,10 +309,10 @@ Review in order, following the [protocol](README.md). Fill in the three fields u
 - **Criteria that name this authority:** none (searched for: 3.1)
 - **AI's reading of the rubric:** No criterion flags Instruction 5's wrong pattern number. C-029 lists No. 5 as an example of an unobjectionable instruction, which shows the author did not see the defect, but C-029 passes on any two proper instructions, so flagging this cite costs nothing.
 
-- **Verdict:** 
-- **Error type, if confirmed:** 
+- **Verdict:** Confirmed error
+- **Error type, if confirmed:** Wrong citation to a real authority
 - **Rubric relevance (optional):** 
-- **Note:** 
+- **Note:** Checked against every edition of the Eleventh Circuit Civil Pattern Jury Instructions available from the court (2005; 2013; 2018; revisions of Mar. 2022, Apr. 2024, Sept. 2025, Dec. 2025): the number never carried this content. 3.1 is Introduction from 2013 on (Sherman Act or fraud in the 2005 claim series); the preponderance instruction is 3.7.1 (2013 on) or Basic 6.1 (2005).
 
 ## 11. draft-opposition-to-motion-to-dismiss — citation 40 (second ten (only if needed))
 
