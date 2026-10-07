@@ -4,11 +4,12 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash docs/paper/build.sh [--container] [--release]
+Usage: bash docs/papers/build.sh [--paper NAME] [--container] [--release]
 
-Build LegalForecastBench-paper.tex with latexmk and pdfLaTeX. The PDF and logs
-are written to docs/paper/build/. Undefined citations/references are errors.
+Build docs/papers/NAME/*-paper.tex with latexmk and pdfLaTeX. The PDF and logs
+are written to docs/papers/NAME/build/. Undefined citations/references are errors.
 
+  --paper NAME Paper directory under docs/papers (default: legalforecastbench).
   --container  Use the pinned TeX Live image (Docker, linux/amd64).
   --release    Refuse unresolved draft, citation, number, or TODO annotations.
   --help       Show this help.
@@ -20,22 +21,32 @@ EOF
 
 container=false
 release=false
-for argument in "$@"; do
-  case "$argument" in
+paper=legalforecastbench
+while (( $# )); do
+  case "$1" in
+    --paper) paper=${2:?--paper needs a name}; shift ;;
     --container) container=true ;;
     --release) release=true ;;
     --help|-h) usage; exit 0 ;;
-    *) printf 'Unknown argument: %s\n' "$argument" >&2; usage >&2; exit 2 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
+  shift
 done
 
-paper_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-repo_root=$(cd -- "$paper_dir/../.." && pwd)
+tools_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd -- "$tools_dir/../.." && pwd)
+paper_dir="$tools_dir/$paper"
+manuscripts=("$paper_dir"/*-paper.tex)
+if [[ ! -f "${manuscripts[0]}" || ${#manuscripts[@]} -ne 1 ]]; then
+  printf 'Expected exactly one *-paper.tex in %s\n' "$paper_dir" >&2
+  exit 2
+fi
+manuscript=$(basename "${manuscripts[0]}")
 output_dir="$paper_dir/build"
 mkdir -p "$output_dir"
 
 if "$release" && grep -nE -e '^[[:space:]]*%[[:space:]]*TODO([[:space:]:]|$)' -e '\\(draft|checkcite|checknum|todo)(\[[^]]*\])?\{' \
-  "$paper_dir/LegalForecastBench-paper.tex"; then
+  "$paper_dir/$manuscript"; then
   printf 'Resolve the draft annotations above before publishing a paper version.\n' >&2
   exit 1
 fi
@@ -45,7 +56,7 @@ fi
 # bytes after the pull request had already compiled them. Uncommitted drafts are
 # previews of the working tree.
 if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
-  SOURCE_DATE_EPOCH=$(python3 - "$paper_dir/LegalForecastBench-paper.tex" <<'PY'
+  SOURCE_DATE_EPOCH=$(python3 - "$paper_dir/$manuscript" <<'PY'
 import re
 import sys
 from datetime import datetime, timezone
@@ -112,9 +123,9 @@ pull_pinned_texlive_image() {
 }
 
 if "$container"; then
-  image=$(cat "$paper_dir/texlive-image.txt")
+  image=$(cat "$tools_dir/texlive-image.txt")
   pull_pinned_texlive_image "$image"
-  options=()
+  options=(--paper "$paper")
   if "$release"; then options+=(--release); fi
   # Rootless Docker maps container root to the invoking user, so the host
   # user's own uid would land on an unwritable subordinate uid instead.
@@ -126,12 +137,12 @@ if "$container"; then
     --user "$user" \
     --env SOURCE_DATE_EPOCH --env FORCE_SOURCE_DATE --env HOME=/tmp \
     --volume "$repo_root:/paper:ro" \
-    --volume "$output_dir:/paper/docs/paper/build" \
-    --workdir /paper "$image" bash docs/paper/build.sh "${options[@]}"
+    --volume "$output_dir:/paper/docs/papers/$paper/build" \
+    --workdir /paper "$image" bash docs/papers/build.sh "${options[@]}"
 fi
 
 cd "$paper_dir"
 latexmk -norc -pdf -Werror -interaction=nonstopmode -halt-on-error \
   -file-line-error -no-shell-escape -outdir="$output_dir" \
-  LegalForecastBench-paper.tex
-printf '\nBuilt %s/LegalForecastBench-paper.pdf\n' "$output_dir"
+  "$manuscript"
+printf '\nBuilt %s/%s\n' "$output_dir" "${manuscript%.tex}.pdf"

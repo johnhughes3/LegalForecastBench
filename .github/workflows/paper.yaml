@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/paper/**'
+      - 'docs/papers/**'
       - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
@@ -12,7 +12,7 @@ on:
       - 'uv.lock'
   pull_request:
     paths:
-      - 'docs/paper/**'
+      - 'docs/papers/**'
       - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
@@ -52,27 +52,27 @@ jobs:
       - name: Check generated figures against the manuscript
         run: >-
           uv run --no-project --python 3.14 python
-          docs/paper/figures/make_figures.py --check
-          --manuscript docs/paper/LegalForecastBench-paper.tex
+          docs/papers/legalforecastbench/figures/make_figures.py --check
+          --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 
       - name: Check clustering analysis against the manuscript
         run: >-
-          uv run --frozen python docs/paper/analysis/clustering.py --check
-          --manuscript docs/paper/LegalForecastBench-paper.tex
+          uv run --frozen python docs/papers/legalforecastbench/analysis/clustering.py --check
+          --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 
       - name: Check the LAB human-review appendix against the worksheet
         run: >-
-          uv run --frozen python docs/paper/analysis/lab_review.py --check
-          --manuscript docs/paper/LegalForecastBench-paper.tex
+          uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --check
+          --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 
       - name: Compile with pinned TeX Live
-        run: bash docs/paper/build.sh --container
+        run: bash docs/papers/build.sh --container
 
       - name: Upload PDF preview
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
           name: legalforecastbench-paper-${{ github.sha }}
-          path: docs/paper/build/LegalForecastBench-paper.pdf
+          path: docs/papers/legalforecastbench/build/LegalForecastBench-paper.pdf
           if-no-files-found: error
           retention-days: 30
 
@@ -83,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           committed=site/public/paper/legalforecastbench-working.pdf
-          if cmp -s docs/paper/build/LegalForecastBench-paper.pdf "$committed"; then
+          if cmp -s docs/papers/legalforecastbench/build/LegalForecastBench-paper.pdf "$committed"; then
             exit 0
           fi
           printf 'The compiled PDF differs from %s.\n' "$committed" >&2
@@ -107,8 +107,8 @@ jobs:
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 10
     env:
-      OUT: docs/paper/build/pangram
-      MANUSCRIPT: docs/paper/LegalForecastBench-paper.tex
+      OUT: docs/papers/legalforecastbench/build/pangram
+      MANUSCRIPT: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,7 +125,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
-          sparse-checkout: docs/paper/LegalForecastBench-paper.tex
+          sparse-checkout: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -136,14 +136,14 @@ jobs:
         id: extract
         run: |
           set -euo pipefail
-          uv run --frozen python docs/paper/analysis/pangram_check.py \
+          uv run --frozen python docs/papers/pangram_check.py \
             --extract-only --manuscript "$MANUSCRIPT" --out "$OUT"
           hash=$(sha256sum "$OUT/paper.txt" | cut -d' ' -f1)
           echo "hash=$hash" >> "$GITHUB_OUTPUT"
           # A pull request that leaves the scored text unchanged (a dependency
           # bump, a PDF rebuild, a worksheet edit) has nothing new to score.
           if [[ -f "base/$MANUSCRIPT" ]]; then
-            uv run --frozen python docs/paper/analysis/pangram_check.py \
+            uv run --frozen python docs/papers/pangram_check.py \
               --extract-only --manuscript "base/$MANUSCRIPT" --out base-pangram
             if [[ "$(sha256sum base-pangram/paper.txt | cut -d' ' -f1)" == "$hash" ]]; then
               echo "unchanged=true" >> "$GITHUB_OUTPUT"
@@ -157,7 +157,7 @@ jobs:
         id: cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: docs/paper/build/pangram/response.json
+          path: docs/papers/legalforecastbench/build/pangram/response.json
           key: pangram-${{ steps.extract.outputs.hash }}
 
       - name: Score with Pangram
@@ -180,7 +180,7 @@ jobs:
           fi
           status=0
           uv run --frozen --with pangram-sdk==1.0.0 python \
-            docs/paper/analysis/pangram_check.py "${args[@]}" \
+            docs/papers/pangram_check.py "${args[@]}" \
             | tee "$OUT/report.txt" || status=$?
           {
             echo '### Pangram check of author prose'
@@ -192,10 +192,10 @@ jobs:
           exit "$status"
 
       - name: Save the result for this text
-        if: always() && steps.extract.outputs.unchanged != 'true' && steps.cache.outputs.cache-hit != 'true' && hashFiles('docs/paper/build/pangram/response.json') != ''
+        if: always() && steps.extract.outputs.unchanged != 'true' && steps.cache.outputs.cache-hit != 'true' && hashFiles('docs/papers/legalforecastbench/build/pangram/response.json') != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: docs/paper/build/pangram/response.json
+          path: docs/papers/legalforecastbench/build/pangram/response.json
           key: pangram-${{ steps.extract.outputs.hash }}
 
       - name: Upload the scored text and response
@@ -203,6 +203,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
           name: pangram-${{ github.sha }}
-          path: docs/paper/build/pangram/
+          path: docs/papers/legalforecastbench/build/pangram/
           if-no-files-found: ignore
           retention-days: 30

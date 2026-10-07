@@ -7,7 +7,7 @@ in ``summary.tex``.  No private corpus files are needed.
 The default paths are resolved from this file's repository checkout, so the
 command may be run from any working directory::
 
-    python docs/paper/analysis/clustering.py
+    python docs/papers/legalforecastbench/analysis/clustering.py
 
 Use ``--check`` in CI to detect drift without changing generated artifacts.
 ``--write-manuscript`` updates only a manuscript block between the two
@@ -51,7 +51,7 @@ def repository_root() -> Path:
             if (candidate / "site" / "src" / "data" / "significance").is_dir():
                 return candidate
     # This fallback keeps the module useful when copied into a fixture tree.
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 REPOSITORY_ROOT = repository_root()

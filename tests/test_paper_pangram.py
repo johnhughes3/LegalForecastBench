@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-MANUSCRIPT = ROOT / "docs/paper/LegalForecastBench-paper.tex"
+MANUSCRIPT = ROOT / "docs/papers/legalforecastbench/LegalForecastBench-paper.tex"
 
 pytestmark = pytest.mark.skipif(
     shutil.which("pandoc") is None, reason="pandoc is not installed"
@@ -66,7 +66,7 @@ Disclosure prose.
 
 
 def _load() -> ModuleType:
-    path = ROOT / "docs/paper/analysis/pangram_check.py"
+    path = ROOT / "docs/papers/pangram_check.py"
     spec = importlib.util.spec_from_file_location("pangram_check", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)

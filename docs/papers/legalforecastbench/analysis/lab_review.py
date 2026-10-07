@@ -19,10 +19,10 @@ worksheet, because the counts above would then contradict the entries.
 
 Run from the repository root::
 
-    uv run --frozen python docs/paper/analysis/lab_review.py --check \\
-        --manuscript docs/paper/LegalForecastBench-paper.tex
-    uv run --frozen python docs/paper/analysis/lab_review.py --write-manuscript \\
-        --manuscript docs/paper/LegalForecastBench-paper.tex
+    uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --check \\
+        --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+    uv run --frozen python docs/papers/legalforecastbench/analysis/lab_review.py --write-manuscript \\
+        --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 AUDIT = ROOT / "docs/harvey-lab-audit/litigation-dispute-resolution"
 REVIEW = AUDIT / "human-review"
 BLOCKS = ("LAB REVIEW NUMBERS", "LAB REVIEW TABLE")

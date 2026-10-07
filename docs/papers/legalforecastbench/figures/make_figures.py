@@ -8,7 +8,7 @@ match the current manuscript bodies; they are deliberately not the historical
 Matplotlib/PGFPlots figures in the research workspace.
 
 Use ``--check`` in CI to verify committed generated artifacts.  Add
-``--manuscript docs/paper/LegalForecastBench-paper.tex`` to compare every
+``--manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex`` to compare every
 generated TikZ block with the standalone manuscript.
 """
 
@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, cast
 
 FIGURES_DIR = Path(__file__).resolve().parent
-REPOSITORY_ROOT = FIGURES_DIR.parents[2]
+REPOSITORY_ROOT = FIGURES_DIR.parents[3]
 DATA_PATH = FIGURES_DIR.parent / "data" / "empirical.json"
 INLINE_PATH = FIGURES_DIR / "figures-inline.tex"
 
