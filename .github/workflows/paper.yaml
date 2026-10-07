@@ -90,9 +90,9 @@ jobs:
   pangram:
     name: Pangram check of author prose
     # Scoring spends Pangram credits, so it runs only for pull requests from
-    # this repository (forks have no secret) and on manual dispatch. A result
-    # is cached by the exact text sent, so a commit that changes only the PDF,
-    # or reruns the job, reuses it instead of paying again.
+    # this repository (forks have no secret) and on manual dispatch. It skips
+    # scoring when the text is identical to the base branch's, and caches each
+    # result by the exact text sent, so reruns and PDF-only commits are free.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
@@ -114,6 +114,16 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
+      - name: Check out the base branch's manuscript
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          sparse-checkout: docs/paper/LegalForecastBench-paper.tex
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Install pandoc
         run: sudo apt-get update -qq && sudo apt-get install -y -qq pandoc
 
@@ -123,9 +133,22 @@ jobs:
           set -euo pipefail
           uv run --frozen python docs/paper/analysis/pangram_check.py \
             --extract-only --manuscript "$MANUSCRIPT" --out "$OUT"
-          echo "hash=$(sha256sum "$OUT/paper.txt" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          hash=$(sha256sum "$OUT/paper.txt" | cut -d' ' -f1)
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+          # A pull request that leaves the scored text unchanged (a dependency
+          # bump, a PDF rebuild, a worksheet edit) has nothing new to score.
+          if [[ -f "base/$MANUSCRIPT" ]]; then
+            uv run --frozen python docs/paper/analysis/pangram_check.py \
+              --extract-only --manuscript "base/$MANUSCRIPT" --out base-pangram
+            if [[ "$(sha256sum base-pangram/paper.txt | cut -d' ' -f1)" == "$hash" ]]; then
+              echo "unchanged=true" >> "$GITHUB_OUTPUT"
+              echo "The scored text is identical to the base branch; not scoring it again." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
 
       - name: Reuse a result for the same text
+        if: steps.extract.outputs.unchanged != 'true'
         id: cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -133,6 +156,7 @@ jobs:
           key: pangram-${{ steps.extract.outputs.hash }}
 
       - name: Score with Pangram
+        if: steps.extract.outputs.unchanged != 'true'
         env:
           PANGRAM_API_KEY: ${{ secrets.PANGRAM_API_KEY }}
           CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
@@ -162,7 +186,7 @@ jobs:
           exit "$status"
 
       - name: Save the result for this text
-        if: always() && steps.cache.outputs.cache-hit != 'true' && hashFiles('docs/paper/build/pangram/response.json') != ''
+        if: always() && steps.extract.outputs.unchanged != 'true' && steps.cache.outputs.cache-hit != 'true' && hashFiles('docs/paper/build/pangram/response.json') != ''
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: docs/paper/build/pangram/response.json
