@@ -663,9 +663,9 @@ Gemini 3.1 Pro Preview & High thinking & 2025-01 (K) & Precedes window \\
 Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 used adaptive thinking at provider defaults. Claude Opus 5.5 and Claude Sonnet 5.5 used high effort. The other configurations use the high reasoning or thinking setting.
 
 \section{Result provenance}
-The primary cohort identifier is \texttt{cycle-1-91-2026-09-08-luna-r5}. We standardized costs in the table based on the recorded token usage and standard API rates. Fable's estimate reconstructs cached execution from turn-by-turn usage rather than its original uncached charges, as described in Section~4.3.
+The primary cohort identifier is \texttt{cycle-1-91-2026-09-08-luna-r5}. We standardized costs in the table based on the recorded token usage and standard API rates. To calculate the costs for Fable (which was inadvertently run without cache enabled), we calculated cached execution based on the turn-by-turn token usage data, rather than the original uncached usage, as described in Section~4.3.
 
-The checked source revisions are \href{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359}{LegalForecastBench \texttt{58371a0e}}, LegalForecastCorpus \texttt{b392ddaf}, and LegalForecastGym \texttt{4cc0f528}. The LAB source snapshot is \href{https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143}{\texttt{1dd81403}}. These identify inspected versions; they do not certify every execution against the current source tree.
+The source revisions are at \href{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359}{LegalForecastBench \texttt{58371a0e}}, LegalForecastCorpus \texttt{b392ddaf}, and LegalForecastGym \texttt{4cc0f528}. The LAB source snapshot is \href{https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143}{\texttt{1dd81403}}.
 
 
 \section{Human review of AI-flagged LAB criteria}
