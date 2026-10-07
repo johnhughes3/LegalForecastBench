@@ -23,9 +23,12 @@ on:
 permissions:
   contents: read
 
+# A newer push replaces a queued run but does not cancel one in progress: the
+# Pangram job submits a paid request, and canceling it before the response is
+# cached would buy the same scan again on the next run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
