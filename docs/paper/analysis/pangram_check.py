@@ -362,8 +362,8 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
         "--fail-above",
         type=float,
         metavar="FRACTION",
-        help="exit 1 if Pangram's AI fraction for the whole document exceeds this "
-        "value (for example 0.10)",
+        help="exit 1 if the share of the document Pangram does not classify as "
+        "human-written (AI plus AI-assisted) exceeds this value (for example 0.03)",
     )
     parser.add_argument(
         "--model",
@@ -477,15 +477,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"Document sent and any raw response: {args.out}")
     if result is not None and args.fail_above is not None:
-        fraction = float(result.get("fraction_ai") or 0)
+        fraction = float(result.get("fraction_ai") or 0) + float(
+            result.get("fraction_ai_assisted") or 0
+        )
         if fraction > args.fail_above:
             print(
-                f"\nFAIL: Pangram's AI fraction {fraction:.2f} is above "
-                f"{args.fail_above:.2f}. Rewrite the flagged windows above, or mark "
-                "disclosed passages with % BEGIN/END AI-PREPARED."
+                f"\nFAIL: Pangram classifies {fraction:.2f} of the text as AI or "
+                f"AI-assisted, above {args.fail_above:.2f}. Rewrite the flagged "
+                "windows above, or mark disclosed passages with "
+                "% BEGIN/END AI-PREPARED."
             )
             return 1
-        print(f"\nPASS: AI fraction {fraction:.2f} is at most {args.fail_above:.2f}.")
+        print(
+            f"\nPASS: Pangram classifies {fraction:.2f} of the text as AI or "
+            f"AI-assisted, at most {args.fail_above:.2f}."
+        )
     return 0
 
 

@@ -283,6 +283,10 @@ def test_saved_response_is_reported_and_gated_without_a_key(
         str(response),
     ]
     assert pangram_check.main([*arguments, "--fail-above", "0.10"]) == 0
-    assert "PASS: AI fraction 0.04" in capsys.readouterr().out
+    assert "PASS: Pangram classifies 0.04" in capsys.readouterr().out
     assert pangram_check.main([*arguments, "--fail-above", "0.02"]) == 1
-    assert "FAIL: Pangram's AI fraction 0.04" in capsys.readouterr().out
+    assisted = json.loads(response.read_text(encoding="utf-8"))
+    assisted.update(fraction_ai=0.0, fraction_ai_assisted=0.05, fraction_human=0.95)
+    response.write_text(json.dumps(assisted), encoding="utf-8")
+    assert pangram_check.main([*arguments, "--fail-above", "0.03"]) == 1
+    assert "FAIL: Pangram classifies 0.04" in capsys.readouterr().out
