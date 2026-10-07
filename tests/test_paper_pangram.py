@@ -234,3 +234,55 @@ def test_cost_ceiling_refuses_before_any_request(
     arguments = ["--manuscript", str(manuscript), "--out", str(tmp_path / "out")]
     with pytest.raises(SystemExit, match="exceeds --max-usd"):
         pangram_check.main([*arguments, "--max-usd", "0"])
+
+
+def test_draft_notes_are_not_scored() -> None:
+    marked = FIXTURE.replace(
+        "Discussion prose.",
+        r"Discussion prose.\checkcite{; confirm this source} "
+        r"\draft{[[Placeholder: results to come]]}",
+    )
+    text = {u.key: u for u in pangram_check.manuscript_units(marked)}["3"].text
+    assert "confirm this source" not in text
+    assert "Placeholder" not in text
+    assert text.startswith(f"Discussion prose.\n\n{GAP}")
+
+
+def test_saved_response_is_reported_and_gated_without_a_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv(pangram_check.KEY_VARIABLE, raising=False)
+    monkeypatch.setattr(pangram_check, "MIN_WORDS", 3)
+
+    def refuse() -> Any:
+        raise AssertionError("a saved response must not call Pangram")
+
+    monkeypatch.setattr(pangram_check, "_client", refuse)
+    manuscript = tmp_path / "paper.tex"
+    manuscript.write_text(FIXTURE, encoding="utf-8")
+    response = tmp_path / "saved.json"
+    response.write_text(
+        json.dumps(
+            {
+                "headline": "Mostly Human Written",
+                "prediction_short": "Human",
+                "fraction_ai": 0.04,
+                "fraction_ai_assisted": 0.0,
+                "fraction_human": 0.96,
+                "windows": [{"text": "Discussion prose.", "label": "AI-Generated"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    arguments = [
+        "--manuscript",
+        str(manuscript),
+        "--out",
+        str(tmp_path / "out"),
+        "--response",
+        str(response),
+    ]
+    assert pangram_check.main([*arguments, "--fail-above", "0.10"]) == 0
+    assert "PASS: AI fraction 0.04" in capsys.readouterr().out
+    assert pangram_check.main([*arguments, "--fail-above", "0.02"]) == 1
+    assert "FAIL: Pangram's AI fraction 0.04" in capsys.readouterr().out

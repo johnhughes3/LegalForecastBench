@@ -142,6 +142,15 @@ def _take_commands(text: str, name: str) -> tuple[str, list[str]]:
     return "".join(kept), arguments
 
 
+def _replace_commands(text: str, name: str, replacement: str) -> str:
+    r"""Replace every ``\name{argument}`` with ``replacement``."""
+    pattern = re.compile(rf"\\{name}(?![A-Za-z])\s*\{{")
+    while found := pattern.search(text):
+        end = _closing_brace(text, found.end() - 1)
+        text = text[: found.start()] + replacement + text[end + 1 :]
+    return text
+
+
 def _tidy(text: str) -> str:
     """Drop URLs and list markers, show omissions, and collapse whitespace."""
     text = re.sub(r"https?://\S+", "", text).replace(_GAP, OMITTED)
@@ -162,8 +171,11 @@ def plain_latex(latex: str, macros: str) -> str:
         name = rf"\{{{environment}\*?\}}"
         latex = re.sub(rf"(?s)\\begin{name}.*?\\end{name}", lambda _: gap, latex)
     latex = re.sub(r"(?s)(?<!\\)\\\[.*?\\\]|\$\$.*?\$\$", lambda _: gap, latex)
-    for command in ("caption", "todo", "label", "url"):
+    for command in ("caption", "todo", "label", "url", "checkcite"):
         latex, _ = _take_commands(latex, command)
+    # Provisional red-draft text is a placeholder, not finished prose.
+    latex = _replace_commands(latex, "draft", gap)
+
     # A footnote is prose: it follows its section as a paragraph, without a marker.
     latex, footnotes = _take_commands(latex, "footnote")
     latex = "\n\n".join([latex, *footnotes])
@@ -341,6 +353,19 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
         "(default: 10)",
     )
     parser.add_argument(
+        "--response",
+        type=Path,
+        help="report a saved Pangram response for this exact document instead of "
+        "calling the API (needs no key; used by CI to reuse a cached result)",
+    )
+    parser.add_argument(
+        "--fail-above",
+        type=float,
+        metavar="FRACTION",
+        help="exit 1 if Pangram's AI fraction for the whole document exceeds this "
+        "value (for example 0.10)",
+    )
+    parser.add_argument(
         "--model",
         default="default",
         help="Pangram model selector (default: Pangram's current default model)",
@@ -353,11 +378,12 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _arguments(argv)
-    if not args.extract_only and not os.environ.get(KEY_VARIABLE):
+    sending = not args.extract_only and args.response is None
+    if sending and not os.environ.get(KEY_VARIABLE):
         raise SystemExit(f"{KEY_VARIABLE} is not set; set it or pass --extract-only")
     if shutil.which("pandoc") is None:
         raise SystemExit("pandoc is required to convert the manuscript to plain text")
-    client = None if args.extract_only else _client()
+    client = _client() if sending else None
 
     units = exclude(
         manuscript_units(args.manuscript.read_text(encoding="utf-8")),
@@ -378,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{BLOCK_WORDS}-word blocks, or ${blocks * USD_PER_BLOCK:.2f} at Pangram's "
         "published realtime rate (an estimate; Pangram's own count governs).\n"
     )
-    if client is not None and blocks * USD_PER_BLOCK > args.max_usd:
+    if sending and blocks * USD_PER_BLOCK > args.max_usd:
         raise SystemExit(
             f"estimated ${blocks * USD_PER_BLOCK:.2f} exceeds --max-usd "
             f"{args.max_usd:.2f}; raise it to send"
@@ -387,17 +413,22 @@ def main(argv: list[str] | None = None) -> int:
     (args.out / "paper.txt").write_text(text + "\n", encoding="utf-8")
 
     details: list[str] = []
-    if client is None:
-        outcomes = ["extracted, not sent" if u.words else "nothing sent" for u in units]
-    else:
+    result: dict[str, Any] | None = None
+    if args.response is not None:
+        result = json.loads(args.response.read_text(encoding="utf-8"))
+        print(f"Reusing the saved response in {args.response}.\n")
+    elif client is not None:
         try:
-            result: dict[str, Any] = client.predict(text, model=args.model)
+            result = client.predict(text, model=args.model)
         except (ValueError, TimeoutError) as exc:
             print(f"Pangram request failed: {exc}")
             return 1
         (args.out / "response.json").write_text(
             json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
+    if result is None:
+        outcomes = ["extracted, not sent" if u.words else "nothing sent" for u in units]
+    else:
         print(f"Whole document: {describe(result)}\n")
         counts = [[0, 0] for _ in units]
         unplaced = position = 0
@@ -445,6 +476,16 @@ def main(argv: list[str] | None = None) -> int:
         f"in the document: {REMOVED}."
     )
     print(f"Document sent and any raw response: {args.out}")
+    if result is not None and args.fail_above is not None:
+        fraction = float(result.get("fraction_ai") or 0)
+        if fraction > args.fail_above:
+            print(
+                f"\nFAIL: Pangram's AI fraction {fraction:.2f} is above "
+                f"{args.fail_above:.2f}. Rewrite the flagged windows above, or mark "
+                "disclosed passages with % BEGIN/END AI-PREPARED."
+            )
+            return 1
+        print(f"\nPASS: AI fraction {fraction:.2f} is at most {args.fail_above:.2f}.")
     return 0
 
 

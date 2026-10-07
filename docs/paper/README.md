@@ -50,7 +50,7 @@ uv run --frozen python docs/paper/analysis/lab_review.py --check --manuscript do
 
 ### Pangram check of the author-written prose
 
-`analysis/pangram_check.py` renders the manuscript to the plain text a reader sees and sends it to [Pangram](https://www.pangram.com/), an AI-text detector, as one document. It reports Pangram's result for the whole document and how many of its windows were flagged in each section. It is opt-in and is not part of the build or CI: every run spends Pangram credits (about 10,000 words, roughly $5 at the published rate of $0.05 per 100 words), and the script prints its own estimate before sending anything and refuses to send if the estimate exceeds `--max-usd` (default $10).
+`analysis/pangram_check.py` renders the manuscript to the plain text a reader sees and sends it to [Pangram](https://www.pangram.com/), an AI-text detector, as one document. It reports Pangram's result for the whole document and how many of its windows were flagged in each section. It is not part of the local build. Every scoring run spends Pangram credits (about 10,000 words, roughly $5 at the published rate of $0.05 per 100 words); CI runs it on pull requests as described below, and the script prints its own estimate before sending anything and refuses to send if the estimate exceeds `--max-usd` (default $10).
 
 Text the author did not write is left out, and each omission appears in the document as `[...]`. Left out are passages between `% BEGIN AI-PREPARED` and `% END AI-PREPARED` comment lines in the manuscript, which mark what the paper's AI-use statement discloses as prepared with AI; the criteria and task titles quoted from Harvey LAB in the appendix; tables, figures, display equations, and the bibliography; and the generated blocks. LaTeX commands and source comments are never sent. To leave out another passage, wrap it in the two comment lines; they do not change the compiled paper.
 
@@ -65,6 +65,8 @@ To score it, put a Pangram API key in the `PANGRAM_API_KEY` environment variable
 ```bash
 uv run --frozen --with "pangram-sdk>=1.0" python docs/paper/analysis/pangram_check.py --manuscript docs/paper/LegalForecastBench-paper.tex
 ```
+
+In CI, the Paper workflow's *Pangram check of author prose* job runs this on every pull request from this repository and fails when Pangram's AI fraction for the whole document is above 0.10 (override with the `PANGRAM_MAX_AI_FRACTION` repository variable). It needs the `PANGRAM_API_KEY` repository secret. It skips scoring when the pull request leaves the scored text identical to the base branch's (for example a dependency bump or a PDF rebuild), and it caches each result by the exact text sent, so later commits and reruns in the same pull request reuse it rather than paying again; the report appears in the job summary, and the scored text and Pangram's response are uploaded as an artifact. Forks and Dependabot pull requests are not scored.
 
 `--exclude-section` leaves out a whole section by its key in the printed table or part of its title, for example `--exclude-section A --exclude-section B`. Pangram's limits and prices are taken from its [API reference](https://docs.pangram.com/api-reference/introduction.md) and [input-size note](https://www.pangram.com/knowledge-hub/minimum-and-maximum-input-sizes).
 

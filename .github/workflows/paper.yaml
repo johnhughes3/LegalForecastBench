@@ -23,9 +23,12 @@ on:
 permissions:
   contents: read
 
+# A newer push replaces a queued run but does not cancel one in progress: the
+# Pangram job submits a paid request, and canceling it before the response is
+# cached would buy the same scan again on the next run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -86,3 +89,119 @@ jobs:
           printf 'The compiled PDF differs from %s.\n' "$committed" >&2
           printf 'Download the legalforecastbench-paper artifact from this run and commit that file.\n' >&2
           exit 1
+
+  pangram:
+    name: Pangram check of author prose
+    # Scoring spends Pangram credits, so it runs only for pull requests from
+    # this repository (forks have no secret), not Dependabot's (dependency
+    # bumps do not touch the prose and get no secret), and on manual dispatch. It skips
+    # scoring when the text is identical to the base branch's, and caches each
+    # result by the exact text sent, so reruns and PDF-only commits are free.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login != 'dependabot[bot]')
+    permissions:
+      contents: read
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
+    timeout-minutes: 10
+    env:
+      OUT: docs/paper/build/pangram
+      MANUSCRIPT: docs/paper/LegalForecastBench-paper.tex
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Check out the base branch's manuscript
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          sparse-checkout: docs/paper/LegalForecastBench-paper.tex
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Install pandoc
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq pandoc
+
+      - name: Extract the text that would be scored
+        id: extract
+        run: |
+          set -euo pipefail
+          uv run --frozen python docs/paper/analysis/pangram_check.py \
+            --extract-only --manuscript "$MANUSCRIPT" --out "$OUT"
+          hash=$(sha256sum "$OUT/paper.txt" | cut -d' ' -f1)
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+          # A pull request that leaves the scored text unchanged (a dependency
+          # bump, a PDF rebuild, a worksheet edit) has nothing new to score.
+          if [[ -f "base/$MANUSCRIPT" ]]; then
+            uv run --frozen python docs/paper/analysis/pangram_check.py \
+              --extract-only --manuscript "base/$MANUSCRIPT" --out base-pangram
+            if [[ "$(sha256sum base-pangram/paper.txt | cut -d' ' -f1)" == "$hash" ]]; then
+              echo "unchanged=true" >> "$GITHUB_OUTPUT"
+              echo "The scored text is identical to the base branch; not scoring it again." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+      - name: Reuse a result for the same text
+        if: steps.extract.outputs.unchanged != 'true'
+        id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: docs/paper/build/pangram/response.json
+          key: pangram-${{ steps.extract.outputs.hash }}
+
+      - name: Score with Pangram
+        if: steps.extract.outputs.unchanged != 'true'
+        env:
+          PANGRAM_API_KEY: ${{ secrets.PANGRAM_API_KEY }}
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+          # Fail when more than this share of the scored text reads as AI.
+          MAX_AI_FRACTION: ${{ vars.PANGRAM_MAX_AI_FRACTION || '0.10' }}
+        run: |
+          set -euo pipefail
+          args=(--manuscript "$MANUSCRIPT" --out "$OUT" --verbose
+                --fail-above "$MAX_AI_FRACTION")
+          if [[ "$CACHE_HIT" == true ]]; then
+            args+=(--response "$OUT/response.json")
+          elif [[ -z "$PANGRAM_API_KEY" ]]; then
+            echo "::error::The PANGRAM_API_KEY repository secret is not set."
+            exit 1
+          fi
+          status=0
+          uv run --frozen --with pangram-sdk==1.0.0 python \
+            docs/paper/analysis/pangram_check.py "${args[@]}" \
+            | tee "$OUT/report.txt" || status=$?
+          {
+            echo '### Pangram check of author prose'
+            echo
+            echo '```'
+            cat "$OUT/report.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Save the result for this text
+        if: always() && steps.extract.outputs.unchanged != 'true' && steps.cache.outputs.cache-hit != 'true' && hashFiles('docs/paper/build/pangram/response.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: docs/paper/build/pangram/response.json
+          key: pangram-${{ steps.extract.outputs.hash }}
+
+      - name: Upload the scored text and response
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: pangram-${{ github.sha }}
+          path: docs/paper/build/pangram/
+          if-no-files-found: ignore
+          retention-days: 30
