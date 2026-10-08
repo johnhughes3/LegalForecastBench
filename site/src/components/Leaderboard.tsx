@@ -247,7 +247,7 @@ export default function Leaderboard({
 									</span>
 									<EligibilityBadge
 										eligibility={model.eligibility}
-										reason={model.eligibility_reason}
+										cutoff={model.training_cutoff}
 										side={index < 3 ? "bottom" : "top"}
 										align="end"
 									/>
@@ -310,7 +310,7 @@ export default function Leaderboard({
 							))}
 							<th scope="col" className="py-3 pr-4 font-medium">
 								<Tip
-									tip="Whether the provider-reported training or knowledge cutoff predates the first scored decision. Hover a badge for the model's specifics."
+									tip="Whether the training data/knowledge cutoff is before the decisions we used to test. Hover a badge for the model's cutoff."
 									side="bottom"
 									align="end"
 								>
@@ -408,7 +408,7 @@ export default function Leaderboard({
 									<td className="py-3.5 pr-4 align-top">
 										<EligibilityBadge
 											eligibility={model.eligibility}
-											reason={model.eligibility_reason}
+											cutoff={model.training_cutoff}
 											side={side}
 											align="end"
 										/>
@@ -432,7 +432,7 @@ export default function Leaderboard({
 						.map((m) => (
 							<li key={m.slug} className="mb-1 break-inside-avoid">
 								<span className="font-medium text-ink">{m.display_name}:</span>{" "}
-								{m.eligibility_reason}
+								cutoff {m.training_cutoff ?? "not published"}
 							</li>
 						))}
 				</ul>
@@ -448,8 +448,8 @@ export default function Leaderboard({
 				<span># is the micro Brier rank, whatever the sort</span>
 				<span>Hover a column name for its definition</span>
 				<span>
-					Eligible: reported training or knowledge cutoff predates the first
-					scored decision
+					Eligible: training data/knowledge cutoff is before the decisions we
+					used to test
 				</span>
 			</div>
 		</div>

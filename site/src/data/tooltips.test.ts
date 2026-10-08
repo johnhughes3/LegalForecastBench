@@ -27,7 +27,7 @@ test("unknown eligibility describes missing classification, not qualified status
 	const html = renderToStaticMarkup(
 		createElement(EligibilityBadge, {
 			eligibility: "unknown",
-			reason: "No classification supplied.",
+			cutoff: null,
 		}),
 	);
 	assert.match(html, /Unknown:/);

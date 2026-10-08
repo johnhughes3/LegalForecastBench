@@ -11,12 +11,13 @@ const LABEL: Record<Eligibility, string> = {
 /** Status is carried by icon and label, never color alone. */
 export default function EligibilityBadge({
 	eligibility,
-	reason,
+	cutoff,
 	side = "top",
 	align = "center",
 }: {
 	eligibility: Eligibility;
-	reason: string;
+	/** The provider-reported cutoff, as recorded; null when none is published. */
+	cutoff: string | null;
 	side?: "top" | "bottom";
 	align?: "center" | "start" | "end";
 }) {
@@ -24,7 +25,9 @@ export default function EligibilityBadge({
 	const tip = (
 		<>
 			<span className="block">{EXPLAIN[eligibility]}</span>
-			<span className="mt-1.5 block font-medium text-ink">{reason}</span>
+			<span className="mt-1.5 block font-medium text-ink">
+				Cutoff: {cutoff ?? "not published"}
+			</span>
 		</>
 	);
 	return (
