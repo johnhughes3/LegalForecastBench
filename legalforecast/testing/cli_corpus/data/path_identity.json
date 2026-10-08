@@ -176,6 +176,7 @@
     "tests/test_paper_build.py",
     "tests/test_paper_lab_review.py",
     "tests/test_paper_pangram.py",
+    "tests/test_paper_title.py",
     "tests/test_pdf_extractor_pin.py",
     "tests/test_prepare_forecast_recovery.py",
     "tests/test_protected_recovery_workflow.py",

@@ -58,7 +58,10 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.equal(parsed.revisedOn, "2026-10-08");
 	assert.equal(PAPER.revisedOn, parsed.revisedOn);
 	assert.equal(PAPER.workingPdf, WORKING_PAPER_PDF);
-	assert.match(parsed.title, /Legal Reasoning Ability$/);
+	assert.match(
+		parsed.title,
+		/^Law as a Verifiable Domain: .*AI Legal Reasoning$/,
+	);
 	assert.equal(parsed.abstract.length, 4);
 	assert.match(parsed.abstract[0] ?? "", /objectively verifiable rewards/);
 	assert.match(

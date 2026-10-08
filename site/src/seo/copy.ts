@@ -29,7 +29,7 @@ export const COPY = {
 	paper: {
 		title: "Legal forecasting working paper",
 		description:
-			"Working paper on forecasting federal judicial decisions as a test of legal reasoning.",
+			"Working paper on using real-world judicial outcomes to evaluate AI legal reasoning.",
 	},
 	data: {
 		title: "Download the forecast results",
