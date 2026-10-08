@@ -2,12 +2,10 @@
 import type { GetStaticPaths } from "astro";
 import ConfidenceChart from "../../components/ConfidenceChart";
 import EligibilityBadge from "../../components/EligibilityBadge";
-import FindingCard from "../../components/FindingCard.astro";
 import ParetoChart from "../../components/ParetoChart";
 import Tip from "../../components/Tip";
 import { comparison } from "../../data/comparison";
 import { EXPLAIN } from "../../data/explanations";
-import { publishedFindings } from "../../data/findings";
 import {
 	formatPercent,
 	formatUsd,
@@ -92,9 +90,6 @@ for (const entry of byOther.values()) {
 	sigGroupMap.set(key, group);
 }
 const sigGroups = [...sigGroupMap.values()];
-const related = (await publishedFindings()).filter((f) =>
-	f.data.models.includes(model.slug),
-);
 const facts: [string, string][] = [
 	["Model key", model.model_key],
 	["Access", model.access],
@@ -120,7 +115,7 @@ const facts: [string, string][] = [
 >
 	<section class="border-b border-rule">
 		<div class="mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6">
-			<a href="/results/#leaderboard" class="text-sm text-ink-3 hover:text-ink">← Leaderboard</a>
+			<a href="/#leaderboard" class="text-sm text-ink-3 hover:text-ink">← Leaderboard</a>
 			<div class="mt-6 flex flex-wrap items-center gap-3">
 				<p class="eyebrow">{model.provider}</p>
 				<EligibilityBadge eligibility={model.eligibility} reason={model.eligibility_reason} side="bottom" align="start" />
@@ -156,7 +151,7 @@ const facts: [string, string][] = [
 					<p class="mt-3 leading-relaxed text-ink-2">
 						{model.display_name} is an older, non-reasoning model run on the same full record and harness. It is kept as a reference rather than ranked with current models. It mostly answered 0% or 100%, and its forecasts show no ranking signal.
 					</p>
-					<a class="mt-4 inline-flex text-sm font-medium text-accent hover:underline" href="/experiments/summary-pipelines/">See how it compares in the summary-pipeline experiment →</a>
+					
 				</div>
 			) : (
 				<Fragment>
@@ -202,19 +197,7 @@ const facts: [string, string][] = [
 								</li>
 							))}
 						</ul>
-<a class="text-sm text-accent hover:underline" href="/data/run-notes/#significance">Comparison methodology →</a>
-					</div>
-				)
-			}
-			{
-				related.length > 0 && (
-					<div>
-						<h2 class="font-serif text-2xl font-semibold tracking-tight">Related findings</h2>
-						<div class="mt-4 grid gap-4 sm:grid-cols-2">
-							{related.map((entry) => (
-								<FindingCard entry={entry} />
-							))}
-						</div>
+<a class="text-sm text-accent hover:underline" href="/data/#significance">Comparison methodology →</a>
 					</div>
 				)
 			}
@@ -251,7 +234,7 @@ const facts: [string, string][] = [
 					{formatUsd(model.cost.usd === null ? null : model.cost.usd / snapshot.cohort.case_count)} per case
 				</p>
 				{model.cost.note && <p class="mt-3 text-xs leading-relaxed text-secondary">{model.cost.note}</p>}
-				<a class="mt-2 inline-flex text-xs text-accent hover:underline" href="/data/run-notes/#costs">Cost methodology →</a>
+				<a class="mt-2 inline-flex text-xs text-accent hover:underline" href="/data/#costs">Cost methodology →</a>
 			</div>
 			<div class="card p-5 text-sm">
 				<h2 class="font-semibold text-ink">Run</h2>

@@ -4,7 +4,12 @@ import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { parseManuscript, repositoryRootFrom } from "./manuscript.js";
+import {
+	authorParagraphs,
+	parseManuscript,
+	quoteFrom,
+	repositoryRootFrom,
+} from "./manuscript.js";
 import { PAPER, WORKING_PAPER_PDF } from "./paper.js";
 
 const manuscriptFile =
@@ -82,4 +87,35 @@ test("the manuscript is found from a bundled prerender path", () => {
 	const bundledRoot = repositoryRootFrom(dirname(bundled));
 	assert.equal(bundledRoot, root);
 	assert.equal(existsSync(resolve(bundledRoot, manuscriptFile)), true);
+});
+
+test("the site quotes author-written sentences verbatim and never AI-prepared ones", () => {
+	const paragraphs = authorParagraphs(String.raw`
+\begin{document}
+\begin{abstract}
+The beta includes 91 cases. Sol leads at 84.5\% \citep{x}. We describe more.
+\end{abstract}
+\section{Results}
+% BEGIN AI-PREPARED (not sent to the Pangram check)
+Generated prose sits here.
+% END AI-PREPARED
+Code is in the \href{https://example.org}{repository}; see \url{https://c.org}.
+
+Generated share is \labShare\% of criteria.
+\begin{thebibliography}{9}
+\end{thebibliography}
+`);
+	const quote = (opening: string, count?: number) =>
+		quoteFrom(paragraphs, opening, count);
+	assert.equal(
+		quote("The beta includes", 2),
+		"The beta includes 91 cases. Sol leads at 84.5%.",
+	);
+	assert.equal(quote("We describe"), "We describe more.");
+	assert.equal(
+		quote("Code is in the"),
+		"Code is in the repository; see https://c.org.",
+	);
+	assert.throws(() => quote("Generated prose"), /found 0/);
+	assert.throws(() => quote("Generated share"), /\\labShare/);
 });

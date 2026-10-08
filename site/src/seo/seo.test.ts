@@ -5,11 +5,9 @@ import { test } from "node:test";
 import { WORKING_PAPER_PDF } from "../data/paper.js";
 import { prefersMarkdown } from "./accept.js";
 import { COPY } from "./copy.js";
-import { FAQS } from "./faqs.js";
 import { originUrl, REPO } from "./identity.js";
 import {
 	datasetNode,
-	faqPageNode,
 	jsonLdScript,
 	organizationNode,
 	pageGraph,
@@ -19,7 +17,6 @@ import {
 } from "./jsonld.js";
 import { lastmodFor } from "./lastmod.js";
 import { llmsTxt } from "./llms.js";
-import { mdxToMarkdown, stripJsxOutsideCode } from "./markdown.js";
 import { markdownDestination, negotiationRewrites } from "./negotiate.js";
 import { publicPaths } from "./paths.js";
 import { AI_CRAWLERS, robotsTxt } from "./robots.js";
@@ -95,42 +92,15 @@ test("llms.txt links each page's markdown copy and promises no negotiation", () 
 	assert.doesNotMatch(text, /Accept:/);
 });
 
-test("mdx cleanup keeps code and drops components", () => {
-	const source = `---
-title: Example
----
-import Chart from "./Chart";
-
-See \`<InlineCTA />\` and a fence:
-
-\`\`\`\`md
-\`\`\`
-not closed by the shorter fence
-\`\`\`
-\`\`\`\`
-
-<Chart />
-<Note>Keep this</Note>
-`;
-	const markdown = mdxToMarkdown(source);
-	assert.match(markdown, /<InlineCTA \/>/);
-	assert.match(markdown, /```\nnot closed/);
-	assert.doesNotMatch(markdown, /import Chart/);
-	assert.match(markdown, /Keep this/);
-	assert.doesNotMatch(markdown, /<Note>/);
-	assert.equal(stripJsxOutsideCode("`<b>` stays"), "`<b>` stays");
-});
-
 test("sitemap skips agent files and uses real dates", () => {
 	const site = "https://www.legalforecastbench.org";
-	assert.equal(includeInSitemap(`${site}/results/`), true);
-	assert.equal(includeInSitemap(`${site}/agent/results`), false);
+	assert.equal(includeInSitemap(`${site}/data/`), true);
+	assert.equal(includeInSitemap(`${site}/agent/data`), false);
 	assert.equal(includeInSitemap(`${site}/llms.txt`), false);
 	assert.equal(includeInSitemap(`${site}/data/current.json`), false);
 	assert.equal(includeInSitemap(`${site}/og/home.png`), false);
 	assert.equal(lastmodFor("/paper/"), "2026-10-07");
 	assert.equal(lastmodFor("/"), "2026-10-03");
-	assert.equal(lastmodFor("/findings/confident-misses/"), "2026-09-27");
 });
 
 test("robots allows the site, including the markdown copies llms.txt links", () => {
@@ -143,7 +113,7 @@ test("robots allows the site, including the markdown copies llms.txt links", () 
 	);
 });
 
-test("the homepage graph cites the visible FAQ and the organization", () => {
+test("the homepage graph cites the organization and the author", () => {
 	const canonical = new URL("/", originUrl()).href;
 	const graph = pageGraph({
 		site: originUrl(),
@@ -152,19 +122,13 @@ test("the homepage graph cites the visible FAQ and the organization", () => {
 		description: COPY.home.description,
 		image: "https://www.legalforecastbench.org/og/home.png",
 		crumbs: [],
-		extra: [faqPageNode(canonical, FAQS)],
 	});
 	const serialized = jsonLdScript(graph);
 	assert.match(serialized, /"@type":"Organization"/);
-	assert.match(serialized, /"@type":"FAQPage"/);
-	assert.match(serialized, /Are the published forecasts legal advice\?/);
 	assert.match(serialized, /https:\/\/x\.com\/jjhughes3/);
 	assert.match(serialized, /https:\/\/www\.linkedin\.com\/in\/jhughes3/);
 	assert.doesNotMatch(serialized, /sameAs":\[\]/);
 	assert.equal(serialized.includes("<"), false);
-	for (const faq of FAQS) {
-		assert.match(serialized, new RegExp(faq.question.replaceAll("?", "\\?")));
-	}
 });
 
 test("project and author identities are distinct", () => {
@@ -257,37 +221,42 @@ test("only the negotiation files carry a noindex header", () => {
 	assert.deepEqual(tagged, ["/agent/(.*)"]);
 });
 
-test("the earlier PDF directory redirects to the one beside the abstract", () => {
+test("retired and earlier URLs redirect permanently", () => {
 	const vercel = JSON.parse(
 		readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"),
-	) as { redirects: unknown };
-	assert.deepEqual(vercel.redirects, [
-		{ source: "/papers/:file", destination: "/paper/:file", permanent: true },
-	]);
+	) as {
+		redirects: { source: string; destination: string; permanent: boolean }[];
+	};
+	const to = new Map(vercel.redirects.map((r) => [r.source, r.destination]));
+	assert.equal(to.get("/papers/:file"), "/paper/:file");
+	assert.equal(to.get("/results/"), "/");
+	assert.equal(to.get("/results"), "/");
+	assert.equal(to.get("/methods/"), "/paper/");
+	assert.equal(to.get("/findings/:path*"), "/paper/");
+	assert.equal(to.get("/data/run-notes/"), "/data/");
+	assert.equal(to.get("/lab/:path*"), "/paper/");
+	assert.ok(vercel.redirects.every((r) => r.permanent));
 	assert.equal(WORKING_PAPER_PDF, "/paper/legalforecastbench-working.pdf");
 });
 
 test("llms.txt describes each page and links the data and citation files", () => {
 	const text = llmsTxt([
 		{
-			slug: "results",
-			path: "/results/",
-			title: "Results",
-			description: "Ranked scores.",
+			slug: "data",
+			path: "/data/",
+			title: "Data",
+			description: "Downloads.",
 			markdown: "",
 		},
 	]);
 	const site = "https://www.legalforecastbench.org";
-	assert.ok(
-		text.includes(`- [Results](${site}/agent/results.md): Ranked scores.`),
-	);
+	assert.ok(text.includes(`- [Data](${site}/agent/data.md): Downloads.`));
 	for (const path of [
 		"/data/current.json",
 		"/data/significance/comparison.json",
 		"/data/sources.json",
 		"/data/costs.json",
 		"/paper/legalforecastbench-working.pdf",
-		"/lab/",
 	]) {
 		assert.ok(text.includes(`](${site}${path})`), path);
 	}

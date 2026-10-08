@@ -1,6 +1,6 @@
 # Harvey LAB explorer: design
 
-The explorer lives at `/lab/` on the public site. It lets a reader browse Harvey LAB's 52 litigation tasks, read every rubric criterion next to the AI audit findings and two graded model runs, and go one by one through the 25 criteria a litigator hand-reviewed. The source data is the audit in [`harvey-lab-audit/litigation-dispute-resolution/`](harvey-lab-audit/litigation-dispute-resolution/README.md). The explorer adds no data of its own and never edits that directory.
+The explorer is offline until the LAB audit paper is published: its pages sit in `site/src/pages/_lab/`, which Astro does not route, and `/lab/*` redirects to the paper. Rename the directory to `lab/` (and remove the redirect in `site/vercel.json`) to relaunch it at `/lab/`. It lets a reader browse Harvey LAB's 52 litigation tasks, read every rubric criterion next to the AI audit findings and two graded model runs, and go one by one through the 25 criteria a litigator hand-reviewed. The source data is the audit in [`harvey-lab-audit/litigation-dispute-resolution/`](harvey-lab-audit/litigation-dispute-resolution/README.md). The explorer adds no data of its own and never edits that directory.
 
 ## Two entry points
 

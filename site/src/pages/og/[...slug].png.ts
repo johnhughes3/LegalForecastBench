@@ -1,5 +1,4 @@
 import type { APIRoute, GetStaticPaths } from "astro";
-import { publishedFindings } from "../../data/findings";
 import { ranks, sortedBy } from "../../data/metrics";
 import { primarySnapshot, REFERENCE_SLUGS, snapshot } from "../../data/results";
 import { type CardSpec, renderCard } from "../../og/card";
@@ -9,7 +8,6 @@ import { SECTION_CARDS, type SectionKey } from "../../og/routes";
 const { cohort } = snapshot;
 const cohortLine = `${cohort.case_count} federal cases · ${cohort.unit_count} claim-defendant units`;
 const brier = (value: number): string => value.toFixed(4);
-const kindLabels = { report: "Report", note: "Note", critique: "Critique" };
 
 function sectionCard(key: SectionKey): CardSpec {
 	const card = SECTION_CARDS[key];
@@ -26,7 +24,7 @@ function sectionCard(key: SectionKey): CardSpec {
 	return { kind: "home", title: card.title, cohort: cohortLine, leaders };
 }
 
-export const getStaticPaths = (async () => {
+export const getStaticPaths = (() => {
 	// Same ranking as the model pages: references are shown but not ranked.
 	const total = primarySnapshot.models.length;
 	const microRanks = ranks(primarySnapshot, "micro_brier");
@@ -52,18 +50,7 @@ export const getStaticPaths = (async () => {
 			} satisfies CardSpec,
 		},
 	}));
-	const findings = (await publishedFindings()).map((entry) => ({
-		params: { slug: `findings/${entry.id}` },
-		props: {
-			spec: {
-				kind: "finding",
-				kindLabel: kindLabels[entry.data.kind],
-				title: entry.data.title,
-				cohort: cohortLine,
-			} satisfies CardSpec,
-		},
-	}));
-	return [...sections, ...models, ...findings];
+	return [...sections, ...models];
 }) satisfies GetStaticPaths;
 
 export const GET: APIRoute = async ({ props, site }) => {

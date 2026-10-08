@@ -1,4 +1,3 @@
-import type { Faq } from "./faqs.js";
 import {
 	AUTHOR,
 	authorId,
@@ -231,25 +230,6 @@ export function softwareSourceCodeNode(): JsonLdNode {
 		codeRepository: REPO,
 		license: "https://www.apache.org/licenses/LICENSE-2.0",
 		author: { "@id": authorId },
-	};
-}
-
-export function faqPageNode(
-	canonical: string,
-	faqs: readonly Faq[],
-): JsonLdNode {
-	return {
-		"@type": "FAQPage",
-		"@id": `${canonical}#faq`,
-		url: canonical,
-		mainEntity: faqs.map((faq) => ({
-			"@type": "Question",
-			name: faq.question,
-			acceptedAnswer: {
-				"@type": "Answer",
-				text: faq.answer,
-			},
-		})),
 	};
 }
 

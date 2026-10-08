@@ -58,7 +58,7 @@ test("every site link in the built llms.txt resolves to a built file", () => {
 });
 
 test("every page that names a markdown copy has one in the build", () => {
-	for (const page of ["index.html", "results/index.html", "paper/index.html"]) {
+	for (const page of ["index.html", "data/index.html", "paper/index.html"]) {
 		const html = readFileSync(`dist/${page}`, "utf8");
 		const href = html.match(
 			/<link rel="alternate" type="text\/markdown" href="([^"]+)"/,
@@ -66,7 +66,7 @@ test("every page that names a markdown copy has one in the build", () => {
 		assert.ok(href && existsSync(`dist${href}`), page);
 	}
 	assert.doesNotMatch(
-		readFileSync("dist/lab/index.html", "utf8"),
+		readFileSync("dist/data/historical-results/index.html", "utf8"),
 		/type="text\/markdown"/,
 	);
 });

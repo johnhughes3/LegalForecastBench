@@ -85,6 +85,74 @@ export function parseManuscript(source: string): Manuscript {
 	};
 }
 
+const AI_PREPARED = /% BEGIN AI-PREPARED[\s\S]*?% END AI-PREPARED[^\n]*/g;
+const SENTENCE_BREAK = /(?<=[.!?][\u201d")]?)\s+(?=[A-Z\u201c"(])/;
+// A command with no argument, such as a generated number macro. The plain-text
+// conversion drops it, so a passage containing one would lose words.
+const BARE_COMMAND = /\\[A-Za-z]+\*?(?![A-Za-z*{[])/;
+
+interface Paragraph {
+	raw: string;
+	sentences: string[];
+}
+
+/**
+ * The manuscript's author-written paragraphs, in plain text. Sections marked
+ * AI-PREPARED are left out, so the site cannot quote them.
+ */
+export function authorParagraphs(source: string): Paragraph[] {
+	const begin = source.indexOf("\\begin{document}");
+	const end = source.indexOf("\\begin{thebibliography}");
+	if (begin < 0 || end < 0) {
+		throw new Error("The manuscript is missing its document body.");
+	}
+	const body = stripComments(
+		source.slice(begin, end).replace(AI_PREPARED, "\n\n"),
+	).replace(/\\(?:begin|end)\{[^}]*\}|\\(?:sub)*section\*?\{[^}]*\}/g, "\n\n");
+	const paragraphs: Paragraph[] = [];
+	for (const raw of body.split(/\n[ \t]*\n/)) {
+		let plain: string;
+		try {
+			plain = collapse(toPlain(raw));
+		} catch {
+			continue; // A drafting command spanning paragraphs; never quoted.
+		}
+		if (plain) paragraphs.push({ raw, sentences: plain.split(SENTENCE_BREAK) });
+	}
+	return paragraphs;
+}
+
+/**
+ * Quote the paper verbatim: `count` sentences (default: the rest of the
+ * paragraph) starting with the sentence that opens with `opening`. Fails the
+ * build when the opening is missing, ambiguous, or in an AI-prepared section,
+ * so the site never drifts from the paper unnoticed.
+ */
+export function quoteFrom(
+	paragraphs: readonly Paragraph[],
+	opening: string,
+	count?: number,
+): string {
+	const hits = paragraphs.flatMap((paragraph) => {
+		const start = paragraph.sentences.findIndex((s) => s.startsWith(opening));
+		return start < 0 ? [] : [{ paragraph, start }];
+	});
+	const hit = hits[0];
+	if (!hit || hits.length > 1) {
+		throw new Error(
+			`Expected one author-written passage opening "${opening}" in the manuscript; found ${hits.length}.`,
+		);
+	}
+	const bare = BARE_COMMAND.exec(hit.paragraph.raw);
+	if (bare) {
+		throw new Error(
+			`The passage opening "${opening}" uses ${bare[0]}, which plain text would drop.`,
+		);
+	}
+	const end = count === undefined ? undefined : hit.start + count;
+	return hit.paragraph.sentences.slice(hit.start, end).join(" ");
+}
+
 function stripComments(source: string): string {
 	return source
 		.split("\n")
@@ -251,6 +319,8 @@ function toPlain(input: string): string {
 		if (input[i] !== "{") continue;
 		const group = balanced(input, i);
 		i = group.next;
+		// \href{url}{text}: keep the text, which follows as an ordinary group.
+		if (name === "href") continue;
 		if (!DROP_COMMANDS.has(name)) out += toPlain(group.inner);
 	}
 	return out;

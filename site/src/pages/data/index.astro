@@ -1,7 +1,8 @@
 ---
 import CiteBox from "../../components/CiteBox.astro";
-import { comparison } from "../../data/comparison";
+import { comparison, comparisonScope } from "../../data/comparison";
 import { refreshedDataDirectory } from "../../data/dataset-input";
+import { PAPER_PROSE } from "../../data/paper-prose";
 import { recentResults } from "../../data/recent-results";
 import {
 	primarySnapshot,
@@ -58,7 +59,8 @@ const datasetLd = datasetNode({
 				Source on GitHub
 			</a>
 		</div>
-		<p class="mt-5 max-w-3xl text-lg text-ink-2">Download the results and the evidence behind them. If you find an error, please <a class="text-accent" href="https://github.com/johnhughes3/LegalForecastBench/issues/new">open an issue on GitHub</a>.</p>
+		<p class="mt-5 max-w-3xl text-lg leading-relaxed text-ink-2">{PAPER_PROSE.access}</p>
+		<p class="mt-3 max-w-3xl text-sm text-ink-2"><a class="text-accent hover:underline" href={repo}>Repository</a> · <a class="text-accent hover:underline" href="https://www.courtlistener.com/">CourtListener</a> · <a class="text-accent hover:underline" href={`${repo}/issues/new`}>Report an error</a></p>
 		{refreshedDataDirectory && <p class="mt-3 text-sm text-ink-2">This refreshed cohort excludes withdrawn cases. Seven configurations available only as historical aggregates are omitted from active rankings. <a class="text-accent hover:underline" href="/data/historical-aggregates.json" download>Download superseded aggregate provenance</a>.</p>}
 		<p class="mt-3 max-w-3xl text-sm text-ink-3">The data on this page is licensed under <a class="text-accent hover:underline" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; please credit LegalForecastBench. The code is licensed under Apache 2.0. See <a class="text-accent hover:underline" href={`${repo}/blob/main/LICENSE-DATA`}>LICENSE-DATA</a>.</p>
 
@@ -73,7 +75,7 @@ const datasetLd = datasetNode({
 				<p class="eyebrow">Experiments</p>
 				<h2 class="mt-2 font-serif text-xl font-semibold">Summary pipelines</h2>
 				<p class="mt-2 text-sm leading-relaxed text-ink-2">Jev and two OpenAI controls forecasting from the same case summaries. Forecast units, costs, and a separate significance analysis.</p>
-				<a href="/experiments/summary-pipelines/#method" class="mt-auto inline-flex w-fit text-sm font-medium text-accent hover:underline">Method and downloads →</a>
+				<a href="#supplementary" class="mt-auto inline-flex w-fit text-sm font-medium text-accent hover:underline">Downloads →</a>
 			</div>
 			<div class="card flex flex-col p-6">
 				<p class="eyebrow">Significance</p>
@@ -117,7 +119,7 @@ const datasetLd = datasetNode({
 					))}
 				</ul>
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">Per-unit predictions are not available for the other {comparison.missing_models.length} ranked configurations ({comparison.missing_models.map(nameOf).join(", ")}). Their unit-level predictions were not recoverable for this analysis, so their published aggregate scores cannot be rescored from units or included in paired comparisons.</p>
-				<p class="mt-3 text-sm"><a class="text-accent hover:underline" href="/data/run-notes/#significance">Scope of the analysis →</a></p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">{comparisonScope} {comparison.caveat} Untested pairs are not evidence of equivalence.</p>
 			</div>
 		</div>
 
@@ -131,7 +133,7 @@ const datasetLd = datasetNode({
 					</li>
 				))}
 			</ul>
-			<p class="mt-3 text-sm"><a class="text-accent hover:underline" href="/data/summary-comparison/catalog.json" download>Source catalog and cost evidence</a></p>
+			<p class="mt-3 text-sm"><a class="text-accent hover:underline" href="/data/summary-comparison/catalog.json" download>Source catalog and cost evidence</a> · <a class="text-accent hover:underline" href="/data/significance/summary/comparison.json" download>Significance results</a> · <a class="text-accent hover:underline" href="/data/significance/summary/inputs.json" download>Reproduction inputs</a> · <a class="text-accent hover:underline" href={`${repo}/blob/main/scripts/reproduce_summary_comparisons.py`}>Reproducer</a></p>
 		</div>
 
 		<div class="mt-16 grid gap-10 md:grid-cols-2">
@@ -139,16 +141,31 @@ const datasetLd = datasetNode({
 				<h2 class="font-serif text-2xl font-semibold tracking-tight">Reproducing a score</h2>
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">The benchmark code, prompts, scorer, and model registries are open source. Official runs execute in GitHub Actions, and each model page links its run.</p>
 				<ul class="mt-3 space-y-1.5 text-sm">
+					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/METHODS.md`}>Methods</a></li>
 					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/reproduce-or-audit.md`}>Reproduce or audit a result</a></li>
 					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/site-data.md`}>Website data contract</a></li>
 					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/MODEL_RELEASE_DATES.md`}>Model release dates and training cutoffs</a></li>
-					<li><a class="text-accent hover:underline" href="/data/run-notes/">Run notes and cost methodology</a></li>
+					<li><a class="text-accent hover:underline" href="#costs">Cost methodology</a></li>
+					<li><a class="text-accent hover:underline" href="/data/historical-results/">Superseded 100-case results</a></li>
 				</ul>
 			</div>
 			<div>
 				<h2 class="font-serif text-2xl font-semibold tracking-tight">What is not published</h2>
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">Court filings, locked labels, raw model transcripts, and private corpus records are not redistributed here. Model rationales will appear only after human review.</p>
 			</div>
+		</div>
+
+		<div id="run-notes" class="prose-lfb prose mt-16 max-w-4xl scroll-mt-20">
+			<h2>Run notes</h2>
+			<p>Each configuration ran in GitHub Actions against the same locked release. Some runs needed recovery after provider or accounting issues, and some accounting fields were incomplete. The notes below explain how comparable costs were reconstructed and where estimates remain.</p>
+			<p>{provenance.method}</p>
+			{!refreshedDataDirectory && <p>On October 3, the preserved Claude Opus 5, Claude Sonnet 5, and GPT-5.6 Sol forecasts were scored again through the protected scoring workflow. Their native exports reproduce the original beta scores on the same 91 cases and 387 units and replace the corresponding aggregate rows. No model was rerun. The original September 18 snapshot remains available unchanged.</p>}
+			{refreshedDataDirectory && <p>Scores and significance use the retained {cohort.case_count}-case cohort. Frozen run and release identities remain original provenance. Cost evidence retains its recorded workload scope rather than implying that withdrawing a case refunds its execution. Aggregate-only configurations cannot be rescored and are preserved as <a href="/data/historical-aggregates.json" download>superseded provenance</a>.</p>}
+			<h3 id="costs">Costs</h3>
+			<p>Charts compare available estimated standard-rate costs for the successful workload. They do not represent total experiment spending or provider invoices. Flex discounts are removed for the chart; the successful workload charges and estimates remain available in the download.</p>
+			<p>We retain cache discounts where usage and prices are known. Where cache dimensions or prices are missing, we use ordinary-input estimates. These may overstate or understate cache-adjusted costs. Failed attempts, retries, and unresolved charges are excluded.</p>
+			<p>The Opus 5, Sonnet 5, and GPT-5.6 Sol native exports retain successful-workload usage estimates with accounting for all 91 cases. Per-response usage is missing, so standard-rate repricing is unavailable and these configurations have no value in comparative cost charts.</p>
+			<dl>{snapshot.models.filter((model) => model.cost.note).map((model) => <div><dt>{model.display_name}</dt><dd>{model.cost.note}</dd></div>)}</dl>
 		</div>
 	</section>
 </Layout>

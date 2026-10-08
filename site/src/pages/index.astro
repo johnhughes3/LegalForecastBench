@@ -1,251 +1,112 @@
 ---
-import BrierBars from "../components/BrierBars.astro";
+import ConfidenceChart from "../components/ConfidenceChart";
+import Leaderboard from "../components/Leaderboard";
+import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
-import { CURRENT_RELEASE } from "../data/analysis";
 import { AUTHOR } from "../data/author";
-import { comparison } from "../data/comparison";
-import { refreshedDataDirectory } from "../data/dataset-input";
+import { comparisonScope } from "../data/comparison";
+import { paperHeadline } from "../data/headline";
 import { formatPercent } from "../data/metrics";
 import { PAPER } from "../data/paper";
-import { primarySnapshot, snapshot } from "../data/results";
-import { supplementaryRows } from "../data/supplementary-results";
+import { PAPER_PROSE } from "../data/paper-prose";
+import { CURRENT_RELEASE, primarySnapshot, snapshot } from "../data/results";
 import Layout from "../layouts/Layout.astro";
 import { COPY } from "../seo/copy";
-import { FAQS } from "../seo/faqs";
-import { faqPageNode } from "../seo/jsonld";
 
 const { cohort } = snapshot;
-const ranked = [...primarySnapshot.models].sort(
-	(a, b) => a.micro_brier - b.micro_brier,
-);
-const [leader, runnerUp] = ranked;
-const tested = (slug: string) => comparison.available_models.includes(slug);
-const eligibleCount = primarySnapshot.models.filter(
-	(m) => m.eligibility === "eligible",
-).length;
-const testedCurrent = primarySnapshot.models.filter((m) =>
-	tested(m.slug),
-).length;
-const confident = primarySnapshot.models.filter(
-	(m) => m.high_confidence.count > 0,
-);
-const worstConfident = confident.length
-	? confident.reduce((worst, m) =>
-			m.high_confidence.wrong / m.high_confidence.count >
-			worst.high_confidence.wrong / worst.high_confidence.count
-				? m
-				: worst,
-		)
-	: undefined;
-const jev = supplementaryRows.find((row) => row.slug === "jev-luna-summaries");
-const fmtDate = (iso: string) =>
-	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
-		month: "short",
-		day: "numeric",
-		timeZone: "UTC",
-	});
-const window = `${fmtDate(cohort.decision_window.start)} – ${fmtDate(cohort.decision_window.end)}, 2026`;
-const reviewed = new Date(`${snapshot.as_of}T00:00:00Z`).toLocaleDateString(
-	"en-US",
-	{
-		month: "long",
-		day: "numeric",
-		year: "numeric",
-		timeZone: "UTC",
-	},
-);
-
-const contributions = [
-	[
-		"A specified legal forecast target",
-		"The probability that each challenged claim against each defendant is fully dismissed in the motion's first written disposition, scored against what the court later did.",
-	],
-	[
-		"Reconstructed records and documented labels",
-		"A process for rebuilding the record the judge had before ruling and translating each ruling into claim-defendant labels, with its review coverage stated in the methods.",
-	],
-	[
-		"Controlled comparisons and failure analysis",
-		"Experiments and error analysis that expose probabilistic mistakes and task-interpretation problems, not just a rank order.",
-	],
+const n = cohort.unit_count;
+const subtitle = PAPER.title.split(": ").at(-1) ?? PAPER.title;
+const excerpts = [
+	PAPER_PROSE.groundTruth,
+	PAPER_PROSE.whyMotions,
+	PAPER_PROSE.nextSteps,
 ];
-
-const findings: { title: string; body: string; href: string }[] =
-	refreshedDataDirectory
-		? [
-				{
-					title: "Results refreshed after case withdrawals.",
-					body: `Scores use ${cohort.case_count} retained cases and ${cohort.unit_count} units across ${primarySnapshot.models.length} ranked configurations. Original aggregate-only results are superseded.`,
-					href: "/data/",
-				},
-				{
-					title: "Paired analysis recomputed on retained cases.",
-					body: `${primarySnapshot.significant_pairs.length} significant model/metric comparisons after correction. Untested pairs do not establish equivalence.`,
-					href: "/data/run-notes/#significance",
-				},
-			]
-		: leader && runnerUp
-			? [
-					{
-						title: `${leader.display_name} has the best observed scores; ${runnerUp.display_name} follows on micro Brier.`,
-						body: `Among the ${testedCurrent} current configurations in the paired analysis, no difference reached significance after correction${tested(runnerUp.slug) ? "" : `, and ${runnerUp.display_name} was not among them`}. The ordering across all ${primarySnapshot.models.length} configurations is descriptive.`,
-						href: "/results/",
-					},
-					{
-						title: "Confident misses are expensive.",
-						body: `At 90% stated confidence or more, some configurations had no misses while ${worstConfident?.display_name ?? "no configuration"} missed ${formatPercent(worstConfident ? worstConfident.high_confidence.wrong / worstConfident.high_confidence.count : 0, 0)}. Brier scoring squares each error, so a few confident misses outweigh many good calls.`,
-						href: "/findings/confident-misses/",
-					},
-					{
-						title: "A summary pipeline scored worse than always guessing 50%.",
-						body: `Jev scored ${jev ? jev.micro_brier.toFixed(3) : "n/a"} micro Brier from case summaries, against 0.250 for a constant 50% forecast. Two OpenAI controls given the identical summaries did better, so the summaries alone do not explain the result.`,
-						href: "/experiments/summary-pipelines/",
-					},
-				]
-			: [];
 ---
 
-<Layout
-	title={COPY.home.title}
-	description={COPY.home.description}
-	schema={[faqPageNode(new URL("/", Astro.site).href, FAQS)]}
->
+<Layout title={COPY.home.title} description={COPY.home.description}>
 	<section class="relative overflow-hidden border-b border-rule">
 		<div class="pointer-events-none absolute inset-0 opacity-[0.5] [background-image:radial-gradient(var(--rule)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"></div>
 		<div class="relative mx-auto max-w-6xl px-4 pb-14 pt-16 sm:px-6 sm:pt-24">
 			<p class="eyebrow">Research benchmark · {CURRENT_RELEASE}</p>
-			<h1 class="mt-4 max-w-4xl font-serif text-4xl font-medium leading-[1.08] tracking-tight text-ink sm:text-6xl">
-				Can frontier models predict how federal judges will rule on motions to dismiss?
-			</h1>
-			<p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-2">
-				LegalForecastBench tests whether AI models can forecast federal motion-to-dismiss outcomes from the court record available before the decision. It measures both predictive accuracy and the quality of the models' probabilities.
-			</p>
+			<h1 class="mt-4 max-w-4xl font-serif text-4xl font-medium leading-[1.08] tracking-tight text-ink sm:text-6xl">{subtitle}</h1>
+			<p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-2">{PAPER_PROSE.task}</p>
 			<div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
 				<a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{AUTHOR.name}</a>
 				<span class="text-rule-strong" aria-hidden="true">|</span>
 				<a class="font-medium text-accent hover:underline" href="/paper/">{PAPER.status} →</a>
-				<a class="font-medium text-accent hover:underline" href="/data/">Code &amp; results →</a>
+				<a class="font-medium text-accent hover:underline" href="/data/">Code &amp; data →</a>
 				<a class="font-medium text-accent hover:underline" href={AUTHOR.contact}>Contact →</a>
 			</div>
 			<p class="mt-3 text-xs text-ink-3">In partnership with LegalQuants.</p>
 			<div class="mt-12 grid grid-cols-2 gap-y-8 sm:grid-cols-4">
-				<Stat value={String(cohort.case_count)} label="Federal cases" detail={`Decided ${window}`} />
-				<Stat value={String(cohort.unit_count)} label="Scored units" detail="Claim × defendant forecasts" />
-				<Stat value={String(primarySnapshot.models.length)} label="Model configurations" detail={`${new Set(primarySnapshot.models.map((m) => m.provider)).size} providers · full record`} />
-				<Stat value={formatPercent(cohort.dismissed_unit_count / cohort.unit_count)} label="Dismissal base rate" detail="Units fully dismissed" />
+				<Stat value={String(cohort.case_count)} label="Federal cases" />
+				<Stat value={String(n)} label="Scored units" detail="Claim × defendant forecasts" />
+				<Stat value={String(primarySnapshot.models.length)} label="Model configurations" />
+				<Stat value={formatPercent(cohort.dismissed_unit_count / n)} label="Dismissal base rate" detail="Units fully dismissed" />
 			</div>
 		</div>
 	</section>
 
-	<section class="mx-auto max-w-6xl px-4 pt-14 sm:px-6" aria-labelledby="contributions">
-		<p class="eyebrow">What this work contributes</p>
-		<h2 id="contributions" class="sr-only">Contributions</h2>
-		<ol class="mt-5 grid gap-4 md:grid-cols-3">
-			{contributions.map(([title, body], i) => (
-				<li class="card p-5">
-					<p class="font-serif text-sm text-accent">0{i + 1}</p>
-					<h3 class="mt-2 font-serif text-lg font-semibold leading-snug">{title}</h3>
-					<p class="mt-2 text-sm leading-relaxed text-ink-2">{body}</p>
-				</li>
-			))}
-		</ol>
+	<section class="mx-auto max-w-6xl scroll-mt-20 px-4 pt-16 sm:px-6" id="leaderboard">
+		<p class="eyebrow">Results</p>
+		<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Forecast quality by model</h2>
+		{paperHeadline && <p class="mt-4 max-w-3xl leading-relaxed text-ink-2">{paperHeadline}</p>}
+		<p class="mt-2 text-sm text-ink-3">Ranked by micro Brier. Lower is better. <span class="hidden md:inline">Click any column to re-sort.</span></p>
+		<div class="mt-6">
+			<Leaderboard client:load snapshot={primarySnapshot} />
+		</div>
 	</section>
 
-	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
-		<div class="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
+	<section class="mx-auto max-w-6xl px-4 pt-6 sm:px-6" aria-labelledby="inference-scope">
+		<div class="card space-y-2 p-5 text-sm leading-relaxed text-ink-2">
+			<h2 id="inference-scope" class="font-medium text-ink">What the ordering does and does not show</h2>
+			<p>{comparisonScope} Untested pairs remain untested, and a non-significant difference is not evidence that two models are equivalent. Each configuration's model page lists its version, reasoning setting, training-cutoff evidence, and cost basis.</p>
+			<p>This is a public beta on {cohort.case_count} cases with one retained forecast per unit. Scores are comparable only within this cohort.</p>
+		</div>
+	</section>
+
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
+		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
 			<div>
-				<p class="eyebrow">Findings</p>
-				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">What the first release shows</h2>
-				<ol class="mt-6 space-y-5 text-[1.02rem] leading-relaxed text-ink-2">
-					{findings.map((f, i) => (
-						<li class="flex gap-3">
-							<span class="mt-0.5 font-serif text-accent">{i + 1}</span>
-							<span><strong class="font-semibold text-ink">{f.title}</strong> {f.body} <a class="whitespace-nowrap text-accent hover:underline" href={f.href}>Evidence →</a></span>
-						</li>
-					))}
-				</ol>
-				<p class="mt-6 text-sm text-ink-3">This is a public beta on {cohort.case_count} cases with one retained forecast per unit. Scores are comparable only within this cohort.</p>
+				<p class="eyebrow">Cost and quality</p>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">What each point of accuracy costs</h2>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">Each point is one model's total standard-rate cost for the cohort against its score. Diamonds joined by the dashed line form the observed frontier: no other model is both cheaper and better.</p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">Frontier membership is descriptive and includes only models with cost evidence. A rank alone does not establish statistical significance.</p>
 			</div>
-			<div id="leaderboard" class="card min-w-0 scroll-mt-20 p-5 sm:p-6">
-				<div class="mb-5 flex items-baseline justify-between gap-4">
-					<h3 class="font-serif text-lg font-semibold">Forecast quality by model</h3>
-					<a class="shrink-0 text-sm font-medium text-accent hover:underline" href="/results/">Full results →</a>
-				</div>
-				<BrierBars snapshot={primarySnapshot} />
+			<div class="card min-w-0 p-4 sm:p-6">
+				<ParetoChart client:visible snapshot={primarySnapshot} />
 			</div>
 		</div>
 	</section>
 
 	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
-		<p class="eyebrow">How it works</p>
-		<div class="mt-6 grid gap-4 md:grid-cols-4">
-			{[
-				["The record", "Each model receives the pre-decision docket and filings through a controlled document-tool harness. The judge's ruling is withheld."],
-				["The question", "For each challenged claim against each defendant, what is the probability it is fully dismissed in the motion's first written disposition?"],
-				["The answer key", `The court's actual ruling. ${eligibleCount} of ${primarySnapshot.models.length} configurations report a training or knowledge cutoff before the first decision; the other ${primarySnapshot.models.length - eligibleCount} are qualified because no cutoff is published or it could overlap the decision window.`],
-				["The score", "Brier score: the squared gap between forecast and outcome. It rewards calibration and discrimination, and it punishes confident errors."],
-			].map(([title, body], i) => (
-				<div class="card p-5">
-					<p class="font-serif text-sm text-accent">0{i + 1}</p>
-					<h3 class="mt-2 font-serif text-lg font-semibold">{title}</h3>
-					<p class="mt-2 text-sm leading-relaxed text-ink-2">{body}</p>
-				</div>
-			))}
-		</div>
-	</section>
-
-	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
-		<div class="grid gap-4 lg:grid-cols-2">
-			<a href="/findings/astra-mootness/" class="card group flex flex-col p-6 transition hover:border-accent/40">
-				<p class="eyebrow">Worked example · A label boundary</p>
-				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight group-hover:text-accent">When is a claim "dismissed"?</h2>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">The target is the motion's first written disposition, not the eventual merits. Two outcomes that look alike score differently:</p>
-				<table class="mt-4 w-full text-left text-sm">
-					<caption class="sr-only">How two similar outcomes are labeled</caption>
-					<thead class="border-b border-rule text-xs text-ink-3"><tr><th scope="col" class="py-2 font-medium">What happens</th><th scope="col" class="py-2 font-medium">Label</th></tr></thead>
-					<tbody class="divide-y divide-rule text-ink-2">
-						<tr><td class="py-2 pr-4">The judge dismisses the claim with leave to amend</td><td class="py-2 font-medium text-ink">Dismissed</td></tr>
-						<tr><td class="py-2 pr-4">The plaintiff amends first, and the motion is denied as moot</td><td class="py-2 font-medium text-ink">Not dismissed</td></tr>
-					</tbody>
-				</table>
-				<span class="mt-auto pt-5 text-sm font-medium text-accent">How this boundary affected GPT-6 Astra →</span>
-			</a>
-			<div class="card flex flex-col p-6">
-				<p class="eyebrow">Research agenda · Ongoing</p>
-				<h2 class="mt-2 font-serif text-2xl font-semibold tracking-tight">Learning from resolved outcomes</h2>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Through LegalForecastGym, we are testing whether optimization against resolved legal outcomes improves probabilistic prediction on later, disjoint cases, and whether any improvement transfers to other legal tasks. There are no results to report yet.</p>
-				<div class="mt-auto flex flex-wrap gap-x-5 gap-y-2 pt-5 text-sm font-medium">
-					<a class="text-accent hover:underline" href="/analysis/">All analysis →</a>
-					<a class="text-accent hover:underline" href="/approach/">Why outcomes, not rubrics →</a>
-				</div>
+		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
+			<div>
+				<p class="eyebrow">Calibration at the extremes</p>
+				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">When models are sure, are they right?</h2>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">Among predictions made with at least 90% confidence either way, the hollow circle is the mean stated confidence and the filled circle is how often those predictions were right.</p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">Brier scoring squares each error, so a few confident misses can outweigh many good calls.</p>
+			</div>
+			<div class="card min-w-0 p-4 sm:p-6">
+				<ConfidenceChart snapshot={primarySnapshot} />
 			</div>
 		</div>
 	</section>
 
-	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6" aria-labelledby="faq">
-		<p class="eyebrow">Frequently asked questions</p>
-		<h2 id="faq" class="mt-2 max-w-3xl font-serif text-3xl font-semibold tracking-tight">Direct answers</h2>
-		<p class="mt-3 text-sm text-ink-3">
-			Last reviewed <time datetime={snapshot.as_of}>{reviewed}</time>. Reviewed by <a class="hover:text-ink" href={AUTHOR.research}>{AUTHOR.name}</a>.
-		</p>
-		<div class="mt-8 max-w-3xl space-y-8">
-			{FAQS.map((faq) => (
-				<div>
-					<h3 class="font-serif text-xl font-semibold tracking-tight">{faq.question}</h3>
-					<p class="mt-2 leading-relaxed text-ink-2">{faq.answer}</p>
-					{faq.href && faq.hrefLabel && (
-						<p class="mt-2 text-sm"><a class="font-medium text-accent hover:underline" href={faq.href}>{faq.hrefLabel}</a></p>
-					)}
-				</div>
-			))}
+	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6" aria-labelledby="why">
+		<p class="eyebrow">From the working paper</p>
+		<h2 id="why" class="mt-2 font-serif text-3xl font-semibold tracking-tight">Why judicial outcomes</h2>
+		<div class="mt-6 max-w-3xl space-y-4 border-l-2 border-rule pl-5 text-[1.02rem] leading-relaxed text-ink-2">
+			{excerpts.map((paragraph) => <p>{paragraph}</p>)}
 		</div>
+		<a class="mt-5 inline-flex text-sm font-medium text-accent hover:underline" href="/paper/">Read the paper →</a>
 	</section>
 
 	<section class="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
 		<div class="rounded-2xl border border-rule-strong bg-surface-2 p-6 sm:p-8 md:flex md:items-center md:justify-between md:gap-10">
 			<div class="max-w-2xl">
-				<h2 class="font-serif text-2xl font-semibold tracking-tight">Working on evaluation, forecasting, or post-training?</h2>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">I'd welcome feedback on the task design and outcome labels, and conversations about evaluating models on a fresh cohort or testing outcome-based training.</p>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">Feedback</h2>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">{PAPER_PROSE.feedback}</p>
 			</div>
 			<div class="mt-5 flex shrink-0 flex-wrap gap-3 md:mt-0">
 				<a href={AUTHOR.contact} class="rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Get in touch</a>

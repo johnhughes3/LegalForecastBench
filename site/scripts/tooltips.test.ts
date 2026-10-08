@@ -59,11 +59,7 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 					page.on("console", (message) => {
 						if (message.type() === "error") errors.push(message.text());
 					});
-					for (const path of [
-						"/results/",
-						"/models/gpt-6-sol/",
-						"/experiments/summary-pipelines/",
-					]) {
+					for (const path of ["/", "/models/gpt-6-sol/"]) {
 						const response = await page.goto(
 							`http://127.0.0.1:${address.port}${path}`,
 						);
@@ -82,7 +78,7 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 							.map((match) => match[1])
 							.sort();
 						await page.evaluate(() => document.fonts.ready);
-						if (path === "/results/")
+						if (path === "/")
 							await page
 								.getByRole("heading", { name: "Forecast quality by model" })
 								.scrollIntoViewIfNeeded();
