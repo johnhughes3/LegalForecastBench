@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pypdf
 
-PINNED_PDF_EXTRACTOR_VERSION = "6.16.2"
+PINNED_PDF_EXTRACTOR_VERSION = "6.19.0"
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 

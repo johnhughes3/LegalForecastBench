@@ -4,3 +4,5 @@ allowBuilds:
   esbuild: true
 overrides:
   'fflate@<0.7.5': 0.7.5
+  # @tailwindcss/typography pins a vulnerable 6.x; 7.1.6 builds identical CSS.
+  'postcss-selector-parser@<7.1.6': ^7.1.6
