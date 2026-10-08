@@ -154,6 +154,16 @@
 			"source": "/lab",
 			"destination": "/paper/",
 			"permanent": true
+		},
+		{
+			"source": "/data/historical-results/",
+			"destination": "/data/",
+			"permanent": true
+		},
+		{
+			"source": "/data/historical-results",
+			"destination": "/data/",
+			"permanent": true
 		}
 	],
 	"rewrites": [

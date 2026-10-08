@@ -1,5 +1,5 @@
 import { REPO } from "../data/author.js";
-import { comparison, comparisonScope } from "../data/comparison.js";
+import { comparisonScope } from "../data/comparison.js";
 import { paperHeadline } from "../data/headline.js";
 import { formatPercent } from "../data/metrics.js";
 import { PAPER } from "../data/paper.js";
@@ -125,28 +125,7 @@ function dataMarkdown(): string {
 		`- Code license: Apache License 2.0`,
 		`- Source: ${REPO}`,
 		"",
-		...runNotesLines(),
 	].join("\n");
-}
-
-function runNotesLines(): string[] {
-	const notes = snapshot.models
-		.filter((model) => model.cost.note)
-		.map((model) => `- **${model.display_name}.** ${model.cost.note}`);
-	return [
-		"## Run notes",
-		"",
-		snapshot.provenance.method,
-		"",
-		comparisonScope,
-		comparison.caveat,
-		"Untested pairs are not evidence of equivalence.",
-		"",
-		"Charts compare estimated standard-rate costs for the same successful workload. They do not represent total experiment spending or provider invoices.",
-		"",
-		...notes,
-		"",
-	];
 }
 
 export function agentDocuments(): AgentDocument[] {

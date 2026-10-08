@@ -1,14 +1,10 @@
 ---
 import CiteBox from "../../components/CiteBox.astro";
-import { comparison, comparisonScope } from "../../data/comparison";
+import { comparison } from "../../data/comparison";
 import { refreshedDataDirectory } from "../../data/dataset-input";
 import { PAPER_PROSE } from "../../data/paper-prose";
 import { recentResults } from "../../data/recent-results";
-import {
-	primarySnapshot,
-	releaseDescription,
-	snapshot,
-} from "../../data/results";
+import { releaseDescription, snapshot } from "../../data/results";
 import {
 	summaryComparisons,
 	supplementaryRows,
@@ -18,6 +14,8 @@ import { COPY } from "../../seo/copy";
 import { datasetNode, softwareSourceCodeNode } from "../../seo/jsonld";
 
 const { provenance, cohort } = snapshot;
+const cell = "px-4 py-3 align-top";
+const link = "text-accent hover:underline";
 const nameOf = (slug: string) =>
 	snapshot.models.find((m) => m.slug === slug)?.display_name ?? slug;
 const summaryName = (slug: string) => {
@@ -52,120 +50,55 @@ const datasetLd = datasetNode({
 <Layout title={COPY.data.title} description={COPY.data.description} schema={[datasetLd, softwareSourceCodeNode()]}>
 	<section class="mx-auto max-w-5xl px-4 pt-14 sm:px-6">
 		<p class="eyebrow">Data &amp; code</p>
-		<div class="mt-3 flex flex-wrap items-end justify-between gap-4">
-			<h1 class="font-serif text-4xl font-medium tracking-tight sm:text-5xl">Data and reproduction</h1>
-			<a href={repo} class="inline-flex items-center gap-2 rounded-full border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:border-ink">
-				<svg class="size-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-				Source on GitHub
-			</a>
-		</div>
+		<h1 class="mt-3 font-serif text-4xl font-medium tracking-tight sm:text-5xl">Data and code</h1>
 		<p class="mt-5 max-w-3xl text-lg leading-relaxed text-ink-2">{PAPER_PROSE.access}</p>
-		<p class="mt-3 max-w-3xl text-sm text-ink-2"><a class="text-accent hover:underline" href={repo}>Repository</a> · <a class="text-accent hover:underline" href="https://www.courtlistener.com/">CourtListener</a> · <a class="text-accent hover:underline" href={`${repo}/issues/new`}>Report an error</a></p>
-		{refreshedDataDirectory && <p class="mt-3 text-sm text-ink-2">This refreshed cohort excludes withdrawn cases. Seven configurations available only as historical aggregates are omitted from active rankings. <a class="text-accent hover:underline" href="/data/historical-aggregates.json" download>Download superseded aggregate provenance</a>.</p>}
-		<p class="mt-3 max-w-3xl text-sm text-ink-3">The data on this page is licensed under <a class="text-accent hover:underline" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; please credit LegalForecastBench. The code is licensed under Apache 2.0. See <a class="text-accent hover:underline" href={`${repo}/blob/main/LICENSE-DATA`}>LICENSE-DATA</a>.</p>
+		<p class="mt-3 text-sm text-ink-2"><a class={link} href={repo}>Repository</a> · <a class={link} href="https://www.courtlistener.com/">CourtListener</a> · <a class={link} href={`${repo}/issues/new`}>Report an error</a></p>
+		{refreshedDataDirectory && <p class="mt-3 text-sm text-ink-2">This refreshed cohort excludes withdrawn cases. <a class={link} href="/data/historical-aggregates.json" download>Superseded aggregate provenance</a>.</p>}
 
-		<div class="mt-10 grid gap-4 md:grid-cols-3">
-			<div class="card flex flex-col p-6">
-				<p class="eyebrow">Main results</p>
-				<h2 class="mt-2 font-serif text-xl font-semibold">The ranked comparison</h2>
-				<p class="mt-2 text-sm leading-relaxed text-ink-2">{primarySnapshot.models.length} models plus GPT-4.1 as a historical reference for non-thinking models, on {cohort.case_count} cases and {cohort.unit_count} units. Scores, eligibility, costs, and significance in one JSON file.</p>
-				<a href="/data/current.json" download class="mt-auto inline-flex w-fit items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-bg hover:opacity-90">Download JSON</a>
-			</div>
-			<div class="card flex flex-col p-6">
-				<p class="eyebrow">Experiments</p>
-				<h2 class="mt-2 font-serif text-xl font-semibold">Summary pipelines</h2>
-				<p class="mt-2 text-sm leading-relaxed text-ink-2">Jev and two OpenAI controls forecasting from the same case summaries. Forecast units, costs, and a separate significance analysis.</p>
-				<a href="#supplementary" class="mt-auto inline-flex w-fit text-sm font-medium text-accent hover:underline">Downloads →</a>
-			</div>
-			<div class="card flex flex-col p-6">
-				<p class="eyebrow">Significance</p>
-				<h2 class="mt-2 font-serif text-xl font-semibold">Paired comparisons</h2>
-				<p class="mt-2 text-sm leading-relaxed text-ink-2">Bootstrap confidence intervals for every tested pair, with the inputs needed to rerun the analysis yourself.</p>
-				<a href="/data/significance/comparison.json" download class="mt-auto inline-flex w-fit items-center gap-2 rounded-full border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:border-ink">Download results</a>
-			</div>
+		<h2 id="downloads" class="mt-12 font-serif text-2xl font-semibold tracking-tight">Downloads</h2>
+		<div class="mt-4 overflow-x-auto rounded-xl border border-rule">
+			<table class="w-full text-left text-sm">
+				<thead class="border-b border-rule bg-surface-2/50 text-xs text-ink-3">
+					<tr><th scope="col" class={cell}>File</th><th scope="col" class={cell}>Contents</th></tr>
+				</thead>
+				<tbody class="divide-y divide-rule text-ink-2">
+					<tr><td class={cell}><a class={link} href="/data/current.json" download>Leaderboard</a></td><td class={cell}>Each model's scores, training cutoff, eligibility and cost</td></tr>
+					<tr id="significance"><td class={cell}>Forecasts</td><td class={cell}>
+						One row per claim–defendant unit: case ID, unit ID, the model's probability of dismissal, and the outcome
+						<ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1">{comparison.available_models.map((slug) => <li><a class={link} href={`/data/significance/${slug}.jsonl`} download>{nameOf(slug)}</a></li>)}</ul>
+						<p class="mt-2 text-xs text-ink-3">Unit-level forecasts were not kept for {comparison.missing_models.map(nameOf).join(", ")}.</p>
+					</td></tr>
+					<tr><td class={cell}><a class={link} href="/data/significance/comparison.json" download>Significance</a></td><td class={cell}>Paired bootstrap intervals for every pair of models above (<a class={link} href="/data/significance/inputs.json" download>inputs</a>)</td></tr>
+					<tr id="exports"><td class={cell}>Full exports</td><td class={cell}>
+						Complete scored output for each run, with cost accounting and its GitHub Actions runs
+						<ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1">{recentResults.map(({ source }) => <li><a class={link} href={`/data/exports/${source.slug}.json`} download>{nameOf(source.slug)}</a></li>)}</ul>
+					</td></tr>
+					<tr id="supplementary"><td class={cell}><a class={link} href="/data/summary-comparison/catalog.json" download>Jev experiment</a></td><td class={cell}>
+						Forecasts from case summaries, kept separate from the leaderboard
+						<ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+							{summaryComparisons.map(({ source }) => <li><a class={link} href={`/data/exports/${source.slug}.json`} download>{summaryName(source.slug)}</a></li>)}
+							<li><a class={link} href="/data/significance/summary/comparison.json" download>significance</a></li>
+						</ul>
+					</td></tr>
+				</tbody>
+			</table>
 		</div>
 
-		<dl class="mt-6 grid gap-4 rounded-xl border border-rule bg-surface-2/50 p-5 text-sm sm:grid-cols-2">
-			<div><dt class="text-ink-3">Release</dt><dd class="mt-0.5 font-mono text-[13px] text-ink-2">{provenance.release}</dd></div>
-			<div><dt class="text-ink-3">Release digest (SHA-256)</dt><dd class="mt-0.5 break-all font-mono text-[13px] text-ink-2">{provenance.release_digest}</dd></div>
-		</dl>
-
-		<CiteBox class="mt-6" />
-
-		<div class="mt-16 grid gap-12 lg:grid-cols-2">
+		<div class="mt-12 grid gap-10 md:grid-cols-2">
 			<div>
-				<h2 id="exports" class="font-serif text-2xl font-semibold tracking-tight">Per-model source exports</h2>
-				<p class="mt-2 text-sm text-ink-2">Scored exports, with the GitHub Actions runs that produced and scored them.</p>
-				<ul class="mt-4 divide-y divide-rule rounded-xl border border-rule text-sm">
-					{recentResults.map(({ source }) => (
-						<li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-							<a class="font-medium text-ink hover:text-accent" href={`/data/exports/${source.slug}.json`} download>{nameOf(source.slug)}</a>
-							<span class="text-xs text-ink-3">
-								<a class="hover:text-accent" href={`${repo}/actions/runs/${source.forecast_run}`}>forecast run</a> · <a class="hover:text-accent" href={`${repo}/actions/runs/${source.scoring_run}`}>scoring run</a>
-							</span>
-						</li>
-					))}
-				</ul>
-				<p class="mt-3 text-sm"><a class="text-accent hover:underline" href="/data/sources.json" download>Run and release provenance (JSON)</a> · <a class="text-accent hover:underline" href="/data/costs.json" download>Cost evidence (JSON)</a></p>
-			</div>
-
-			<div id="significance">
-				<h2 class="font-serif text-2xl font-semibold tracking-tight">Reproduce the significance analysis</h2>
-				<p class="mt-2 text-sm text-ink-2">Public prediction units for the {comparison.available_models.length} configurations in the paired analysis. Download the manifest and every file into one directory, then run the repository's <a class="text-accent hover:underline" href={`${repo}/blob/main/scripts/compare_site_results.py`}>comparison script</a> as described in the <a class="text-accent hover:underline" href={`${repo}/blob/main/docs/site-data.md`}>data guide</a>.</p>
-				<ul class="mt-4 divide-y divide-rule rounded-xl border border-rule text-sm">
-					<li class="px-4 py-3"><a class="font-medium text-ink hover:text-accent" href="/data/significance/inputs.json" download>Input manifest</a></li>
-					{comparison.available_models.map((slug) => (
-						<li class="px-4 py-3"><a class="text-ink-2 hover:text-accent" href={`/data/significance/${slug}.jsonl`} download>{nameOf(slug)} <span class="text-ink-3">· units (JSONL)</span></a></li>
-					))}
-				</ul>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Per-unit predictions are not available for the other {comparison.missing_models.length} ranked configurations ({comparison.missing_models.map(nameOf).join(", ")}). Their unit-level predictions were not recoverable for this analysis, so their published aggregate scores cannot be rescored from units or included in paired comparisons.</p>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">{comparisonScope} {comparison.caveat} Untested pairs are not evidence of equivalence.</p>
-			</div>
-		</div>
-
-		<div id="supplementary" class="mt-16">
-			<h2 class="font-serif text-2xl font-semibold tracking-tight">Summary-pipeline exports</h2>
-			<ul class="mt-4 divide-y divide-rule rounded-xl border border-rule text-sm">
-				{summaryComparisons.map(({ source }) => (
-					<li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-						<a class="font-medium text-ink hover:text-accent" href={`/data/exports/${source.slug}.json`} download>{summaryName(source.slug)}</a>
-						<a class="text-xs text-ink-3 hover:text-accent" href={`${repo}/actions/runs/${source.forecast_run}`}>forecast run</a>
-					</li>
-				))}
-			</ul>
-			<p class="mt-3 text-sm"><a class="text-accent hover:underline" href="/data/summary-comparison/catalog.json" download>Source catalog and cost evidence</a> · <a class="text-accent hover:underline" href="/data/significance/summary/comparison.json" download>Significance results</a> · <a class="text-accent hover:underline" href="/data/significance/summary/inputs.json" download>Reproduction inputs</a> · <a class="text-accent hover:underline" href={`${repo}/blob/main/scripts/reproduce_summary_comparisons.py`}>Reproducer</a></p>
-		</div>
-
-		<div class="mt-16 grid gap-10 md:grid-cols-2">
-			<div>
-				<h2 class="font-serif text-2xl font-semibold tracking-tight">Reproducing a score</h2>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">The benchmark code, prompts, scorer, and model registries are open source. Official runs execute in GitHub Actions, and each model page links its run.</p>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">Reproduce</h2>
 				<ul class="mt-3 space-y-1.5 text-sm">
-					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/METHODS.md`}>Methods</a></li>
-					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/reproduce-or-audit.md`}>Reproduce or audit a result</a></li>
-					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/site-data.md`}>Website data contract</a></li>
-					<li><a class="text-accent hover:underline" href={`${repo}/blob/main/docs/MODEL_RELEASE_DATES.md`}>Model release dates and training cutoffs</a></li>
-					<li><a class="text-accent hover:underline" href="#costs">Cost methodology</a></li>
-					<li><a class="text-accent hover:underline" href="/data/historical-results/">Superseded 100-case results</a></li>
+					<li><a class={link} href={`${repo}/blob/main/docs/METHODS.md`}>Methods</a></li>
+					<li><a class={link} href={`${repo}/blob/main/docs/reproduce-or-audit.md`}>Reproduce or audit a result</a></li>
+					<li><a class={link} href={`${repo}/blob/main/docs/site-data.md`}>Data format</a></li>
 				</ul>
 			</div>
 			<div>
-				<h2 class="font-serif text-2xl font-semibold tracking-tight">What is not published</h2>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Court filings, locked labels, raw model transcripts, and private corpus records are not redistributed here. Model rationales will appear only after human review.</p>
+				<h2 class="font-serif text-2xl font-semibold tracking-tight">License</h2>
+				<p class="mt-3 text-sm text-ink-2">The files above: <a class={link} href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Code: Apache 2.0. Court filings are public records and are not licensed here.</p>
 			</div>
 		</div>
 
-		<div id="run-notes" class="prose-lfb prose mt-16 max-w-4xl scroll-mt-20">
-			<h2>Run notes</h2>
-			<p>Each configuration ran in GitHub Actions against the same locked release. Some runs needed recovery after provider or accounting issues, and some accounting fields were incomplete. The notes below explain how comparable costs were reconstructed and where estimates remain.</p>
-			<p>{provenance.method}</p>
-			{!refreshedDataDirectory && <p>On October 3, the preserved Claude Opus 5, Claude Sonnet 5, and GPT-5.6 Sol forecasts were scored again through the protected scoring workflow. Their native exports reproduce the original beta scores on the same 91 cases and 387 units and replace the corresponding aggregate rows. No model was rerun. The original September 18 snapshot remains available unchanged.</p>}
-			{refreshedDataDirectory && <p>Scores and significance use the retained {cohort.case_count}-case cohort. Frozen run and release identities remain original provenance. Cost evidence retains its recorded workload scope rather than implying that withdrawing a case refunds its execution. Aggregate-only configurations cannot be rescored and are preserved as <a href="/data/historical-aggregates.json" download>superseded provenance</a>.</p>}
-			<h3 id="costs">Costs</h3>
-			<p>Charts compare available estimated standard-rate costs for the successful workload. They do not represent total experiment spending or provider invoices. Flex discounts are removed for the chart; the successful workload charges and estimates remain available in the download.</p>
-			<p>We retain cache discounts where usage and prices are known. Where cache dimensions or prices are missing, we use ordinary-input estimates. These may overstate or understate cache-adjusted costs. Failed attempts, retries, and unresolved charges are excluded.</p>
-			<p>The Opus 5, Sonnet 5, and GPT-5.6 Sol native exports retain successful-workload usage estimates with accounting for all 91 cases. Per-response usage is missing, so standard-rate repricing is unavailable and these configurations have no value in comparative cost charts.</p>
-			<dl>{snapshot.models.filter((model) => model.cost.note).map((model) => <div><dt>{model.display_name}</dt><dd>{model.cost.note}</dd></div>)}</dl>
-		</div>
+		<CiteBox class="mt-12" />
 	</section>
 </Layout>

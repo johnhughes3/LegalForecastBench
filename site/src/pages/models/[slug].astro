@@ -197,7 +197,7 @@ const facts: [string, string][] = [
 								</li>
 							))}
 						</ul>
-<a class="text-sm text-accent hover:underline" href="/data/#significance">Comparison methodology →</a>
+<a class="text-sm text-accent hover:underline" href="/data/#significance">Comparison data →</a>
 					</div>
 				)
 			}
@@ -234,7 +234,7 @@ const facts: [string, string][] = [
 					{formatUsd(model.cost.usd === null ? null : model.cost.usd / snapshot.cohort.case_count)} per case
 				</p>
 				{model.cost.note && <p class="mt-3 text-xs leading-relaxed text-secondary">{model.cost.note}</p>}
-				<a class="mt-2 inline-flex text-xs text-accent hover:underline" href="/data/#costs">Cost methodology →</a>
+				<a class="mt-2 inline-flex text-xs text-accent hover:underline" href="/data/costs.json" download>Cost evidence (JSON) →</a>
 			</div>
 			<div class="card p-5 text-sm">
 				<h2 class="font-semibold text-ink">Run</h2>
