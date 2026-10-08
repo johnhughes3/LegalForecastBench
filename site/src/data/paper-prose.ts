@@ -14,8 +14,6 @@ const quote = (opening: string, count?: number): string =>
 	quoteFrom(paragraphs, opening, count);
 
 export const PAPER_PROSE = {
-	/** Abstract: what the benchmark asks of a model. */
-	task: quote("LegalForecastBench illustrates one mechanism"),
 	/** Abstract: the cohort and the headline result. */
 	headline: quote("The beta includes", 2),
 	/** Introduction: why judicial dispositions are a ground truth. */
