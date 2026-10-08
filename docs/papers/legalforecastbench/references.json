@@ -277,6 +277,17 @@
     "type": "paper"
   },
   {
+    "key": "swecritique",
+    "title": "Why SWE-bench Verified no longer measures frontier coding capabilities",
+    "authors": [
+      "OpenAI"
+    ],
+    "year": 2026,
+    "venue": "Primary online source",
+    "url": "https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/",
+    "type": "company report"
+  },
+  {
     "key": "legalbench",
     "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
     "authors": [
@@ -644,7 +655,7 @@
   },
   {
     "key": "labauditpaper",
-    "title": "Auditing Harvey's Legal Agent Benchmark: Rubric and Citation Errors in Litigation Tasks",
+    "title": "The Challenge of Deriving Signal from Synthetic Legal Environments: Evidence from Harvey's Legal Agent Benchmark",
     "authors": [
       "John J. Hughes, III"
     ],

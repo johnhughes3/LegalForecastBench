@@ -118,7 +118,7 @@ def test_non_prose_and_markup_do_not_leak(manuscript: Path) -> None:
 
 
 def test_preamble_macros_are_expanded() -> None:
-    assert "more than 13.4% of the criteria" in _paper()
+    # Only the LAB audit's prose still uses the generated review-number macros.
     assert "2,858" in _paper(LAB_MANUSCRIPT)
 
 
