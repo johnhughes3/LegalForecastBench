@@ -16,12 +16,6 @@ const quote = (opening: string, count?: number): string =>
 export const PAPER_PROSE = {
 	/** Abstract: the cohort and the headline result. */
 	headline: quote("The beta includes", 2),
-	/** Introduction: why judicial dispositions are a ground truth. */
-	groundTruth: quote("This paper aims to demonstrate"),
-	/** Introduction: why motions to dismiss, and the limits of the task. */
-	whyMotions: quote("LegalForecastBench illustrates one specific use"),
-	/** Conclusion: where the research goes next. */
-	nextSteps: quote("LegalForecastBench is one illustration"),
 	/** Disclosure: where the code and documents are. */
 	access: quote("Code is maintained in the"),
 	/** Disclosure: the invitation for feedback. */

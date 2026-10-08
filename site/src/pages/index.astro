@@ -11,7 +11,7 @@ import { PAPER } from "../data/paper";
 import { PAPER_PROSE } from "../data/paper-prose";
 import { primarySnapshot, snapshot } from "../data/results";
 import Layout from "../layouts/Layout.astro";
-import { COPY, HOME_INTRO } from "../seo/copy";
+import { COPY, HOME_INTRO, WHY_OUTCOMES } from "../seo/copy";
 
 const { cohort } = snapshot;
 const n = cohort.unit_count;
@@ -34,11 +34,6 @@ const highAccuracy = (m: NonNullable<typeof astra>) =>
 const pct = (value: number | null) =>
 	value === null ? "n/a" : formatPercent(value, 1);
 const subtitle = PAPER.title.split(": ").at(-1) ?? PAPER.title;
-const excerpts = [
-	PAPER_PROSE.groundTruth,
-	PAPER_PROSE.whyMotions,
-	PAPER_PROSE.nextSteps,
-];
 ---
 
 <Layout title={COPY.home.title} description={COPY.home.description}>
@@ -103,10 +98,11 @@ const excerpts = [
 	</section>
 
 	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6" aria-labelledby="why">
-		<p class="eyebrow">From the working paper</p>
+		<p class="eyebrow">Approach</p>
 		<h2 id="why" class="mt-2 font-serif text-3xl font-semibold tracking-tight">Why judicial outcomes</h2>
-		<div class="mt-6 max-w-3xl space-y-4 border-l-2 border-rule pl-5 text-[1.02rem] leading-relaxed text-ink-2">
-			{excerpts.map((paragraph) => <p>{paragraph}</p>)}
+		<div class="mt-6 max-w-3xl space-y-4 text-[1.02rem] leading-relaxed text-ink-2">
+			<p>{WHY_OUTCOMES.quote} <a class="text-accent hover:underline" href={WHY_OUTCOMES.marburyUrl}><em>Marbury v. Madison</em></a>,{WHY_OUTCOMES.afterCase}</p>
+			<p>{WHY_OUTCOMES.motions}</p>
 		</div>
 		<a class="mt-5 inline-flex text-sm font-medium text-accent hover:underline" href="/paper/">Read the paper →</a>
 	</section>
