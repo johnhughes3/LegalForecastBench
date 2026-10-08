@@ -4,3 +4,5 @@ allowBuilds:
   koffi: false
   openclaw: false
   protobufjs: false
+overrides:
+  '@modelcontextprotocol/sdk@<1.31.0': ^1.31.0
