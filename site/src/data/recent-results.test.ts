@@ -98,13 +98,13 @@ test("release mismatch fails before combining metrics", () => {
 
 test("updated significance replaces the historical family and excludes untested models", () => {
 	assert.equal(historicalSnapshot.significant_pairs.length, 3);
-	assert.equal(snapshot.significant_pairs.length, 30);
+	assert.equal(snapshot.significant_pairs.length, 33);
 	for (const pair of snapshot.significant_pairs) {
 		assert.equal(pair.worse, "gpt-4-1");
 		assert.notEqual(pair.better, "gpt-4-1");
 	}
 	assert.match(snapshot.cohort.bootstrap.correction, /153 model pairs/);
-	assert.match(snapshot.cohort.bootstrap.caveat, /11 of 18/);
+	assert.match(snapshot.cohort.bootstrap.caveat, /12 of 18/);
 	assert.ok(
 		!snapshot.significant_pairs.some(
 			(pair) => pair.better === "grok-4-6" || pair.worse === "muse-spark-1-3",

@@ -10,14 +10,14 @@
 		"claude-sonnet-5-5": "claude-sonnet-5-5.jsonl",
 		"claude-opus-5": "claude-opus-5.jsonl",
 		"gpt-5-6-sol": "gpt-5-6-sol.jsonl",
-		"claude-sonnet-5": "claude-sonnet-5.jsonl"
+		"claude-sonnet-5": "claude-sonnet-5.jsonl",
+		"gpt-5-6-luna": "gpt-5-6-luna.jsonl"
 	},
 	"family_model_count": 18,
 	"missing_models": [
 		"claude-fable-5-1",
 		"grok-4-6",
 		"kimi-k3",
-		"gpt-5-6-luna",
 		"gpt-6-astra",
 		"gemini-3-8-flash",
 		"muse-spark-1-3"
@@ -69,10 +69,15 @@
 			"claude-sonnet-5": {
 				"forecast_run": "34895753581",
 				"source": "validated_receipts_joined_to_native_score_labels"
+			},
+			"gpt-5-6-luna": {
+				"forecast_run": "34222142006",
+				"source": "recovered_native_unit_scores"
 			}
 		},
 		"label_source_score_run": "36169561374",
 		"cohort_validation": "All native score sources agree on 387 case/unit/outcome keys across 91 cases. Historical receipts bind to the same release and reproduce their prior published aggregates.",
-		"coverage": "Eleven of eighteen model configurations have recoverable unit-level evidence. The other seven models and their pairs are not tested."
+		"coverage": "Twelve of eighteen model configurations have recoverable unit-level evidence. The other six models and their pairs are not tested.",
+		"recovered_note": "GPT-5.6 Luna's units are the native unit_scores output of its September 8, 2026 local scoring of run 34222142006, recovered from the operator's session record after the run's GitHub artifacts expired. They include a raw_output_sha256 per unit in the source record and reproduce the published aggregates exactly (micro Brier 0.143217, equal-case Brier 0.150835, 313 correct)."
 	}
 }

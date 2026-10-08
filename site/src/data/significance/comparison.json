@@ -3,7 +3,7 @@
 	"replicates": 1000000,
 	"seed": 20260514,
 	"rng": "NumPy PCG64 multinomial case multiplicities",
-	"numpy_version": "2.4.2",
+	"numpy_version": "2.5.3",
 	"family_model_count": 18,
 	"available_models": [
 		"claude-opus-5",
@@ -12,6 +12,7 @@
 		"claude-sonnet-5-5",
 		"gemini-3-1-pro-preview",
 		"gpt-4-1",
+		"gpt-5-6-luna",
 		"gpt-5-6-sol",
 		"gpt-6-1-sol",
 		"gpt-6-luna",
@@ -53,6 +54,11 @@
 			"micro_brier": 0.6051270671834625,
 			"equal_case_brier": 0.5752195578231293,
 			"accuracy": 0.39018087855297157
+		},
+		"gpt-5-6-luna": {
+			"micro_brier": 0.14321692506459946,
+			"equal_case_brier": 0.1508351081061795,
+			"accuracy": 0.8087855297157622
 		},
 		"gpt-5-6-sol": {
 			"micro_brier": 0.14009137209302328,
@@ -215,6 +221,33 @@
 			"ci_low": 0.16061066906572236,
 			"ci_high": 0.6657719591757706,
 			"significant": true
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "micro_brier",
+			"delta": -0.0033458656330749015,
+			"ci_low": -0.05705033688681356,
+			"ci_high": 0.05124146493212621,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.015351167364381607,
+			"ci_low": -0.07581099457924194,
+			"ci_high": 0.0335873619345161,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "accuracy",
+			"delta": -0.007751937984496027,
+			"ci_low": -0.16020087082021786,
+			"ci_high": 0.11206470588234842,
+			"significant": false
 		},
 		{
 			"model_a": "claude-opus-5",
@@ -461,6 +494,33 @@
 		},
 		{
 			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.002185658914728772,
+			"ci_low": -0.07960789643467209,
+			"ci_high": 0.06993078414344242,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.003212817936032203,
+			"ci_low": -0.06352328485881534,
+			"ci_high": 0.04975751387606056,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "accuracy",
+			"delta": -0.036175710594315236,
+			"ci_low": -0.21018850864922037,
+			"ci_high": 0.10632911392405064,
+			"significant": false
+		},
+		{
+			"model_a": "claude-opus-5-5",
 			"model_b": "gpt-5-6-sol",
 			"metric": "micro_brier",
 			"delta": 0.005311211886304956,
@@ -677,6 +737,33 @@
 		},
 		{
 			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.015267054263565893,
+			"ci_low": -0.03864055257243608,
+			"ci_high": 0.06676364549649953,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "equal_case_brier",
+			"delta": 0.008804112038754947,
+			"ci_low": -0.05398206345679295,
+			"ci_high": 0.07146845250250344,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "accuracy",
+			"delta": -0.0516795865633074,
+			"ci_low": -0.1799802438673222,
+			"ci_high": 0.04756355042016363,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5",
 			"model_b": "gpt-5-6-sol",
 			"metric": "micro_brier",
 			"delta": 0.018392607235142078,
@@ -866,6 +953,33 @@
 		},
 		{
 			"model_a": "claude-sonnet-5-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.0297608527131783,
+			"ci_low": -0.045196092818263374,
+			"ci_high": 0.10346634641230092,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "equal_case_brier",
+			"delta": 0.020999426089783307,
+			"ci_low": -0.05200197567529337,
+			"ci_high": 0.09080679609442738,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5-5",
+			"model_b": "gpt-5-6-luna",
+			"metric": "accuracy",
+			"delta": -0.046511627906976716,
+			"ci_low": -0.22290536237288558,
+			"ci_high": 0.11263736263736263,
+			"significant": false
+		},
+		{
+			"model_a": "claude-sonnet-5-5",
 			"model_b": "gpt-5-6-sol",
 			"metric": "micro_brier",
 			"delta": 0.03288640568475448,
@@ -1028,6 +1142,33 @@
 		},
 		{
 			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-5-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.040232687338501244,
+			"ci_low": -0.03405286971099433,
+			"ci_high": 0.13780686728420724,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-5-6-luna",
+			"metric": "equal_case_brier",
+			"delta": 0.029963393986965403,
+			"ci_low": -0.04543452208523272,
+			"ci_high": 0.11771691369869318,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
+			"model_b": "gpt-5-6-luna",
+			"metric": "accuracy",
+			"delta": -0.028423772609819098,
+			"ci_low": -0.15710371973035245,
+			"ci_high": 0.08135312068541292,
+			"significant": false
+		},
+		{
+			"model_a": "gemini-3-1-pro-preview",
 			"model_b": "gpt-5-6-sol",
 			"metric": "micro_brier",
 			"delta": 0.04335824031007743,
@@ -1163,6 +1304,33 @@
 		},
 		{
 			"model_a": "gpt-4-1",
+			"model_b": "gpt-5-6-luna",
+			"metric": "micro_brier",
+			"delta": 0.46191014211886305,
+			"ci_low": 0.23190904322447126,
+			"ci_high": 0.6842306516741249,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-5-6-luna",
+			"metric": "equal_case_brier",
+			"delta": 0.4243844497169498,
+			"ci_low": 0.2214511352469309,
+			"ci_high": 0.6234774799554332,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
+			"model_b": "gpt-5-6-luna",
+			"metric": "accuracy",
+			"delta": -0.41860465116279066,
+			"ci_low": -0.6684636118598383,
+			"ci_high": -0.16853938346348807,
+			"significant": true
+		},
+		{
+			"model_a": "gpt-4-1",
 			"model_b": "gpt-5-6-sol",
 			"metric": "micro_brier",
 			"delta": 0.4650356950904393,
@@ -1295,6 +1463,141 @@
 			"ci_low": -0.632964666159313,
 			"ci_high": -0.12327928712265644,
 			"significant": true
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-5-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.0031255529715761843,
+			"ci_low": -0.04735657102017511,
+			"ci_high": 0.05102754280971827,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-5-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.017648937945387938,
+			"ci_low": -0.043616668237410366,
+			"ci_high": 0.07888945539438287,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-5-6-sol",
+			"metric": "accuracy",
+			"delta": 0.0,
+			"ci_low": -0.09163433673380443,
+			"ci_high": 0.09961581738684533,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-1-sol",
+			"metric": "micro_brier",
+			"delta": -0.006261692506460026,
+			"ci_low": -0.06078796676364202,
+			"ci_high": 0.039806206520617074,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-1-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.011982685726971393,
+			"ci_low": -0.041861042355607725,
+			"ci_high": 0.06427147134453833,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-1-sol",
+			"metric": "accuracy",
+			"delta": 0.023255813953488302,
+			"ci_low": -0.07246376811594207,
+			"ci_high": 0.16227120861154723,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-luna",
+			"metric": "micro_brier",
+			"delta": -0.020462080103359204,
+			"ci_low": -0.066096197410933,
+			"ci_high": 0.01712101896322124,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-luna",
+			"metric": "equal_case_brier",
+			"delta": -0.02295898042433761,
+			"ci_low": -0.08141372790217487,
+			"ci_high": 0.02200320363774845,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-luna",
+			"metric": "accuracy",
+			"delta": 0.043927648578811374,
+			"ci_low": -0.05159566775226591,
+			"ci_high": 0.1855109466184508,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-sol",
+			"metric": "micro_brier",
+			"delta": 0.025589018087855256,
+			"ci_low": -0.03599709800765307,
+			"ci_high": 0.14117372083751867,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-sol",
+			"metric": "equal_case_brier",
+			"delta": 0.021343865975294446,
+			"ci_low": -0.03138475625757303,
+			"ci_high": 0.076472367243743,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "gpt-6-sol",
+			"metric": "accuracy",
+			"delta": -0.036175710594315236,
+			"ci_low": -0.23227711859391648,
+			"ci_high": 0.08359971234000739,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "grok-4-7",
+			"metric": "micro_brier",
+			"delta": -0.015108656330749398,
+			"ci_low": -0.07873764485645855,
+			"ci_high": 0.047803987616993476,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "grok-4-7",
+			"metric": "equal_case_brier",
+			"delta": -0.013706297115582855,
+			"ci_low": -0.07017772154246317,
+			"ci_high": 0.03802125448396004,
+			"significant": false
+		},
+		{
+			"model_a": "gpt-5-6-luna",
+			"model_b": "grok-4-7",
+			"metric": "accuracy",
+			"delta": 0.03875968992248058,
+			"ci_low": -0.09894534936300722,
+			"ci_high": 0.17569354158794928,
+			"significant": false
 		},
 		{
 			"model_a": "gpt-5-6-sol",
@@ -1644,6 +1947,21 @@
 			"metric": "accuracy"
 		},
 		{
+			"better": "gpt-5-6-luna",
+			"worse": "gpt-4-1",
+			"metric": "micro_brier"
+		},
+		{
+			"better": "gpt-5-6-luna",
+			"worse": "gpt-4-1",
+			"metric": "equal_case_brier"
+		},
+		{
+			"better": "gpt-5-6-luna",
+			"worse": "gpt-4-1",
+			"metric": "accuracy"
+		},
+		{
 			"better": "gpt-5-6-sol",
 			"worse": "gpt-4-1",
 			"metric": "micro_brier"
@@ -1731,7 +2049,8 @@
 		"claude-sonnet-5-5": "claude-sonnet-5-5.jsonl",
 		"claude-opus-5": "claude-opus-5.jsonl",
 		"gpt-5-6-sol": "gpt-5-6-sol.jsonl",
-		"claude-sonnet-5": "claude-sonnet-5.jsonl"
+		"claude-sonnet-5": "claude-sonnet-5.jsonl",
+		"gpt-5-6-luna": "gpt-5-6-luna.jsonl"
 	},
 	"provenance": {
 		"release": "cycle-1-91-2026-09-08-luna-r5",
@@ -1780,17 +2099,21 @@
 			"claude-sonnet-5": {
 				"forecast_run": "34895753581",
 				"source": "validated_receipts_joined_to_native_score_labels"
+			},
+			"gpt-5-6-luna": {
+				"forecast_run": "34222142006",
+				"source": "recovered_native_unit_scores"
 			}
 		},
 		"label_source_score_run": "36169561374",
 		"cohort_validation": "All native score sources agree on 387 case/unit/outcome keys across 91 cases. Historical receipts bind to the same release and reproduce their prior published aggregates.",
-		"coverage": "Eleven of eighteen model configurations have recoverable unit-level evidence. The other seven models and their pairs are not tested."
+		"coverage": "Twelve of eighteen model configurations have recoverable unit-level evidence. The other six models and their pairs are not tested.",
+		"recovered_note": "GPT-5.6 Luna's units are the native unit_scores output of its September 8, 2026 local scoring of run 34222142006, recovered from the operator's session record after the run's GitHub artifacts expired. They include a raw_output_sha256 per unit in the source record and reproduce the published aggregates exactly (micro Brier 0.143217, equal-case Brier 0.150835, 313 correct)."
 	},
 	"missing_models": [
 		"claude-fable-5-1",
 		"grok-4-6",
 		"kimi-k3",
-		"gpt-5-6-luna",
 		"gpt-6-astra",
 		"gemini-3-8-flash",
 		"muse-spark-1-3"

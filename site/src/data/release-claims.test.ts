@@ -8,11 +8,11 @@ test("release significance claim excludes the reference and untested models", ()
 	const tested = primarySnapshot.models.filter((model) =>
 		comparison.available_models.includes(model.slug),
 	);
-	assert.equal(tested.length, 10);
+	assert.equal(tested.length, 11);
 	assert.equal(primarySnapshot.significant_pairs.length, 0);
 	assert.equal(comparison.significant_pairs.length, tested.length * 3);
 	assert.ok(comparison.missing_models.includes("gpt-6-astra"));
-	assert.ok(comparison.missing_models.includes("gpt-5-6-luna"));
+	assert.ok(comparison.available_models.includes("gpt-5-6-luna"));
 });
 
 test("cutoff claims follow the reported-cutoff rule: fifteen eligible, two qualified", () => {
