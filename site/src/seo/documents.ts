@@ -1,5 +1,6 @@
 import { REPO } from "../data/author.js";
 import { comparison, comparisonScope } from "../data/comparison.js";
+import { paperHeadline } from "../data/headline.js";
 import { formatPercent } from "../data/metrics.js";
 import { PAPER } from "../data/paper.js";
 import { PAPER_PROSE } from "../data/paper-prose.js";
@@ -33,8 +34,7 @@ function homeMarkdown(): string {
 		"",
 		"## Results",
 		"",
-		PAPER_PROSE.headline,
-		"",
+		...(paperHeadline ? [paperHeadline, ""] : []),
 		...leaderboardLines(),
 		comparisonScope,
 		"",

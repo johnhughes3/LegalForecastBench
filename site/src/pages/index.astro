@@ -5,6 +5,7 @@ import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
 import { AUTHOR } from "../data/author";
 import { comparisonScope } from "../data/comparison";
+import { paperHeadline } from "../data/headline";
 import { formatPercent } from "../data/metrics";
 import { PAPER } from "../data/paper";
 import { PAPER_PROSE } from "../data/paper-prose";
@@ -14,52 +15,6 @@ import { COPY } from "../seo/copy";
 
 const { cohort } = snapshot;
 const n = cohort.unit_count;
-const [leader] = [...primarySnapshot.models].sort(
-	(a, b) => a.micro_brier - b.micro_brier,
-);
-const numberWords = [
-	"zero",
-	"one",
-	"two",
-	"three",
-	"four",
-	"five",
-	"six",
-	"seven",
-	"eight",
-	"nine",
-	"ten",
-	"eleven",
-	"twelve",
-	"thirteen",
-	"fourteen",
-	"fifteen",
-	"sixteen",
-	"seventeen",
-	"eighteen",
-	"nineteen",
-	"twenty",
-];
-// The headline sentence is quoted from the paper's abstract. Refuse to build
-// if the published data no longer says what that sentence says.
-const headlineFacts = leader
-	? [
-			`${cohort.case_count} cases`,
-			`${n} scored`,
-			leader.display_name,
-			`(${leader.micro_brier.toFixed(3)})`,
-			`(${((100 * leader.correct) / n).toFixed(1)}%)`,
-			`of ${numberWords[primarySnapshot.models.length] ?? primarySnapshot.models.length} models`,
-		]
-	: [];
-const stale = headlineFacts.filter(
-	(fact) => !PAPER_PROSE.headline.includes(fact),
-);
-if (!leader || stale.length > 0) {
-	throw new Error(
-		`The abstract's headline sentence no longer matches the results (${stale.join("; ")}). Update the paper or the data before publishing.`,
-	);
-}
 const subtitle = PAPER.title.split(": ").at(-1) ?? PAPER.title;
 const excerpts = [
 	PAPER_PROSE.groundTruth,
@@ -95,7 +50,7 @@ const excerpts = [
 	<section class="mx-auto max-w-6xl scroll-mt-20 px-4 pt-16 sm:px-6" id="leaderboard">
 		<p class="eyebrow">Results</p>
 		<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">Forecast quality by model</h2>
-		<p class="mt-4 max-w-3xl leading-relaxed text-ink-2">{PAPER_PROSE.headline}</p>
+		{paperHeadline && <p class="mt-4 max-w-3xl leading-relaxed text-ink-2">{paperHeadline}</p>}
 		<p class="mt-2 text-sm text-ink-3">Ranked by micro Brier. Lower is better. <span class="hidden md:inline">Click any column to re-sort.</span></p>
 		<div class="mt-6">
 			<Leaderboard client:load snapshot={primarySnapshot} />

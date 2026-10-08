@@ -75,9 +75,9 @@ def verify(
     reference = "GPT-4.1 as a historical reference for non-thinking models"
     assert f"10 models plus {reference}, on 1 cases and 2 units" in index
     assert "historical-aggregates.json" in index
-    summary = (ROOT / "site/dist/experiments/summary-pipelines/index.html").read_text()
-    assert "Summary forecasts on the retained cohort" in summary and "0.1000" in summary
-    assert "Jev is significantly worse than both controls" not in summary
+    home = (ROOT / "site/dist/index.html").read_text()
+    # The abstract's headline describes the original release, not a refreshed one.
+    assert "The beta includes" not in home
     appendix = (built / "historical-results/index.html").read_text()
     assert "2 prediction units from 1 cases" in appendix
     assert "0.100000" in appendix
@@ -85,7 +85,7 @@ def verify(
     assert not (ROOT / "site/dist/models/kimi-k3/index.html").exists()
     print(
         f"Verified {len(downloads)} exact backend downloads "
-        "and refreshed current/summary/historical pages"
+        "and refreshed current/home/historical pages"
     )
 
 
