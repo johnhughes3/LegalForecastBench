@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use LegalForecastBench or its LegalForecast-MTD task, please cite the working paper under preferred-citation. The fields above it describe the software release."
 title: "LegalForecastBench: Forecasting Federal Motions to Dismiss (LegalForecast-MTD)"
-version: "2026-09-27"
-date-released: 2026-09-27
+version: "2026-10-08"
+date-released: 2026-10-08
 license: "Apache-2.0"
 authors:
   - family-names: "Hughes"
@@ -24,6 +24,6 @@ preferred-citation:
       name-suffix: "III"
   year: 2026
   month: 10
-  date-published: 2026-10-07
+  date-published: 2026-10-08
   notes: "Working paper"
   url: "https://www.legalforecastbench.org/paper/"
