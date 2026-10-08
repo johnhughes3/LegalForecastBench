@@ -6,7 +6,7 @@ export const EXPLAIN = {
 		"Qualified: no published training data/knowledge cutoff, or the cutoff is not before the decisions we used to test.",
 	unknown: "Unknown: no cutoff information recorded.",
 	frontier:
-		"On the observed cost/quality frontier: no other model is both cheaper and at least as good, with a strict improvement in one. Descriptive only; it is not a significance test.",
+		"On the observed cost/quality frontier: no other model is both cheaper and at least as good, and this model strictly improves over others on at least one dimension. (Note that the improvement does not have to be statistically significant.)",
 	significance:
 		"From a paired case-cluster bootstrap with a Bonferroni correction for multiple comparisons. Differences not listed may still be real; the sample is small.",
 	headline:
