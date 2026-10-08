@@ -9,7 +9,7 @@ import {
 	snapshot,
 } from "../data/results.js";
 import type { AgentDocument } from "./agent-document.js";
-import { COPY, HOME_INTRO } from "./copy.js";
+import { COPY, HOME_INTRO, WHY_OUTCOMES } from "./copy.js";
 import { absoluteUrl } from "./identity.js";
 
 export type { AgentDocument } from "./agent-document.js";
@@ -35,13 +35,11 @@ function homeMarkdown(): string {
 		"",
 		...(paperHeadline ? [paperHeadline, ""] : []),
 		...leaderboardLines(),
-		"## Why judicial outcomes (from the working paper)",
+		"## Why judicial outcomes",
 		"",
-		PAPER_PROSE.groundTruth,
+		`${WHY_OUTCOMES.quote} [*Marbury v. Madison*](${WHY_OUTCOMES.marburyUrl}),${WHY_OUTCOMES.afterCase}`,
 		"",
-		PAPER_PROSE.whyMotions,
-		"",
-		PAPER_PROSE.nextSteps,
+		WHY_OUTCOMES.motions,
 		"",
 	].join("\n");
 }
