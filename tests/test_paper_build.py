@@ -261,3 +261,35 @@ def _build_preview(
         check=False,
         timeout=10,
     )
+
+
+def test_pdf_check_passes_with_a_warning_without_docker(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    dirname = shutil.which("dirname")
+    assert dirname
+    (bin_dir / "dirname").symlink_to(dirname)
+    bash = shutil.which("bash")
+    assert bash
+    result = subprocess.run(
+        [bash, str(ROOT / "docs" / "papers" / "check-pdfs.sh")],
+        capture_output=True,
+        text=True,
+        env={"PATH": str(bin_dir)},
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "docker is not available" in result.stderr
+
+
+def test_pdf_check_lists_a_committed_pdf_for_every_paper() -> None:
+    script = (ROOT / "docs" / "papers" / "check-pdfs.sh").read_text(encoding="utf-8")
+    for manuscript in sorted((ROOT / "docs" / "papers").glob("*/*-paper.tex")):
+        name = manuscript.parent.name
+        line = next(
+            (ln for ln in script.splitlines() if ln.strip().startswith(f"{name})")),
+            None,
+        )
+        assert line is not None, f"check-pdfs.sh has no committed PDF for {name}"
+        pdf = line.split(")", 1)[1].split(";;")[0].replace("echo", "").strip()
+        assert (ROOT / pdf).is_file(), pdf

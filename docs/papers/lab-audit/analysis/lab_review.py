@@ -2,8 +2,9 @@
 
 The review worksheet (docs/harvey-lab-audit/litigation-dispute-resolution/human-review/
 worksheet.md) records the reviewer's verdict, category, and environment verdict for
-each of the 25 sampled criteria. This script writes two marked blocks in the
-standalone manuscript:
+each of the 25 sampled criteria. This script writes two marked blocks, in whichever
+manuscript contains them (the LAB audit paper has both; the LegalForecastBench
+paper cites some of the counts and has only the first):
 
 ``% BEGIN GENERATED LAB REVIEW NUMBERS`` (preamble)
     LaTeX macros holding every count and confidence bound the prose cites, so the
@@ -14,17 +15,21 @@ standalone manuscript:
 
 The per-criterion entries in the appendix (quoted criterion, assessment, LAB's
 grades, analysis) are edited by hand in the manuscript, which is their source of
-truth. ``--check`` also fails if a verdict in those entries disagrees with the
-worksheet, because the counts above would then contradict the entries.
+truth. When a manuscript has those entries, ``--check`` also fails if a verdict in
+them disagrees with the worksheet, because the counts above would then contradict
+the entries.
 
 Run from the repository root::
 
     uv run --frozen python \\
-        docs/papers/legalforecastbench/analysis/lab_review.py --check \\
-        --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+        docs/papers/lab-audit/analysis/lab_review.py --check \\
+        --manuscript docs/papers/lab-audit/LAB-audit-paper.tex
     uv run --frozen python \\
-        docs/papers/legalforecastbench/analysis/lab_review.py --write-manuscript \\
-        --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
+        docs/papers/lab-audit/analysis/lab_review.py --write-manuscript \\
+        --manuscript docs/papers/lab-audit/LAB-audit-paper.tex
+
+Run each command once per manuscript: the LegalForecastBench paper is
+docs/papers/legalforecastbench/LegalForecastBench-paper.tex.
 """
 
 from __future__ import annotations
@@ -273,10 +278,13 @@ def entry_mismatches(manuscript: str) -> list[str]:
     return problems
 
 
-def _block(text: str, name: str) -> tuple[int, int]:
+def _block(text: str, name: str) -> tuple[int, int] | None:
+    """The span of a marked block's body, or None if the manuscript lacks it."""
     begin, end = f"% BEGIN GENERATED {name}", f"% END GENERATED {name}"
+    if text.count(begin) == text.count(end) == 0:
+        return None
     if text.count(begin) != 1 or text.count(end) != 1:
-        raise SystemExit(f"manuscript must contain exactly one {begin} / {end} block")
+        raise SystemExit(f"manuscript must contain at most one {begin} / {end} block")
     start = text.index(begin) + len(begin) + 1
     return start, text.index(end)
 
@@ -298,12 +306,22 @@ def main(argv: list[str] | None = None) -> int:
     text = args.manuscript.read_text(encoding="utf-8")
     blocks = render_all()
     stale: list[str] = []
+    present = 0
     for name, body in blocks.items():
-        start, end = _block(text, name)
+        span = _block(text, name)
+        if span is None:
+            continue
+        present += 1
+        start, end = span
         if text[start:end] != body + "\n":
             stale.append(name)
             text = text[:start] + body + "\n" + text[end:]
-    mismatches = entry_mismatches(text)
+    if not present:
+        raise SystemExit(
+            f"{args.manuscript} has no % BEGIN GENERATED {' or '.join(BLOCKS)} block"
+        )
+    # Only the paper with the per-criterion appendix has entries to compare.
+    mismatches = entry_mismatches(text) if "\\labitem{" in text else []
     for problem in mismatches:
         print(
             f"appendix entry disagrees with the worksheet: {problem}", file=sys.stderr

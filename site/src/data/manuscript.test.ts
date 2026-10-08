@@ -54,14 +54,17 @@ test("the paper page reads the checked-in manuscript", () => {
 	assert.equal(PAPER.revisedOn, parsed.revisedOn);
 	assert.equal(PAPER.workingPdf, WORKING_PAPER_PDF);
 	assert.match(parsed.title, /Legal Reasoning Ability$/);
-	assert.equal(parsed.abstract.length, 5);
+	assert.equal(parsed.abstract.length, 4);
 	assert.match(parsed.abstract[0] ?? "", /objectively verifiable rewards/);
-	assert.match(parsed.abstract[1] ?? "", /erroneous rubrics/);
 	assert.match(
-		parsed.abstract[4] ?? "",
+		parsed.abstract[1] ?? "",
+		/artificially constructed environments/,
+	);
+	assert.match(
+		parsed.abstract[3] ?? "",
 		/91 cases and 387 scored claim–defendant units/,
 	);
-	assert.match(parsed.abstract[4] ?? "", /84\.5%/);
+	assert.match(parsed.abstract[3] ?? "", /84\.5%/);
 	for (const paragraph of parsed.abstract) {
 		assert.doesNotMatch(paragraph, /``|''/);
 		assert.doesNotMatch(paragraph, /\\/);

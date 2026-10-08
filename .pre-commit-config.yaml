@@ -1,0 +1,13 @@
+# Repository git hooks, run by pre-commit or prek. The only hook rebuilds the
+# papers before a push and compares them with the committed PDFs; CI's Paper
+# workflow enforces the same check.
+repos:
+  - repo: local
+    hooks:
+      - id: paper-pdfs
+        name: Committed paper PDFs match a pinned-container build
+        entry: bash docs/papers/check-pdfs.sh
+        language: system
+        pass_filenames: false
+        files: ^(docs/papers/|site/public/paper/)
+        stages: [pre-push]

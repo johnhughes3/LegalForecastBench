@@ -1,4 +1,4 @@
-"""The Pangram check sends only the author-written prose of the working paper."""
+"""The Pangram check sends only the author-written prose of each paper."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 MANUSCRIPT = ROOT / "docs/papers/legalforecastbench/LegalForecastBench-paper.tex"
+LAB_MANUSCRIPT = ROOT / "docs/papers/lab-audit/LAB-audit-paper.tex"
 
 pytestmark = pytest.mark.skipif(
     shutil.which("pandoc") is None, reason="pandoc is not installed"
@@ -79,9 +80,9 @@ GAP = pangram_check.OMITTED
 
 
 @functools.cache
-def _paper() -> str:
-    """The document the check would send for the real manuscript."""
-    units = pangram_check.manuscript_units(MANUSCRIPT.read_text(encoding="utf-8"))
+def _paper(manuscript: Path = MANUSCRIPT) -> str:
+    """The document the check would send for a real manuscript."""
+    units = pangram_check.manuscript_units(manuscript.read_text(encoding="utf-8"))
     return pangram_check.document(units)[0]
 
 
@@ -97,7 +98,7 @@ def test_disclosed_sections_are_left_out_and_shown_as_omitted() -> None:
 
 
 def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
-    paper = _paper()
+    paper = _paper(LAB_MANUSCRIPT)
     assert "Calculates budget overage percentage" not in paper
     assert "Assess Reasonableness of Staffing Levels" not in paper
     assert "Sonnet 4.6 judge: " not in paper
@@ -105,8 +106,11 @@ def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
     assert "internally inconsistent" in paper
 
 
-def test_non_prose_and_markup_do_not_leak() -> None:
-    paper = _paper()
+@pytest.mark.parametrize(
+    "manuscript", [MANUSCRIPT, LAB_MANUSCRIPT], ids=lambda p: p.stem
+)
+def test_non_prose_and_markup_do_not_leak(manuscript: Path) -> None:
+    paper = _paper(manuscript)
     for leaked in ("Cohort-rate reference", "bibitem", "\\draw", "TODO", "\\cite"):
         assert leaked not in paper
     assert "PANGRAMOMISSION" not in paper
@@ -114,7 +118,15 @@ def test_non_prose_and_markup_do_not_leak() -> None:
 
 
 def test_preamble_macros_are_expanded() -> None:
-    assert "2,858" in _paper()
+    assert "more than 13.4% of the criteria" in _paper()
+    assert "2,858" in _paper(LAB_MANUSCRIPT)
+
+
+def test_the_lab_audit_is_scored_with_its_own_paper() -> None:
+    forecasting, audit = _paper(), _paper(LAB_MANUSCRIPT)
+    for moved in ("Mercor", "forum selection clause", "SWE-bench Verified"):
+        assert moved not in forecasting
+        assert moved in audit
 
 
 def test_fixture_segmentation_and_cleaning() -> None:
