@@ -1,11 +1,10 @@
 /** Reader-facing explanations shared by tooltips across the site. */
 export const EXPLAIN = {
 	eligible:
-		"Eligible: the provider reports a training-data or knowledge cutoff before the first decision in this cohort, so the outcomes should postdate the model's training data. A reported cutoff is evidence, not proof.",
+		"Eligible: training data/knowledge cutoff is before the decisions we used to test.",
 	qualified:
-		"Qualified: the provider has not published a cutoff, or the reported cutoff falls on or after the first decision. The score is shown, but read it with that caveat.",
-	unknown:
-		"Unknown: the export does not record enough information to assess whether the model's training data predates the decisions.",
+		"Qualified: no published training data/knowledge cutoff, or the cutoff is not before the decisions we used to test.",
+	unknown: "Unknown: no cutoff information recorded.",
 	frontier:
 		"On the observed cost/quality frontier: no other model is both cheaper and at least as good, with a strict improvement in one. Descriptive only; it is not a significance test.",
 	significance:

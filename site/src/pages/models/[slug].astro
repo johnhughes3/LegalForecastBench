@@ -118,7 +118,7 @@ const facts: [string, string][] = [
 			<a href="/#leaderboard" class="text-sm text-ink-3 hover:text-ink">← Leaderboard</a>
 			<div class="mt-6 flex flex-wrap items-center gap-3">
 				<p class="eyebrow">{model.provider}</p>
-				<EligibilityBadge eligibility={model.eligibility} reason={model.eligibility_reason} side="bottom" align="start" />
+				<EligibilityBadge eligibility={model.eligibility} cutoff={model.training_cutoff} side="bottom" align="start" />
 			</div>
 			<h1 class="mt-3 font-serif text-4xl font-medium tracking-tight sm:text-5xl">{model.display_name}</h1>
 			<div class="mt-10 grid gap-4 sm:grid-cols-3">
