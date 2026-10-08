@@ -61,9 +61,9 @@ The manual `publish-site-data.yaml` workflow builds trusted `main` and publishes
 
 ### Updated paired comparisons
 
-The current paired analysis covers nine of the 16 displayed configurations. Seven older configurations retain aggregate scores but lack recoverable unit-level predictions; pairs involving them are untested. The updated analysis uses one million paired case-cluster bootstrap replicates with Bonferroni correction for the entire 16-model family (120 pairs × three metrics). It replaces, rather than combines with, the historical ten-model pair list. The unchanged September 18 download retains the original analysis.
+The current paired analysis covers 12 of the 18 displayed configurations. Six older configurations retain aggregate scores but lack recoverable unit-level predictions; pairs involving them are untested. GPT-5.6 Luna's units were recovered from the native `unit_scores` output of its original local scoring after the run's GitHub artifacts expired; they reproduce its published aggregates exactly, and `inputs.json` labels their source `recovered_native_unit_scores`. The updated analysis uses one million paired case-cluster bootstrap replicates with Bonferroni correction for the entire 18-model family (153 pairs × three metrics). It replaces, rather than combines with, the historical ten-model pair list. The unchanged September 18 download retains the original analysis.
 
-Download `/data/significance/inputs.json` and its nine sibling JSONL files into one directory. `/data/significance/comparison.json` records confidence intervals, source provenance, covered and missing models, seed, and method. Reproduce it from the repository with:
+Download `/data/significance/inputs.json` and its sibling JSONL files into one directory. `/data/significance/comparison.json` records confidence intervals, source provenance, covered and missing models, seed, and method. Reproduce it from the repository with:
 
 ```bash
 OPENBLAS_NUM_THREADS=4 uv run scripts/compare_site_results.py --inputs path/to/downloads/inputs.json --output comparison.json
