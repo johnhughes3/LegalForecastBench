@@ -57,13 +57,3 @@ export function releaseDescription(): string {
 			: "";
 	return `Forecasts by ${primarySnapshot.models.length} ranked AI model configurations${reference} of whether each challenged claim in ${cohort.case_count} federal motions to dismiss would be fully dismissed, scored against the actual rulings (${cohort.unit_count} claim-defendant units).`;
 }
-
-/** The results release every page is computed from. */
-export const CURRENT_RELEASE = `Cycle 1 beta · ${new Date(
-	`${snapshot.as_of}T00:00:00Z`,
-).toLocaleDateString("en-US", {
-	month: "long",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-})}`;

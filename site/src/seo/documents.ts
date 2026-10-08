@@ -1,5 +1,4 @@
 import { REPO } from "../data/author.js";
-import { comparisonScope } from "../data/comparison.js";
 import { paperHeadline } from "../data/headline.js";
 import { formatPercent } from "../data/metrics.js";
 import { PAPER } from "../data/paper.js";
@@ -10,7 +9,7 @@ import {
 	snapshot,
 } from "../data/results.js";
 import type { AgentDocument } from "./agent-document.js";
-import { COPY } from "./copy.js";
+import { COPY, HOME_INTRO } from "./copy.js";
 import { absoluteUrl } from "./identity.js";
 
 export type { AgentDocument } from "./agent-document.js";
@@ -30,14 +29,12 @@ function header(title: string, description: string, path: string): string {
 function homeMarkdown(): string {
 	return [
 		header(COPY.home.title, COPY.home.description, "/"),
-		PAPER_PROSE.task,
+		HOME_INTRO,
 		"",
 		"## Results",
 		"",
 		...(paperHeadline ? [paperHeadline, ""] : []),
 		...leaderboardLines(),
-		comparisonScope,
-		"",
 		"## Why judicial outcomes (from the working paper)",
 		"",
 		PAPER_PROSE.groundTruth,

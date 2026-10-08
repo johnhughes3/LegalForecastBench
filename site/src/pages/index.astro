@@ -4,17 +4,32 @@ import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
 import { AUTHOR } from "../data/author";
-import { comparisonScope } from "../data/comparison";
 import { paperHeadline } from "../data/headline";
 import { formatPercent } from "../data/metrics";
 import { PAPER } from "../data/paper";
 import { PAPER_PROSE } from "../data/paper-prose";
-import { CURRENT_RELEASE, primarySnapshot, snapshot } from "../data/results";
+import { primarySnapshot, snapshot } from "../data/results";
 import Layout from "../layouts/Layout.astro";
-import { COPY } from "../seo/copy";
+import { COPY, HOME_INTRO } from "../seo/copy";
 
 const { cohort } = snapshot;
 const n = cohort.unit_count;
+const bySlug = (slug: string) => {
+	const model = primarySnapshot.models.find((m) => m.slug === slug);
+	if (!model)
+		throw new Error(
+			`The calibration paragraph names ${slug}, which is not in the results.`,
+		);
+	return model;
+};
+const astra = bySlug("gpt-6-astra");
+const sol = bySlug("gpt-6-sol");
+const highAccuracy = (m: typeof astra) =>
+	m.high_confidence.count
+		? 1 - m.high_confidence.wrong / m.high_confidence.count
+		: null;
+const pct = (value: number | null) =>
+	value === null ? "n/a" : formatPercent(value, 1);
 const subtitle = PAPER.title.split(": ").at(-1) ?? PAPER.title;
 const excerpts = [
 	PAPER_PROSE.groundTruth,
@@ -27,9 +42,9 @@ const excerpts = [
 	<section class="relative overflow-hidden border-b border-rule">
 		<div class="pointer-events-none absolute inset-0 opacity-[0.5] [background-image:radial-gradient(var(--rule)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"></div>
 		<div class="relative mx-auto max-w-6xl px-4 pb-14 pt-16 sm:px-6 sm:pt-24">
-			<p class="eyebrow">Research benchmark · {CURRENT_RELEASE}</p>
+			<p class="eyebrow">Research benchmark · Cycle 1 beta · October 8, 2026</p>
 			<h1 class="mt-4 max-w-4xl font-serif text-4xl font-medium leading-[1.08] tracking-tight text-ink sm:text-6xl">{subtitle}</h1>
-			<p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-2">{PAPER_PROSE.task}</p>
+			<p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink-2">{HOME_INTRO}</p>
 			<div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
 				<a class="font-medium text-ink hover:text-accent" href={AUTHOR.research}>{AUTHOR.name}</a>
 				<span class="text-rule-strong" aria-hidden="true">|</span>
@@ -57,21 +72,12 @@ const excerpts = [
 		</div>
 	</section>
 
-	<section class="mx-auto max-w-6xl px-4 pt-6 sm:px-6" aria-labelledby="inference-scope">
-		<div class="card space-y-2 p-5 text-sm leading-relaxed text-ink-2">
-			<h2 id="inference-scope" class="font-medium text-ink">What the ordering does and does not show</h2>
-			<p>{comparisonScope} Untested pairs remain untested, and a non-significant difference is not evidence that two models are equivalent. Each configuration's model page lists its version, reasoning setting, training-cutoff evidence, and cost basis.</p>
-			<p>This is a public beta on {cohort.case_count} cases with one retained forecast per unit. Scores are comparable only within this cohort.</p>
-		</div>
-	</section>
-
 	<section class="mx-auto max-w-6xl px-4 pt-20 sm:px-6">
 		<div class="grid gap-10 lg:grid-cols-[18rem_1fr]">
 			<div>
 				<p class="eyebrow">Cost and quality</p>
 				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">What each point of accuracy costs</h2>
-				<p class="mt-4 text-sm leading-relaxed text-ink-2">Each point is one model's total standard-rate cost for the cohort against its score. Diamonds joined by the dashed line form the observed frontier: no other model is both cheaper and better.</p>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Frontier membership is descriptive and includes only models with cost evidence. A rank alone does not establish statistical significance.</p>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">The dashed line is the Pareto frontier: no one model was both cheaper and more accurate.</p>
 			</div>
 			<div class="card min-w-0 p-4 sm:p-6">
 				<ParetoChart client:visible snapshot={primarySnapshot} />
@@ -84,8 +90,8 @@ const excerpts = [
 			<div>
 				<p class="eyebrow">Calibration at the extremes</p>
 				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">When models are sure, are they right?</h2>
-				<p class="mt-4 text-sm leading-relaxed text-ink-2">Among predictions made with at least 90% confidence either way, the hollow circle is the mean stated confidence and the filled circle is how often those predictions were right.</p>
-				<p class="mt-3 text-sm leading-relaxed text-ink-2">Brier scoring squares each error, so a few confident misses can outweigh many good calls.</p>
+				<p class="mt-4 text-sm leading-relaxed text-ink-2">We noticed that some model families made sharper predictions, but proved to be poorly calibrated when they expressed high confidence. For example, of the predictions where {astra.display_name} expressed at least 90% confidence, its average confidence was {pct(astra.high_confidence.mean_confidence)} but its actual accuracy was only {pct(highAccuracy(astra))}. That made Astra underperform {sol.display_name}, where confidence and accuracy were much more closely matched.</p>
+				<p class="mt-3 text-sm leading-relaxed text-ink-2">This chart compares models' confidence (on the predictions with at least 90% confidence) with their accuracy. It illustrates one noteworthy trend between model families: OpenAI and Gemini models erred on the side of overconfidence, Anthropic and SpaceXAI on the side of underconfidence.</p>
 			</div>
 			<div class="card min-w-0 p-4 sm:p-6">
 				<ConfidenceChart snapshot={primarySnapshot} />

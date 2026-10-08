@@ -5,6 +5,10 @@ import { SITE_DESCRIPTION } from "./identity.js";
  * Titles stay short enough that `documentTitle` can append the site name.
  * Descriptions are the sentences already used on those pages.
  */
+/** The home page introduction, written by the author for the site. */
+export const HOME_INTRO =
+	"LegalForecastBench is an effort to develop a new, challenging benchmark that uses the signal from judicial decisions to evaluate frontier models on high-level legal tasks against an objective real-world ground truth. Models receive the same briefs a federal judge received when ruling on a motion to dismiss, and are asked to estimate the probability that the judge dismissed each claim challenged by a defendant.";
+
 export const COPY = {
 	home: {
 		title: "Can AI forecast motions to dismiss?",
