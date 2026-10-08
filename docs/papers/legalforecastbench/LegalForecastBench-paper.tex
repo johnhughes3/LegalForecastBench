@@ -392,8 +392,6 @@ OpenAI models appeared more likely than others to make high-confidence forecasts
 
 Other high-performing models were less sharp. For example, Fable has no errors among 81 high-confidence units, while Kimi and Grok 4.6 each miss one. Claude Sonnet 5.5 makes 63 high-confidence forecasts and misses 5. The practical finding is that confidence varies substantially and it materially affects proper scores. Astra's underperformance relative to cheaper models like Sol, for example, appears largely due to several high-confidence misses, which resulted in large Brier losses.
 
-\subsection{Inference cost}
-The normalized costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
 
 \subsection{Evaluating Jev, a non-autoregressive discriminative decision model}
 Jev---described by its developer as a probabilistic ``System One'' model---was evaluated as a separate experiment because its context window and lack of agentic tool calling differ from the document-enabled configurations used with frontier models. \citep{jevdocs}. GPT-5.6 Luna summarized the motion documents, without commentary or analysis. Jev received the summaries, and the unit questions, in a single request per case, without document tools or multiple turns. In a second condition, Grok 4.6 prepared a separate set of shorter summaries of the same 482 documents, which Jev received under the same protocol.
@@ -457,13 +455,11 @@ Jev was not well-calibrated for this task. Jev's micro-Brier of 0.36754 is worse
 We tested Luna using the same summaries that Jev received in order to determine whether Jev's underperformance was attributable to receiving only summaries of the litigation documents, rather than the full documents used in our primary evaluation. Luna performed much better than Jev, even when it only had access to the same summary Jev received. GPT-5.6 Luna with the identical summaries achieves micro-Brier 0.15489 and accuracy 78.6\%, demonstrating that the summaries contained useful predictive signal that Jev was unable to exploit (although Luna performed better in the primary evaluation, where it had full document access, which could mean that the summaries lost some relevant signal or that the interactive environment allows for better performance).
 
 We also tested whether a different summary pipeline would change Jev's result. With the Grok summaries, Jev improved to micro-Brier 0.32725, equal-case Brier 0.30505, and 38.2\% accuracy; the improvement over Jev with Luna summaries is significant on all three metrics (paired case-cluster bootstrap, Bonferroni-corrected across the six pairs of the four summary conditions and three metrics). Jev nevertheless remained significantly worse than both Luna summary controls and worse than the constant $p=0.5$ forecast; its mean predicted dismissal probability rose only to about 0.356. Because Grok wrote different summaries and no Luna control received them, this compares pipelines; it does not isolate summary quality or model ability.
-
-Summary preparation cost an estimated \$10.32 for the Luna summaries and \$29.99 for the Grok summaries, both reconstructed from recorded usage. An earlier Grok preparation under the standard summary prompt cost a further \$2.00, and \$4.11 in uncertain Grok preparation charges is held separately and excluded from these totals. Successful inference estimates are approximately \$0.044 for Jev with Luna summaries, \$0.020 for Jev with Grok summaries (provider-reported), \$1.62 for GPT-5.6 Luna (with high reasoning), and \$0.103 for GPT-6 Luna (which was run without reasoning as a control).
 % END AI-PREPARED
 
 \section{Conclusion}
 
-LegalForecastBench is one illustration of how real-world litigation data can be used as a reward signal with an objective ground truth to evaluate frontier models on high-level legal analytical tasks. Next steps in my research include testing whether these signals are also useful as training; some early results suggest that merely training on the Brier score loss function may not be a sufficiently dense reward signal to improve model performance, but we are testing techniques that might exploit more of the judge's written reasoning to create a richer task, where the model is asked to make several predictions, to create potentially denser rewards.
+LegalForecastBench is one illustration of how real-world litigation data can be used as a reward signal with an objective ground truth to evaluate frontier models on high-level legal analytical tasks. I will soon be publishing an analysis of the existing leading legal benchmark, Harvey's Legal Agent Benchmark. Next steps in my research include testing whether these signals are also useful as training; some early results suggest that merely training on the Brier score loss function may not be a sufficiently dense reward signal to improve model performance, but we are testing techniques that might exploit more of the judge's written reasoning to create a richer task, where the model is asked to make several predictions, to create potentially denser rewards.
 
 Even so, this experiment suggests that there are still lots of sources of training signal that have not been exploited and that could meaningfully improve the evaluation of, and performance of, frontier models. 
 
@@ -552,20 +548,30 @@ GPT-5.6 Luna & High & 2026-02-16 (K) & Precedes window \\
 Claude Opus 5.5 & High & 2026-06 (T) & Precedes window \\
 GPT-6.1 Sol & High & 2026-04-30 (K) & Precedes window \\
 GPT-6 Astra & High & 2026-04-30 (K) & Precedes window \\
-Gemini 3.8 Flash & High thinking & 2026-03 (K) & Precedes window \\
+Gemini 3.8 Flash & High & 2026-03 (K) & Precedes window \\
 Grok 4.7 & High & 2026-05 (K) & Precedes window \\
 Claude Sonnet 5 & Adaptive/default & 2026-01 (T) & Precedes window \\
 GPT-6 Luna & High & 2026-05-18 (K) & Precedes window \\
 Claude Sonnet 5.5 & High & 2026-06 (T) & Precedes window \\
 Muse Spark 1.3 & High & Unknown (?) & Unknown \\
-Gemini 3.1 Pro Preview & High thinking & 2025-01 (K) & Precedes window \\
+Gemini 3.1 Pro Preview & High & 2025-01 (K) & Precedes window \\
 \bottomrule\end{tabular}\caption{Model Configuration and Training Cutoff Dates}\label{tab:cutoffs}\end{table}
 
 Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 used adaptive thinking at provider defaults. Claude Opus 5.5 and Claude Sonnet 5.5 used high effort. The other configurations use the high reasoning or thinking setting.
 
 \section{Result provenance}
-We standardized costs in the table based on the recorded token usage and standard API rates. To calculate the costs for Fable (which was inadvertently run without cache enabled), we calculated cached execution based on the turn-by-turn token usage data, rather than the original uncached usage, as described in Section~4.3.
+We standardized costs in the table based on the recorded token usage and standard API rates. To calculate the costs for Fable (which was inadvertently run without cache enabled), we calculated cached execution based on the turn-by-turn token usage data, rather than the original uncached usage.
 
-The source revisions are at \href{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359}{LegalForecastBench \texttt{58371a0e}}, LegalForecastCorpus \texttt{b392ddaf}, and LegalForecastGym \texttt{4cc0f528}.
+The results were produced with \href{https://github.com/johnhughes3/LegalForecastBench/tree/58371a0e13494e591710e2eae3da8e428eebc359}{LegalForecastBench \texttt{58371a0e}}.
+
+\subsection{Main Results Costs}
+% BEGIN AI-PREPARED (disclosed in the AI use statement; not sent to the Pangram check)
+The normalized costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
+% END AI-PREPARED
+
+\subsection{Jev Evaluation Costs}
+% BEGIN AI-PREPARED (disclosed in the AI use statement; not sent to the Pangram check)
+Summary preparation cost an estimated \$10.32 for the Luna summaries and \$29.99 for the Grok summaries, both reconstructed from recorded usage. An earlier Grok preparation under the standard summary prompt cost a further \$2.00, and \$4.11 in uncertain Grok preparation charges is held separately and excluded from these totals. Successful inference estimates are approximately \$0.044 for Jev with Luna summaries, \$0.020 for Jev with Grok summaries (provider-reported), \$1.62 for GPT-5.6 Luna (with high reasoning), and \$0.103 for GPT-6 Luna (which was run without reasoning as a control).
+% END AI-PREPARED
 
 \end{document}
