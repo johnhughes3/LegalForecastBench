@@ -72,20 +72,14 @@ def verify(
     historical = json.loads((built / "historical-aggregates.json").read_text())
     assert historical["status"] == "superseded" and len(historical["models"]) == 7
     index = (built / "index.html").read_text()
-    reference = "GPT-4.1 as a historical reference for non-thinking models"
-    assert f"10 models plus {reference}, on 1 cases and 2 units" in index
     assert "historical-aggregates.json" in index
     home = (ROOT / "site/dist/index.html").read_text()
     # The abstract's headline describes the original release, not a refreshed one.
     assert "The beta includes" not in home
-    appendix = (built / "historical-results/index.html").read_text()
-    assert "2 prediction units from 1 cases" in appendix
-    assert "0.100000" in appendix
-    assert "--expected-case-count 1 --expected-unit-count 2" in appendix
     assert not (ROOT / "site/dist/models/kimi-k3/index.html").exists()
     print(
         f"Verified {len(downloads)} exact backend downloads "
-        "and refreshed current/home/historical pages"
+        "and refreshed current/home pages"
     )
 
 

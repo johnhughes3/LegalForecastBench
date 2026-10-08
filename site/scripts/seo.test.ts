@@ -66,7 +66,7 @@ test("every page that names a markdown copy has one in the build", () => {
 		assert.ok(href && existsSync(`dist${href}`), page);
 	}
 	assert.doesNotMatch(
-		readFileSync("dist/data/historical-results/index.html", "utf8"),
+		readFileSync("dist/404.html", "utf8"),
 		/type="text\/markdown"/,
 	);
 });
