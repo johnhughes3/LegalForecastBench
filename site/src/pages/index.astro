@@ -4,6 +4,7 @@ import Leaderboard from "../components/Leaderboard";
 import ParetoChart from "../components/ParetoChart";
 import Stat from "../components/Stat.astro";
 import { AUTHOR } from "../data/author";
+import { refreshedDataDirectory } from "../data/dataset-input";
 import { paperHeadline } from "../data/headline";
 import { formatPercent } from "../data/metrics";
 import { PAPER } from "../data/paper";
@@ -14,9 +15,11 @@ import { COPY, HOME_INTRO } from "../seo/copy";
 
 const { cohort } = snapshot;
 const n = cohort.unit_count;
+// The calibration note names two models. The published results must contain
+// them; a refreshed cohort (after withdrawals) may not, and then omits the note.
 const bySlug = (slug: string) => {
 	const model = primarySnapshot.models.find((m) => m.slug === slug);
-	if (!model)
+	if (!model && !refreshedDataDirectory)
 		throw new Error(
 			`The calibration paragraph names ${slug}, which is not in the results.`,
 		);
@@ -24,7 +27,7 @@ const bySlug = (slug: string) => {
 };
 const astra = bySlug("gpt-6-astra");
 const sol = bySlug("gpt-6-sol");
-const highAccuracy = (m: typeof astra) =>
+const highAccuracy = (m: NonNullable<typeof astra>) =>
 	m.high_confidence.count
 		? 1 - m.high_confidence.wrong / m.high_confidence.count
 		: null;
@@ -90,7 +93,7 @@ const excerpts = [
 			<div>
 				<p class="eyebrow">Calibration at the extremes</p>
 				<h2 class="mt-2 font-serif text-3xl font-semibold tracking-tight">When models are sure, are they right?</h2>
-				<p class="mt-4 text-sm leading-relaxed text-ink-2">We noticed that some model families made sharper predictions, but proved to be poorly calibrated when they expressed high confidence. For example, of the predictions where {astra.display_name} expressed at least 90% confidence, its average confidence was {pct(astra.high_confidence.mean_confidence)} but its actual accuracy was only {pct(highAccuracy(astra))}. That made Astra underperform {sol.display_name}, where confidence and accuracy were much more closely matched.</p>
+				{astra && sol && <p class="mt-4 text-sm leading-relaxed text-ink-2">We noticed that some model families made sharper predictions, but proved to be poorly calibrated when they expressed high confidence. For example, of the predictions where {astra.display_name} expressed at least 90% confidence, its average confidence was {pct(astra.high_confidence.mean_confidence)} but its actual accuracy was only {pct(highAccuracy(astra))}. That made Astra underperform {sol.display_name}, where confidence and accuracy were much more closely matched.</p>}
 				<p class="mt-3 text-sm leading-relaxed text-ink-2">This chart compares models' confidence (on the predictions with at least 90% confidence) with their accuracy. It illustrates one noteworthy trend between model families: OpenAI and Gemini models erred on the side of overconfidence, Anthropic and SpaceXAI on the side of underconfidence.</p>
 			</div>
 			<div class="card min-w-0 p-4 sm:p-6">
