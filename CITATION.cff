@@ -17,7 +17,7 @@ repository-code: "https://github.com/johnhughes3/LegalForecastBench"
 # has a DOI (arXiv issues one), add a `doi:` line here and nothing else.
 preferred-citation:
   type: generic
-  title: "LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability"
+  title: "Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning"
   authors:
     - family-names: "Hughes"
       given-names: "John J."

@@ -14,7 +14,8 @@ export const SECTION_CARDS = {
 	},
 	paper: {
 		eyebrow: "Working paper",
-		title: "Forecasting judicial decisions as a test of legal reasoning",
+		title:
+			"Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning",
 	},
 	data: {
 		eyebrow: "Data & code",

@@ -4,7 +4,7 @@ This directory holds two working papers by the same author. Each lives in its ow
 
 | Paper | Source | Committed PDF |
 | --- | --- | --- |
-| **LegalForecastBench: Forecasting Judicial Decisions as a Test of Legal Reasoning Ability** | [legalforecastbench/LegalForecastBench-paper.tex](legalforecastbench/LegalForecastBench-paper.tex) · [references](legalforecastbench/references.json) · [numerical inputs](legalforecastbench/data/empirical.json) | `site/public/paper/legalforecastbench-working.pdf` (served by the website) |
+| **Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning** | [legalforecastbench/LegalForecastBench-paper.tex](legalforecastbench/LegalForecastBench-paper.tex) · [references](legalforecastbench/references.json) · [numerical inputs](legalforecastbench/data/empirical.json) | `site/public/paper/legalforecastbench-working.pdf` (served by the website) |
 | **Auditing Harvey's Legal Agent Benchmark: Rubric and Citation Errors in Litigation Tasks** | [lab-audit/LAB-audit-paper.tex](lab-audit/LAB-audit-paper.tex) · [references](lab-audit/references.json) | `docs/papers/lab-audit/LAB-audit-paper.pdf` (not yet on the website) |
 
 The LegalForecastBench paper reports the seventeen-configuration ranked comparison on 91 cases and 387 claim–defendant units, a separate summary experiment, and the proposed outcome-feedback research direction. That comparison matches the ranked leaderboard. The four summary conditions are reported separately and are not in the main table. GPT-4.1 is a reference and is not ranked. Draft annotations remain visible; a successful build is not a claim that the paper has completed scientific or editorial review.
