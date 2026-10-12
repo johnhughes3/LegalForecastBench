@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
-from pydantic_ai import ModelMessagesTypeAdapter
+from openai import APIConnectionError, APITimeoutError
+from pydantic_ai import ModelAPIError, ModelHTTPError, ModelMessagesTypeAdapter
 from pydantic_ai.messages import ModelMessage
 
 from legalforecast.immutable_io import write_file_replace_safe
@@ -21,6 +23,7 @@ def write_managed_transcript(
     status: str,
     messages: Sequence[ModelMessage],
     authentication: ProviderAuthentication | None = None,
+    error: BaseException | None = None,
 ) -> None:
     """Persist SDK-native message history without serializing exception state."""
 
@@ -34,6 +37,13 @@ def write_managed_transcript(
         "messages": json.loads(encoded_messages),
         **({"authentication": authentication.provenance()} if authentication else {}),
     }
+    if isinstance(error, ModelAPIError):
+        envelope["provider_failure"] = {
+            "category": provider_error_category(error),
+            "status_code": error.status_code
+            if isinstance(error, ModelHTTPError)
+            else None,
+        }
     transcript_path.parent.mkdir(parents=True, exist_ok=True)
     write_file_replace_safe(
         transcript_path,
@@ -48,3 +58,24 @@ def write_managed_transcript(
         ).encode("utf-8"),
         mode=0o600,
     )
+
+
+def provider_error_category(
+    error: ModelAPIError,
+) -> Literal["timeout", "connection", "http", "other"]:
+    """Classify SDK exceptions without copying their sensitive diagnostic text."""
+
+    if isinstance(error, ModelHTTPError):
+        return "http"
+    cause: BaseException | None = error
+    # SDK wrappers preserve their underlying exception as the explicit cause.
+    # Bound traversal, including deliberately cyclic exception chains.
+    for _ in range(8):
+        if isinstance(cause, APITimeoutError):
+            return "timeout"
+        if isinstance(cause, APIConnectionError):
+            return "connection"
+        if cause is None:
+            break
+        cause = cause.__cause__
+    return "other"

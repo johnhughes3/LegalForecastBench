@@ -86,6 +86,9 @@ from legalforecast.runner.managed_prompt import (
     managed_initial_prompt as _managed_initial_prompt,
 )
 from legalforecast.runner.managed_transcript import (
+    provider_error_category,
+)
+from legalforecast.runner.managed_transcript import (
     write_managed_transcript as _write_managed_transcript,
 )
 from legalforecast.runner.managed_usage import (
@@ -462,7 +465,7 @@ def run_managed_tool_agent(
                 usage=usage,
                 deps=deps,
             )
-        except BaseException:
+        except BaseException as exc:
             _write_managed_transcript(
                 transcript_path,
                 model=entry.registry_key,
@@ -470,6 +473,7 @@ def run_managed_tool_agent(
                 status="failed",
                 messages=messages,
                 authentication=authentication,
+                error=exc,
             )
             raise
     _write_managed_transcript(
@@ -820,9 +824,10 @@ def complete_managed_tool_cell(
                 status_code=exc.status_code,
                 retryable=False,
             ) from None
-        except ModelAPIError:
+        except ModelAPIError as exc:
             raise LiveModelProviderError(
-                f"managed {provider} agent request failed",
+                f"managed {provider} agent request failed "
+                f"({provider_error_category(exc)})",
                 retryable=False,
             ) from None
         except Exception:
