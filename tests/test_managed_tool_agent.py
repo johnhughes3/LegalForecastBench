@@ -1339,7 +1339,7 @@ def test_late_managed_429_keeps_the_case_reservation_ambiguous(
     )
     handler = _FailureHandler()
 
-    with pytest.raises(LiveModelProviderError) as exc_info:
+    with pytest.raises(LiveModelProviderError, match="HTTP 429") as exc_info:
         managed_execution.complete_managed_tool_cell(
             _entry(),
             handler=cast(Any, handler),

@@ -113,3 +113,38 @@ def test_harvey_tools_keep_bash_cwd_and_reject_document_writes(tmp_path: Path) -
     assert forbidden.status == "failed"
     assert not (tmp_path / "documents" / "x").exists()
     executor.close()
+
+
+def test_absolute_globs_use_virtual_workspace_paths(tmp_path: Path) -> None:
+    executor = HarveyToolExecutor(tmp_path)
+    (tmp_path / "documents" / "brief.txt").write_text("brief\n")
+    for pattern, path in (
+        ("/workspace/**/*", "/workspace"),
+        ("/workspace/documents/*", None),
+    ):
+        arguments: dict[str, object] = {"pattern": pattern}
+        if path is not None:
+            arguments["path"] = path
+        response = executor.execute(
+            ToolRequest(
+                request_id="absolute-glob", operation="glob", arguments=arguments
+            ),
+            tmp_path,
+        )
+        assert response.status == "succeeded"
+        assert list(response.output["matches"]) == ["/workspace/documents/brief.txt"]
+
+
+def test_globs_reject_patterns_outside_virtual_workspace(tmp_path: Path) -> None:
+    executor = HarveyToolExecutor(tmp_path)
+    for pattern in ("/etc/*", "../*", "/workspace/documents/../../*"):
+        response = executor.execute(
+            ToolRequest(
+                request_id="unsafe-glob",
+                operation="glob",
+                arguments={"pattern": pattern},
+            ),
+            tmp_path,
+        )
+        assert response.status == "failed"
+        assert response.error_code == "security_error"

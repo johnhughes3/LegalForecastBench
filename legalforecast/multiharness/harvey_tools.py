@@ -184,6 +184,25 @@ class HarveyToolExecutor:
     def _glob(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
         pattern = _required_string(arguments, "pattern")
         root = self._search_root(arguments.get("path"))
+        # Agents use the same virtual absolute paths for glob as for read.
+        # pathlib only accepts relative patterns; passing the virtual path
+        # through kills the standalone worker with NotImplementedError.
+        parsed = PurePosixPath(pattern)
+        if ".." in parsed.parts:
+            raise HarveyToolError("glob pattern escapes workspace")
+        if parsed.is_absolute():
+            try:
+                relative = parsed.relative_to("/workspace")
+            except ValueError as exc:
+                raise HarveyToolError("glob pattern escapes workspace") from exc
+            root = self.workspace_root
+            if relative.parts[:1] == ("documents",):
+                root = self.documents_root
+                relative = PurePosixPath(*relative.parts[1:])
+            elif relative.parts[:1] == ("output",):
+                root = self.output_root
+                relative = PurePosixPath(*relative.parts[1:])
+            pattern = relative.as_posix()
         matches = sorted(
             (
                 path

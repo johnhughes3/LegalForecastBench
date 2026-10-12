@@ -17,12 +17,13 @@ _GATEWAY_ROUTE_PROVIDERS = {
     "moonshotai/kimi-k3": "deepinfra",
     "meta/muse-spark-1.3": "meta",
     "meta/muse-spark-1.3-contributor": "meta",
+    "meta/muse-wonder-1.0": "meta",
     "spacexai/grok-4.6": "xai",
     "spacexai/grok-4.7": "xai",
     "mistral/mistral-large-4": "mistral",
 }
 _MUSE_GATEWAY_MODEL_IDS = frozenset(
-    {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"}
+    {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor", "meta/muse-wonder-1.0"}
 )
 _GATEWAY_MODEL_ALIASES = {
     # Gateway keeps the requested id in ``originalModelId`` but returns the
@@ -89,7 +90,7 @@ def gateway_model_profile(provider: OpenAIProvider, model_id: str) -> ModelProfi
     }
     if model_id.casefold() in _MUSE_GATEWAY_MODEL_IDS:
         # Muse's Gateway route accepts only the automatic tool-choice mode. Keep
-        # this override scoped to the two verified Muse model ids; other routes
+        # this override scoped to the documented Muse model ids; other routes
         # retain the OpenAI adapter default until their provider behavior is known.
         profile["openai_supports_tool_choice_required"] = False
     return merge_profile(

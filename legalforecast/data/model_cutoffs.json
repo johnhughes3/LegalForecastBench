@@ -194,6 +194,17 @@
 			"note": "Mistral's model documentation does not report a training-data or knowledge cutoff."
 		},
 		{
+			"slug": "muse-wonder-1-0",
+			"model_ids": [
+				"meta/muse-wonder-1.0"
+			],
+			"cutoff": null,
+			"kind": null,
+			"source": "https://dev.meta.ai/docs/models",
+			"checked": "2026-10-12",
+			"note": "Meta's announcement, model card and developer documentation do not report a training-data or knowledge cutoff."
+		},
+		{
 			"slug": "muse-spark-1-3",
 			"model_ids": [
 				"meta/muse-spark-1.3-contributor",
