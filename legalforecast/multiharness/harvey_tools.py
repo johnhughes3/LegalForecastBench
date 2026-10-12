@@ -184,12 +184,42 @@ class HarveyToolExecutor:
     def _glob(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
         pattern = _required_string(arguments, "pattern")
         root = self._search_root(arguments.get("path"))
-        matches = sorted(
-            (
+        # Agents use the same virtual absolute paths for glob as for read.
+        # pathlib only accepts relative patterns; passing the virtual path
+        # through kills the standalone worker with NotImplementedError.
+        parsed = PurePosixPath(pattern)
+        if ".." in parsed.parts:
+            raise HarveyToolError("glob pattern escapes workspace")
+        include_output_mount = False
+        if parsed.is_absolute():
+            try:
+                relative = parsed.relative_to("/workspace")
+            except ValueError as exc:
+                raise HarveyToolError("glob pattern escapes workspace") from exc
+            root = self.workspace_root
+            if relative.parts[:1] == ("documents",):
+                root = self.documents_root
+                relative = PurePosixPath(*relative.parts[1:])
+            elif relative.parts[:1] == ("output",):
+                root = self.output_root
+                relative = PurePosixPath(*relative.parts[1:])
+            else:
+                include_output_mount = True
+            pattern = relative.as_posix()
+        candidates = set(root.glob(pattern))
+        if include_output_mount:
+            # Production mounts output beside input, rather than below it.
+            # Match its virtual prefix so '*' never becomes recursive and
+            # workspace-wide '**' can discover the agent's saved notes.
+            candidates.update(
                 path
-                for path in root.glob(pattern)
-                if path.is_file() and not path.is_symlink()
-            ),
+                for path in self.output_root.rglob("*")
+                if (
+                    PurePosixPath("output") / path.relative_to(self.output_root)
+                ).full_match(pattern)
+            )
+        matches = sorted(
+            (path for path in candidates if path.is_file() and not path.is_symlink()),
             key=lambda path: (-path.stat().st_mtime_ns, str(path)),
         )
         return {

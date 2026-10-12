@@ -1,0 +1,31 @@
+[
+  {
+    "context_limit": 1048576,
+    "display_name": "Muse Wonder",
+    "input_token_price": 4.0,
+    "known_cutoff_publicity_caveats": [
+      "Regular full-document managed agentic benchmark with high reasoning; no summaries or web search.",
+      "Meta does not report a training-data or knowledge cutoff in the announcement, model card or developer model documentation checked 2026-10-12. Eligibility remains qualified; release date is provenance, not a cutoff proxy.",
+      "Muse Wonder is a public preview available through the Meta Model API in Standard mode only. Muse Wonder Full is subscription-only in Muse Code and is a different model, unavailable through the Model API.",
+      "Gateway model meta/muse-wonder-1.0 is hard routed only to Meta. It is not an immutable dated snapshot; retain live served identity and routing metadata.",
+      "The live Gateway catalog reports a 1048576-token context window and maximum output. Retain the regular benchmark managed-runtime 128000 output cap.",
+      "Meta supports only automatic tool choice on Responses API. High reasoning is explicitly selected to match the regular benchmark condition; the provider's max reasoning results are a different configuration.",
+      "Standard pricing is USD 4.00/M input, 20.00/M output and 0.20/M cached input. Standard-mode content is not used to train Meta models; no contributor mode is available for pay-as-you-go Muse Wonder."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "meta/muse-wonder-1.0",
+    "model_version_or_snapshot": "meta/muse-wonder-1.0",
+    "network_disabled": true,
+    "output_token_price": 20.0,
+    "pricing_source": "https://dev.meta.ai/docs/pricing-rate-limits (Muse Wonder standard USD 4.00/M input, 20.00/M output, 0.20/M cache read), confirmed by https://vercel.com/ai-gateway/models/muse-wonder-1.0; checked 2026-10-12",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-10-12T00:00:00Z",
+    "release_timestamp_source": "https://research.meta.ai/blog/muse-wonder, October 12, 2026 announcement",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only",
+    "cache_read_token_price": 0.2
+  }
+]

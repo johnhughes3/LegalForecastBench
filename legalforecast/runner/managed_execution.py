@@ -816,7 +816,7 @@ def complete_managed_tool_cell(
             )
         except ModelHTTPError as exc:
             raise LiveModelProviderError(
-                f"managed {provider} agent request failed",
+                f"managed {provider} agent request failed (HTTP {exc.status_code})",
                 status_code=exc.status_code,
                 retryable=False,
             ) from None
