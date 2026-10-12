@@ -62,9 +62,12 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
         "summary experiments and the GPT-4.1 reference are reported separately"
         in first_screen
     )
-    publication_links = set(re.findall(r"\]\(([^)]+)\)", first_screen))
-    assert "https://www.legalforecastbench.org/paper/" in publication_links
-    assert "https://www.legalforecastbench.org/" in publication_links
+    publication_links = dict(re.findall(r"\[([^]]+)\]\(([^)]+)\)", first_screen))
+    assert (
+        publication_links["working paper"]
+        == "https://www.legalforecastbench.org/paper/"
+    )
+    assert publication_links["results"] == "https://www.legalforecastbench.org/"
 
     for call_to_action in (
         "[Read the methods](docs/METHODS.md)",
