@@ -170,7 +170,7 @@ def complete_native_run(
             original = stable
             if plan.frozen_identity.jev_summaries_uri:
                 raise RecoveryError(
-                    "run complete supports only regular native full-document forecasts"
+                    "run complete does not support external summary inputs"
                 )
             blocks = [
                 reason

@@ -465,3 +465,29 @@ def test_three_no_progress_recoveries_stop_before_fourth_dispatch(
     assert all(
         workflow == completion.RECOVERY_WORKFLOW for workflow, _ in client.dispatches
     )
+
+
+def test_frozen_fulltext_one_shot_condition_follows_unchanged_registry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = Client()
+    registry = "model_registries/cycle-1-fulltext-one-shot-frozen.json"
+    client.plans[10] = replace(
+        client.plans[10],
+        frozen_identity=replace(
+            client.plans[10].frozen_identity,
+            model_registry_uri=registry,
+            jev_summaries_uri=None,
+        ),
+    )
+    result = execute(client, tmp_path, monkeypatch)
+    assert result["status"] == "scored"
+    assert client.watches == [10, 40]
+    assert len(client.dispatches) == 1
+    workflow, inputs = client.dispatches[0]
+    assert workflow == completion.SCORE_WORKFLOW
+    assert inputs["model_registry_uri"] == registry
+    assert inputs["model_key"] == "openai:model"
+    assert "jev_summaries_uri" not in inputs
+    assert "execution_mode" not in inputs

@@ -242,7 +242,9 @@ def register(
             "recovery and scoring."
         ),
         description=(
-            "Wait with gh run watch; device approvals remain owner actions. "
+            "Follow native forecast workflows without external summary inputs; "
+            "preserve the frozen model registry and condition. Wait with gh run "
+            "watch; device approvals remain owner actions. "
             "Follow only exact returned dispatch identities. Stop on unresolved "
             "identity, unsafe budget or recovery limit. Scored artifacts do "
             "not update the website or paper."
