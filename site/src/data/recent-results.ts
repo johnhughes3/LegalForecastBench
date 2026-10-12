@@ -12,6 +12,7 @@ import export6 from "./exports/gpt-6-1-sol.json" with { type: "json" };
 import export1 from "./exports/gpt-6-luna.json" with { type: "json" };
 import export0 from "./exports/gpt-6-sol.json" with { type: "json" };
 import export3 from "./exports/grok-4-7.json" with { type: "json" };
+import museWonder from "./exports/muse-wonder-1-0.json" with { type: "json" };
 import type { ResultSource } from "./extend-snapshot.js";
 import { parseSiteExport } from "./site-export.js";
 
@@ -191,6 +192,22 @@ const originalResults = [
 				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
 		},
 		data: parseSiteExport(sol56),
+	},
+	{
+		source: {
+			slug: "muse-wonder-1-0",
+			release_date: "2026-10-12",
+			forecast_run: "38300603621",
+			scoring_run: "38303872484",
+			access: "Vercel AI Gateway (served by Meta)",
+			display_name: "Muse Wonder",
+			reasoning: "High",
+			provider: "Meta",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(museWonder),
 	},
 ];
 

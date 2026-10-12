@@ -42,6 +42,7 @@ SHORT = {
     "grok-4-7": "Grok 4.7",
     "claude-sonnet-5": "Sonnet 5",
     "gpt-6-luna": "GPT-6 Luna",
+    "muse-wonder-1-0": "Muse Wonder",
     "claude-sonnet-5-5": "Sonnet 5.5",
     "muse-spark-1-3": "Muse Spark 1.3",
     "gemini-3-1-pro-preview": "Gemini 3.1 Pro",

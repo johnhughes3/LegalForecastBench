@@ -6,7 +6,7 @@ Model eligibility depends on the provider-reported training-data or knowledge cu
 
 <!-- result-publication-state: completed-cycle-1-runs -->
 
-**First publication — October 13, 2026:** The Cycle 1 public beta reports seventeen ranked model configurations on 91 cases and 387 scored claim–defendant units. The [working paper](https://www.legalforecastbench.org/paper/) and [results](https://www.legalforecastbench.org/) present the comparison; summary experiments and the GPT-4.1 reference are reported separately.
+**First publication — October 13, 2026:** The Cycle 1 public beta reports eighteen ranked model configurations on 91 cases and 387 scored claim–defendant units. The [working paper](https://www.legalforecastbench.org/paper/) and [results](https://www.legalforecastbench.org/) present the comparison; summary experiments and the GPT-4.1 reference are reported separately.
 
 ## Start Here
 
