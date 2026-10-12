@@ -1,9 +1,9 @@
 {
-  "scope": "Seventeen-configuration manuscript panel on the Cycle 1 release. Checked 2026-09-30.",
+  "scope": "Eighteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-10-12.",
   "release": {
     "release": "cycle-1-91-2026-09-08-luna-r5",
     "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
-    "method": "Official scored results for the seventeen ranked configurations on this release: 91 cases and 387 scoreable units each."
+    "method": "Official scored results for the eighteen ranked configurations on this release: 91 cases and 387 scoreable units each."
   },
   "cohort": {
     "case_count": 91,
@@ -18,7 +18,7 @@
     "bootstrap": {
       "method": "Paired case-cluster percentile bootstrap",
       "replicates": 1000000,
-      "correction": "Bonferroni across 45 model pairs and three metrics",
+      "correction": "Bonferroni across 171 planned model pairs and three metrics (19-model family including the GPT-4.1 reference)",
       "caveat": "Exploratory. Cross-case dependence (for example, related cases in one MDL) has not yet been verified."
     }
   },
@@ -786,6 +786,68 @@
       "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
+      "slug": "muse-wonder-1-0",
+      "display_name": "Muse Wonder",
+      "provider": "Meta",
+      "model_key": "vercel_ai_gateway:meta/muse-wonder-1.0",
+      "access": "Vercel AI Gateway (served by Meta, standard tier)",
+      "reasoning": "High",
+      "release_date": "2026-10-12",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "Meta has not published a training or knowledge cutoff.",
+      "forecast_run_id": "38300603621",
+      "scoring_run_id": "38303872484",
+      "source_revision": "81baae93e6b9cd59e12bcd8c296ee64e0677e92b",
+      "micro_brier": 0.16535968992248062,
+      "equal_case_brier": 0.16900526973026972,
+      "correct": 299,
+      "high_confidence": {
+        "count": 118,
+        "wrong": 10,
+        "mean_confidence": 0.9336440677966101,
+        "accuracy": 0.9152542372881356,
+        "share": 0.3049095607235142
+      },
+      "cost": {
+        "usd": 57.593452,
+        "basis": "standard_rate",
+        "note": "Standard-rate estimate from successful-case response usage and frozen rates; ordinary-input estimates are used where cache dimensions are missing."
+      },
+      "accuracy": 0.772609819121447,
+      "cutoff_evidence": {
+        "slug": "muse-wonder-1-0",
+        "model_ids": [
+          "meta/muse-wonder-1.0",
+          "muse-wonder-1.0"
+        ],
+        "cutoff": null,
+        "kind": null,
+        "source": "https://research.meta.ai/static/muse-wonder-model-card",
+        "checked": "2026-10-12",
+        "note": "Meta does not report a training-data or knowledge cutoff in its announcement, model card or developer documentation."
+      },
+      "cutoff_status": "qualified",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/muse-wonder-1-0.json",
+      "cost_evidence": {
+        "basis": "provider_reported",
+        "forecast_run_id": "38300603621",
+        "score_run_id": "38303872484",
+        "workload_cost_usd": 39.379438,
+        "standard_rate_estimate_usd": 57.593452,
+        "covered_case_count": 91,
+        "response_count": 605,
+        "missing_cache_read_response_count": 132,
+        "missing_cache_write_response_count": 605,
+        "note": "Successful-case workload charges only, not invoice totals. Excludes failed attempts and unresolved charges; cache dimensions are incomplete."
+      },
+      "unit_source": "site/src/data/significance/muse-wonder-1-0.jsonl",
+      "log_loss": 0.5047576634876788,
+      "log_loss_basis": "recomputed natural-log loss from scored per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "claude-sonnet-5-5",
       "display_name": "Claude Sonnet 5.5",
       "provider": "Anthropic",
@@ -1287,7 +1349,7 @@
         "archive_workflow_run_id": "36284632360",
         "archive_artifact_id": 10590228053,
         "summary_packet_group": "luna-shared",
-        "input_label": "GPT-5.6 Luna summaries · one shot"
+        "input_label": "GPT-5.6 Luna summaries \u00b7 one shot"
       },
       {
         "slug": "gpt-5-6-luna-summaries-high",
@@ -1311,7 +1373,7 @@
         "archive_workflow_run_id": "36284632360",
         "archive_artifact_id": 10716882391,
         "summary_packet_group": "luna-shared",
-        "input_label": "GPT-5.6 Luna summaries · one shot"
+        "input_label": "GPT-5.6 Luna summaries \u00b7 one shot"
       },
       {
         "slug": "gpt-6-luna-summaries-none",
@@ -1335,7 +1397,7 @@
         "archive_workflow_run_id": "36284632360",
         "archive_artifact_id": 10725139258,
         "summary_packet_group": "luna-shared",
-        "input_label": "GPT-5.6 Luna summaries · one shot"
+        "input_label": "GPT-5.6 Luna summaries \u00b7 one shot"
       },
       {
         "slug": "jev-grok-short-summaries",
@@ -1358,7 +1420,7 @@
         "inference_cost_caveat": "Gateway-reported charges for 91/91 successful responses; complete standard frozen-rate repricing agrees. Excludes summary preparation, failed attempts, retries and uncertain charges; not an invoice total.",
         "archive_workflow_run_id": "37173289791",
         "summary_packet_group": "grok-short",
-        "input_label": "Grok 4.6 shorter summaries · one shot",
+        "input_label": "Grok 4.6 shorter summaries \u00b7 one shot",
         "inference_cost_basis": "provider_reported",
         "historical_standard_summary_preparation_estimated_usd": 1.996868,
         "uncertain_preparation_charge_holds_usd": 4.106948,
@@ -1390,9 +1452,9 @@
     }
   },
   "source_map": {
-    "aggregate": "site/src/data/snapshots/beta-2026-09-18.json",
+    "aggregate": "Per-model aggregate_source entries, including historical beta snapshots and current exports.",
     "cutoffs": "legalforecast/data/model_cutoffs.json",
-    "costs": "site/src/data/receipt-costs.json",
+    "costs": "Per-model cost_evidence entries and site/src/data/receipt-costs.json",
     "methods": "docs/METHODS.md",
     "protocol": "legalforecast/runner/managed_execution.py",
     "labeling_protocol": "Private companion-repository labeling protocol (not redistributed in this public package).",
@@ -1401,7 +1463,7 @@
     "summary_catalog": "site/public/data/summary-comparison/catalog.json"
   },
   "analysis_limits": [
-    "No significance ordering is claimed for the seventeen-configuration panel.",
+    "No complete significance ordering is claimed for the eighteen-configuration panel; unavailable per-unit forecasts limit pairwise comparisons.",
     "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
     "No human forecasting baseline was run.",
     "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
@@ -1409,9 +1471,10 @@
   "public_provenance": {
     "repository": "LegalForecastBench",
     "revision": "8374f8e1",
-    "revision_basis": "Public input revision containing the repository-relative sources referenced by this package.",
+    "revision_basis": "Historical public input revision for the original evidence package; later additions retain their own source revisions and run IDs.",
     "imported_on": "2026-09-30",
     "source_description": "Cleaned from the manuscript empirical aggregate. Public repository paths are repository-relative; numerical values and recorded caveats are preserved.",
-    "private_protocol_limitation": "Historical labeling-protocol evidence remains in the private companion LegalForecastCorpus repository and is not redistributed here. The aggregate values are preserved, but the private protocol path and private corpus bytes are unavailable for independent reconstruction from this package."
+    "private_protocol_limitation": "Historical labeling-protocol evidence remains in the private companion LegalForecastCorpus repository and is not redistributed here. The aggregate values are preserved, but the private protocol path and private corpus bytes are unavailable for independent reconstruction from this package.",
+    "updated_on": "2026-10-12"
   }
 }

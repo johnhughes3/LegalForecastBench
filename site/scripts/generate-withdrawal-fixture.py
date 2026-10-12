@@ -31,11 +31,13 @@ def generate(output: Path) -> None:
     built = ROOT / "site/dist/data"
     snapshot = read(built / "current.json")
     sources = read(built / "sources.json")
-    assert len(snapshot["models"]) == 18
+    assert len(snapshot["models"]) == 19
     assert (
-        len([model for model in snapshot["models"] if model["slug"] != "gpt-4-1"]) == 17
+        len([model for model in snapshot["models"] if model["slug"] != "gpt-4-1"]) == 18
     )
-    assert len(sources) == 11
+    assert len(sources) == 12
+    assert "muse-wonder-1-0" in {source["slug"] for source in sources}
+    assert len({source["slug"] for source in sources}) == len(sources)
     catalog = read(built / "summary-comparison/catalog.json")
     template = read(ROOT / "site/src/data/fixtures/site-export.json")
     units = template["results"][0]["units"]

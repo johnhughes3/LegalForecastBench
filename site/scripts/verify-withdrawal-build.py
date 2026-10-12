@@ -43,7 +43,12 @@ def verify(
         assert b"synthetic-case-b" not in data, relative
         assert b"synthetic-unit-b1" not in data, relative
     current = json.loads((built / "current.json").read_text())
-    assert len(current["models"]) == 11
+    assert len(current["models"]) == 12
+    sources = json.loads((built / "sources.json").read_text())
+    current_slugs = {model["slug"] for model in current["models"]}
+    assert current_slugs == {source["slug"] for source in sources}
+    assert "muse-wonder-1-0" in current_slugs
+    assert (ROOT / "site/dist/models/muse-wonder-1-0/index.html").exists()
     assert (current["cohort"]["case_count"], current["cohort"]["unit_count"]) == (1, 2)
     assert all(math.isclose(row["micro_brier"], 0.1) for row in current["models"])
     if reproduced is not None:
@@ -71,6 +76,9 @@ def verify(
         assert replayed_history == displayed_history
     historical = json.loads((built / "historical-aggregates.json").read_text())
     assert historical["status"] == "superseded" and len(historical["models"]) == 7
+    historical_slugs = {model["slug"] for model in historical["models"]}
+    assert current_slugs.isdisjoint(historical_slugs)
+    assert len(current_slugs | historical_slugs) == 19
     index = (built / "index.html").read_text()
     assert "historical-aggregates.json" in index
     home = (ROOT / "site/dist/index.html").read_text()

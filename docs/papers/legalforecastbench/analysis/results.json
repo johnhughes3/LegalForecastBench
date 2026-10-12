@@ -14,7 +14,7 @@
   ],
   "cases": 91,
   "coverage": {
-    "available_model_count": 12,
+    "available_model_count": 13,
     "available_models": [
       "claude-opus-5",
       "claude-opus-5-5",
@@ -27,10 +27,11 @@
       "gpt-6-1-sol",
       "gpt-6-luna",
       "gpt-6-sol",
-      "grok-4-7"
+      "grok-4-7",
+      "muse-wonder-1-0"
     ],
     "cases": 91,
-    "family_model_count": 18,
+    "family_model_count": 19,
     "missing_model_count": 6,
     "missing_models": [
       "claude-fable-5-1",
@@ -344,6 +345,30 @@
         ],
         "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
         "icc_anova": 0.719612821316
+      }
+    },
+    "muse-wonder-1-0": {
+      "brier_loss": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.310552569432,
+          0.651705869506
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.523349194968
+      },
+      "signed_error": {
+        "bootstrap_replicates": 20000,
+        "bootstrap_undefined_replicates": 0,
+        "bootstrap_valid_replicates": 20000,
+        "case_bootstrap_ci95": [
+          0.541114061042,
+          0.811374129425
+        ],
+        "case_bootstrap_ci95_condition": "percentile among finite bootstrap replicates; undefined replicates excluded",
+        "icc_anova": 0.70764932581
       }
     }
   },
