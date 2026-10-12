@@ -8,6 +8,8 @@ positional arguments:
                    forecast release.
     resume         Recover completed cells from a prior official run and retry
                    only incomplete cells.
+    complete       Follow an existing native forecast through bounded
+                   protected recovery and scoring.
 
 options:
   -h, --help       show this help message and exit
