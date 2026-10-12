@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import cast
 
 from legalforecast.runner import RunConfig, execute_release_run, issue_runner_fixture
+from legalforecast.runner.completion import complete_native_run
+from legalforecast.runner.completion_client import GhCompletionClient
 from legalforecast.runner.fixture import FIXTURE_MODEL_KEY, FixtureModelTransport
 from legalforecast.runner.recovery import (
     RECOVERY_WORKFLOW,
@@ -233,6 +235,65 @@ def register(
     )
     resume.set_defaults(handler=run_resume)
 
+    complete = commands.add_parser(
+        "complete",
+        help=(
+            "Follow an existing native forecast through bounded protected "
+            "recovery and scoring."
+        ),
+        description=(
+            "Follow native forecast workflows without external summary inputs; "
+            "preserve the frozen model registry and condition. Wait with gh run "
+            "watch; device approvals remain owner actions. "
+            "Follow only exact returned dispatch identities. Stop on unresolved "
+            "identity, unsafe budget or recovery limit. Scored artifacts do "
+            "not update the website or paper."
+        ),
+    )
+    complete.add_argument(
+        "--github-run",
+        required=True,
+        type=int,
+        help="Exact already-dispatched native forecast run ID.",
+    )
+    complete.add_argument(
+        "--repo", help="OWNER/NAME repository, default current origin."
+    )
+    complete.add_argument(
+        "--cycle-id",
+        required=True,
+        help="Existing public cycle identifier for scoring.",
+    )
+    complete.add_argument(
+        "--labels-release-uri",
+        required=True,
+        help="Locked labels release S3 URI, sent only to protected scoring.",
+    )
+    complete.add_argument(
+        "--output-dir",
+        required=True,
+        type=Path,
+        help="New directory for sanitized score/report artifacts; parent must exist.",
+    )
+    complete.add_argument(
+        "--publish",
+        action="store_true",
+        help="Request existing protected report publication alongside scoring.",
+    )
+    complete.add_argument(
+        "--max-recoveries",
+        type=int,
+        default=1,
+        help="Maximum protected recovery dispatches (default 1; 0 disables recovery).",
+    )
+    complete.add_argument(
+        "--max-parallel",
+        type=int,
+        default=8,
+        help="Recovery worker concurrency (default 8; original budget unchanged).",
+    )
+    complete.set_defaults(handler=run_complete)
+
 
 def run_issue_fixture(args: argparse.Namespace) -> int:
     output_dir = cast(Path, args.output_dir)
@@ -324,3 +385,20 @@ def run_resume(args: argparse.Namespace) -> int:
         )
     print(json.dumps(record, sort_keys=True))
     return 2 if execute and not plan.executable else 0
+
+
+def run_complete(args: argparse.Namespace) -> int:
+    """Follow existing native workflow stages and print the structured result."""
+    result = complete_native_run(
+        GhCompletionClient(),
+        repo=cast(str | None, args.repo) or resolve_repository(),
+        run_id=cast(int, args.github_run),
+        cycle_id=cast(str, args.cycle_id),
+        labels_release_uri=cast(str, args.labels_release_uri),
+        output_dir=cast(Path, args.output_dir),
+        publish=cast(bool, args.publish),
+        max_recoveries=cast(int, args.max_recoveries),
+        max_parallel=cast(int, args.max_parallel),
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0 if result["status"] == "scored" else 2
