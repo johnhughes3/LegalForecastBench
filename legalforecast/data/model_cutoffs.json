@@ -183,6 +183,17 @@
 			"note": "Moonshot AI has not published a cutoff."
 		},
 		{
+			"slug": "mistral-large-4",
+			"model_ids": [
+				"mistral/mistral-large-4"
+			],
+			"cutoff": null,
+			"kind": null,
+			"source": "https://docs.mistral.ai/models/mistral-large-4-0",
+			"checked": "2026-10-12",
+			"note": "Mistral's model documentation does not report a training-data or knowledge cutoff."
+		},
+		{
 			"slug": "muse-spark-1-3",
 			"model_ids": [
 				"meta/muse-spark-1.3-contributor",
