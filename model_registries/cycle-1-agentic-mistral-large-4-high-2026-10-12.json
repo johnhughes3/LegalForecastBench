@@ -1,0 +1,29 @@
+[
+  {
+    "context_limit": 524288,
+    "display_name": "Mistral Large 4",
+    "input_token_price": 1.36,
+    "known_cutoff_publicity_caveats": [
+      "Regular full-document managed agentic benchmark with high reasoning; no summaries or web search.",
+      "No provider-reported training-data or knowledge cutoff was found in the model documentation checked 2026-10-12. Eligibility remains qualified; release date is provenance, not evidence of a training cutoff.",
+      "Public preview Gateway model mistral/mistral-large-4 is routed only to mistral. The model is not an immutable dated snapshot; live served identity and route metadata must be retained.",
+      "The live Gateway catalog reports 524288 context tokens and 262144 maximum output tokens. Retain the benchmark managed-runtime 128000 output cap and the lower catalog context limit rather than the marketing 1M window.",
+      "Standard-rate repricing uses USD 1.36/M input, 4.18/M output and 0.14/M cached input. Current promotion is half those rates; preserve reported charges independently."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "mistral/mistral-large-4",
+    "model_version_or_snapshot": "mistral/mistral-large-4",
+    "network_disabled": true,
+    "output_token_price": 4.18,
+    "pricing_source": "https://docs.mistral.ai/models/mistral-large-4-0 (standard USD 1.36/M input, 4.18/M output, 0.14/M cache read), checked 2026-10-12",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-10-06T00:00:00Z",
+    "release_timestamp_source": "https://vercel.com/changelog/mistral-large-4-now-available-on-ai-gateway",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only",
+    "cache_read_token_price": 0.14
+  }
+]
