@@ -251,6 +251,7 @@ jobs:
           set -euo pipefail
           uv run python - <<'PY'
           import json, os
+          from pathlib import Path
 
           from legalforecast.runner.recovery import GhRecoveryClient
 
@@ -285,6 +286,22 @@ jobs:
               "artifact_retention_days": "90",
               "resume_sources": json.dumps(recovery["resume_sources"], separators=(",", ":")),
           }
-          client.dispatch(repo, "run-benchmark.yaml", "main", inputs)
-          print(title)
+          dispatch = client.dispatch(repo, "run-benchmark.yaml", "main", inputs)
+          Path("/tmp/lfb-child-dispatch.json").write_text(json.dumps({
+              **dispatch,
+              "source_run_id": source["run_id"],
+              "source_run_attempt": source["run_attempt"],
+              "recovery_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "recovery_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+          }, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(dispatch, sort_keys=True))
           PY
+
+      - name: Persist exact child dispatch identity
+        if: ${{ inputs.execute }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: recovery-child-dispatch-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/lfb-child-dispatch.json
+          if-no-files-found: error
+          retention-days: 90

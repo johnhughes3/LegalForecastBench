@@ -232,14 +232,43 @@ class GhRecoveryClient:
         workflow: str,
         ref: str,
         inputs: Mapping[str, str],
-    ) -> None:
+    ) -> Mapping[str, object]:
         command = ["gh", "workflow", "run", workflow, "--repo", repo, "--ref", ref]
         for key in sorted(inputs):
             command.extend(("--field", f"{key}={inputs[key]}"))
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
         except (OSError, subprocess.CalledProcessError) as exc:
             raise RecoveryError("protected recovery workflow dispatch failed") from exc
+
+        return dispatched_workflow_record(repo, workflow, ref, result.stdout)
+
+
+def dispatched_workflow_record(
+    repo: str, workflow: str, ref: str, stdout: str = ""
+) -> dict[str, object]:
+    """Preserve a successful dispatch even if its exact child is unresolved.
+
+    Only the CLI-returned same-repository run URL establishes identity. Looking
+    up the newest run or repeating the dispatch could select or create other work.
+    """
+
+    value = stdout.strip()
+    match = re.fullmatch(
+        rf"https://github\.com/{re.escape(repo)}/actions/runs/([1-9][0-9]*)", value
+    )
+    return {
+        "dispatched": True,
+        "status": "dispatched" if match else "dispatched_unresolved",
+        "repository": repo,
+        "workflow": workflow,
+        "ref": ref,
+        "run_id": int(match[1]) if match else None,
+        "run_url": value if match else None,
+        "identity_reason": None
+        if match
+        else ("cli_identity_unavailable" if not value else "invalid_cli_identity"),
+    }
 
 
 def recovery_object(value: object, label: str) -> Mapping[str, object]:

@@ -225,7 +225,7 @@ class FakeRecoveryClient:
         workflow: str,
         ref: str,
         inputs: Mapping[str, str],
-    ) -> None:
+    ) -> Mapping[str, object] | None:
         self.dispatched.append((repo, workflow, ref, inputs))
 
 
@@ -527,6 +527,9 @@ def test_resume_execute_dispatches_only_the_protected_workflow(
 
     record = json.loads(capsys.readouterr().out)
     assert record["disposition"] == "dispatch_requested"
+    assert record["dispatch"]["dispatched"] is True
+    assert record["dispatch"]["status"] == "dispatched_unresolved"
+    assert record["dispatch"]["run_id"] is None
     assert client.dispatched == [
         (
             "owner/bench",
@@ -746,3 +749,85 @@ def test_gh_recovery_failure_reports_value_blind_status(
     assert expected in str(error.value)
     assert "private-sentinel" not in str(error.value)
     assert "attempts/2/jobs?per_page=100" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "stdout,run_id,reason",
+    [
+        ("https://github.com/owner/bench/actions/runs/987654321\n", 987654321, None),
+        ("", None, "cli_identity_unavailable"),
+        ("Created workflow_dispatch event for main", None, "invalid_cli_identity"),
+        (
+            "https://github.com/other/bench/actions/runs/987654321",
+            None,
+            "invalid_cli_identity",
+        ),
+        ("https://github.com/owner/bench/actions/runs/0", None, "invalid_cli_identity"),
+        (
+            "https://github.com/owner/bench/actions/runs/987654321?token=private",
+            None,
+            "invalid_cli_identity",
+        ),
+    ],
+)
+def test_dispatch_preserves_exact_cli_identity_without_search_or_redispatch(
+    monkeypatch: pytest.MonkeyPatch, stdout: str, run_id: int | None, reason: str | None
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(
+        command: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = GhRecoveryClient().dispatch(
+        "owner/bench", RECOVERY_WORKFLOW, "main", {"execute": "true"}
+    )
+    assert len(commands) == 1
+    assert commands[0][:4] == ["gh", "workflow", "run", RECOVERY_WORKFLOW]
+    assert result["dispatched"] is True
+    assert result["run_id"] == run_id
+    assert result["identity_reason"] == reason
+    assert result["status"] == ("dispatched" if run_id else "dispatched_unresolved")
+    assert result["run_url"] == (stdout.strip() if run_id else None)
+    assert "private" not in json.dumps(result)
+
+
+def test_resume_json_exposes_exact_dispatched_recovery_run(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from legalforecast.cli_commands import run as run_commands
+    from legalforecast.runner.recovery_client import dispatched_workflow_record
+
+    class IdentifiedClient(FakeRecoveryClient):
+        def dispatch(
+            self, repo: str, workflow: str, ref: str, inputs: Mapping[str, str]
+        ) -> Mapping[str, object]:
+            super().dispatch(repo, workflow, ref, inputs)
+            return dispatched_workflow_record(
+                repo, workflow, ref, f"https://github.com/{repo}/actions/runs/987654321"
+            )
+
+    client = IdentifiedClient()
+    monkeypatch.setattr(run_commands, "GhRecoveryClient", lambda: client)
+    assert (
+        run_commands.run_resume(
+            argparse.Namespace(
+                repo="owner/bench",
+                github_run=RUN_ID,
+                ref="main",
+                max_parallel=8,
+                execute=True,
+            )
+        )
+        == 0
+    )
+    record = json.loads(capsys.readouterr().out)
+    assert record["dispatch"]["run_id"] == 987654321
+    assert (
+        record["dispatch"]["run_url"]
+        == "https://github.com/owner/bench/actions/runs/987654321"
+    )
+    assert len(client.dispatched) == 1

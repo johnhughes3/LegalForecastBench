@@ -98,6 +98,10 @@ At close:
 - [ ] Result **or** an explicit structural halt, reported plainly with evidence (rule 6).
 - [ ] Any spend journaled against its approved ceiling (rule 7).
 
+## Exact recovery dispatch handoff
+
+`uv run legalforecast run resume --github-run RUN_ID --ref main --max-parallel 8 --execute` reports the dispatched protected recovery workflow in its JSON `dispatch` field. When the brokered CLI supplies a same-repository workflow URL, retain its `run_id` and `run_url` for monitoring. `dispatched_unresolved` still means dispatch succeeded: do not repeat it or select the newest workflow run to guess its identity. Protected recovery saves its subsequent benchmark child handoff in `recovery-child-dispatch-RUN_ID-ATTEMPT`, including the original source run and recovery attempt. This artifact records the exact CLI handoff for completion tooling; it does not approve a protected stage or prove the benchmark finished.
+
 ## Terminal release smoke
 
 For a bounded Claude Code terminal validation, use `legalforecast multiharness release-execute --case-id CASE_ID` with the existing release inputs and execution options, then `release-score` on the saved package. The protected `run-benchmark.yaml` equivalent is `execution_mode=claude-code-terminal` plus `terminal_case_id=CASE_ID`. The selector keeps all units of that case and the existing spend ceiling; it does not issue a smaller corpus release or authorize paid execution. Check `selection.full_release_selected` and selected versus release counts when reporting coverage. Omit the selector for a full-release run.
