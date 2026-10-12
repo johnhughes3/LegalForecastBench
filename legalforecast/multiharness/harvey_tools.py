@@ -190,6 +190,7 @@ class HarveyToolExecutor:
         parsed = PurePosixPath(pattern)
         if ".." in parsed.parts:
             raise HarveyToolError("glob pattern escapes workspace")
+        include_output_mount = False
         if parsed.is_absolute():
             try:
                 relative = parsed.relative_to("/workspace")
@@ -202,13 +203,23 @@ class HarveyToolExecutor:
             elif relative.parts[:1] == ("output",):
                 root = self.output_root
                 relative = PurePosixPath(*relative.parts[1:])
+            else:
+                include_output_mount = True
             pattern = relative.as_posix()
-        matches = sorted(
-            (
+        candidates = set(root.glob(pattern))
+        if include_output_mount:
+            # Production mounts output beside input, rather than below it.
+            # Match its virtual prefix so '*' never becomes recursive and
+            # workspace-wide '**' can discover the agent's saved notes.
+            candidates.update(
                 path
-                for path in root.glob(pattern)
-                if path.is_file() and not path.is_symlink()
-            ),
+                for path in self.output_root.rglob("*")
+                if (
+                    PurePosixPath("output") / path.relative_to(self.output_root)
+                ).full_match(pattern)
+            )
+        matches = sorted(
+            (path for path in candidates if path.is_file() and not path.is_symlink()),
             key=lambda path: (-path.stat().st_mtime_ns, str(path)),
         )
         return {

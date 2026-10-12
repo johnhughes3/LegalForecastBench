@@ -148,3 +148,29 @@ def test_globs_reject_patterns_outside_virtual_workspace(tmp_path: Path) -> None
         )
         assert response.status == "failed"
         assert response.error_code == "security_error"
+
+
+def test_absolute_workspace_globs_include_separate_output_mount(tmp_path: Path) -> None:
+    workspace = tmp_path / "input"
+    workspace.mkdir()
+    output = tmp_path / "output"
+    executor = HarveyToolExecutor(workspace, output_root=output)
+    (workspace / "documents" / "brief.txt").write_text("brief\n")
+    (output / "nested").mkdir()
+    (output / "nested" / "notes.txt").write_text("notes\n")
+    (output / "answer.json").write_text("{}\n")
+    for pattern, expected in (
+        (
+            "/workspace/**/*",
+            {
+                "/workspace/documents/brief.txt",
+                "/workspace/output/nested/notes.txt",
+                "/workspace/output/answer.json",
+            },
+        ),
+        ("/workspace/output/*", {"/workspace/output/answer.json"}),
+        ("/workspace/o*/**/*.txt", {"/workspace/output/nested/notes.txt"}),
+        ("/workspace/*.txt", set()),
+    ):
+        result = _call(executor, workspace, "glob", pattern=pattern)
+        assert set(result["matches"]) == expected
