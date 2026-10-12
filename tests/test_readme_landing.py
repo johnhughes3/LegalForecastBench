@@ -57,10 +57,13 @@ def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
     assert PREPUBLICATION_MARKER not in first_screen
     assert UNPUBLISHED_STATUS not in first_screen
     assert "does not prove zero contamination" in first_screen
-    assert "91-case Cycle 1 benchmark" in first_screen
-    assert "Community Harness Comparisons" in first_screen
-    assert "non-official" in first_screen
-    assert "[Results and run artifacts](#official-benchmark-results)" in first_screen
+    assert "91 cases and 387 scored" in first_screen
+    assert (
+        "summary experiments and the GPT-4.1 reference are reported separately"
+        in first_screen
+    )
+    assert "https://www.legalforecastbench.org/paper/" in first_screen
+    assert "https://www.legalforecastbench.org/" in first_screen
 
     for call_to_action in (
         "[Read the methods](docs/METHODS.md)",
@@ -85,8 +88,9 @@ def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
     result_section = readme.split("## Official Benchmark Results", 1)[1].split(
         "## ", 1
     )[0]
-    assert "initial benchmark results" in result_section
-    assert "compiling and validating" in result_section
+    assert "micro-Brier and equal-case Brier scores" in result_section
+    assert "downloadable data" in result_section
+    assert "publish it soon" not in result_section
     assert not any(line.startswith("|") for line in result_section.splitlines())
 
     assert "No official result is claimed by this README revision" not in readme
