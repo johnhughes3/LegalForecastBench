@@ -114,7 +114,7 @@ def test_result_artifacts_request_github_maximum_retention() -> None:
         text = (workflows / name).read_text(encoding="utf-8")
         start = text.index("      artifact_retention_days:\n")
         assert '        default: "90"\n' in text[start : start + 200], name
-    assert RECOVERY.count("retention-days: 90\n") == 2
+    assert RECOVERY.count("retention-days: 90\n") == 3
     assert "retention-days: 14" not in RECOVERY
     assert '"artifact_retention_days": "90",' in RECOVERY
 
@@ -166,3 +166,86 @@ def test_authority_planning_never_reports_success_without_output(
     )
     assert result.returncode == (1 if status == 0 and not writes_plan else status)
     assert ("plan_available=true" in step_output.read_text()) is writes_plan
+
+
+@pytest.mark.parametrize("identified", [True, False])
+def test_child_dispatch_persists_exact_identity_or_unresolved_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identified: bool
+) -> None:
+    import json
+    from collections.abc import Mapping
+
+    from legalforecast.runner import recovery
+    from legalforecast.runner.recovery_client import dispatched_workflow_record
+
+    section = RECOVERY.split("      - name: Dispatch canonical resumed benchmark", 1)[
+        1
+    ].split("      - name: Persist exact child dispatch identity", 1)[0]
+    script = textwrap.dedent(
+        section.split("          uv run python - <<'PY'\n", 1)[1].rsplit(
+            "          PY", 1
+        )[0]
+    )
+    plan_path = tmp_path / "plan.json"
+    result_path = tmp_path / "dispatch.json"
+    script = script.replace(
+        "/tmp/lfb-source-recovery-plan.json", str(plan_path)
+    ).replace("/tmp/lfb-child-dispatch.json", str(result_path))
+    plan_path.write_text(
+        json.dumps(
+            {
+                "source": {"run_id": 123, "run_attempt": 2},
+                "frozen_identity": {
+                    "manifest_uri": "manifest",
+                    "forecast_release_uri": "forecast",
+                    "artifact_root_uri": "artifacts",
+                    "model_registry_uri": "registry",
+                    "model_key": "provider:model",
+                    "ceiling_microusd": 100,
+                    "account": "account",
+                    "repeat_count": 1,
+                },
+                "recovery": {"resume_sources": [{"run_id": 123, "run_attempt": 2}]},
+            }
+        )
+    )
+    calls: list[tuple[str, str, str]] = []
+
+    class Client:
+        def list_active_recovery_runs(self, repo: str) -> list[Mapping[str, object]]:
+            return []
+
+        def dispatch(
+            self, repo: str, workflow: str, ref: str, inputs: Mapping[str, str]
+        ) -> Mapping[str, object]:
+            calls.append((repo, workflow, ref))
+            return dispatched_workflow_record(
+                repo,
+                workflow,
+                ref,
+                f"https://github.com/{repo}/actions/runs/456" if identified else "",
+            )
+
+    monkeypatch.setattr(recovery, "GhRecoveryClient", Client)
+    for key, value in {
+        "GITHUB_REPOSITORY": "owner/bench",
+        "GITHUB_RUN_ID": "333",
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_SHA": "a" * 40,
+        "MAX_PARALLEL": "8",
+    }.items():
+        monkeypatch.setenv(key, value)
+    exec(compile(script, "protected dispatch step", "exec"), {})
+    record = json.loads(result_path.read_text())
+    assert calls == [("owner/bench", "run-benchmark.yaml", "main")]
+    assert record["dispatched"] is True
+    assert record["run_id"] == (456 if identified else None)
+    assert record["source_run_id"] == 123 and record["source_run_attempt"] == 2
+    assert record["recovery_run_id"] == 333 and record["recovery_run_attempt"] == 1
+    upload = RECOVERY.split("      - name: Persist exact child dispatch identity", 1)[1]
+    assert "path: /tmp/lfb-child-dispatch.json" in upload
+    assert (
+        "name: recovery-child-dispatch-${{ github.run_id }}-${{ github.run_attempt }}"
+        in upload
+    )
+    assert "if-no-files-found: error" in upload

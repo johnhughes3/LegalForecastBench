@@ -17,6 +17,7 @@ from legalforecast.runner.recovery import (
     build_recovery_plan,
     resolve_repository,
 )
+from legalforecast.runner.recovery_client import dispatched_workflow_record
 
 
 def register(
@@ -225,7 +226,9 @@ def register(
         action="store_true",
         help=(
             "Dispatch the protected recovery workflow after the read-only plan "
-            "is ready. Without this flag, print the plan only."
+            "is ready. JSON includes its exact run URL/ID when returned by gh, "
+            "or dispatched_unresolved when unavailable; do not redispatch to "
+            "resolve identity. Without this flag, print the plan only."
         ),
     )
     resume.set_defaults(handler=run_resume)
@@ -308,12 +311,16 @@ def run_resume(args: argparse.Namespace) -> int:
         max_parallel=cast(int, args.max_parallel),
     )
     execute = cast(bool, args.execute)
+    record = plan.to_record(execute_requested=execute)
     if execute and plan.executable:
-        client.dispatch(
+        dispatch = client.dispatch(
             repo,
             RECOVERY_WORKFLOW,
             cast(str, args.ref),
             plan.dispatch_inputs,
         )
-    print(json.dumps(plan.to_record(execute_requested=execute), sort_keys=True))
+        record["dispatch"] = dispatch or dispatched_workflow_record(
+            repo, RECOVERY_WORKFLOW, cast(str, args.ref)
+        )
+    print(json.dumps(record, sort_keys=True))
     return 2 if execute and not plan.executable else 0

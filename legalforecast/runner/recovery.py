@@ -74,7 +74,7 @@ class RecoveryClient(Protocol):
         workflow: str,
         ref: str,
         inputs: Mapping[str, str],
-    ) -> None: ...
+    ) -> Mapping[str, object] | None: ...
 
 
 @dataclass(frozen=True, slots=True)
