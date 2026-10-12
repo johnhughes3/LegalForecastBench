@@ -2,11 +2,11 @@
 
 LegalForecast-MTD tests whether frontier models can forecast federal motion-to-dismiss rulings from the judge's written record. It reports claim-defendant micro-Brier scores with clustered intervals.
 
-Eligible decisions follow the models' latest first external deployment; known outcome leakage is excluded, and official models run without web access. This reduces a defined leakage path; it does not prove zero contamination or frozen served weights.
+Model eligibility depends on the provider-reported training-data or knowledge cutoff preceding the earliest scored decision; missing or overlapping cutoffs are qualified. Known outcome leakage is excluded, and benchmark models run without web access. This reduces a defined leakage path; it does not prove zero contamination or frozen served weights.
 
 <!-- result-publication-state: completed-cycle-1-runs -->
 
-**Current status — 2026-09-08:** GPT-5.6 Luna and Meta Muse Spark 1.3 have completed the 91-case Cycle 1 benchmark. [Results and run artifacts](#official-benchmark-results) are below. Community Harness Comparisons remain a separate, non-official track.
+**First publication — October 13, 2026:** The Cycle 1 public beta reports seventeen ranked model configurations on 91 cases and 387 scored claim–defendant units. The [working paper](https://www.legalforecastbench.org/paper/) and [results](https://www.legalforecastbench.org/) present the comparison; summary experiments and the GPT-4.1 reference are reported separately.
 
 ## Start Here
 
@@ -30,7 +30,7 @@ The benchmark predicts, for each challenged claim against each challenged defend
 
 ### Contamination control
 
-Official comparison eligibility is based on the model's documented training-data cutoff preceding every scored decision, not on its public release date. This reflects the owner's decision made before these benchmark runs; the documentation was aligned on September 9, 2026. Frequent model releases make waiting for a new post-release corpus impractical. We expect limited contamination under this rule, but that is a research assumption, not a measured guarantee: provider-stated knowledge cutoffs are imperfect proxies for training exposure, including later updates. Unknown or overlapping cutoffs are disclosed separately rather than treated as verified eligible comparisons.
+Comparison eligibility is based on the model's provider-reported training-data or knowledge cutoff preceding the earliest scored decision, not on its public release date. A month-only cutoff is compared as the first day of that month. This reflects the policy clarified on September 28, 2026. Frequent model releases make waiting for a new post-release corpus impractical. We expect limited contamination under this rule, but that is a research assumption, not a measured guarantee: provider-stated knowledge cutoffs are imperfect proxies for training exposure, including later updates. Unknown or overlapping cutoffs are disclosed separately rather than treated as verified eligible comparisons.
 
 Outcome-leaking material is excluded from forecast inputs, and models run without network access or web search. We retain cutoff sources, release dates, requested model identities, and served versions where available. See [methods](docs/METHODS.md) and [cutoff reporting](docs/contamination-tier-reporting.md).
 
@@ -42,7 +42,7 @@ Model dates and cutoff evidence are tracked in [docs/MODEL_RELEASE_DATES.md](doc
 
 ## Official Benchmark Results
 
-We have recently received initial benchmark results and are compiling and validating the complete report. We will publish it soon, including micro-Brier and equal-case Brier scores, uncertainty, accuracy, and actual and standard-rate inference costs. Preliminary model rows are withheld here while that report is assembled.
+The [working paper](https://www.legalforecastbench.org/paper/) reports micro-Brier and equal-case Brier scores, uncertainty, accuracy, and actual and standard-rate inference costs. The [results site](https://www.legalforecastbench.org/) provides the ranked comparison and downloadable data, with coverage and missing usage disclosed.
 
 ## Preliminary Community Result
 
