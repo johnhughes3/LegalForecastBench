@@ -98,6 +98,12 @@ At close:
 - [ ] Result **or** an explicit structural halt, reported plainly with evidence (rule 6).
 - [ ] Any spend journaled against its approved ceiling (rule 7).
 
+## Native run completion
+
+Use `uv run legalforecast run complete --github-run RUN_ID --cycle-id CYCLE --labels-release-uri s3://BUCKET/LOCKED_LABELS --output-dir NEW_DIRECTORY` to follow an already-dispatched regular native full-document forecast through protected recovery and scoring. Add `--publish` to request the existing protected report publisher. Default recovery bound is one dispatch; `--max-recoveries 0` disables it, and `--max-parallel 8` selects recovery concurrency without increasing the original spend cap. The output directory must not exist and its parent must exist.
+
+GitHub's native watcher keeps protected device admission visible; the command never approves stages. It refreshes broker access and resumes watching the same run after token expiry, stopping after three immediate watcher failures or a denied read. Only exact returned dispatch IDs and the source/attempt-bound protected child artifact are followed. An unresolved handoff, unsafe or uncertain protected budget, changed model/corpus/budget identity, exhausted recovery bound, or three consecutive recoveries without census progress stops with structured status, without guessing or redispatching. Labels are passed only to protected scoring. A `scored` result and downloaded score/report artifacts do not integrate the website or paper; perform those steps separately.
+
 ## Exact recovery dispatch handoff
 
 `uv run legalforecast run resume --github-run RUN_ID --ref main --max-parallel 8 --execute` reports the dispatched protected recovery workflow in its JSON `dispatch` field. When the brokered CLI supplies a same-repository workflow URL, retain its `run_id` and `run_url` for monitoring. `dispatched_unresolved` still means dispatch succeeded: do not repeat it or select the newest workflow run to guess its identity. Protected recovery saves its subsequent benchmark child handoff in `recovery-child-dispatch-RUN_ID-ATTEMPT`, including the original source run and recovery attempt. This artifact records the exact CLI handoff for completion tooling; it does not approve a protected stage or prove the benchmark finished.
