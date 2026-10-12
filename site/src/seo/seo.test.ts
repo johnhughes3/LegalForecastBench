@@ -125,7 +125,7 @@ test("the homepage graph cites the organization and the author", () => {
 	});
 	const serialized = jsonLdScript(graph);
 	assert.match(serialized, /"@type":"Organization"/);
-	assert.match(serialized, /https:\/\/x\.com\/jjhughes3/);
+	assert.match(serialized, /https:\/\/x\.com\/jjhughes"/);
 	assert.match(serialized, /https:\/\/www\.linkedin\.com\/in\/jhughes3/);
 	assert.doesNotMatch(serialized, /sameAs":\[\]/);
 	assert.equal(serialized.includes("<"), false);

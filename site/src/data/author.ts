@@ -14,8 +14,8 @@ export const AUTHOR = {
 	contact: "https://www.johnjhughesiii.com/contact/",
 	github: "https://github.com/johnhughes3",
 	linkedin: "https://www.linkedin.com/in/jhughes3",
-	x: "https://x.com/jjhughes3",
-	xHandle: "@jjhughes3",
+	x: "https://x.com/jjhughes",
+	xHandle: "@jjhughes",
 } as const;
 
 /** The research community the author belongs to. Not a scholarly affiliation. */
