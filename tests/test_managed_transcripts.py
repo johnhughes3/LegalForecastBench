@@ -309,3 +309,47 @@ def test_provider_failure_transcript_excludes_exception_body_and_headers(
     assert "provider-header" not in serialized
     assert "provider-api-key" not in serialized
     assert "authorization" not in serialized.lower()
+
+
+@pytest.mark.parametrize("category", ["timeout", "connection", "http", "other"])
+def test_managed_provider_failure_transcript_keeps_only_safe_category(
+    tmp_path: Path, category: str
+) -> None:
+    import httpx
+    from openai import APIConnectionError, APITimeoutError
+    from pydantic_ai import ModelAPIError
+
+    secret = "provider-secret-body-and-key"
+    cause = (
+        APITimeoutError(request=httpx.Request("POST", "https://example.invalid"))
+        if category == "timeout"
+        else APIConnectionError(
+            message=secret, request=httpx.Request("POST", "https://example.invalid")
+        )
+    )
+
+    def failing(_messages: Any, _info: Any) -> ModelResponse:
+        if category == "http":
+            raise ModelHTTPError(status_code=503, model_name="fixture", body=secret)
+        if category == "other":
+            raise ModelAPIError(model_name="fixture", message=secret)
+        raise ModelAPIError(model_name="fixture", message=secret) from cause
+
+    transcript = tmp_path / "failure.json"
+    with pytest.raises(ModelAPIError):
+        run_managed_tool_agent(
+            _entry(),
+            initial_prompt="Read the motion.",
+            required_unit_ids=("unit-a",),
+            executor=_Executor(),
+            workspace=tmp_path / "workspace",
+            request_id="cell-1",
+            model=FunctionModel(failing),
+            transcript_path=transcript,
+        )
+    text = transcript.read_text()
+    assert secret not in text
+    assert json.loads(text)["provider_failure"] == {
+        "category": category,
+        "status_code": 503 if category == "http" else None,
+    }

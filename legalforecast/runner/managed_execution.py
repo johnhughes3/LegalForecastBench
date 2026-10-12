@@ -85,6 +85,7 @@ from legalforecast.runner.managed_cost import (
 from legalforecast.runner.managed_prompt import (
     managed_initial_prompt as _managed_initial_prompt,
 )
+from legalforecast.runner.managed_transcript import provider_error_category
 from legalforecast.runner.managed_transcript import (
     write_managed_transcript as _write_managed_transcript,
 )
@@ -462,7 +463,7 @@ def run_managed_tool_agent(
                 usage=usage,
                 deps=deps,
             )
-        except BaseException:
+        except BaseException as exc:
             _write_managed_transcript(
                 transcript_path,
                 model=entry.registry_key,
@@ -470,6 +471,7 @@ def run_managed_tool_agent(
                 status="failed",
                 messages=messages,
                 authentication=authentication,
+                error=exc,
             )
             raise
     _write_managed_transcript(
@@ -814,15 +816,12 @@ def complete_managed_tool_cell(
                 authentication=authentication,
                 transcript_path=transcript_path,
             )
-        except ModelHTTPError as exc:
+        except ModelAPIError as exc:
+            code = exc.status_code if isinstance(exc, ModelHTTPError) else None
+            kind = f"HTTP {code}" if code is not None else provider_error_category(exc)
             raise LiveModelProviderError(
-                f"managed {provider} agent request failed (HTTP {exc.status_code})",
-                status_code=exc.status_code,
-                retryable=False,
-            ) from None
-        except ModelAPIError:
-            raise LiveModelProviderError(
-                f"managed {provider} agent request failed",
+                f"managed {provider} agent request failed ({kind})",
+                status_code=code,
                 retryable=False,
             ) from None
         except Exception:
