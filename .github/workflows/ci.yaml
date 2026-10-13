@@ -56,7 +56,7 @@ jobs:
         if: ${{ steps.changes.outputs.run_python == 'true' }}
         run: |
           corepack enable
-          corepack prepare pnpm@11.27.0 --activate
+          corepack prepare pnpm@12.11.2 --activate
           pnpm --dir integrations/jev install --frozen-lockfile
 
       - name: Test the native Jev adapter without provider access

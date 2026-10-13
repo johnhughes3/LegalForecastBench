@@ -2,6 +2,9 @@ packages:
   - site
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  # Deliberate latest-stable renderer refresh; exception binds one version.
+  - satori@0.52.0
 overrides:
   'fflate@<0.7.5': 0.7.5
   # @tailwindcss/typography pins a vulnerable 6.x; 7.1.6 builds identical CSS.

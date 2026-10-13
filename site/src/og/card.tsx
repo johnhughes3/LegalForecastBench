@@ -96,6 +96,7 @@ function Frame({
 			style={{
 				width: OG_WIDTH,
 				height: OG_HEIGHT,
+				boxSizing: "border-box",
 				display: "flex",
 				flexDirection: "column",
 				background: C.bg,
@@ -225,6 +226,7 @@ function Body(spec: CardSpec): ReactNode {
 							display: "flex",
 							flexDirection: "column",
 							width: 440,
+							boxSizing: "border-box",
 							background: C.surface,
 							border: `1px solid ${C.rule}`,
 							borderRadius: 16,

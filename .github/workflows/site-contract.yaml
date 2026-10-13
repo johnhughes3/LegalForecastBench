@@ -72,7 +72,7 @@ jobs:
       - name: Install site contract dependencies
         run: |
           corepack enable
-          corepack prepare pnpm@11.27.0 --activate
+          corepack prepare pnpm@12.11.2 --activate
           pnpm install --frozen-lockfile
 
       - name: Validate contract, generated types, and TypeScript

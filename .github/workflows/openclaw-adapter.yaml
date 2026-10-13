@@ -46,7 +46,7 @@ jobs:
         run: |
           uv sync --locked
           corepack enable
-          corepack prepare pnpm@11.27.0 --activate
+          corepack prepare pnpm@12.11.2 --activate
           pnpm --dir examples/adapters/openclaw-pinned install --frozen-lockfile
       - name: Configure rootless Docker for the contained regression
         run: .github/scripts/setup-rootless-docker.sh

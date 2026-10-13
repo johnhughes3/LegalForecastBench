@@ -116,8 +116,8 @@ def test_muse_profile_only_disables_forced_tool_choice() -> None:
         provider, "moonshotai/kimi-k3"
     )
 
-    assert muse_profile.get("openai_supports_tool_choice_required") is False
-    assert kimi_profile.get("openai_supports_tool_choice_required", True) is True
+    assert muse_profile.get("supports_forced_tool_choice") is False
+    assert kimi_profile.get("supports_forced_tool_choice", True) is True
 
 
 def test_muse_openai_responses_serialization_keeps_tools_and_retries_output(

@@ -84,7 +84,7 @@ def gateway_model_profile(provider: OpenAIProvider, model_id: str) -> ModelProfi
         "supports_thinking": True,
         "thinking_always_enabled": True,
         "openai_supports_reasoning": True,
-        "openai_reasoning_enabled_by_default": True,
+        "thinking_enabled_by_default": True,
         "openai_supports_reasoning_effort_none": False,
         "openai_supports_minimal_reasoning_effort": False,
     }
@@ -92,7 +92,7 @@ def gateway_model_profile(provider: OpenAIProvider, model_id: str) -> ModelProfi
         # Muse's Gateway route accepts only the automatic tool-choice mode. Keep
         # this override scoped to the documented Muse model ids; other routes
         # retain the OpenAI adapter default until their provider behavior is known.
-        profile["openai_supports_tool_choice_required"] = False
+        profile["supports_forced_tool_choice"] = False
     return merge_profile(
         provider.model_profile(model_id),
         cast(ModelProfile, profile),
