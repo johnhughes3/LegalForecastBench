@@ -16,7 +16,7 @@ Where an older document in this tree still calls for attestations, sealed delive
 
 ## Working Priorities
 
-Cycle 1 published on October 13, 2026 (91 cases, 387 scored claim–defendant units). The legacy corpus runtime, acquisition, and labeling surfaces now live in the companion private LegalForecastCorpus repository (#1034). Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+Cycle 1 was completed and published on October 13, 2026 (91 cases, 387 scored claim–defendant units) as a working draft released for feedback: the working paper, results site, and data may still be corrected or revised in response to readers. The legacy corpus runtime, acquisition, and labeling surfaces now live in the companion private LegalForecastCorpus repository (#1034). Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
 
 - **Anything that spends money runs under an approved ceiling with its spend journal** (see Resuming benchmark runs). That is the entire spend process; do not add authority chains or approval grammars on top of it.
 - Everything else (code, validation, parsing, execution under an existing approval, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, failed validation), not for perfectible process.
