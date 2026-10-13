@@ -27,8 +27,8 @@ export const PAPER_CITATION = parsePaperCitation(cff);
 
 /**
  * The software release: the package version and the date it was released,
- * from the top-level fields of CITATION.cff. The results release label on
- * the home page takes its date from here.
+ * from the top-level fields of CITATION.cff. Both move with each package
+ * release; nothing that describes the results should read them.
  */
 export const SOFTWARE_CITATION = parseCitation(cff);
 

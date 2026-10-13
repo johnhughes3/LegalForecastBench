@@ -6,11 +6,14 @@
  * benchmark rather than an improved edition of this one, and its scores are
  * not a time series. The machine identity of a release is the corpus release
  * id in the snapshot's provenance; the human label pairs the cycle that id
- * names with the date the results were published, which is `date-released`
- * in CITATION.cff. Nothing else on the site states the cycle or the date.
+ * names with the date the results were published. Cycle 1's results and the
+ * working paper were posted together, so that date is the paper's fixed
+ * first-publication date in CITATION.cff, which neither manuscript edits
+ * nor package version bumps move. Nothing else on the site states the cycle
+ * or the date.
  */
 import { formatLongDate } from "./metrics.js";
-import { SOFTWARE_CITATION } from "./paper.js";
+import { PAPER_CITATION } from "./paper.js";
 import { snapshot } from "./results.js";
 import type { ResultsSnapshot } from "./snapshot.js";
 
@@ -61,5 +64,5 @@ export function describeRelease(
 export const RELEASE: Release = describeRelease(
 	snapshot.provenance.release,
 	snapshot.status,
-	SOFTWARE_CITATION.date,
+	PAPER_CITATION.date,
 );

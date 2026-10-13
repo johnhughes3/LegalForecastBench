@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { PAPER_CITATION } from "./paper.js";
 import { cycleLabel, cycleOf, describeRelease, RELEASE } from "./release.js";
 
 test("the cycle comes from the corpus release id", () => {
@@ -31,8 +32,8 @@ test("the label pairs the cycle with the publication date", () => {
 	assert.equal(release.id, "cycle-2-100-2027-03-01-x");
 });
 
-test("the published release is Cycle 1, dated by CITATION.cff", () => {
+test("the published release is Cycle 1, dated by first publication", () => {
 	assert.equal(RELEASE.cycle, 1);
-	assert.match(RELEASE.publishedOn, /^\d{4}-\d{2}-\d{2}$/);
+	assert.equal(RELEASE.publishedOn, PAPER_CITATION.date);
 	assert.match(RELEASE.label, /^Cycle 1( beta)? · [A-Z][a-z]+ \d{1,2}, \d{4}$/);
 });
