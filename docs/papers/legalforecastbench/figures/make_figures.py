@@ -59,7 +59,8 @@ F2_XSCALE = 40.78125
 ROW_STEP = 0.4
 F3_XMIN = 0.10
 F3_XSCALE = 29.0
-# Cost-quality scatter: log-cost across 12cm, micro-Brier up 7cm.
+# Cost-quality scatter: log-cost across 12cm, micro-Brier over 7cm with the
+# better (lower) scores at the top, as on the website.
 F4_WIDTH = 12.0
 F4_HEIGHT = 7.0
 F4_LOG_MIN = math.log10(0.4)
@@ -108,7 +109,7 @@ def x4(cost_usd: float) -> float:
 
 
 def y4(micro_brier: float) -> float:
-    return (micro_brier - F4_YMIN) / (F4_YMAX - F4_YMIN) * F4_HEIGHT
+    return (F4_YMAX - micro_brier) / (F4_YMAX - F4_YMIN) * F4_HEIGHT
 
 
 def csv_text(fields: list[str], rows: list[dict[str, Any]]) -> str:
@@ -433,13 +434,18 @@ def _label_box(x: float, y: float, anchor: str, width: float) -> Box:
 
 def place_labels(
     points: list[tuple[float, float, str, bool]], line: list[tuple[float, float]]
-) -> list[tuple[float, float, str]]:
+) -> list[tuple[float, float, str, bool]]:
     """Greedy label placement for the scatter: try eight offsets around each
     point and keep the one that least covers marks, the frontier line, earlier
     labels, or the margin. Frontier points are placed first. Deterministic, so
     the generated TikZ is reproducible."""
 
-    marks: list[Box] = [(x - 0.1, x + 0.1, y - 0.1, y + 0.1) for x, y, _, _ in points]
+    # Generous boxes around every mark: a label brushing a neighbour's mark
+    # reads as that neighbour's name. A point's own mark is excluded below,
+    # so labels still sit close to the point they name.
+    marks: list[Box] = [
+        (x - 0.26, x + 0.26, y - 0.22, y + 0.22) for x, y, _, _ in points
+    ]
     obstacles: list[Box] = []
     for (ax, ay), (bx, by) in itertools.pairwise(line):
         steps = max(1, math.ceil(math.hypot(bx - ax, by - ay) / 0.15))
@@ -447,7 +453,7 @@ def place_labels(
             px = ax + (bx - ax) * k / steps
             py = ay + (by - ay) * k / steps
             obstacles.append((px - 0.05, px + 0.05, py - 0.05, py + 0.05))
-    candidates = (
+    near = (
         (0.16, 0.0, "west"),
         (-0.16, 0.0, "east"),
         (0.0, 0.17, "south"),
@@ -457,13 +463,21 @@ def place_labels(
         (0.12, -0.12, "north west"),
         (-0.12, -0.12, "north east"),
     )
+    # A farther ring, drawn with a leader line, for points boxed in by
+    # neighbours on every side. The flat penalty keeps it a last resort.
+    far = tuple((dx * 3.4, dy * 3.2, anchor) for dx, dy, anchor in near)
+    candidates = tuple((dx, dy, anchor, False) for dx, dy, anchor in near) + tuple(
+        (dx, dy, anchor, True) for dx, dy, anchor in far
+    )
     order = sorted(range(len(points)), key=lambda i: (not points[i][3], points[i][1]))
-    placed: dict[int, tuple[float, float, str]] = {}
+    placed: dict[int, tuple[float, float, str, bool]] = {}
+    labels_placed: list[Box] = []
     for index in order:
         x, y, label, _ = points[index]
         width = len(label) * F4_CHAR_WIDTH
+        other_marks = [mark for i, mark in enumerate(marks) if i != index]
         best: tuple[float, tuple[float, float, str], Box] | None = None
-        for rank, (dx, dy, anchor) in enumerate(candidates):
+        for rank, (dx, dy, anchor, leader) in enumerate(candidates):
             box = _label_box(x + dx, y + dy, anchor, width)
             outside = (
                 max(0.0, -box[0])
@@ -471,17 +485,21 @@ def place_labels(
                 + max(0.0, -box[2])
                 + max(0.0, box[3] - F4_HEIGHT)
             )
+            # Covering a point misattributes it, and two labels on top of each
+            # other read as one; both cost more than brushing the frontier line.
             score = (
                 _overlap(box, obstacles)
-                + 4 * _overlap(box, marks)
+                + 3 * _overlap(box, labels_placed)
+                + 6 * _overlap(box, other_marks)
                 + outside * 50
+                + (0.02 if leader else 0.0)
                 + rank * 1e-3
             )
             if best is None or score < best[0]:
-                best = (score, (x + dx, y + dy, anchor), box)
+                best = (score, (x + dx, y + dy, anchor, leader), box)
         assert best is not None
         placed[index] = best[1]
-        obstacles.append(best[2])
+        labels_placed.append(best[2])
     return [placed[i] for i in range(len(points))]
 
 
@@ -529,9 +547,13 @@ def render_figure4(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
         for model in priced
     ]
     labels = place_labels(points, path)
-    for (px, py, label, on_frontier), (lx, ly, anchor) in zip(
+    for (px, py, label, on_frontier), (lx, ly, anchor, leader) in zip(
         points, labels, strict=True
     ):
+        if leader:
+            lines.append(
+                rf"\draw[gray!60,line width=.4pt] ({f5(px)},{f5(py)})--({f5(lx)},{f5(ly)});"  # noqa: E501
+            )
         if on_frontier:
             lines.append(rf"\fill[blue!65!black] ({f5(px)},{f5(py)}) circle (2.2pt);")
         else:
@@ -544,7 +566,7 @@ def render_figure4(data: dict[str, Any], models: list[dict[str, Any]]) -> str:
     case_count = int(data["cohort"]["case_count"])
     lines += [
         rf"\node[anchor=north] at ({f5(F4_WIDTH / 2)},-.78) {{Standard-rate cost for the {case_count}-case cohort, USD (log scale)}};",  # noqa: E501
-        rf"\node[rotate=90,anchor=south] at (-1.05,{f5(F4_HEIGHT / 2)}) {{Micro Brier (lower is better)}};",  # noqa: E501
+        rf"\node[rotate=90,anchor=south] at (-1.05,{f5(F4_HEIGHT / 2)}) {{Micro Brier (lower is better) $\uparrow$}};",  # noqa: E501
         r"\fill[blue!65!black] (.2,-1.5) circle(2.2pt);\node[anchor=west] at (.4,-1.5) {On the observed frontier};",  # noqa: E501
         r"\draw[blue!65!black,fill=white,line width=.7pt] (5.0,-1.5) circle(2pt);\node[anchor=west] at (5.2,-1.5) {Other configurations};",  # noqa: E501
         r"\draw[dashed,gray!70] (9.0,-1.5)--(9.4,-1.5);\node[anchor=west,font=\scriptsize] at (9.6,-1.5) {Cohort rate};\end{tikzpicture}",  # noqa: E501
