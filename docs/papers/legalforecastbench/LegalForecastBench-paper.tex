@@ -181,6 +181,8 @@ Table~\ref{tab:main} reports the eighteen configurations on the ranked leaderboa
 
 Seventeen configurations also beat majority-class accuracy (the 73.64\% accuracy of predicting dismissal for every unit). Muse Spark 1.3 does not: 279/387 correct forecasts is 72.09\%. Gemini 3.1 Pro Preview has the highest micro-Brier in the panel (0.18345) and still beats that accuracy baseline (302/387, 78.04\%). Within model families, some newer versions scored worse than older versions of the models (GPT-6.1 Sol vs.\ GPT-6 Sol, Claude Opus 5.5 vs.\ Opus 5, Claude Sonnet 5.5 vs.\ Sonnet 5 on Brier score, Grok 4.7 vs.\ 4.6, and GPT-6 Luna vs.\ GPT-5.6 Luna). None of the differences that could be tested was significant after correction for multiple comparisons; the Grok pair could not be tested because unit-level forecasts for Grok 4.6 were not preserved. GPT-5.6 Luna's unit-level forecasts were recovered from the original scoring output after the run's stored artifacts expired; they reproduce its published scores exactly.
 
+Figure~\ref{fig:pareto} plots each configuration's standardized cost against its micro-Brier. GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed frontier: no other configuration is both cheaper and better on these estimates.
+
 \begin{table}[tb]
 \centering\small
 \setlength{\tabcolsep}{4pt}
@@ -302,6 +304,79 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \draw[blue!65!black,fill=white] (4.0,-1.5) circle(2pt);\node[anchor=west] at (4.2,-1.5) {Equal-case Brier};
 \draw[dashed,gray!70] (.2,-2.05)--(.6,-2.05);\node[anchor=west,font=\scriptsize] at (.8,-2.05) {Cohort rate (micro only)};\end{tikzpicture}
 \caption{Micro- and equal-case Brier scores for the same eighteen configurations.}\label{fig:ranking}\end{figure}
+
+\begin{figure}[tb]\centering
+\begin{tikzpicture}[every node/.style={font=\small}]
+\draw[gray!18] (0.45179,-.2)--(0.45179,7.00000);
+\node[anchor=north] at (0.45179,-.3) {\$0.50};
+\draw[gray!18] (1.85518,-.2)--(1.85518,7.00000);
+\node[anchor=north] at (1.85518,-.3) {\$1};
+\draw[gray!18] (3.25856,-.2)--(3.25856,7.00000);
+\node[anchor=north] at (3.25856,-.3) {\$2};
+\draw[gray!18] (5.11374,-.2)--(5.11374,7.00000);
+\node[anchor=north] at (5.11374,-.3) {\$5};
+\draw[gray!18] (6.51712,-.2)--(6.51712,7.00000);
+\node[anchor=north] at (6.51712,-.3) {\$10};
+\draw[gray!18] (7.92051,-.2)--(7.92051,7.00000);
+\node[anchor=north] at (7.92051,-.3) {\$20};
+\draw[gray!18] (9.77569,-.2)--(9.77569,7.00000);
+\node[anchor=north] at (9.77569,-.3) {\$50};
+\draw[gray!18] (11.17907,-.2)--(11.17907,7.00000);
+\node[anchor=north] at (11.17907,-.3) {\$100};
+\draw[gray!18] (-.2,0.00000)--(12.00000,0.00000);
+\node[anchor=east] at (-.3,0.00000) {0.11};
+\draw[gray!18] (-.2,1.55556)--(12.00000,1.55556);
+\node[anchor=east] at (-.3,1.55556) {0.13};
+\draw[gray!18] (-.2,3.11111)--(12.00000,3.11111);
+\node[anchor=east] at (-.3,3.11111) {0.15};
+\draw[gray!18] (-.2,4.66667)--(12.00000,4.66667);
+\node[anchor=east] at (-.3,4.66667) {0.17};
+\draw[gray!18] (-.2,6.22222)--(12.00000,6.22222);
+\node[anchor=east] at (-.3,6.22222) {0.19};
+\draw[dashed,gray!70] (-.2,6.54103)--(12.00000,6.54103);
+\draw[dashed,blue!65!black,line width=.8pt] (0.90203,4.17503)--(2.64893,2.58354)--(6.71189,0.59328);
+\fill[blue!65!black] (6.71189,0.59328) circle (2.2pt);
+\node[anchor=west,font=\scriptsize] at (6.87189,0.59328) {GPT-6 Sol};
+\draw[blue!65!black,fill=white,line width=.7pt] (10.80620,1.45993) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (10.64620,1.45993) {Fable 5.1};
+\draw[blue!65!black,fill=white,line width=.7pt] (7.43298,1.84183) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (7.59298,1.84183) {Grok 4.6};
+\draw[blue!65!black,fill=white,line width=.7pt] (9.60202,2.32330) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (9.76202,2.32330) {Opus 5};
+\draw[blue!65!black,fill=white,line width=.7pt] (8.36500,2.34044) circle (2pt);
+\node[anchor=south west,font=\scriptsize] at (8.48500,2.46044) {GPT-5.6 Sol};
+\draw[blue!65!black,fill=white,line width=.7pt] (7.57592,2.43434) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (7.41592,2.43434) {Kimi K3};
+\fill[blue!65!black] (2.64893,2.58354) circle (2.2pt);
+\node[anchor=east,font=\scriptsize] at (2.48893,2.58354) {GPT-5.6 Luna};
+\draw[blue!65!black,fill=white,line width=.7pt] (7.97904,2.75353) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (7.81904,2.75353) {Opus 5.5};
+\draw[blue!65!black,fill=white,line width=.7pt] (6.64991,3.07056) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (6.80991,3.07056) {GPT-6.1 Sol};
+\draw[blue!65!black,fill=white,line width=.7pt] (10.13603,3.28303) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (10.29603,3.28303) {GPT-6 Astra};
+\draw[blue!65!black,fill=white,line width=.7pt] (9.08852,3.36886) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (8.92852,3.36886) {Gemini 3.8 Flash};
+\draw[blue!65!black,fill=white,line width=.7pt] (8.93440,3.75866) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (9.09440,3.75866) {Grok 4.7};
+\draw[blue!65!black,fill=white,line width=.7pt] (8.34622,3.77098) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (8.18622,3.77098) {Sonnet 5};
+\fill[blue!65!black] (0.90203,4.17503) circle (2.2pt);
+\node[anchor=west,font=\scriptsize] at (1.06203,4.17503) {GPT-6 Luna};
+\draw[blue!65!black,fill=white,line width=.7pt] (10.06194,4.30575) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (10.22194,4.30575) {Muse Wonder};
+\draw[blue!65!black,fill=white,line width=.7pt] (5.79279,4.89827) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (5.95279,4.89827) {Sonnet 5.5};
+\draw[blue!65!black,fill=white,line width=.7pt] (6.25370,5.53830) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (6.41370,5.53830) {Muse Spark 1.3};
+\draw[blue!65!black,fill=white,line width=.7pt] (10.11231,5.71275) circle (2pt);
+\node[anchor=south,font=\scriptsize] at (10.11231,5.88275) {Gemini 3.1 Pro};
+\node[anchor=north] at (6.00000,-.78) {Standard-rate cost for the 91-case cohort, USD (log scale)};
+\node[rotate=90,anchor=south] at (-1.05,3.50000) {Micro Brier (lower is better)};
+\fill[blue!65!black] (.2,-1.5) circle(2.2pt);\node[anchor=west] at (.4,-1.5) {On the observed frontier};
+\draw[blue!65!black,fill=white,line width=.7pt] (5.0,-1.5) circle(2pt);\node[anchor=west] at (5.2,-1.5) {Other configurations};
+\draw[dashed,gray!70] (9.0,-1.5)--(9.4,-1.5);\node[anchor=west,font=\scriptsize] at (9.6,-1.5) {Cohort rate};\end{tikzpicture}
+\caption{The Pareto cost-performance frontier on micro Brier (each claim--defendant unit scored equally).}\label{fig:pareto}\end{figure}
 
 \subsection{Confidence and calibration}
 Define confidence $h_{cu}=\max(p_{cu},1-p_{cu})$ and the high-confidence subset $H_m=\{(c,u):h_{cu}\geq0.9\}$ for configuration $m$. Comparing the mean confidence in $H_m$ with classification accuracy in $H_m$ gives a useful conditional calibration diagnostic. Of course, this is not a full reliability curve; the subset differs by model, and its units remain clustered by case.
