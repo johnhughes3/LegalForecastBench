@@ -1,9 +1,9 @@
 /** Reader-facing explanations shared by tooltips across the site. */
 export const EXPLAIN = {
 	eligible:
-		"Eligible: training data/knowledge cutoff is before the decisions we used to test.",
+		"Eligible: the provider-reported training data/knowledge cutoff is before the earliest decision we used to test; a month-only cutoff counts as the first day of that month.",
 	qualified:
-		"Qualified: no published training data/knowledge cutoff, or the cutoff is not before the decisions we used to test.",
+		"Qualified: no published training data/knowledge cutoff, or the cutoff is not before the earliest decision we used to test.",
 	unknown: "Unknown: no cutoff information recorded.",
 	frontier:
 		"On the observed cost/quality frontier: no other model is both cheaper and at least as good, and this model strictly improves over others on at least one dimension. (Note that the improvement does not have to be statistically significant.)",
