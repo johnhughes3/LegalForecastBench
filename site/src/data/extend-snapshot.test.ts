@@ -76,7 +76,7 @@ test("a replacement with incompatible unit census cannot displace historical dat
 	);
 });
 
-test("protected historical backfills reproduce aggregate scores and disclose missing repricing", () => {
+test("protected historical backfills retain the saved costs for the same forecast run", () => {
 	const selected = extendSnapshot(historicalSnapshot, recentResults);
 	for (const slug of ["claude-opus-5", "claude-sonnet-5", "gpt-5-6-sol"]) {
 		const historical = historicalSnapshot.models.find(
@@ -92,8 +92,38 @@ test("protected historical backfills reproduce aggregate scores and disclose mis
 		assert.equal(model.correct, historical.correct);
 		assert.equal(model.high_confidence.count, historical.high_confidence.count);
 		assert.equal(model.high_confidence.wrong, historical.high_confidence.wrong);
-		assert.equal(model.cost.usd, null);
-		assert.match(model.cost.note ?? "", /usage estimate/);
-		assert.match(model.cost.note ?? "", /missing response usage: 91 cases/);
+		assert.deepEqual(model.cost, historical.cost);
 	}
+});
+
+test("saved costs do not carry over to a different forecast run", () => {
+	const result = structuredClone(
+		recentResults.find(({ source }) => source.slug === "claude-opus-5"),
+	);
+	assert.ok(result);
+	result.source.forecast_run = "123456789";
+	const selected = extendSnapshot(historicalSnapshot, [result]);
+	assert.equal(
+		selected.models.find((model) => model.slug === result.source.slug)?.cost
+			.usd,
+		null,
+	);
+});
+
+test("complete repricing replaces the saved same-run cost", () => {
+	const result = structuredClone(
+		recentResults.find(({ source }) => source.slug === "claude-opus-5"),
+	);
+	assert.ok(result);
+	const row = result.data.results[0];
+	assert.ok(row);
+	row.costs.standard_rate_total_cost = 123;
+	row.costs.standard_rate_status = "complete";
+	row.costs.standard_rate_covered_case_count = row.case_count;
+	const selected = extendSnapshot(historicalSnapshot, [result]);
+	assert.equal(
+		selected.models.find((model) => model.slug === result.source.slug)?.cost
+			.usd,
+		123,
+	);
 });

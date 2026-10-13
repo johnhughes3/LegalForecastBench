@@ -28,10 +28,15 @@ test("native agentic exports augment and replace rows in the unchanged beta snap
 		assert.equal(model?.micro_brier, data.results[0]?.micro_brier);
 		assert.equal(
 			model?.cost.usd ?? null,
-			hasCanonicalCosts(row.costs)
-				? canonicalCost(row.costs, row.case_count).usd
-				: (receiptCosts.find((cost) => cost.slug === source.slug)
-						?.standard_rate_estimate_usd ?? null),
+			new Map([
+				["claude-opus-5", 45.89],
+				["claude-sonnet-5", 24.68],
+				["gpt-5-6-sol", 24.91],
+			]).get(source.slug) ??
+				(hasCanonicalCosts(row.costs)
+					? canonicalCost(row.costs, row.case_count).usd
+					: (receiptCosts.find((cost) => cost.slug === source.slug)
+							?.standard_rate_estimate_usd ?? null)),
 		);
 	}
 });

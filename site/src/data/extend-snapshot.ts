@@ -90,6 +90,7 @@ export function extendSnapshot(
 				u.probability_fully_dismissed >= 0.9 ||
 				u.probability_fully_dismissed <= 0.1,
 		);
+		const cost = canonicalCost(row.costs, row.case_count);
 		return {
 			slug: source.slug,
 			display_name: source.display_name,
@@ -120,7 +121,12 @@ export function extendSnapshot(
 						) / high.length
 					: null,
 			},
-			cost: canonicalCost(row.costs, row.case_count),
+			cost:
+				cost.usd === null &&
+				existing?.cost.usd != null &&
+				existing.github_run_id === source.forecast_run
+					? existing.cost
+					: cost,
 		};
 	});
 	return parseSnapshot({
