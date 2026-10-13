@@ -2,6 +2,23 @@
 
 Provider SDKs own exchange, caching and refresh. Selection never falls back from
 workload identity to a static credential, even when one exists in the process.
+
+``LEGALFORECAST_OPENAI_AUTH_MODE`` and ``LEGALFORECAST_ANTHROPIC_AUTH_MODE``
+accept ``api_key`` (the default) or ``workload_identity``. Workload identity
+exchanges a GitHub Actions OIDC assertion (the job needs ``id-token: write``)
+and reads, with ``PROVIDER`` replaced by ``OPENAI`` or ``ANTHROPIC``:
+
+- ``LEGALFORECAST_PROVIDER_WIF_AUDIENCE``: audience registered with the provider.
+- ``LEGALFORECAST_PROVIDER_WIF_PROVIDER_ID``: OpenAI identity provider ID or
+  Anthropic federation rule ID.
+- ``LEGALFORECAST_PROVIDER_WIF_SERVICE_ACCOUNT_ID``: benchmark service account.
+- ``LEGALFORECAST_ANTHROPIC_WIF_ORGANIZATION_ID`` and
+  ``LEGALFORECAST_ANTHROPIC_WIF_WORKSPACE_ID`` for Anthropic.
+
+Custom provider header overrides are rejected in workload-identity mode because
+they could inject static authentication. Google remains API-key only. The
+official workflow still uses API keys; workload identity is source support, not
+a completed migration.
 """
 
 from __future__ import annotations

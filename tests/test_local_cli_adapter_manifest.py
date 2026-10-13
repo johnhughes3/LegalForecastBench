@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "local_cli_adapters"
 CLAUDE_FIXTURE = FIXTURE_DIR / "claude-code.json"
 CODEX_FIXTURE = FIXTURE_DIR / "codex-cli.json"
-SCHEMA_DOC = ROOT / "docs" / "schemas" / "local-cli-adapter-manifest-v1.md"
+SCHEMA_DOC = ROOT / "docs" / "multiharness" / "local-cli-adapter-manifest-v1.md"
 CLAUDE_SHA256 = "55d281096f57d411ebbdd94dbf5e9ff3accb7c05713e37348c2c11d4b83bf9d9"
 CODEX_SHA256 = "cb0a15567e9a60a5820d54b0f6ae86d504dc3805c1eab21a47f70e3eb7b73a40"
 

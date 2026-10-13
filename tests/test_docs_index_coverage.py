@@ -1,7 +1,10 @@
 """Contract tests keeping the documentation index and the docs set in sync.
 
 Every tracked document under ``docs/`` must be linked from ``docs/README.md``,
-and every link in that index must resolve. The index is the only navigation
+and every link in that index must resolve. A self-indexed subtree (the planned
+multi-harness track and the generated Harvey LAB audit) is linked once from the
+top index, and each document inside it must be linked from that subtree's own
+``README.md`` instead. The index is the only navigation
 surface for the docs set, so an unlisted document is effectively invisible:
 reachable only by someone who already knows its path. Both directions are
 enforced mechanically because they drift silently — adding or removing a
@@ -31,6 +34,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
 INDEX_PATH = DOCS_DIR / "README.md"
 INDEX_RELATIVE = "docs/README.md"
+
+SELF_INDEXED_DIRS = (
+    "docs/multiharness",
+    "docs/harvey-lab-audit/litigation-dispute-resolution",
+)
 
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "#")
@@ -67,7 +75,28 @@ def _link_targets(index: str) -> list[str]:
     return targets
 
 
-def _resolve_in_repo(path_part: str) -> str | None:
+def _owning_index(path: str) -> str:
+    """Return the index that must link ``path``: its subtree README or the top one."""
+
+    for directory in SELF_INDEXED_DIRS:
+        if path.startswith(f"{directory}/"):
+            return f"{directory}/README.md"
+    return INDEX_RELATIVE
+
+
+def _linked_from(index_relative: str) -> set[str]:
+    """Return the repo-relative paths an index file links to."""
+
+    index_path = ROOT / index_relative
+    text = index_path.read_text(encoding="utf-8")
+    return {
+        resolved
+        for target in _link_targets(text)
+        if (resolved := _resolve_in_repo(target, base=index_path.parent)) is not None
+    }
+
+
+def _resolve_in_repo(path_part: str, base: Path = DOCS_DIR) -> str | None:
     """Resolve an index link to a repo-relative path, or None if out of bounds.
 
     Absolute targets and ``..`` traversal that escapes the repository are
@@ -79,7 +108,7 @@ def _resolve_in_repo(path_part: str) -> str | None:
 
     if PurePosixPath(path_part).is_absolute():
         return None
-    resolved = (DOCS_DIR / path_part).resolve()
+    resolved = (base / path_part).resolve()
     try:
         return resolved.relative_to(ROOT).as_posix()
     except ValueError:
@@ -87,37 +116,41 @@ def _resolve_in_repo(path_part: str) -> str | None:
 
 
 def test_every_tracked_doc_is_linked_from_the_index() -> None:
-    index = INDEX_PATH.read_text(encoding="utf-8")
-    linked = {
-        resolved
-        for target in _link_targets(index)
-        if (resolved := _resolve_in_repo(target)) is not None
-    }
-
-    unlisted = [path for path in _tracked_docs() if path not in linked]
+    linked: dict[str, set[str]] = {}
+    unlisted: list[str] = []
+    for path in _tracked_docs():
+        index = _owning_index(path)
+        if path == index:
+            index = INDEX_RELATIVE
+        if index not in linked:
+            linked[index] = _linked_from(index)
+        if path not in linked[index]:
+            unlisted.append(f"{path} (expected in {index})")
 
     assert not unlisted, (
-        f"{INDEX_RELATIVE} does not link {len(unlisted)} tracked document(s): "
+        f"{len(unlisted)} tracked document(s) are not linked from their index: "
         f"{', '.join(unlisted)}. Add each under the section matching its "
         "audience, with a one-line summary, so the docs set stays reachable."
     )
 
 
 def test_index_links_all_resolve() -> None:
-    index = INDEX_PATH.read_text(encoding="utf-8")
-
     broken: list[str] = []
-    for target in _link_targets(index):
-        resolved = _resolve_in_repo(target)
-        if resolved is None:
-            broken.append(f"{target} (outside the repository)")
-        elif not (ROOT / resolved).exists():
-            broken.append(target)
+    for index_relative in (
+        INDEX_RELATIVE,
+        *(f"{d}/README.md" for d in SELF_INDEXED_DIRS),
+    ):
+        index_path = ROOT / index_relative
+        for target in _link_targets(index_path.read_text(encoding="utf-8")):
+            resolved = _resolve_in_repo(target, base=index_path.parent)
+            if resolved is None:
+                broken.append(f"{index_relative}: {target} (outside the repository)")
+            elif not (ROOT / resolved).exists():
+                broken.append(f"{index_relative}: {target}")
 
     assert not broken, (
-        f"{INDEX_RELATIVE} links {len(broken)} path(s) that do not resolve "
-        f"inside the repository: {', '.join(broken)}. Remove or repoint "
-        "entries when a document moves."
+        f"{len(broken)} index link(s) do not resolve inside the repository: "
+        f"{', '.join(broken)}. Remove or repoint entries when a document moves."
     )
 
 
@@ -174,7 +207,6 @@ def test_reader_documentation_lives_under_docs() -> None:
     tooling_files = {
         "AGENTS.md",
         ".agents/AGENTS.md",
-        ".agents/context-capsule.md",
         "scripts/AGENTS.md",
         "tests/fixtures/multiharness-artifact-characterization/reports/community-comparison.md",
         "tests/fixtures/vercel_ai_gateway/PROVENANCE.md",

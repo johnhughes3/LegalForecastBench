@@ -6,6 +6,11 @@ metadata, release commitments, and source handles. A deeper audit may require
 locked labels, accepted per-case outputs, and court-document bytes that the
 project cannot redistribute as a public corpus.
 
+A public release consists of a locked run manifest, an outcome-blinded forecast
+release, model-visible artifacts, and a separately controlled labels release.
+The forecast worker receives no labels. Every published score is tied to the
+exact release identities and the immutable artifacts used to produce it.
+
 The Apache-2.0 license covers repository code. It does not grant redistribution
 rights for court filings, PACER or RECAP documents, provider outputs, locked
 labels, or third-party data.
@@ -27,6 +32,32 @@ The source-tree release gate additionally prepares a locked fixture manifest,
 executes a dry-run against the forecast release, collects authenticated public
 receipts, and runs the strict score/report contract. This path requires no
 provider credentials and does not claim a live official cycle.
+
+## Validate a Published Release
+
+Start from an exact checkout and the release files named by the publication
+record. Validate the public inputs before scoring:
+
+```bash
+uv run legalforecast manifest validate \
+  --manifest <run-manifest.json> \
+  --forecast <forecast-release.json> \
+  --labels <labels-release.json> \
+  --artifact-root <artifact-root>
+
+uv run legalforecast release validate \
+  --forecast <forecast-release.json> \
+  --labels <labels-release.json> \
+  --artifact-root <artifact-root>
+
+uv run python -m legalforecast.contracts.ratchet
+uv run pytest -q
+```
+
+A validation error names the release, artifact, or field that failed. Check the
+relevant schema and rerun the command with `--help` before changing an input.
+Do not replace an immutable artifact with a mutable checkout or a newly
+generated document.
 
 ## Recompute Public Scores and Reports
 
@@ -100,6 +131,29 @@ The Run Benchmark workflow retains these files in its per-case state artifacts a
 
 The public release commands validate already-issued artifacts; private corpus
 construction and source-document acquisition remain in LegalForecastCorpus.
+
+## How Official Runs Are Produced
+
+Official execution and publication use two protected workflows from a trusted
+revision: `run-benchmark.yaml` for forecast execution and `fan-in-publish.yaml`
+for labels fan-in, scoring, and publication. Their existence and input
+contracts are checked in the repository. `ForecastRunMetadata` in
+`legalforecast/contracts/forecast_run.py` defines the shared `forecast-run.json`
+fields; run `uv run pytest tests/test_fan_in_metadata.py -q` when changing
+either workflow.
+
+Provider-free tests, release validation, a pull request, and a workflow plan
+prove source and artifact contracts only. They do not prove that a protected
+workflow ran, that its provider calls succeeded, or that a result is authorized
+for publication. Those facts come from the exact workflow run and the release
+evidence attached to it.
+
+Publish only sanitized JSON, CSV, Markdown, and HTML leaderboard artifacts
+bound to the score identity and their machine-readable provenance. Never
+publish labels, raw provider responses, private source bytes, or private
+withdrawal reasons. If a published case must be removed, use the repository's
+withdrawal contract and publish the resulting public erratum; withdrawal does
+not rewrite an immutable prior release.
 
 ## Retained workflow artifacts
 

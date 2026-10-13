@@ -32,25 +32,21 @@ The benchmark predicts, for each challenged claim against each challenged defend
 
 Comparison eligibility is based on the model's provider-reported training-data or knowledge cutoff preceding the earliest scored decision, not on its public release date. A month-only cutoff is compared as the first day of that month. This reflects the policy clarified on September 28, 2026. Frequent model releases make waiting for a new post-release corpus impractical. We expect limited contamination under this rule, but that is a research assumption, not a measured guarantee: provider-stated knowledge cutoffs are imperfect proxies for training exposure, including later updates. Unknown or overlapping cutoffs are disclosed separately rather than treated as verified eligible comparisons.
 
-Outcome-leaking material is excluded from forecast inputs, and models run without network access or web search. We retain cutoff sources, release dates, requested model identities, and served versions where available. See [methods](docs/METHODS.md) and [cutoff reporting](docs/contamination-tier-reporting.md).
+Outcome-leaking material is excluded from forecast inputs, and models run without network access or web search. We retain cutoff sources, release dates, requested model identities, and served versions where available. See [methods](docs/METHODS.md).
 
 ### Versioned artifact
 
 Each run is tied to a frozen cohort and model configuration. We will add fresh cohorts over time and may compare models' relative performance on old cases and cases decided after their release. Raw scores across different cohorts are not directly comparable; changes in relative performance may flag possible contamination but can also reflect case mix or serving changes.
 
-Model dates and cutoff evidence are tracked in [docs/MODEL_RELEASE_DATES.md](docs/MODEL_RELEASE_DATES.md).
+Cutoff evidence lives in [`legalforecast/data/model_cutoffs.json`](legalforecast/data/model_cutoffs.json); model release dates and registry notes are in [docs/MODEL_RELEASE_DATES.md](docs/MODEL_RELEASE_DATES.md).
 
 ## Official Benchmark Results
 
 The [working paper](https://www.legalforecastbench.org/paper/) reports micro-Brier and equal-case Brier scores, uncertainty, accuracy, and actual and standard-rate inference costs. The [results site](https://www.legalforecastbench.org/) provides the ranked comparison and downloadable data, with coverage and missing usage disclosed.
 
-## Preliminary Community Result
+## Community Multi-Harness Comparisons (planned)
 
-**No validated result is linked yet.** Its reserved label is **Preliminary — one task pair, operator-run, not independently reproducible**.
-
-## Reproducible Community Comparisons
-
-**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness/adapter-spec.md) · [contributor guide](docs/community-contributor-guide.md) · [submission guide](docs/community-submissions.md).
+A separate, non-official community track for comparing agent harnesses is planned but not yet operational: no community result has been accepted or published. Its design, contracts, and contributor docs live in [docs/multiharness/](docs/multiharness/README.md).
 
 LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
@@ -92,70 +88,17 @@ Before cutting a release candidate:
 uv run scripts/release_check.py
 ```
 
-Default checks must not require live credentials. The release check runs locked dependency sync, formatting, linting, type checking, tests, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
+Default checks must not require live credentials. The release check runs locked dependency sync, formatting, linting, type checking, tests, CLI smokes, fixture E2E, no-network adapter smokes, package build, package hashes, and installed wheel/sdist smokes.
 
 Tags matching `v*` run the package-publish workflow. That workflow reruns the release check, publishes the built wheel/sdist from `tmp/release-check/dist` to PyPI with trusted publishing, and attaches the wheel, sdist, and package hash file to the GitHub release. Publishing is tag-only; the workflow cannot be dispatched manually from an arbitrary branch.
 
 Official benchmark cycles can also be published as immutable revisions of a public, manually gated Hugging Face Dataset through the protected fan-in workflow. See [Hugging Face benchmark publication](docs/hugging-face-publication.md) for immutable versioning, access terms, and the distinction between HF distribution and the benchmark's authoritative evidence.
 
-## Community Multi-Harness Contributor Details
-
-The repo includes a separate non-official community multi-harness layer for comparing LegalForecastBench fixture/subset tasks, Harvey LAB tasks, and contributor adapters without weakening official benchmark boundaries.
-
-Start with:
-
-```bash
-uv run legalforecast multiharness --help
-```
-
-Contributor docs:
-
-- [Community Contributor Guide](docs/community-contributor-guide.md)
-- [Multi-Harness Adapter Spec](docs/multiharness/adapter-spec.md)
-- [Community Submissions](docs/community-submissions.md)
-
-Community submissions live under `community/submissions/` and are rebuilt into a separate community registry/site. They are not official LegalForecastBench results.
-
 ## CLI Shape
 
-The package exposes one primary CLI:
+The package exposes one primary CLI, `uv run legalforecast <command>`. The public artifact commands are `run issue-fixture`, `release validate`, `manifest validate`, `score`, and `report`; [Reproduce or audit](docs/reproduce-or-audit.md) shows each with its full arguments.
 
-```bash
-uv run legalforecast <command>
-```
-
-Public artifact commands:
-
-```bash
-uv run legalforecast run issue-fixture --output-dir tmp/fixture-run
-uv run legalforecast release validate \
-  --forecast tmp/fixture-run/release/forecast-release.json \
-  --labels tmp/fixture-run/release/labels-release.json \
-  --artifact-root tmp/fixture-run/release
-uv run legalforecast score \
-  --runs <run-records.jsonl> \
-  --labels-release <labels-release.json> \
-  --forecast-release <forecast-release.json> \
-  --artifact-root <release-root> \
-  --manifest <run-manifest.json> \
-  --model-registry <model-registry.json> \
-  --ledger <run-ledger.sqlite3> \
-  --output scores.json \
-  --unit-scores-output unit_scores.jsonl
-uv run legalforecast report \
-  --scores scores.json \
-  --labels-release <labels-release.json> \
-  --forecast-release <forecast-release.json> \
-  --artifact-root <release-root> \
-  --manifest <run-manifest.json> \
-  --frozen-model-registry <model-registry.json> \
-  --ledger <run-ledger.sqlite3> \
-  --output-dir reports/
-```
-
-Corpus construction and acquisition are private operations in the companion
-LegalForecastCorpus repository. The public package consumes already-issued
-releases and locked run manifests.
+Corpus construction and acquisition are private operations in the companion LegalForecastCorpus repository. The public package consumes already-issued releases and locked run manifests.
 
 ## Context and Sampling Policy
 
@@ -175,19 +118,17 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 
 ## Repository Map
 
-- `legalforecast/`: Python package for public release validation, manifest/run execution, scoring, reporting, publication, and community multi-harness tooling.
-- `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
-- `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
-- `docs/`: methods, official-run runbook, reproduction/audit guide, schema contracts, and community/adapter docs — start at [docs/README.md](docs/README.md). Corpus construction and acquisition live in the companion LegalForecastCorpus repository.
+- `legalforecast/`: Python package for public release validation, manifest/run execution, scoring, reporting, and publication, plus the planned community multi-harness tooling.
+- `examples/adapters/`, `community/submissions/`: adapter fixtures and submission examples for the planned [community multi-harness track](docs/multiharness/README.md).
+- `docs/`: methods, reproduction/audit guide, publication rules, release contracts, papers, and the multi-harness docs — start at [docs/README.md](docs/README.md). Corpus construction and acquisition live in the companion LegalForecastCorpus repository.
 - `tests/`: synthetic fixtures and regression coverage.
 - `scripts/`: release checks, deterministic fixture input preparation, and provider/runtime validation utilities.
 - `model_registries/`: frozen evaluation registries and public release metadata. Locked run manifests are issued release inputs in official storage, not files in this tree.
 - `infra/`: Terraform roots for the retained official evaluation IAM boundary and bootstrap trust anchor.
-- `docs/MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 
 ## Authorship
 
-The "Why This Exists" section above was written personally by John J. Hughes, III. The remainder of this README and the technical documentation in [docs/](docs/README.md) are drafted and maintained with substantial assistance from AI systems (Claude, Codex, and others) working under my direction, and are reviewed on a best-effort basis. Where possible, documentation accuracy is enforced mechanically: the official-run runbook and reproduction guide are checked against the actual CLI by automated tests. Corrections are welcome as issues or pull requests.
+The "Why This Exists" section above was written personally by John J. Hughes, III. The remainder of this README and the technical documentation in [docs/](docs/README.md) are drafted and maintained with substantial assistance from AI systems (Claude, Codex, and others) working under my direction, and are reviewed on a best-effort basis. Where possible, documentation accuracy is enforced mechanically: the reproduction guide is checked against the actual CLI by automated tests. Corrections are welcome as issues or pull requests.
 
 ## License
 
@@ -197,4 +138,4 @@ Benchmark data (published results, exports, and the site's data downloads): Crea
 
 ## Citation
 
-Citation metadata is in [CITATION.cff](CITATION.cff). Initial results are being compiled; please cite the complete report and its evidence once published.
+Citation metadata is in [CITATION.cff](CITATION.cff). Please cite the [working paper](https://www.legalforecastbench.org/paper/).
