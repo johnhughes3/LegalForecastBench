@@ -117,3 +117,15 @@ test("updated significance replaces the historical family and excludes untested 
 		),
 	);
 });
+
+test("the combined snapshot is dated by its newest native source", () => {
+	const newest = recentResults
+		.map(({ source }) => source.release_date)
+		.sort()
+		.at(-1);
+	assert.equal(snapshot.as_of, newest);
+	assert.equal(snapshot.snapshot_id, `beta-${newest}`);
+	for (const model of snapshot.models) {
+		assert.ok(model.release_date <= snapshot.as_of, model.slug);
+	}
+});

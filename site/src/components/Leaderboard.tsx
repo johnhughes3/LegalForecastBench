@@ -28,11 +28,11 @@ interface Column {
 	lowerIsBetter: boolean;
 }
 
-const COLUMNS: Column[] = [
+const columnsFor = (cohort: ResultsSnapshot["cohort"]): Column[] => [
 	{
 		key: "micro_brier",
 		label: "Micro Brier",
-		hint: "Headline. Mean squared error of the dismissal probability across all 387 units; every unit weighs the same. Lower is better.",
+		hint: `Headline. Mean squared error of the dismissal probability across all ${cohort.unit_count} units; every unit weighs the same. Lower is better.`,
 		lowerIsBetter: true,
 	},
 	{
@@ -56,7 +56,7 @@ const COLUMNS: Column[] = [
 	{
 		key: "cost",
 		label: "Cost",
-		hint: "Estimated standard-rate API cost for the 91-case cohort. See the Data page for methodology.",
+		hint: `Estimated standard-rate API cost for the ${cohort.case_count}-case cohort, reconstructed from recorded token usage. Each model page states its cost basis.`,
 		lowerIsBetter: true,
 	},
 ];
@@ -131,6 +131,7 @@ export default function Leaderboard({
 	snapshot: ResultsSnapshot;
 }) {
 	const n = snapshot.cohort.unit_count;
+	const columns = useMemo(() => columnsFor(snapshot.cohort), [snapshot.cohort]);
 	const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({
 		key: "micro_brier",
 		asc: true,
@@ -191,13 +192,13 @@ export default function Leaderboard({
 						id="lb-sort"
 						value={sort.key}
 						onChange={(event) => {
-							const column = COLUMNS.find((c) => c.key === event.target.value);
+							const column = columns.find((c) => c.key === event.target.value);
 							if (column)
 								setSort({ key: column.key, asc: column.lowerIsBetter });
 						}}
 						className="rounded-full border border-rule-strong bg-surface px-3 py-1.5 text-sm text-ink"
 					>
-						{COLUMNS.map((column) => (
+						{columns.map((column) => (
 							<option key={column.key} value={column.key}>
 								{column.label}
 							</option>
@@ -207,7 +208,7 @@ export default function Leaderboard({
 				<ol className="divide-y divide-rule">
 					{rows.map((model, index) => {
 						const active =
-							COLUMNS.find((c) => c.key === sort.key) ?? COLUMNS[0];
+							columns.find((c) => c.key === sort.key) ?? columns[0];
 						return (
 							<li key={model.slug} className="flex gap-3 px-4 py-3.5">
 								<span className="w-6 shrink-0 pt-0.5 text-sm text-ink-3 tabular">
@@ -274,7 +275,7 @@ export default function Leaderboard({
 							<th scope="col" className="py-3 pr-4 font-medium">
 								Model
 							</th>
-							{COLUMNS.map((column) => (
+							{columns.map((column) => (
 								<th
 									key={column.key}
 									scope="col"

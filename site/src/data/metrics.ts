@@ -104,9 +104,9 @@ export function sortedBy(
 	);
 }
 
-export function formatUsd(value: number | null): string {
+export function formatUsd(value: number | null, digits = 2): string {
 	if (value === null) return "Unknown";
-	return `$${value.toFixed(2)}`;
+	return `$${value.toFixed(digits)}`;
 }
 
 export function formatPercent(value: number, digits = 1): string {

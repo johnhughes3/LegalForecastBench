@@ -52,7 +52,7 @@ function leaderboardLines(): string[] {
 	const lines = [
 		"Lower micro Brier is better. Summary-pipeline conditions are a separate experiment and are not in this table.",
 		"",
-		`A constant 50% forecast scores ${snapshot.cohort.constant_forecast_micro_brier.toFixed(3)} micro Brier.`,
+		`A constant forecast at the cohort's dismissal rate scores ${snapshot.cohort.constant_forecast_micro_brier.toFixed(3)} micro Brier; always answering 50% scores 0.250.`,
 		"",
 		"| Model | Micro Brier | Equal-case Brier | Accuracy | Eligibility |",
 		"| --- | --- | --- | --- | --- |",

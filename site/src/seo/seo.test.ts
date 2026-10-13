@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { WORKING_PAPER_PDF } from "../data/paper.js";
+import { snapshot } from "../data/results.js";
 import { prefersMarkdown } from "./accept.js";
 import { COPY } from "./copy.js";
 import { originUrl, REPO } from "./identity.js";
@@ -100,7 +101,7 @@ test("sitemap skips agent files and uses real dates", () => {
 	assert.equal(includeInSitemap(`${site}/data/current.json`), false);
 	assert.equal(includeInSitemap(`${site}/og/home.png`), false);
 	assert.equal(lastmodFor("/paper/"), "2026-10-13");
-	assert.equal(lastmodFor("/"), "2026-10-03");
+	assert.equal(lastmodFor("/"), snapshot.as_of);
 });
 
 test("robots allows the site, including the markdown copies llms.txt links", () => {

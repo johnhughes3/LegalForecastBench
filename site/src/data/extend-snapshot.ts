@@ -129,10 +129,20 @@ export function extendSnapshot(
 					: cost,
 		};
 	});
+	// The combined snapshot is dated by its newest source: the historical
+	// snapshot's own date or the latest native model release, whichever is
+	// later. A scored export cannot predate its model, so this never runs
+	// ahead of the data, and it moves when a newer result is added.
+	const asOf = [
+		original.as_of,
+		...additions.map(({ source }) => source.release_date),
+	]
+		.sort()
+		.at(-1) as string;
 	return parseSnapshot({
 		...structuredClone(original),
-		snapshot_id: "beta-2026-10-03",
-		as_of: "2026-10-03",
+		snapshot_id: `beta-${asOf}`,
+		as_of: asOf,
 		provenance: {
 			...original.provenance,
 			method: `${original.provenance.method} Validated native scored exports supply ${models.length} full-document agentic configurations, replacing matching historical rows where available. Their accuracy and confidence counts derive from public prediction units.`,
