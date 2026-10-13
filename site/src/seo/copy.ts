@@ -9,14 +9,6 @@ import { SITE_DESCRIPTION } from "./identity.js";
 export const HOME_INTRO =
 	"LegalForecastBench is an effort to develop a new, challenging benchmark that uses the signal from judicial decisions to evaluate frontier models on high-level legal tasks against an objective real-world ground truth. Models receive the same briefs a federal judge received when ruling on a motion to dismiss, and are asked to estimate the probability that the judge dismissed each claim challenged by a defendant.";
 
-/**
- * Under the home page's cohort figures. The benchmark is versioned by cycle:
- * the figures describe this cycle's fixed cohort, not what the benchmark
- * will always consist of. The wording follows the paper's own caveat.
- */
-export const COHORT_NOTE =
-	"These figures describe this cycle's fixed cohort. The pipeline is built to assemble new cohorts as new decisions become available, and a new cohort changes the case mix and difficulty, so scores from different cycles are not a time series of model improvement.";
-
 /** The home page's "Why judicial outcomes" section, written by the author. */
 export const WHY_OUTCOMES = {
 	quote:
