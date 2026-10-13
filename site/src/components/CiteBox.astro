@@ -1,22 +1,14 @@
 ---
 // Both citations come from the repository's CITATION.cff at build time: the
 // paper from its `preferred-citation` block, the software from the fields above it.
-import cff from "../../../CITATION.cff?raw";
-import {
-	parseCitation,
-	toApa,
-	toBibtex,
-	toPaperApa,
-	toPaperBibtex,
-} from "../data/citation";
-import { PAPER_CITATION } from "../data/paper";
+import { toApa, toBibtex, toPaperApa, toPaperBibtex } from "../data/citation";
+import { PAPER_CITATION, SOFTWARE_CITATION } from "../data/paper";
 
 interface Props {
 	class?: string;
 }
 
 const { class: className } = Astro.props;
-const software = parseCitation(cff);
 const groups = [
 	{
 		id: "paper",
@@ -28,9 +20,9 @@ const groups = [
 	{
 		id: "software",
 		label: "Software",
-		detail: `Release ${software.version ?? software.date}. Cite this to identify the code you ran.`,
-		bibtex: toBibtex(software),
-		apa: toApa(software),
+		detail: `Release ${SOFTWARE_CITATION.version ?? SOFTWARE_CITATION.date}. Cite this to identify the code you ran.`,
+		bibtex: toBibtex(SOFTWARE_CITATION),
+		apa: toApa(SOFTWARE_CITATION),
 	},
 ];
 ---

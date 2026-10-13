@@ -5,7 +5,8 @@ export interface Citation {
 	title: string;
 	version: string | null;
 	year: string;
-	date: string | null;
+	/** ISO `date-released`; parseCitation rejects a file without one. */
+	date: string;
 	url: string | null;
 	authors: CitationAuthor[];
 }

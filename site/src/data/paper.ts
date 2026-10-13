@@ -11,7 +11,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { parsePaperCitation } from "./citation.js";
+import { parseCitation, parsePaperCitation } from "./citation.js";
 import {
 	manuscriptPath,
 	parseManuscript,
@@ -20,10 +20,17 @@ import {
 
 const manuscript = parseManuscript(readFileSync(manuscriptPath(), "utf8"));
 
+const cff = readFileSync(resolve(repositoryRoot(), "CITATION.cff"), "utf8");
+
 /** How to cite the paper. CITATION.cff is the only place this is written. */
-export const PAPER_CITATION = parsePaperCitation(
-	readFileSync(resolve(repositoryRoot(), "CITATION.cff"), "utf8"),
-);
+export const PAPER_CITATION = parsePaperCitation(cff);
+
+/**
+ * The software release: the package version and the date it was released,
+ * from the top-level fields of CITATION.cff. Both move with each package
+ * release; nothing that describes the results should read them.
+ */
+export const SOFTWARE_CITATION = parseCitation(cff);
 
 export interface PaperVersion {
 	version: string;

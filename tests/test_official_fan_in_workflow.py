@@ -396,7 +396,7 @@ def test_publish_is_create_once_and_uploads_only_sanitized_outputs() -> None:
     assert "scores.json" in publish
     assert "unit-scores.jsonl" in publish
     assert "/tmp/lfb-report" in publish
-    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in publish
+    assert "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in publish
     assert "private" not in publish
 
 
@@ -522,7 +522,7 @@ def test_workflow_uses_immutable_action_pins_and_rejects_unsafe_locators() -> No
         in WORKFLOW
     )
     assert (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in WORKFLOW
     )
     assert '[[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]' in WORKFLOW
     assert 'git merge-base --is-ancestor "${RELEASE_SHA}" origin/main' in WORKFLOW

@@ -76,6 +76,6 @@ def test_community_workflow_plans_and_builds_aggregate_without_credentials() -> 
     assert "github.event_name == 'push'" in WORKFLOW
     assert "--output-dir tmp/community-site" in WORKFLOW
     assert (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in WORKFLOW
     )
     assert "community-multiharness-static-site" in WORKFLOW
