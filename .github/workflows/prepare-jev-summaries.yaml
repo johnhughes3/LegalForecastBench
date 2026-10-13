@@ -129,7 +129,7 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - name: Configure protected archive read access
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -180,7 +180,7 @@ jobs:
               --destination /tmp/lfb-jev-restored/prior
           fi
       - name: Pass restored inputs to summary preparation
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: restored-jev-inputs-${{ github.run_id }}-${{ github.run_attempt }}
           path: /tmp/lfb-jev-restored
@@ -260,7 +260,7 @@ jobs:
           [[ "${SOURCE_RUN_ID}" != "${GITHUB_RUN_ID}" ]] || { echo "source run must differ from this preparation run" >&2; exit 1; }
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
 
@@ -268,7 +268,7 @@ jobs:
         run: uv sync --locked
 
       - name: Download locked outcome-blinded forecast inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: restored-jev-inputs-${{ github.run_id }}-${{ github.run_attempt }}
           path: /tmp/lfb-jev-restored
@@ -563,7 +563,7 @@ jobs:
 
       - name: Upload resumable Jev cache and spend ledger
         if: ${{ always() && steps.checkpoint-summary-ledger.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: jev-summary-cache-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
@@ -574,7 +574,7 @@ jobs:
 
       - name: Upload completed Jev model registry
         if: ${{ success() && steps.checkpoint-summary-ledger.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: jev-model-registry-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: /tmp/lfb-jev-summary/model-registry.json
