@@ -32,7 +32,7 @@ const criterionOf = (task: string, id: string) =>
 		<p class="eyebrow">Harvey LAB explorer</p>
 		<h1 class="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">A litigator's review of {lab.review.length} Harvey LAB criteria</h1>
 		<p class="mt-5 text-lg text-ink-2">
-			Harvey's Legal Agent Benchmark (LAB) grades AI work product against expert-written rubrics. Two AI models audited all 52 of its litigation tasks and flagged {lab.flaggedTotal} of 2,858 rubric criteria as problematic or arguable. To test those AI flags, {AUTHOR.name}, a litigator, reviewed a seeded random sample of {lab.review.length} flagged criteria and recorded his own verdict and analysis for each.
+			Harvey's Legal Agent Benchmark (LAB) grades AI work product against expert-written rubrics. Two AI models audited its 52 public litigation tasks and flagged {lab.flaggedTotal} of 2,858 rubric criteria as problematic or arguable. To test those AI flags, {AUTHOR.name}, a litigator, reviewed a seeded random sample of {lab.review.length} flagged criteria and recorded his own verdict and analysis for each.
 		</p>
 		<div class="mt-6 flex flex-wrap items-center gap-3">
 			<a href={labReviewPath(1)} class="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-bg hover:opacity-90">Start the walk-through: item 1 of {lab.review.length}</a>
