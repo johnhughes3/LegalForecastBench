@@ -15,7 +15,7 @@ Subcommands:
 ``render``
     Regenerate every Claude Opus 5.5 report, the comparison section of each task
     landing page, the top-level ``comparison.md``/``comparison.json``, and the audit
-    file index in ``docs/README.md`` from files already in the audit directory.
+    file index in its ``README.md`` from files already in the audit directory.
     Rendering is deterministic, so the published counts can be reproduced from the
     repository alone.
 

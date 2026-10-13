@@ -14,20 +14,14 @@ After you finish planning and filing beads, check what you added against this se
 
 Where an older document in this tree still calls for attestations, sealed deliverables, receipt cards, hashed approval scopes, or evidence tiers, this section supersedes it.
 
-## Priority: the new corpus path (2026-08-30 replan)
+## Working Priorities
 
-**Cycle 1 cannot publish until its corpus is complete** — the 2026-08-30 census found 61 filed oppositions missing from the 100 cases. The owner's replan finishes Cycle 1 *after* the cutover to the new corpus factory rather than on the legacy machinery: new pipeline and corpus repair (`ti2q`, `iot9`) → cutover and deletion of the old runtime (`v7zs`) → run and publish Cycle 1 through the new path. The deletion half of that cutover landed in #1034: the legacy corpus runtime, acquisition, and labeling surfaces are gone from this repository and now live in the companion private corpus repository. What remains open under `v7zs` is the semantic public-boundary fencing (`xvg1`). Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
+Cycle 1 was completed and published on October 13, 2026 (91 cases, 387 scored claim–defendant units) as a working draft released for feedback: the working paper, results site, and data may still be corrected or revised in response to readers. The legacy corpus runtime, acquisition, and labeling surfaces now live in the companion private LegalForecastCorpus repository (#1034). Prefer the smallest change that gets a correct result over new process, ceremony, or speculative hardening. Concretely:
 
-- **Anything that spends money follows the Spending guardrails below** — a ceiling, an approval above the threshold, and a journal. That is the entire spend process; do not add authority chains or approval grammars on top of it.
+- **Anything that spends money runs under an approved ceiling with its spend journal** (see Resuming benchmark runs). That is the entire spend process; do not add authority chains or approval grammars on top of it.
 - Everything else (code, validation, parsing, execution under an existing approval, evidence assembly): **do what needs to be done, promptly**. Halt-and-escalate is for genuine blockers (missing owner approval, failed validation), not for perfectible process.
 - Before building anything, run the executability audit: name the command that produces every input your work requires and the path where it exists today. If one doesn't exist, building or escalating THAT is your first task.
-- Integrity controls are not negotiable and are not the slowdown. They are exactly these: model contamination and release-anchor rules; outcome-leakage blinding; the Spending guardrails below; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
-
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
-
-> **Architecture in one line:** Issues live in a centrally configured beads-db Dolt SQL server. The server is the durable source of truth, so no `bd dolt push/pull` is needed. Connection details come from generated local metadata. `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md) for the one-screen overview and anti-patterns (don't treat JSONL as the source of truth; don't `bd import` during normal operation; don't reach for third-party Dolt hosting before trying the default).
+- Integrity controls are not negotiable and are not the slowdown. They are exactly these: model eligibility and contamination rules; outcome-leakage blinding; approved spend ceilings; public-repo hygiene; and the one locked benchmark-run manifest. Anything not on this list is process, and the Standard of Rigor applies to it.
 
 ## Corpus Spending Boundary
 
@@ -70,15 +64,6 @@ The owner selected training-cutoff eligibility before benchmark runs and clarifi
 Report both micro-Brier and equal-case Brier, retaining the methods' micro headline and case-weighted sensitivity. Report actual/reconstructed costs and standard-rate repricing with coverage and missing usage disclosed.
 
 Private corpus acquisition and unitization belong to the companion LegalForecastCorpus repository and are not shipped in this public package. This repository consumes locked outcome-blinded manifests and releases, retains public evaluation and publication paths, and keeps withdrawal handling for sealed or redacted cases.
-
-## Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-```
 
 ## Default benchmark versus Jev-style experiments
 

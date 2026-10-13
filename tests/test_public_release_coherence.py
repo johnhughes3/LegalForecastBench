@@ -12,7 +12,6 @@ RETAINED_WORKFLOWS = ("run-benchmark.yaml", "fan-in-publish.yaml")
 BOUNDARY_DOCS = (
     ROOT / "README.md",
     ROOT / ".agents" / "AGENTS.md",
-    ROOT / "docs" / "official-run-runbook.md",
     ROOT / "docs" / "reproduce-or-audit.md",
     ROOT / "scripts" / "AGENTS.md",
     ROOT / "infra" / "official-eval" / "README.md",
@@ -58,9 +57,9 @@ def test_boundary_docs_have_no_removed_runtime_references() -> None:
 
 
 def test_boundary_docs_name_the_strict_release_contract() -> None:
-    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs" / "reproduce-or-audit.md").read_text(encoding="utf-8")
     for workflow in RETAINED_WORKFLOWS:
-        assert workflow in runbook
+        assert workflow in guide
     for option in (
         "--labels-release",
         "--forecast-release",
@@ -68,7 +67,7 @@ def test_boundary_docs_name_the_strict_release_contract() -> None:
         "--model-registry",
         "--ledger",
     ):
-        assert option in runbook
+        assert option in guide
 
 
 def test_docs_index_describes_the_retained_corpus_handoff() -> None:

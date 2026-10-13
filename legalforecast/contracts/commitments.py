@@ -1,4 +1,28 @@
-"""Named canonical JSON and digest profiles for new commitment-bearing code."""
+"""Named canonical JSON and digest profiles for new commitment-bearing code.
+
+Byte profiles:
+
+- ``ARTIFACT_CANONICAL_JSON_V1``: key-sorted compact UTF-8 JSON with a trailing
+  newline, for whole JSON artifacts.
+- ``ARTIFACT_JSON_VALUE_V1``: the same without the trailing newline, for JSON
+  values embedded in another byte stream.
+- ``MANIFEST_CANONICAL_JSON_V1``: key-sorted compact ASCII-escaped JSON with the
+  historical ``default=str`` behavior, for manifest and freeze hashing.
+- ``RUN_CARD_INDENTED_JSON_V1``: key-sorted, two-space-indented ASCII-escaped
+  JSON with a trailing newline, for run cards that already persist that form.
+
+The profiles characterize existing Cycle 1 byte contracts, so valid payloads
+keep their exact bytes. Use the named digest profiles (``*_RAW_SHA256_V1``,
+``ARTIFACT_PREFIXED_SHA256_V1``) instead of pairing a serializer and prefix ad
+hoc. Each ``commit`` call binds a ``SchemaIdentifier`` domain at the API level
+without adding bytes to the historical SHA-256 input; verification rejects a
+commitment from a different profile, domain, or digest representation.
+
+Add a new versioned profile only when its bytes or digest representation
+genuinely differ and callers need that difference, with literal golden vectors
+for Unicode, non-finite numbers, whitespace, and newlines. Do not create a
+universal serializer or silently normalize raw and ``sha256:``-prefixed fields.
+"""
 
 from __future__ import annotations
 

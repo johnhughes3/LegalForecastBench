@@ -436,7 +436,7 @@ def render_comparison(
     )
 
 
-DOCS_INDEX = Path("docs/README.md")
+FILE_INDEX = AUDIT_DIR / "README.md"
 
 INDEX_OPEN = "<summary>Audit report file index (AI-generated and unverified)</summary>"
 
@@ -458,7 +458,7 @@ def index_label(path: Path) -> str:
 
 
 def render_docs_index() -> None:
-    """Rewrite the audit file index in docs/README.md from the files on disk."""
+    """Rewrite the file index in the audit README from the files on disk."""
     groups: dict[str, list[Path]] = {}
     for md in sorted(AUDIT_DIR.rglob("*.md")):
         rel = md.relative_to(AUDIT_DIR)
@@ -475,15 +475,15 @@ def render_docs_index() -> None:
             key=lambda p: (rank.index(p.name) if p.name in rank else len(rank), p.name),
         )
         links = " · ".join(
-            f"[{index_label(p)}]({p.relative_to(DOCS_INDEX.parent).as_posix()})"
+            f"[{index_label(p)}]({p.relative_to(FILE_INDEX.parent).as_posix()})"
             for p in files
         )
         label = "Audit overview" if group == "." else group
         lines.append(f"- **{label}:** {links}")
-    text = DOCS_INDEX.read_text(encoding="utf-8")
+    text = FILE_INDEX.read_text(encoding="utf-8")
     start = text.index(INDEX_OPEN)
     end = text.index("</details>", start)
     head = text[:start].rstrip("\n")
-    DOCS_INDEX.write_text(
+    FILE_INDEX.write_text(
         head + "\n".join(lines) + "\n\n" + text[end:], encoding="utf-8"
     )

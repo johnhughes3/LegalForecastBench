@@ -1,6 +1,6 @@
 # Model Release Dates
 
-This file tracks the model-release anchors used or queued for LegalForecastBench benchmark cycles. The first table follows the current checked-in pilot registry and benchmark workflow defaults. The Cycle 1 table records the late-June model generation used to collect the first official corpus, and the final table records additional release dates that are not yet runnable registry entries.
+This file records the model identities, release dates, and provider-reported cutoffs behind the Cycle 1 comparisons. The maintained eligibility evidence is [`legalforecast/data/model_cutoffs.json`](../legalforecast/data/model_cutoffs.json); each frozen registry under [`model_registries/`](../model_registries/) carries its own source fields. See [methods](METHODS.md) for the eligibility rule.
 
 ## September 2026 comparisons
 
@@ -22,22 +22,11 @@ The [additional comparison registry](../model_registries/cycle-1-official-held-m
 
 The September 30, 2026 comparison adds two full-document agentic runs with high reasoning. [GPT-6.1 Sol](../model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json) uses `gpt-6.1-sol`. OpenAI reports an April 30, 2026 knowledge cutoff, which precedes the cohort, so the configuration is eligible. The registry release timestamp is the September 29, 2026 model-page observation date, not a separately verified launch announcement. [Claude Sonnet 5.5](../model_registries/cycle-1-agentic-claude-sonnet-5-5-high-2026-09-29.json) uses `claude-sonnet-5-5`, released September 28, 2026, with high effort pinned. Anthropic reports a June 2026 training cutoff, compared as June 1 under the maintained rule, which also precedes the cohort. Forecast runs are 36673524599 and 36673527185; scoring runs are 36741462923 and 36741468019.
 
-## Current Pilot Registry
-
-| Provider | Model | Registry key | Release timestamp | Source |
-| --- | --- | --- | --- | --- |
-| OpenAI | GPT-5.4 mini | `openai:gpt-5.4-mini` | 2026-03-17T00:00:00Z | OpenAI API changelog, Mar. 17, 2026 GPT-5.4 mini API release |
-| Anthropic | Claude Sonnet 4.6 | `anthropic:claude-sonnet-4-6` | 2026-02-17T00:00:00Z | Anthropic launch post, Feb. 17, 2026 Claude Sonnet 4.6 launch |
-
-Both anchored pilot dates were independently re-verified on 2026-07-03 against primary and press sources (full evidence record: `docs/reviews/model-release-date-verification-2026-07-03.md` in git history) and confirmed unchanged. The verification also confirmed that the earlier `2026-04-24` date once attached to GPT-5.4 mini belongs to GPT-5.5, a different model; the checked-in registry already carries the correct `2026-03-17` anchor. GPT-5.4 mini offers a dated pinned snapshot (`gpt-5.4-mini-2026-03-17`); for Claude Sonnet 4.6 the dateless ID `claude-sonnet-4-6` is itself the pinned snapshot per Anthropic's 4.6-generation convention.
-
-The current GitHub Actions benchmark workflow takes an explicit model key and registry; the pilot entries above are historical collection inputs. Gemini 3 Flash Preview is excluded from the anchored pilot registry until a source-backed pinned snapshot convention is available; its release date is now confirmed as December 17, 2025 via primary sources, but Google still documents only the mutable `gemini-3-flash-preview` preview ID with no immutable snapshot alias, so it remains ineligible for re-inclusion on snapshot grounds (not date grounds).
-
 The September 24, 2026 comparison adds one explicit exception for Google's `gemini-3.1-pro-preview`, which has no documented dated snapshot. It runs as **Gemini 3.1 Pro Preview**, with high thinking and the full agentic document-tool harness. The frozen registry retains the preview alias and the run records the served version; neither is a claim that the underlying weights are immutable. This exception does not admit other preview or latest aliases or change the collection registry. Google's reported January 2025 knowledge cutoff predates the cohort, so the configuration is eligible under the reported-cutoff rule. See the [model specifications](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview) and [Gemini 3 guide](https://ai.google.dev/gemini-api/docs/gemini-3).
 
 ## Cycle 1 Late-June Registry
 
-The frozen collection registry is [`model_registries/cycle-1-2026-06-30.json`](model_registries/cycle-1-2026-06-30.json). Its latest first documented external deployment is Claude Sonnet 5 on June 30, 2026, which supplied the original collection boundary of `2026-06-30` UTC; the current training-cutoff reporting rule does not change the frozen cohort. The June 26 restricted GPT-5.6 API and Codex preview is the first external deployment of the same named Sol, Terra, and Luna family that became generally available on July 9; general availability does not move the contamination anchor.
+The frozen collection registry is [`model_registries/cycle-1-2026-06-30.json`](../model_registries/cycle-1-2026-06-30.json). Its latest first documented external deployment is Claude Sonnet 5 on June 30, 2026, which supplied the original collection boundary of `2026-06-30` UTC; the current training-cutoff reporting rule does not change the frozen cohort. The June 26 restricted GPT-5.6 API and Codex preview is the first external deployment of the same named Sol, Terra, and Luna family that became generally available on July 9; general availability does not move the contamination anchor.
 
 | Provider | Model | Registry key | Frozen model ID | Release timestamp | Standard input/output price per MTok at registry freeze |
 | --- | --- | --- | --- | --- | --- |
@@ -52,33 +41,6 @@ The OpenAI scalar prices are the standard rates for prompts through 272K input t
 
 Primary sources: OpenAI's [GPT-5.6 preview announcement](https://openai.com/index/previewing-gpt-5-6-sol/) and model pages for [Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol), [Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra), and [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna); Anthropic's [Claude Sonnet 5 launch](https://www.anthropic.com/news/claude-sonnet-5), [model-versioning documentation](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions), and [pricing documentation](https://platform.claude.com/docs/en/about-claude/pricing). All registry values were checked on July 11, 2026.
 
-### Filename Window Versus Computed Release Anchor
+## Label-generation models
 
-The registry **filename window** (for example `pilot-2026-04-24_to_2026-05-18.json`) names the case *collection window* — the date range of the disposition/labeling cohort for that cycle — and is not the model release anchor. The collection **anchor** is computed from the collection registry's `release_timestamp`, independent of the filename. A later model can run against that fixed corpus as an official post-anchor comparison; its release date classifies the comparison rather than preventing execution. `release_timestamp` means the first documented external deployment of the evaluated model, including a restricted external preview: deployment establishes that the model artifact existed by that date, which is the fact relevant to whether a later court decision could have appeared in its training data. Temporary suspension or delayed general availability does not move the anchor. Provider-stated knowledge cutoffs are informative and generally earlier, but their definitions and independent auditability vary; first documented external deployment is therefore the deliberately conservative rule. Cases are eligible on or after the UTC calendar date of that anchor. Because court-decision metadata is date-granular and the model artifact necessarily existed by first deployment, the benchmark does not add an arbitrary calendar-day buffer. The filename should be read as the collection window, never as the release anchor.
-
-## Additional Tracked Release Dates
-
-These anchors are recorded for future cycle planning or historical context. They are not active workflow defaults. The original review was completed on 2026-07-03 and the GPT-5.6 status was updated on 2026-07-11 after general availability confirmed the identity of the restricted-preview family; per-model evidence, snapshot availability, and full source lists are preserved in git history (`docs/reviews/model-release-date-verification-2026-07-03.md`) and in each registry entry's source fields.
-
-| Provider or family | Model | Release timestamp | Registry status | Source |
-| --- | --- | --- | --- | --- |
-| OpenAI | GPT-5.6 Sol | 2026-06-26T00:00:00Z (confirmed first external deployment) | In Cycle 1 registry — official model page lists tier ID `gpt-5.6-sol` in its Snapshots section; no dated alternate exposed | Restricted API and Codex preview began June 26; July 9 general availability did not move the contamination anchor; https://openai.com/index/previewing-gpt-5-6-sol/ |
-| OpenAI | GPT-5.6 Terra | 2026-06-26T00:00:00Z (confirmed first external deployment) | In Cycle 1 registry — official model page lists tier ID `gpt-5.6-terra` in its Snapshots section; no dated alternate exposed | Restricted API and Codex preview began June 26; July 9 general availability did not move the contamination anchor; https://openai.com/index/previewing-gpt-5-6-sol/ |
-| OpenAI | GPT-5.6 Luna | 2026-06-26T00:00:00Z (confirmed first external deployment) | In Cycle 1 registry — official model page lists tier ID `gpt-5.6-luna` in its Snapshots section; no dated alternate exposed | Restricted API and Codex preview began June 26; July 9 general availability did not move the contamination anchor; https://openai.com/index/previewing-gpt-5-6-sol/ |
-| Google | Gemini 3 Flash Preview | 2025-12-17T00:00:00Z (confirmed) | Excluded from anchored registry — date confirmed but no immutable snapshot ID exists (mutable `gemini-3-flash-preview` only); ineligible for re-inclusion on snapshot grounds | Google blog + Gemini API changelog, Dec. 17, 2025 public preview release; https://blog.google/products/gemini/gemini-3-flash/ |
-| Fable | Fable 5 | 2026-06-09T00:00:00Z (confirmed) | Not yet in registry — pinned snapshot `claude-fable-5`; access suspended ~2026-06-12 to 2026-06-30 by export controls (anchor unchanged) | Anthropic launch post, June 9, 2026 Claude Fable 5 GA; https://www.anthropic.com/news/claude-fable-5-mythos-5 |
-| Anthropic | Claude Sonnet 5 | 2026-06-30T00:00:00Z (confirmed) | In Cycle 1 registry — pinned snapshot `claude-sonnet-5` | Anthropic launch post, June 30, 2026 Claude Sonnet 5 GA; https://www.anthropic.com/news/claude-sonnet-5 |
-
-## Cycle 1 Label-Generation Models
-
-The separate construction/label-generation registry is [`model_registries/cycle-1-labeling-2026-07-12.json`](model_registries/cycle-1-labeling-2026-07-12.json), while [`model_registries/cycle-1-stage-b-judges-2026-07-12.json`](model_registries/cycle-1-stage-b-judges-2026-07-12.json) freezes exactly the two voting entries: GPT-5.4 mini and Gemini 3.5 Flash. These models construct or label the benchmark ground truth; they are not candidate models and do not change the June 30 corpus-eligibility anchor.
-
-| Stage | Provider | Model | Frozen model ID | Release timestamp | Standard input/output price per MTok |
-| --- | --- | --- | --- | --- | --- |
-| A | Anthropic | Claude Sonnet 4.6 | `claude-sonnet-4-6` | `2026-02-17T00:00:00Z` | $3 / $15 |
-| B | OpenAI | GPT-5.4 mini | `gpt-5.4-mini-2026-03-17` | `2026-03-17T00:00:00Z` | $0.75 / $4.50 |
-| A structural review + B | Google | Gemini 3.5 Flash | `gemini-3.5-flash` | `2026-05-19T00:00:00Z` | $1.50 / $9 standard; $0.75 / $4.50 Batch or Flex |
-
-Anthropic documents the dateless 4.6-generation Sonnet ID as a pinned snapshot. OpenAI lists the dated GPT-5.4 mini snapshot explicitly. Primary identity and pricing sources: [Anthropic model IDs and versioning](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions), [Anthropic models overview](https://platform.claude.com/docs/en/about-claude/models/overview), and [OpenAI GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini), checked July 12, 2026.
-
-Google documents `gemini-3.5-flash` as stable and says stable IDs *usually* do not change, but it neither guarantees immutable weights/configuration for that ID nor exposes a dated snapshot. John accepted the stable-ID reproducibility control for label generation on July 12, 2026: a non-grounded live probe returned `modelVersion: gemini-3.5-flash`, the exact stable ID is frozen, every response records its served version, and any version mismatch fails closed. This exception applies only to the construction/labeling registry and does not relax the immutable candidate-model registry gate. Sources: [Gemini model-version patterns](https://ai.google.dev/gemini-api/docs/models), [Gemini 3.5 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash), [Gemini changelog](https://ai.google.dev/gemini-api/docs/changelog), and [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing), checked July 12, 2026.
+The models that built the Cycle 1 ground truth are frozen separately in [`model_registries/cycle-1-labeling-2026-07-12.json`](../model_registries/cycle-1-labeling-2026-07-12.json) and [`model_registries/cycle-1-stage-b-judges-2026-07-12.json`](../model_registries/cycle-1-stage-b-judges-2026-07-12.json) (Claude Sonnet 4.6, GPT-5.4 mini, and Gemini 3.5 Flash). They are not candidate models, and the label construction process is owned by the companion LegalForecastCorpus repository.

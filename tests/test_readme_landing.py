@@ -15,6 +15,7 @@ from legalforecast.reporting.result_class import (
 ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "README.md"
 PUBLICATION_GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.md"
+MULTIHARNESS_README_PATH = ROOT / "docs" / "multiharness" / "README.md"
 PREPUBLICATION_MARKER = "<!-- result-publication-state: pre-publication -->"
 UNPUBLISHED_STATUS = "No official or community benchmark score is published yet"
 NON_AFFILIATION_TEXT = (
@@ -42,6 +43,10 @@ def _readme() -> str:
 
 def _publication_governance() -> str:
     return PUBLICATION_GOVERNANCE_PATH.read_text(encoding="utf-8")
+
+
+def _multiharness_readme() -> str:
+    return MULTIHARNESS_README_PATH.read_text(encoding="utf-8")
 
 
 def test_first_screen_states_status_boundary_tracks_and_next_actions() -> None:
@@ -84,11 +89,6 @@ def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
     governance = _publication_governance()
 
     assert "## Official Benchmark Results" in readme
-    assert "## Preliminary Community Result" in readme
-    assert "## Reproducible Community Comparisons" in readme
-
-    assert f"**{PRELIMINARY_LABEL}**" in readme
-    assert f"**{REPRODUCIBLE_LABEL}**" in readme
     result_section = readme.split("## Official Benchmark Results", 1)[1].split(
         "## ", 1
     )[0]
@@ -105,12 +105,7 @@ def test_readme_exposes_governed_result_anchors_without_tier_upgrade() -> None:
         _github_heading_anchor(match.group(1))
         for match in re.finditer(r"^#{1,6} +(.*)$", readme, flags=re.MULTILINE)
     }
-    for anchor in (
-        "official-benchmark-results",
-        "preliminary-community-result",
-        "reproducible-community-comparisons",
-    ):
-        assert anchor in heading_anchors
+    assert "official-benchmark-results" in heading_anchors
 
 
 @pytest.mark.parametrize(
@@ -182,17 +177,30 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
     )
 
 
-def test_contributor_path_remains_discoverable_after_reader_first_sections() -> None:
+def test_readme_points_to_the_planned_multiharness_track() -> None:
+    """The community track is planned, so the README only signposts its docs."""
     readme = _readme()
     start_here = readme.index("## Start Here")
-    contributor_path = readme.index("## Reproducible Community Comparisons")
+    community = readme.index("## Community Multi-Harness Comparisons (planned)")
     quickstart = readme.index("## Quickstart")
 
-    assert start_here < contributor_path < quickstart
-    assert "[Multi-Harness Adapter Spec](docs/multiharness/adapter-spec.md)" in readme
-    assert "docs/community-contributor-guide.md" in readme
-    assert "[Community Submissions](docs/community-submissions.md)" in readme
-    assert "uv run legalforecast multiharness --help" in readme
+    assert start_here < community < quickstart
+    assert "](docs/multiharness/README.md)" in readme
+    assert "not yet operational" in readme
+    assert "uv run legalforecast multiharness" not in readme
+
+
+def test_multiharness_landing_page_carries_status_labels_and_contributor_path() -> None:
+    landing = _multiharness_readme()
+
+    assert "**Status: planned, not yet operational.**" in landing
+    assert f"**{PRELIMINARY_LABEL}**" in landing
+    assert f"**{REPRODUCIBLE_LABEL}**" in landing
+    assert "uv run legalforecast multiharness --help" in landing
+    for target in ("contributor-guide.md", "adapter-spec.md", "submissions.md"):
+        assert f"]({target})" in landing
+        assert (MULTIHARNESS_README_PATH.parent / target).is_file()
+    assert NON_AFFILIATION_TEXT in landing
 
 
 def test_all_repository_relative_markdown_links_resolve() -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY_PATH = ROOT / "docs" / "adapters" / "provider-baselines.md"
+POLICY_PATH = ROOT / "docs" / "multiharness" / "adapters" / "provider-baselines.md"
 
 
 def _policy() -> str:

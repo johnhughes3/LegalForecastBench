@@ -79,7 +79,7 @@ The LAB examples require a user-supplied LAB checkout. Harvey LAB is a separate 
 
 The first-class adapter examples live under `examples/adapters/`.
 
-- The OpenAI Responses and Claude Agent SDK community baselines are documented in `docs/adapters/provider-baselines.md`. Both adapters support `legalforecast_mtd` with `lfb_brier`, advertise the v1 tool protocol, and keep their ordinary `run` paths credential-free and conformance-only; live provider execution uses `run-with-tools`. Their manifests live under `examples/adapters/openai-responses/` and `examples/adapters/claude-agent-sdk/`.
+- The OpenAI Responses and Claude Agent SDK community baselines are documented in [adapters/provider-baselines.md](adapters/provider-baselines.md). Both adapters support `legalforecast_mtd` with `lfb_brier`, advertise the v1 tool protocol, and keep their ordinary `run` paths credential-free and conformance-only; live provider execution uses `run-with-tools`. Their manifests live under `examples/adapters/openai-responses/` and `examples/adapters/claude-agent-sdk/`.
 
 ## Command Adapter Protocol
 
