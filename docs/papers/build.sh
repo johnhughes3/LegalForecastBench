@@ -91,14 +91,15 @@ if [[ -z "${SOURCE_DATE_EPOCH}" ]]; then
 fi
 export FORCE_SOURCE_DATE=1
 
-# ghcr sometimes leaves one texlive-full layer in "Waiting" until the job
-# clock expires. Stop a stalled pull and try again before compiling.
+# The pinned image is about 1.8GB. A 120s cap kills a healthy slow pull on
+# CI, and ghcr can also leave a layer in "Waiting". Stop a stalled pull and
+# try again before compiling.
 pull_pinned_texlive_image() {
   local image=$1
   local attempt=1
-  local attempts=${PAPER_IMAGE_PULL_ATTEMPTS:-2}
-  local pull_timeout=${PAPER_IMAGE_PULL_TIMEOUT_SECONDS:-120}
-  local backoff=${PAPER_IMAGE_PULL_BACKOFF_SECONDS:-5}
+  local attempts=${PAPER_IMAGE_PULL_ATTEMPTS:-3}
+  local pull_timeout=${PAPER_IMAGE_PULL_TIMEOUT_SECONDS:-300}
+  local backoff=${PAPER_IMAGE_PULL_BACKOFF_SECONDS:-10}
   if ! command -v timeout >/dev/null 2>&1; then
     printf 'timeout is required to pull the pinned TeX Live image.\n' >&2
     return 1

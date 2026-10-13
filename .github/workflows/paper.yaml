@@ -49,9 +49,9 @@ jobs:
             built: docs/papers/lab-audit/build/LAB-audit-paper.pdf
             pdf: docs/papers/lab-audit/LAB-audit-paper.pdf
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
-    # The small pinned image needs no runtime package installation. Two
-    # bounded pulls keep a registry stall from consuming the whole job.
-    timeout-minutes: 10
+    # The pinned image needs no runtime package installation, but it is
+    # about 1.8GB, so a slow runner needs more than two 120s pulls.
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
