@@ -12,7 +12,9 @@ import httpx2
 import legalforecast.jev.prepare as prepare
 import pytest
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from openai import APIConnectionError
 from openai import AsyncOpenAI as RealAsyncOpenAI
+from pydantic_ai.exceptions import ModelAPIError
 from tests.test_jev_grok_prepare import (
     _documents,  # pyright: ignore[reportPrivateUsage]
     _execution,  # pyright: ignore[reportPrivateUsage]
@@ -182,8 +184,8 @@ def test_failed_stream_never_caches_partial_text_or_releases_charge(
     requests = _install_transport(monkeypatch, ending)
     cache_path = tmp_path / "summaries.json"
     ledger_path = tmp_path / "ledger.sqlite3"
-    expected = httpx2.ReadError if ending == "read_error" else ValueError
-    with pytest.raises(expected):
+    expected = ModelAPIError if ending == "read_error" else ValueError
+    with pytest.raises(expected) as raised:
         prepare.prepare_summaries(
             execution,
             entry=_grok_entry(),
@@ -192,6 +194,9 @@ def test_failed_stream_never_caches_partial_text_or_releases_charge(
             ceiling_microusd=20_000_000,
             summary_profile="short",
         )
+    if ending == "read_error":
+        assert isinstance(raised.value.__cause__, APIConnectionError)
+        assert isinstance(raised.value.__cause__.__cause__, httpx2.ReadError)
     assert len(requests) == 1
     assert requests[0]["stream"] is True
     assert not cache_path.exists() or not json.loads(cache_path.read_text())["records"]

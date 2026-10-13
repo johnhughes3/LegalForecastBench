@@ -1,7 +1,7 @@
 {
 	"name": "legalforecastbench-workspace",
 	"private": true,
-	"packageManager": "pnpm@11.27.0",
+	"packageManager": "pnpm@12.11.2",
 	"scripts": {
 		"site:check": "pnpm --filter @legalforecastbench/site check",
 		"site:dev": "pnpm --filter @legalforecastbench/site dev",

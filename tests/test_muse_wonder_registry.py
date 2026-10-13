@@ -44,7 +44,7 @@ def test_muse_wonder_uses_high_reasoning_and_managed_document_tools() -> None:
 def test_muse_wonder_profile_uses_supported_automatic_tool_choice() -> None:
     provider = OpenAIProvider(api_key="offline-test-key")
     profile = gateway_model_profile(provider, "meta/muse-wonder-1.0")
-    assert profile.get("openai_supports_tool_choice_required") is False
+    assert profile.get("supports_forced_tool_choice") is False
     assert profile.get("openai_supports_reasoning") is True
     assert profile.get("openai_supports_reasoning_effort_none") is False
 

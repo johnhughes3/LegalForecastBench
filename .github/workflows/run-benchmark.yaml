@@ -1425,8 +1425,8 @@ jobs:
         run: |
           set -euo pipefail
           corepack enable
-          corepack prepare pnpm@11.27.0 --activate
-          test "$(pnpm --version)" = "11.27.0"
+          corepack prepare pnpm@12.11.2 --activate
+          test "$(pnpm --version)" = "12.11.2"
           pnpm --dir integrations/jev install --frozen-lockfile
       - name: Configure rootless Docker for document tools
         if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && matrix.model_key != 'typesafe:jev-1.13.0' }}

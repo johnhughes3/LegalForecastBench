@@ -281,7 +281,7 @@ def test_jev_gateway_uses_frozen_summaries_and_skips_document_docker() -> None:
     assert "summary-spend.sqlite3" in prepare
     assert "Install Node.js 24 for Gateway Jev" in gateway
     assert "node-version: 24" in gateway
-    assert "corepack prepare pnpm@11.27.0 --activate" in gateway
+    assert "corepack prepare pnpm@12.11.2 --activate" in gateway
     assert "pnpm --dir integrations/jev install --frozen-lockfile" in gateway
     assert (
         "if: ${{ matrix.model_key != 'vercel_ai_gateway:typesafe-ai/jev' && "

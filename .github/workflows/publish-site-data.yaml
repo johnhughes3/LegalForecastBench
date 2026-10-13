@@ -52,7 +52,7 @@ jobs:
           WITHDRAWN_CASE_IDS: ${{ inputs.withdrawn_case_ids }}
         run: |
           corepack enable
-          corepack prepare pnpm@11.27.0 --activate
+          corepack prepare pnpm@12.11.2 --activate
           pnpm install --frozen-lockfile
           pnpm site:check
           bash site/scripts/build-selected-data.sh
