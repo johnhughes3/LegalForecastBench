@@ -12,7 +12,7 @@ import { PAPER_PROSE } from "../data/paper-prose";
 import { RELEASE } from "../data/release";
 import { primarySnapshot, snapshot } from "../data/results";
 import Layout from "../layouts/Layout.astro";
-import { COHORT_NOTE, COPY, HOME_INTRO, WHY_OUTCOMES } from "../seo/copy";
+import { COPY, HOME_INTRO, WHY_OUTCOMES } from "../seo/copy";
 
 const { cohort } = snapshot;
 const n = cohort.unit_count;
@@ -59,7 +59,6 @@ const subtitle = PAPER.title.split(": ").at(-1) ?? PAPER.title;
 				<Stat value={String(primarySnapshot.models.length)} label="Model configurations" detail="Ranked this cycle" />
 				<Stat value={formatPercent(cohort.dismissed_unit_count / n)} label="Dismissal base rate" detail="Units fully dismissed" />
 			</div>
-			<p class="mt-6 max-w-2xl text-sm leading-relaxed text-ink-3">{COHORT_NOTE}</p>
 		</div>
 	</section>
 
