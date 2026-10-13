@@ -20,3 +20,11 @@ def test_public_docs_record_alpha_version_and_tag() -> None:
 
     assert "0.1.0a3" in readme
     assert "v0.1.0-alpha.3" in readme
+
+
+def test_citation_file_records_the_package_version() -> None:
+    """CITATION.cff's top-level fields describe the software release, so its
+    version is the package version, not a results-release date."""
+    citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+
+    assert f'version: "{legalforecast.__version__}"' in citation

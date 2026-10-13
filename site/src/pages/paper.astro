@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import CiteBox from "../components/CiteBox.astro";
 import { AUTHOR, REPO } from "../data/author";
 import { repositoryRoot } from "../data/manuscript";
+import { formatLongDate } from "../data/metrics";
 import { currentPaper, PAPER, PAPER_CITATION } from "../data/paper";
 import Layout from "../layouts/Layout.astro";
 import { COPY } from "../seo/copy";
@@ -13,13 +14,7 @@ const workingPdfOnDisk = existsSync(
 	resolve(repositoryRoot(), `site/public${PAPER.workingPdf}`),
 );
 
-const fmt = (iso: string) =>
-	new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
-		month: "long",
-		day: "numeric",
-		year: "numeric",
-		timeZone: "UTC",
-	});
+const fmt = formatLongDate;
 const history = [...PAPER.versions].reverse();
 // First publication is fixed in CITATION.cff. The manuscript date only
 // drives `dateModified`.
