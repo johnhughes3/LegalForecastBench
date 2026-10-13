@@ -476,7 +476,7 @@ def place_labels(
         x, y, label, _ = points[index]
         width = len(label) * F4_CHAR_WIDTH
         other_marks = [mark for i, mark in enumerate(marks) if i != index]
-        best: tuple[float, tuple[float, float, str], Box] | None = None
+        best: tuple[float, tuple[float, float, str, bool], Box] | None = None
         for rank, (dx, dy, anchor, leader) in enumerate(candidates):
             box = _label_box(x + dx, y + dy, anchor, width)
             outside = (
