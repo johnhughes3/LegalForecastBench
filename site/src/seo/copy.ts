@@ -40,6 +40,6 @@ export const COPY = {
 	lab: {
 		title: "Harvey LAB litigation explorer",
 		description:
-			"Explore Harvey LAB's 52 litigation tasks: rubric criteria, AI audit findings, two graded model runs, and a litigator's review of 25 sampled criteria.",
+			"Explore Harvey LAB's 52 public litigation tasks: rubric criteria, AI audit findings, two graded model runs, and a litigator's review of 25 sampled criteria.",
 	},
 } as const;
