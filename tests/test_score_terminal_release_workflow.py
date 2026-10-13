@@ -153,7 +153,7 @@ def test_score_step_cannot_execute_a_model_or_write_official_storage() -> None:
     assert "put-object" not in WORKFLOW
     assert "reconcile-s3-object" not in WORKFLOW
     assert (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in WORKFLOW
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in WORKFLOW
     )
     assert "/tmp/lfb-terminal-score-result" in WORKFLOW
     assert "if: ${{ always() }}" in _section("- name: Upload score-only result package")
