@@ -18,6 +18,7 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 			return;
 		}
 		try {
+			const bytes = await readFile(file);
 			const types: Record<string, string> = {
 				".html": "text/html",
 				".js": "text/javascript",
@@ -29,7 +30,7 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 				.writeHead(200, {
 					"Content-Type": types[extname(file)] ?? "application/octet-stream",
 				})
-				.end(await readFile(file));
+				.end(bytes);
 		} catch {
 			response.writeHead(404).end();
 		}
@@ -49,6 +50,15 @@ test("tooltips remain described, dismissible, and visible on static and hydrated
 						reducedMotion: "reduce",
 					});
 					const errors: string[] = [];
+					// Vercel serves this script; the offline static server does not.
+					// Tooltip checks exercise the UI, not analytics ingestion.
+					await page.route("**/_vercel/insights/script.js", (route) =>
+						route.fulfill({
+							status: 200,
+							contentType: "application/javascript",
+							body: "",
+						}),
+					);
 					if (!nativePopover)
 						await page.addInitScript(() => {
 							Reflect.deleteProperty(HTMLElement.prototype, "showPopover");
