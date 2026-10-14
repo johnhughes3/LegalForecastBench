@@ -1,4 +1,5 @@
 ---
+import Analytics from "@vercel/analytics/astro";
 import { COURTHOUSE_PATH } from "../brand";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/newsreader";
@@ -237,9 +238,12 @@ const onPaper = path.startsWith("/paper/");
 				</div>
 			</div>
 		</footer>
+		<Analytics />
 	</body>
 </html>
 
 <script>
+	import { trackEngagement } from "../scripts/engagement";
 	import "../scripts/tooltips";
+	document.addEventListener("click", trackEngagement);
 </script>
