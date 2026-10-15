@@ -14,6 +14,7 @@ from .recovery_client import RecoveryError
 _EXECUTION_STEPS = {
     "openai": "Execute exact OpenAI forecast cell",
     "anthropic": "Execute exact Anthropic forecast cell",
+    "paperinstruments": "Execute exact Anthropic forecast cell",
     "google": "Execute exact Google forecast cell",
     "vercel_ai_gateway": "Execute exact Gateway or TypeSafe Jev forecast cell",
     "typesafe": "Execute exact Gateway or TypeSafe Jev forecast cell",

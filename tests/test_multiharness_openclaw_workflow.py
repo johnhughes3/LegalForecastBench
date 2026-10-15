@@ -34,7 +34,11 @@ def _bash(script: str, **environment: str) -> subprocess.CompletedProcess[str]:
     ("mode", "model", "case_id", "accepted"),
     [
         ("native", "openai:model", "", True),
-        ("native", "anthropic:model", "case-1", False),
+        ("native", "paperinstruments:ultramarine-1-flash", "", True),
+        ("claude-code-terminal", "paperinstruments:ultramarine-1-flash", "", False),
+        ("hermes-agent", "paperinstruments:ultramarine-1-flash", "", False),
+        ("openclaw", "paperinstruments:ultramarine-1-flash", "", False),
+        ("native", "anthropic:model", "case-1", True),
         ("claude-code-terminal", "anthropic:model", "case-1", True),
         ("openclaw", "anthropic:model", "case-1", True),
         ("hermes-agent", "anthropic:model", "case-1", True),

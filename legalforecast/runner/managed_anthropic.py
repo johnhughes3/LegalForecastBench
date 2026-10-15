@@ -11,6 +11,10 @@ from legalforecast.evals.model_registry import (
     OpenAIReasoningEffort,
     ToolPolicy,
 )
+from legalforecast.runner.paperinstruments import (
+    paperinstruments_model,
+    paperinstruments_settings,
+)
 from legalforecast.runner.provider_auth import ProviderAuthentication
 
 
@@ -28,6 +32,9 @@ def anthropic_model(
     their existing dependency surface while the Anthropic workflow installs its
     dedicated extra.
     """
+
+    if entry.provider.strip().lower() == "paperinstruments":
+        return paperinstruments_model(entry, api_key=api_key)
 
     from pydantic_ai.models.anthropic import AnthropicModel
     from pydantic_ai.providers.anthropic import AnthropicProvider
@@ -50,6 +57,9 @@ def anthropic_model_settings(
     The runner explicitly selects native JSON output so provider profile defaults
     cannot force workspace tool calls when the model is ready to finish.
     """
+
+    if entry.provider.strip().lower() == "paperinstruments":
+        return paperinstruments_settings(entry)
 
     from pydantic_ai.models.anthropic import AnthropicModelSettings
 

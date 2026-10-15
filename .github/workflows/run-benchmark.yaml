@@ -45,7 +45,7 @@ on:
           - hermes-agent
           - openclaw
       terminal_case_id:
-        description: Optional exact case ID for a scoped release-harness smoke; empty runs the full release.
+        description: Optional exact case ID for a scoped smoke in any execution mode; empty runs the full release.
         required: false
         default: ""
         type: string
@@ -174,10 +174,6 @@ jobs:
               ;;
             *) echo "unsupported execution_mode" >&2; exit 1 ;;
           esac
-          if [[ -n "${TERMINAL_CASE_ID}" && "${EXECUTION_MODE}" != "claude-code-terminal" && "${EXECUTION_MODE}" != "hermes-agent" && "${EXECUTION_MODE}" != "openclaw" ]]; then
-            echo "terminal_case_id requires a release-harness execution mode" >&2
-            exit 1
-          fi
           for value in "${MANIFEST_URI}" "${FORECAST_RELEASE_URI}" "${ARTIFACT_ROOT_URI}" "${MODEL_REGISTRY_URI}" "${MODEL_KEY}" "${ACCOUNT}"; do
             [[ -n "${value}" && "${value}" != *..* ]] || { echo "unsafe or empty dispatch identity" >&2; exit 1; }
           done
@@ -190,7 +186,7 @@ jobs:
               s3://*|manifests/*|*) ;;
             esac
           fi
-          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
+          [[ "${MODEL_KEY}" =~ ^(openai|anthropic|paperinstruments|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$ ]] || { echo "model_key must be provider:model_id" >&2; exit 1; }
           [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]] || { echo "ceiling_microusd must be positive" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" =~ ^[1-9][0-9]*$ && "${REPEAT_COUNT}" -le 20 ]] || { echo "repeat_count must be between 1 and 20" >&2; exit 1; }
           [[ "${REPEAT_COUNT}" == "1" ]] || { echo "repeat_count must be exactly 1 until repeated-sampling fan-in is supported" >&2; exit 1; }
@@ -438,6 +434,8 @@ jobs:
           MODEL_KEY: ${{ inputs.model_key }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
+          TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}
         run: |
           set -euo pipefail
           uv run python - <<'PY'
@@ -453,6 +451,9 @@ jobs:
               raise SystemExit("repeat_count must be exactly 1 until repeated-sampling fan-in is supported")
           run_inputs = load_forecast_run_inputs(Path("/tmp/lfb-locked-inputs/run-manifest.json"), Path("/tmp/lfb-locked-inputs/forecast-release.json"), artifact_root=Path("/tmp/lfb-locked-inputs/artifacts"))
           forecast = run_inputs.execution.release
+          selected_case_id = os.environ["TERMINAL_CASE_ID"]
+          if selected_case_id and selected_case_id not in {case.case_id for case in forecast.cases}:
+              raise SystemExit(f"requested case is absent from the locked forecast release: {selected_case_id}")
           registry_bytes = read_single_link_file(Path("/tmp/lfb-locked-inputs/model-registry.json"), label="model registry")
           registry_sha256 = model_registry_sha256(registry_bytes)
           requested_model_key = os.environ["MODEL_KEY"]
@@ -491,7 +492,7 @@ jobs:
               provider = entry.provider.strip().casefold()
               if provider == "google":
                   provider = "gemini"
-              matrix_provider = "gateway" if provider in {"vercel_ai_gateway", "typesafe"} else provider
+              matrix_provider = "gateway" if provider in {"vercel_ai_gateway", "typesafe"} else "anthropic" if provider == "paperinstruments" else provider
               if matrix_provider not in matrices:
                   raise SystemExit(f"model registry provider is not supported by the official forecast workflow: {entry.provider}")
               for case in forecast.cases:
@@ -516,6 +517,11 @@ jobs:
           import runpy
           recovery = runpy.run_path(".github/scripts/restore-forecast-state.py")
           recovery["prepare"](matrices, run_identity_sha256, Path("/tmp/lfb-locked-inputs"), Path("/tmp/lfb-restored-bundle"))
+          # Scope only pending workers after restoring against the full release census.
+          # Keeping locked inputs and run identity intact allows full recovery after a smoke.
+          if os.environ["EXECUTION_MODE"] == "native" and selected_case_id:
+              for rows in matrices.values():
+                  rows[:] = [row for row in rows if row["case_id"] == selected_case_id]
           output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
           with output:
               for provider, rows in matrices.items():
@@ -979,8 +985,8 @@ jobs:
           retention-days: ${{ inputs.artifact_retention_days }}
 
   run-anthropic:
-    name: Anthropic resumable forecast cells
-    if: ${{ inputs.execution_mode == 'native' && startsWith(inputs.model_key, 'anthropic:') && needs.prepare-inputs.outputs.anthropic_count != '0' }}
+    name: Anthropic-compatible resumable forecast cells
+    if: ${{ inputs.execution_mode == 'native' && (startsWith(inputs.model_key, 'anthropic:') || startsWith(inputs.model_key, 'paperinstruments:')) && needs.prepare-inputs.outputs.anthropic_count != '0' }}
     needs: prepare-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -1092,7 +1098,8 @@ jobs:
       - name: Execute exact Anthropic forecast cell
         shell: bash
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ matrix.provider == 'anthropic' && secrets.ANTHROPIC_API_KEY || '' }}
+          PAPERINSTRUMENTS_API_KEY: ${{ matrix.provider == 'paperinstruments' && secrets.PAPERINSTRUMENTS_API_KEY || '' }}
           MODEL_KEY: ${{ matrix.model_key }}
           CELL_ID: ${{ matrix.cell_id }}
           UNIT_ID: ${{ matrix.unit_id }}

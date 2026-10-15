@@ -216,6 +216,17 @@
 			"source": "https://research.meta.ai/blog/introducing-muse-spark-1-3",
 			"checked": "2026-09-08",
 			"note": "Meta has not published a cutoff."
+		},
+		{
+			"slug": "ultramarine-1-flash",
+			"model_ids": [
+				"ultramarine-1-flash"
+			],
+			"cutoff": null,
+			"kind": null,
+			"source": "https://www.paperinstruments.com/blog/ultramarine",
+			"checked": "2026-10-14",
+			"note": "No provider-reported training-data or knowledge cutoff found in the launch or API documentation. Release date is not a cutoff proxy."
 		}
 	]
 }

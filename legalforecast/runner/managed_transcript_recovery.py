@@ -190,7 +190,7 @@ def managed_result_from_transcript(
     _verify_managed_prompt(messages, entry=entry, cell=cell)
     provider = entry.provider.strip().lower()
     calls, _returns, final_call = _verify_tool_history(
-        messages, require_final_result=provider != "anthropic"
+        messages, require_final_result=provider not in {"anthropic", "paperinstruments"}
     )
     if final_call is None:
         output, wrong_units = _verify_native_final_envelope(
@@ -215,6 +215,7 @@ def managed_result_from_transcript(
     if provider not in {
         "openai",
         "anthropic",
+        "paperinstruments",
         "google",
         "gemini",
         "vercel_ai_gateway",
@@ -229,6 +230,8 @@ def managed_result_from_transcript(
         if isinstance(response.provider_name, str) and response.provider_name.strip()
     }
     allowed_provider_names = {provider}
+    if provider == "paperinstruments":
+        allowed_provider_names.add("anthropic")
     expected_provider: str | None = None
     if provider == "vercel_ai_gateway":
         expected_provider = managed_execution.gateway_route_provider(entry.model_id)

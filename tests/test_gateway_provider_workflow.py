@@ -16,7 +16,7 @@ def _job(name: str, next_name: str | None = None) -> str:
 def test_gateway_lane_is_partitioned_from_direct_provider_jobs() -> None:
     prepare = _job("prepare-inputs", "run-openai")
     assert (
-        "^(openai|anthropic|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$"
+        "^(openai|anthropic|paperinstruments|gemini|google|vercel_ai_gateway|typesafe):[^:[:space:]]+$"
         in prepare
     )
     job = _job("run-gateway")
@@ -101,3 +101,42 @@ def test_gateway_lane_is_included_in_protected_fan_in() -> None:
         "if: ${{ always() && inputs.execution_mode == 'native' && "
         "needs.prepare-inputs.result == 'success' }}"
     ) in combined
+
+
+def test_paperinstruments_reuses_native_anthropic_lane_with_scoped_credential() -> None:
+    job = _job("run-anthropic", "run-gemini")
+    assert "inputs.execution_mode == 'native'" in job
+    assert "startsWith(inputs.model_key, 'paperinstruments:')" in job
+    assert "fromJSON(needs.prepare-inputs.outputs.anthropic_matrix)" in job
+    assert (
+        "ANTHROPIC_API_KEY: ${{ matrix.provider == 'anthropic' && "
+        "secrets.ANTHROPIC_API_KEY || '' }}" in job
+    )
+    assert (
+        "PAPERINSTRUMENTS_API_KEY: ${{ matrix.provider == 'paperinstruments' && "
+        "secrets.PAPERINSTRUMENTS_API_KEY || '' }}" in job
+    )
+    assert WORKFLOW.count("secrets.PAPERINSTRUMENTS_API_KEY") == 1
+    assert '--model-key "${MODEL_KEY}"' in job
+
+
+def test_paperinstruments_matrix_routing_preserves_provider_identity() -> None:
+    import ast
+    import textwrap
+
+    assignment = next(
+        line for line in WORKFLOW.splitlines() if "matrix_provider =" in line
+    )
+    code = compile(ast.parse(textwrap.dedent(assignment)), "workflow-matrix", "exec")
+    for provider, expected in (
+        ("paperinstruments", "anthropic"),
+        ("anthropic", "anthropic"),
+        ("openai", "openai"),
+        ("gemini", "gemini"),
+        ("vercel_ai_gateway", "gateway"),
+        ("typesafe", "gateway"),
+    ):
+        scope: dict[str, object] = {"provider": provider}
+        exec(code, scope)
+        assert scope["matrix_provider"] == expected
+        assert scope["provider"] == provider

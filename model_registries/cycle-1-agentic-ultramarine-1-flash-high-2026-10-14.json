@@ -1,0 +1,30 @@
+[
+  {
+    "provider": "paperinstruments",
+    "model_id": "ultramarine-1-flash",
+    "display_name": "Ultramarine 1 Flash",
+    "model_version_or_snapshot": "ultramarine-1-flash",
+    "release_timestamp": "2026-10-14T00:00:00Z",
+    "release_timestamp_source": "https://www.paperinstruments.com/blog/ultramarine (October 14, 2026)",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "max_output_tokens": 32768,
+    "context_limit": 131072,
+    "network_disabled": true,
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only",
+    "input_token_price": 0.15,
+    "output_token_price": 0.5,
+    "cache_read_token_price": 0.03,
+    "cache_write_token_price": 0.15,
+    "pricing_source": "https://api.paperinstruments.com/v1/pricing and https://docs.paperinstruments.com/docs/ultramarine/billing; checked 2026-10-14: standard USD 0.15/M uncached input, 0.03/M cached input, 0.50/M output including reasoning; cache creation priced as uncached input.",
+    "known_cutoff_publicity_caveats": [
+      "Regular full-document managed agentic benchmark with explicit high reasoning and the original prediction units; no summary input or web search.",
+      "No provider-reported training-data or knowledge cutoff was found in the launch or API documentation checked 2026-10-14. Eligibility remains qualified; release date is provenance, not a cutoff proxy.",
+      "Direct Paper Instruments Messages endpoint using the managed Anthropic-protocol SDK adapter. The model is not a dated immutable snapshot; retain served identity.",
+      "Provider recommends max effort; this condition explicitly uses high effort to match the regular agentic comparison.",
+      "API limits are 131072 context tokens and 32768 output tokens including reasoning. Reasoning text display is omitted because the Messages endpoint does not accept thinking blocks in history.",
+      "Only ephemeral cache control without a TTL is supported. Cost reconstruction uses saved usage and the pricing snapshot; it is not a provider-reported charge."
+    ]
+  }
+]

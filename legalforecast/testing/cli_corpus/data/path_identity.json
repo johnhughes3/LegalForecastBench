@@ -162,6 +162,7 @@
     "tests/test_multiharness_local_cli_stream.py",
     "tests/test_multiharness_openclaw.py",
     "tests/test_multiharness_openclaw_workflow.py",
+    "tests/test_native_smoke_workflow.py",
     "tests/test_official_community_import_budget.py",
     "tests/test_official_eval_bootstrap_infra.py",
     "tests/test_official_eval_corpus_trust.py",
