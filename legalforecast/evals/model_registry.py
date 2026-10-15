@@ -112,6 +112,13 @@ class GoogleThinkingLevel(StrEnum):
 
 _REASONING_EFFORT_PROVIDERS: Final[Mapping[str, frozenset[OpenAIReasoningEffort]]] = {
     "openai": frozenset(OpenAIReasoningEffort),
+    "paperinstruments": frozenset(
+        {
+            OpenAIReasoningEffort.LOW,
+            OpenAIReasoningEffort.HIGH,
+            OpenAIReasoningEffort.MAX,
+        }
+    ),
     # Vercel AI Gateway exposes these OpenAI Responses controls unchanged while
     # routing the request to an explicitly allowlisted upstream provider.
     "vercel_ai_gateway": frozenset(
@@ -318,6 +325,13 @@ class ModelRegistryEntry:
             raise ValueError("thinking_level is supported only for Google models")
         _require_positive_int(self.max_output_tokens, "max_output_tokens")
         _require_positive_int(self.context_limit, "context_limit")
+        if self.provider.strip().lower() == "paperinstruments":
+            if self.model_id != "ultramarine-1-flash":
+                raise ValueError("unsupported Paper Instruments model")
+            if self.max_output_tokens > 32768 or self.context_limit > 131072:
+                raise ValueError("Paper Instruments model limits exceeded")
+            if self.reasoning_effort is None:
+                raise ValueError("Paper Instruments requires explicit reasoning effort")
         _require_non_negative(self.input_token_price, "input_token_price")
         _require_non_negative(self.output_token_price, "output_token_price")
         if self.cache_read_token_price is not None:

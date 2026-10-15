@@ -78,7 +78,7 @@ def test_terminal_workflow_builds_and_verifies_local_pinned_images() -> None:
     assert "id-token: write" in terminal
 
 
-def test_terminal_case_selector_is_quoted_and_rejected_for_native_mode() -> None:
+def test_case_selector_is_quoted_and_supported_in_each_execution_mode() -> None:
     import os
     import subprocess
     import textwrap
@@ -88,23 +88,23 @@ def test_terminal_case_selector_is_quoted_and_rejected_for_native_mode() -> None
     assert 'case_args+=(--case-id "${TERMINAL_CASE_ID}")' in terminal
     assert 'release-execute "${case_args[@]}"' in terminal
     prepare = _job("prepare-inputs", "run-terminal")
-    start = prepare.index('          if [[ -n "${TERMINAL_CASE_ID}"')
-    end = prepare.index("          fi", start) + len("          fi")
+    start = prepare.index('          case "${EXECUTION_MODE}" in')
+    end = prepare.index("          esac", start) + len("          esac")
     guard = textwrap.dedent(prepare[start:end])
-    for mode, case_id, accepted in (
-        ("native", "case-001", False),
-        ("native", "", True),
-        ("claude-code-terminal", "case-001", True),
-        ("hermes-agent", "case-001", True),
-    ):
+    for mode in ("native", "claude-code-terminal", "hermes-agent", "openclaw"):
         result = subprocess.run(
             ["bash", "-c", guard],
-            env={**os.environ, "EXECUTION_MODE": mode, "TERMINAL_CASE_ID": case_id},
+            env={
+                **os.environ,
+                "EXECUTION_MODE": mode,
+                "MODEL_KEY": "anthropic:model",
+                "TERMINAL_CASE_ID": "case-001",
+            },
             capture_output=True,
             text=True,
             check=False,
         )
-        assert (result.returncode == 0) is accepted
+        assert result.returncode == 0, result.stderr
 
 
 def test_hermes_uses_existing_protected_lane_and_exact_runtime() -> None:

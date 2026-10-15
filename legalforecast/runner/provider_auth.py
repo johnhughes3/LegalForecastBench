@@ -43,6 +43,7 @@ AuthMode = Literal["api_key", "workload_identity"]
 _KEY_NAMES = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
+    "paperinstruments": "PAPERINSTRUMENTS_API_KEY",
     "google": "GEMINI_API_KEY",
     "vercel_ai_gateway": "AI_GATEWAY_API_KEY",
 }

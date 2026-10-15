@@ -355,7 +355,7 @@ def run_managed_tool_agent(
             provider=gateway_provider,
             profile=gateway_profile,
         )
-    elif provider == "anthropic":
+    elif provider in {"anthropic", "paperinstruments"}:
         resolved_model = (
             _anthropic_model(entry, api_key=api_key, authentication=authentication)
             if authentication is not None and authentication.mode == "workload_identity"
@@ -396,7 +396,7 @@ def run_managed_tool_agent(
             cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
                 Any, entry.reasoning_effort.value
             )
-    elif provider == "anthropic":
+    elif provider in {"anthropic", "paperinstruments"}:
         settings = _anthropic_model_settings(entry)
     else:
         google_settings = GoogleModelSettings(max_tokens=entry.max_output_tokens)
@@ -411,7 +411,7 @@ def run_managed_tool_agent(
         resolved_model,
         output_type=(
             NativeOutput(ForecastEnvelope)
-            if provider == "anthropic"
+            if provider in {"anthropic", "paperinstruments"}
             else ForecastEnvelope
         ),
         deps_type=ManagedToolAgentDeps,
@@ -626,7 +626,7 @@ def requests_flex_service_tier(provider: str, model_id: str) -> bool:
 
 
 _MANAGED_DOCUMENT_TOOL_PROVIDERS = frozenset(
-    {"openai", "anthropic", "google", "gemini", "vercel_ai_gateway"}
+    {"openai", "anthropic", "paperinstruments", "google", "gemini", "vercel_ai_gateway"}
 )
 
 
@@ -647,6 +647,7 @@ def uses_managed_document_tools(entry: ModelRegistryEntry) -> bool:
             provider != "vercel_ai_gateway"
             or gateway_model_is_allowlisted(entry.model_id)
         )
+        and (provider != "paperinstruments" or entry.model_id == "ultramarine-1-flash")
     )
 
 
@@ -1040,7 +1041,7 @@ def complete_managed_tool_cell(
                 else "not_reported",
             }
         )
-        if provider == "anthropic":
+        if provider in {"anthropic", "paperinstruments"}:
             metadata["requested_thinking_type"] = "adaptive"
             if entry.reasoning_effort is not None:
                 metadata["requested_reasoning_effort"] = entry.reasoning_effort.value
