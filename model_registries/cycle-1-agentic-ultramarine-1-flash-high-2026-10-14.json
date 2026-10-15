@@ -17,7 +17,7 @@
     "output_token_price": 0.5,
     "cache_read_token_price": 0.03,
     "cache_write_token_price": 0.15,
-    "pricing_source": "https://api.paperinstruments.com/v1/pricing and https://docs.paperinstruments.com/docs/ultramarine/billing; checked 2026-10-14: USD 0.15/M uncached input, 0.03/M cached input, 0.50/M output including reasoning; cache creation priced as uncached input.",
+    "pricing_source": "https://api.paperinstruments.com/v1/pricing and https://docs.paperinstruments.com/docs/ultramarine/billing; checked 2026-10-14: standard USD 0.15/M uncached input, 0.03/M cached input, 0.50/M output including reasoning; cache creation priced as uncached input.",
     "known_cutoff_publicity_caveats": [
       "Regular full-document managed agentic benchmark with explicit high reasoning and the original prediction units; no summary input or web search.",
       "No provider-reported training-data or knowledge cutoff was found in the launch or API documentation checked 2026-10-14. Eligibility remains qualified; release date is provenance, not a cutoff proxy.",

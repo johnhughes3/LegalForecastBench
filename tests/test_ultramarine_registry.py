@@ -201,3 +201,36 @@ def test_ultramarine_managed_wire_and_cache_cost(
         (200 * 0.15 + 80 * 0.03 + 40 * 0.5) / 1_000_000
     )
     assert cost.basis == "estimated_from_pricing_snapshot"
+
+
+def test_ultramarine_public_accounting_includes_standard_repricing() -> None:
+    from legalforecast.publication.receipt_accounting import build_public_accounting
+
+    registry = load_model_registry(REGISTRY)
+    record = {
+        "model_key": registry.entries[0].registry_key,
+        "case_id": "case-a",
+        "run_identity_sha256": "run-a",
+        "usage": {
+            "estimated_cost_microusd": 704000,
+            "input_tokens": 2000000,
+            "output_tokens": 1000000,
+        },
+        "cost_evidence": {
+            "basis": "estimated_from_pricing_snapshot",
+            "method": "cache_aware_usage_reconstruction",
+            "response_usage_details": [
+                {
+                    "input_tokens": 2000000,
+                    "output_tokens": 1000000,
+                    "cache_read_tokens": 800000,
+                    "cache_write_tokens": 0,
+                }
+            ],
+        },
+    }
+    output = build_public_accounting([record], registry)[0]
+    assert output["standard_rate_cost"] == pytest.approx(0.704)
+    assert output["estimated_cost"] == 0.704
+    assert output["missing_cache_read_response_count"] == 0
+    assert output["missing_cache_write_response_count"] == 0
