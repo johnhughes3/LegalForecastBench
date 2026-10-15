@@ -1,0 +1,29 @@
+[
+  {
+    "cache_read_token_price": 0.1,
+    "context_limit": 1048576,
+    "display_name": "Gemini 4 Argon (agentic; high thinking)",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "Google reports a March 2026 knowledge cutoff at https://deepmind.google/models/model-cards/gemini-4-argon/; month-only evidence is compared as March 1 under the maintained eligibility policy.",
+      "Stable alias has no dated immutable snapshot. Preserve served model version and report this provenance limitation.",
+      "Full agentic document-tool condition over original locked documents, high thinking and provider-default sampling. No Jev summaries or search.",
+      "The 1048576-token context is unified across input, thinking and output. Synchronous output is limited to 65536 tokens. No long-decode continuation is requested.",
+      "Implicit caching only; no explicit cache storage is created. Frozen prices are the Standard service introductory rates valid through November 30, 2026."
+    ],
+    "max_output_tokens": 65536,
+    "model_id": "gemini-4-argon",
+    "model_version_or_snapshot": "gemini-4-argon",
+    "network_disabled": true,
+    "output_token_price": 10.0,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing: Standard introductory pricing through November 30, 2026: input USD 2/M, output including thinking USD 10/M, implicit cache read USD 0.10/M. From December 1, 2026: USD 4/M, 20/M, 0.20/M respectively. No context-length surcharge. Checked 2026-10-15.",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-10-13T00:00:00Z",
+    "release_timestamp_source": "https://deepmind.google/models/model-cards/gemini-4-argon/; model card published October 13, 2026.",
+    "search_disabled": true,
+    "thinking_level": "high",
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]
