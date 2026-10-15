@@ -158,9 +158,12 @@ def _managed_token_cost(
 def _cache_write_tokens_for_pricing(
     entry: ModelRegistryEntry, usage: ManagedResponseUsage
 ) -> int | None:
-    """OpenAI has no separate cache-write charge; preserve omission in evidence."""
+    """Normalize providers without cache-write billing, retaining raw evidence."""
 
-    if usage.cache_write_tokens is None and entry.provider.strip().lower() == "openai":
+    provider = entry.provider.strip().lower()
+    implicit_only = provider == "google" and entry.model_id == "gemini-4-argon"
+    # Argon supports only implicit cache reads; absent writes are not missing usage.
+    if usage.cache_write_tokens is None and (provider == "openai" or implicit_only):
         return 0
     return usage.cache_write_tokens
 

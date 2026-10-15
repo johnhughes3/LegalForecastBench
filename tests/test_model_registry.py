@@ -516,7 +516,7 @@ def test_argon_snapshot_preserves_full_document_condition_and_intro_costs() -> N
         entry,
         (
             ManagedResponseUsage(
-                300000, 10000, cache_read_tokens=200000, cache_write_tokens=0
+                300000, 10000, cache_read_tokens=200000, cache_write_tokens=None
             ),
         ),
     ) == pytest.approx(0.32)
