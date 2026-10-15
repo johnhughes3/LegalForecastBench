@@ -493,3 +493,30 @@ def test_current_sonnet_successor_freezes_provider_limits_and_managed_thinking()
     assert settings["max_tokens"] == 128_000
     assert settings["anthropic_thinking"] == {"type": "adaptive"}
     assert settings["parallel_tool_calls"] is False
+
+
+def test_argon_snapshot_preserves_full_document_condition_and_intro_costs() -> None:
+    from legalforecast.runner.managed_cost import (
+        ManagedResponseUsage,
+        managed_usage_cost,
+    )
+
+    entry = load_model_registry(
+        ROOT / "model_registries/cycle-1-agentic-gemini-4-argon-high-2026-10-15.json"
+    ).entries[0]
+    require_official_registry_entries((entry,))
+    managed_execution.require_managed_document_tools(entry)
+    assert entry.registry_key == "google:gemini-4-argon"
+    assert entry.thinking_level is not None and entry.thinking_level.value == "high"
+    assert entry.jev_input_mode is None and entry.jev_summaries_sha256 is None
+    assert entry.provider_training_cutoff == date(2026, 3, 1)
+    assert entry.context_limit == 1048576 and entry.max_output_tokens == 65536
+    # Argon has no legacy Pro surcharge above 200K input; cache hits cost 5%.
+    assert managed_usage_cost(
+        entry,
+        (
+            ManagedResponseUsage(
+                300000, 10000, cache_read_tokens=200000, cache_write_tokens=0
+            ),
+        ),
+    ) == pytest.approx(0.32)

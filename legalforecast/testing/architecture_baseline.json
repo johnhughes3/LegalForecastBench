@@ -1682,10 +1682,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 322,
+        "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 1100,
-        "nonblank_line_count": 1019,
+        "line_count": 1103,
+        "nonblank_line_count": 1022,
         "top_level_definition_count": 20
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
@@ -2325,8 +2325,8 @@
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
         "largest_symbol_lines": 190,
         "layer": "test",
-        "line_count": 1516,
-        "nonblank_line_count": 1386,
+        "line_count": 1526,
+        "nonblank_line_count": 1396,
         "top_level_definition_count": 30
       },
       "tests/test_managed_transcript_recovery.py": {
@@ -2345,6 +2345,24 @@
         "line_count": 972,
         "nonblank_line_count": 908,
         "top_level_definition_count": 21
+      },
+      "tests/test_model_registry.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_argon_snapshot_preserves_full_document_condition_and_intro_costs",
+        "largest_symbol_lines": 25,
+        "layer": "test",
+        "line_count": 522,
+        "nonblank_line_count": 414,
+        "top_level_definition_count": 32
       },
       "tests/test_multiharness_auth_binding.py": {
         "cycle_id": "",

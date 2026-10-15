@@ -525,7 +525,9 @@ def test_managed_agent_exposes_exactly_the_six_harvey_tools(tmp_path: Path) -> N
     assert seen == ["bash", "edit", "glob", "grep", "read", "write"]
 
 
+@pytest.mark.parametrize("model_id", ["gemini-3.8-flash", "gemini-4-argon"])
 def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
+    model_id: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -546,7 +548,7 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
                 output_tokens=40,
                 details={"thoughts_tokens": 30},
             ),
-            model_name="gemini-3.8-flash",
+            model_name=model_id,
             provider_name="google",
             finish_reason="stop",
         ),
@@ -571,7 +573,7 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
                 output_tokens=60,
                 details={"thoughts_tokens": 40},
             ),
-            model_name="gemini-3.8-flash",
+            model_name=model_id,
             provider_name="google",
             finish_reason="stop",
         ),
@@ -579,6 +581,7 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
 
     async def scripted(_messages: list[Any], info: Any) -> ModelResponse:
         seen.extend(sorted(tool.name for tool in info.function_tools))
+        captured["settings"] = info.model_settings
         return turns.pop(0)
 
     captured: dict[str, Any] = {}
@@ -591,8 +594,11 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    entry = replace(
+        _google_entry(), model_id=model_id, model_version_or_snapshot=model_id
+    )
     result = run_managed_tool_agent(
-        _google_entry(),
+        entry,
         initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
         required_unit_ids=("unit-a",),
         executor=_Executor(),
@@ -601,7 +607,11 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
         api_key="fixture-key",
     )
 
-    assert captured["model_id"] == "gemini-3.8-flash"
+    assert captured["model_id"] == model_id
+    assert captured["settings"]["google_thinking_config"]["thinking_level"] == "HIGH"
+    assert captured["settings"].get("timeout") == (
+        900.0 if model_id == "gemini-4-argon" else None
+    )
     assert captured["provider"].__class__.__name__ == "GoogleProvider"
     assert managed_execution.uses_managed_document_tools(_google_entry())
     assert result.served_model == "function:scripted:"

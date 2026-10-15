@@ -400,6 +400,9 @@ def run_managed_tool_agent(
         settings = _anthropic_model_settings(entry)
     else:
         google_settings = GoogleModelSettings(max_tokens=entry.max_output_tokens)
+        if entry.model_id == "gemini-4-argon":
+            # Google recommends at least fifteen minutes for Argon reasoning.
+            google_settings["timeout"] = 900.0
         if entry.thinking_level is not None:
             cast(dict[str, Any], google_settings)["google_thinking_config"] = {
                 "thinking_level": entry.thinking_level.value.upper(),

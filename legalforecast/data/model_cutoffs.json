@@ -227,6 +227,16 @@
 			"source": "https://www.paperinstruments.com/blog/ultramarine",
 			"checked": "2026-10-14",
 			"note": "No provider-reported training-data or knowledge cutoff found in the launch or API documentation. Release date is not a cutoff proxy."
+		},
+		{
+			"slug": "gemini-4-argon",
+			"model_ids": [
+				"gemini-4-argon"
+			],
+			"cutoff": "2026-03",
+			"kind": "knowledge",
+			"source": "https://deepmind.google/models/model-cards/gemini-4-argon/",
+			"checked": "2026-10-15"
 		}
 	]
 }
