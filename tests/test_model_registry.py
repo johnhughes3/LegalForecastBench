@@ -509,7 +509,8 @@ def test_argon_snapshot_preserves_full_document_condition_and_intro_costs() -> N
     assert entry.registry_key == "google:gemini-4-argon"
     assert entry.thinking_level is not None and entry.thinking_level.value == "high"
     assert entry.jev_input_mode is None and entry.jev_summaries_sha256 is None
-    assert entry.provider_training_cutoff == date(2026, 3, 1)
+    assert entry.provider_training_cutoff is None
+    assert entry.provider_training_cutoff_status is TrainingCutoffStatus.UNKNOWN
     assert entry.context_limit == 1048576 and entry.max_output_tokens == 65536
     # Argon has no legacy Pro surcharge above 200K input; cache hits cost 5%.
     assert managed_usage_cost(

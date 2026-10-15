@@ -2358,10 +2358,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_argon_snapshot_preserves_full_document_condition_and_intro_costs",
-        "largest_symbol_lines": 25,
+        "largest_symbol_lines": 26,
         "layer": "test",
-        "line_count": 522,
-        "nonblank_line_count": 414,
+        "line_count": 523,
+        "nonblank_line_count": 415,
         "top_level_definition_count": 32
       },
       "tests/test_multiharness_auth_binding.py": {
