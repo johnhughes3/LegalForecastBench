@@ -1,9 +1,12 @@
 import { AUTHOR, LEGALQUANTS, REPO } from "../data/author.js";
 
-/** Public origin. `astro.config` and every absolute URL on the site read this. */
-export const SITE_ORIGIN = (
-	process.env.SITE_URL ?? "https://www.legalforecastbench.org"
-).replace(/\/$/, "");
+/**
+ * Public origin. `astro.config` and every absolute URL on the site read this.
+ * Fixed rather than env-configurable: Vercel serves `www` and redirects the
+ * apex, so any other origin makes every canonical and sitemap URL a redirect,
+ * which Google excludes from its index.
+ */
+export const SITE_ORIGIN = "https://www.legalforecastbench.org";
 
 export const SITE_NAME = "LegalForecastBench";
 
