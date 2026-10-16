@@ -1524,3 +1524,95 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
         import asyncio
 
         asyncio.run(client.close())
+
+
+def test_gateway_agent_turns_get_a_long_read_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-Flex Gateway model's non-streaming turn must outlast a long
+    final reasoning turn; the default 600 s read timeout stranded a cell."""
+    import httpx2
+    from openai import AsyncOpenAI
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    model_id = "mistral/mistral-large-4"
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        body = json.loads(request.content)
+        assert request.extensions["timeout"]["read"] == 1800.0
+        assert body.get("service_tier") in (None, "default", "auto")
+        assert body["providerOptions"] == {"gateway": {"only": ["mistral"]}}
+        return httpx2.Response(
+            200,
+            json={
+                "id": "resp_fixture",
+                "object": "response",
+                "created_at": 1,
+                "status": "completed",
+                "model": model_id,
+                "output": [
+                    {
+                        "type": "function_call",
+                        "id": "fc_fixture",
+                        "call_id": "call_fixture",
+                        "name": "final_result",
+                        "arguments": json.dumps(
+                            {
+                                "case_assessment": "Fixture",
+                                "predictions": [
+                                    {
+                                        "unit_id": "unit-a",
+                                        "probability_fully_dismissed": 0.5,
+                                    }
+                                ],
+                            }
+                        ),
+                    }
+                ],
+                "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+                "parallel_tool_calls": False,
+                "tools": [],
+                "tool_choice": "auto",
+                "providerMetadata": {
+                    "gateway": {
+                        "routing": {
+                            "originalModelId": model_id,
+                            "resolvedProvider": "mistral",
+                            "resolvedProviderApiModelId": "mistral-large-4",
+                            "canonicalSlug": model_id,
+                            "finalProvider": "mistral",
+                            "modelAttemptCount": 1,
+                            "totalProviderAttemptCount": 1,
+                        },
+                        "generationId": "gen_fixture",
+                        "cost": 0.001,
+                        "marketCost": 0.001,
+                    }
+                },
+            },
+        )
+
+    client = AsyncOpenAI(
+        api_key="fixture",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)),
+    )
+    monkeypatch.setattr(
+        managed_execution,
+        "OpenAIProvider",
+        lambda **_kwargs: OpenAIProvider(openai_client=client),
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_managed_tool_agent(
+        _gateway_entry(model_id),
+        initial_prompt="Forecast fixture",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-gateway",
+        api_key="fixture",
+    )
+    assert result.request_count == 1
+    assert len(requests) == 1

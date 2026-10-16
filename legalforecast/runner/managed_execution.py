@@ -38,6 +38,7 @@ from pydantic_ai.usage import RunUsage, UsageLimits
 import legalforecast.runner.managed_cost as _managed_cost
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.evals.live_model_solver import (
+    GATEWAY_AGENT_TIMEOUT_SECONDS,
     OPENAI_FLEX_TIMEOUT_SECONDS,
     LiveModelProviderError,
     SolverResponse,
@@ -393,6 +394,8 @@ def run_managed_tool_agent(
         if requests_flex_service_tier(provider, entry.model_id):
             settings["timeout"] = OPENAI_FLEX_TIMEOUT_SECONDS
             cast(dict[str, Any], settings)["openai_service_tier"] = "flex"
+        else:
+            settings["timeout"] = GATEWAY_AGENT_TIMEOUT_SECONDS
         if entry.reasoning_effort is not None:
             cast(dict[str, Any], settings)["openai_reasoning_effort"] = cast(
                 Any, entry.reasoning_effort.value
