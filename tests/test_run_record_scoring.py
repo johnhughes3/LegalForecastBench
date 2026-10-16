@@ -147,6 +147,38 @@ def test_score_run_records_accepts_public_prose_free_parser_projection() -> None
     assert summaries[0].invalid_output_rate == 0.0
 
 
+def test_score_run_records_merges_split_rows_into_one_case() -> None:
+    labels = (_label("unit-a", True), _label("unit-b", False), _label("unit-c", True))
+    split = score_run_records(
+        (
+            _run_record(model_id="model-a", required_unit_ids=("unit-a",)),
+            _run_record(model_id="model-a", required_unit_ids=("unit-b",)),
+            _run_record(
+                model_id="model-a", case_id="case-2", required_unit_ids=("unit-c",)
+            ),
+        ),
+        labels,
+        base_rate=0.5,
+    )
+    assert split[0].case_count == 2
+    assert split[0].unit_count == 3
+    # The helper predicts 0.8 for each record's first unit, so case-1 averages
+    # (0.04 + 0.64) / 2 and case-2 scores 0.04; one row per unit would give 0.24.
+    assert split[0].macro_brier == pytest.approx(0.19)
+
+
+def test_score_run_records_rejects_duplicate_unit_rows() -> None:
+    with pytest.raises(ValueError, match="duplicate model/unit rows"):
+        score_run_records(
+            (
+                _run_record(model_id="model-a", required_unit_ids=("unit-a",)),
+                _run_record(model_id="model-a", required_unit_ids=("unit-a",)),
+            ),
+            (_label("unit-a", True),),
+            base_rate=0.5,
+        )
+
+
 def test_score_run_records_rejects_duplicate_outcome_label_unit_ids() -> None:
     with pytest.raises(
         ValueError,
