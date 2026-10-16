@@ -11,7 +11,6 @@ import legalforecast.runner.managed_transcript_recovery as transcript_recovery
 import pytest
 from legalforecast.runner.ledger import RunnerLedger
 from legalforecast.runner.managed_execution import run_managed_tool_agent
-from legalforecast.runner.managed_transcript_recovery import recover_managed_transcript
 from pydantic_ai import ModelResponse
 from pydantic_ai.messages import TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
@@ -105,7 +104,7 @@ def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
                 transcript_recovery.NonReplayableTranscript,
                 match="no successful document tool",
             ):
-                recover_managed_transcript(
+                transcript_recovery.recover_managed_transcript(
                     ledger,
                     entry=entry,
                     transcript_path=transcript_path,
@@ -113,7 +112,7 @@ def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
                 )
             assert ledger.read_cell_for_recovery("cell-1").response_payload is None
             return
-        recovered = recover_managed_transcript(
+        recovered = transcript_recovery.recover_managed_transcript(
             ledger,
             entry=entry,
             transcript_path=transcript_path,
