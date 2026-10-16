@@ -841,6 +841,19 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "case_id",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--case-id"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "repo",
           "metavar": null,
           "nargs": null,
