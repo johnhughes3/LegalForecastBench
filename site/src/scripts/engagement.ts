@@ -25,6 +25,26 @@ export function trackEngagement(event: MouseEvent): void {
 	const link =
 		event.target instanceof Element ? event.target.closest("a[href]") : null;
 	if (!(link instanceof HTMLAnchorElement)) return;
-	const action = engagementEvent(new URL(link.href), window.location.origin);
-	if (action) track(action, { source_path: window.location.pathname });
+	const destination = new URL(link.href);
+	const action = engagementEvent(destination, window.location.origin);
+	if (action)
+		track(action, {
+			source_path: window.location.pathname,
+			destination_site: engagementDestination(
+				destination,
+				window.location.origin,
+			),
+		});
+}
+
+/** Fixed categories improve aggregate referral counts without identifying visitors. */
+export function engagementDestination(
+	destination: URL,
+	origin: string,
+): string {
+	if (destination.protocol === "mailto:") return "email";
+	if (destination.origin === origin) return "legalforecastbench";
+	if (destination.origin === new URL(AUTHOR.site).origin)
+		return "personal_site";
+	return "github";
 }
