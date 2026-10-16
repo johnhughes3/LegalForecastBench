@@ -1,0 +1,49 @@
+---
+import { AUTHOR } from "../data/author";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Privacy and analytics" description="How LegalForecastBench uses aggregate website analytics and how to turn it off.">
+	<article class="prose prose-slate mx-auto max-w-3xl px-4 py-14 sm:px-6">
+		<h1>Privacy and analytics</h1>
+		<p>LegalForecastBench uses Vercel Web Analytics to understand which pages and research links people use. The reports show page visits, referring websites, approximate location, browser and device types, and counts of paper, code, data, research, contact and email link clicks. We use these statistics to improve the site and its navigation.</p>
+		<p>Analytics does not use cookies or browser storage to identify you. Vercel derives a visitor hash from the incoming request and discards that session after 24 hours. This does not mean that aggregate reports are deleted after 24 hours. We do not receive visitors’ IP addresses in analytics reports.</p>
+		<p>We count links between this site and the author’s personal site, but keep their visitor statistics separate. We do not assign a shared visitor ID, combine individual browsing histories, record sessions, or use this information for advertising.</p>
+		<p>Before sending a page or click event, we remove the query string and fragment from its page URL. Click details contain only the public source page and a fixed destination category. We do not send link destinations, email addresses or message contents as click details.</p>
+		<h2>Your choice</h2>
+		<p>You can turn off analytics below. We also suppress analytics when your browser sends Do Not Track or Global Privacy Control. The choice below is stored only in this browser, on this site, as an on/off preference. Set it separately on the personal site if you visit both.</p>
+		<button id="analytics-choice" type="button" class="rounded border border-line px-4 py-2" hidden>Turn off analytics</button>
+		<p id="analytics-status" role="status"></p>
+		<noscript><p>Analytics is not loaded when JavaScript is disabled.</p></noscript>
+		<h2>Hosting and questions</h2>
+		<p>Vercel also processes requests to deliver and protect this website. The analytics preference does not disable those hosting and security operations. Read <a href="https://vercel.com/docs/analytics/privacy-policy">Vercel’s analytics privacy information</a> and <a href="https://vercel.com/legal/privacy-notice">privacy notice</a> for details about its processing.</p>
+		<p>For questions about this site or its use of analytics, <a href={AUTHOR.contact}>contact the author</a>.</p>
+	</article>
+</Layout>
+
+<script>
+	const button = document.querySelector<HTMLButtonElement>("#analytics-choice");
+	const status = document.querySelector<HTMLElement>("#analytics-status");
+	if (button && status) {
+		const signal = navigator.doNotTrack === "1" || Reflect.get(navigator, "globalPrivacyControl") === true;
+		const render = (): void => {
+			try {
+				const disabled = localStorage.getItem("analytics-opt-out") === "1";
+				button.hidden = signal;
+				button.textContent = disabled ? "Allow basic analytics" : "Turn off analytics";
+				status.textContent = signal ? "Analytics is off because of your browser’s privacy preference." : disabled ? "Analytics is off in this browser on this site." : "Basic analytics is on. You can turn it off here.";
+			} catch {
+				button.hidden = true;
+				status.textContent = "Analytics is off because browser preferences are unavailable.";
+			}
+		};
+		button.addEventListener("click", () => {
+			try {
+				if (localStorage.getItem("analytics-opt-out") === "1") localStorage.removeItem("analytics-opt-out");
+				else localStorage.setItem("analytics-opt-out", "1");
+			} catch { /* render reports unavailable preferences. */ }
+			render();
+		});
+		render();
+	}
+</script>

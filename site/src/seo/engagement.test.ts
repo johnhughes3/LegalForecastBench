@@ -1,9 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AUTHOR, REPO } from "../data/author";
-import { engagementEvent } from "../scripts/engagement";
+import { engagementDestination, engagementEvent } from "../scripts/engagement";
 
 const origin = "https://benchmark.example";
+
+test("destination metadata contains only fixed site categories", () => {
+	for (const [href, expected] of [
+		["/paper/?private=1", "legalforecastbench"],
+		[AUTHOR.contact, "personal_site"],
+		[REPO, "github"],
+		["mailto:private@example.org", "email"],
+	] as const) {
+		assert.equal(
+			engagementDestination(new URL(href, origin), origin),
+			expected,
+		);
+	}
+});
 
 test("meaningful research destinations produce distinct fixed action names", () => {
 	for (const [href, expected] of [

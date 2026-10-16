@@ -1,0 +1,19 @@
+<!-- This must execute in the head, before the Analytics component can send anything. -->
+<script is:inline>
+	window.webAnalyticsBeforeSend = function (event) {
+		try {
+			if (
+				navigator.doNotTrack === "1" ||
+				navigator.globalPrivacyControl === true ||
+				localStorage.getItem("analytics-opt-out") === "1"
+			) return null;
+			const url = new URL(event.url);
+			url.search = "";
+			url.hash = "";
+			return { ...event, url: url.href };
+		} catch {
+			// Unavailable preferences or an invalid URL must not enable collection.
+			return null;
+		}
+	};
+</script>

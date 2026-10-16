@@ -1,6 +1,7 @@
 ---
 import Analytics from "@vercel/analytics/astro";
 import { COURTHOUSE_PATH } from "../brand";
+import AnalyticsPrivacy from "../components/AnalyticsPrivacy.astro";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/newsreader";
 import "../styles/global.css";
@@ -77,6 +78,8 @@ const onPaper = path.startsWith("/paper/");
 <!doctype html>
 <html lang="en">
 	<head>
+		<AnalyticsPrivacy />
+		<meta name="referrer" content="strict-origin-when-cross-origin" />
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{pageTitle}</title>
@@ -232,6 +235,7 @@ const onPaper = path.startsWith("/paper/");
 						<li><a class="hover:text-ink" href={AUTHOR.linkedin}>LinkedIn</a></li>
 						<li><a class="hover:text-ink" href={AUTHOR.x}>X</a></li>
 						<li><a class="hover:text-ink" href={REPO}>Source on GitHub</a></li>
+						<li><a class="hover:text-ink" href="/privacy/">Privacy and analytics</a></li>
 						<li>Code under Apache License 2.0</li>
 						<li><a class="hover:text-ink" href="https://creativecommons.org/licenses/by/4.0/">Data under CC BY 4.0</a></li>
 					</ul>
