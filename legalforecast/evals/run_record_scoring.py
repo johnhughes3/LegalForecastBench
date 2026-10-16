@@ -549,7 +549,12 @@ def score_run_records(
         _computed_base_rate(labels) if base_rate is None else base_rate
     )
 
-    cases_by_model: dict[str, list[ScoringCase]] = defaultdict(list)
+    # A case may arrive split across several records (e.g. one per unit); merge
+    # them so equal-case Brier and case counts weight each case once.
+    rows_by_model_case: dict[
+        str, dict[str, list[tuple[Mapping[str, Any], ParsedModelOutput]]]
+    ] = defaultdict(lambda: defaultdict(list))
+    seen_units: set[tuple[str, str, str]] = set()
     for record in run_records:
         required_unit_ids = _required_str_tuple(record, "required_unit_ids")
         missing_labels = sorted(set(required_unit_ids) - label_unit_id_set)
@@ -565,25 +570,64 @@ def score_run_records(
             if include_ablation_in_model_id
             else base_model_id
         )
-        parsed = _record_parsed_output(record, required_unit_ids)
-        cases_by_model[model_id].append(
-            ScoringCase(
-                case_id=_required_str(record, "case_id"),
-                candidate_id=_optional_str(record, "candidate_id"),
-                model_id=model_id,
-                related_family_id=_optional_str(record, "related_family_id"),
-                mdl_family_id=_optional_str(record, "mdl_family_id"),
-                parsed_output=parsed,
-                outcome_labels=tuple(
-                    labels_by_unit_id[unit_id] for unit_id in required_unit_ids
-                ),
-            )
+        case_id = _required_str(record, "case_id")
+        duplicate_units = sorted(
+            unit_id
+            for unit_id in required_unit_ids
+            if (model_id, case_id, unit_id) in seen_units
         )
+        if duplicate_units:
+            raise ValueError(
+                f"run records contain duplicate model/unit rows: {duplicate_units}"
+            )
+        seen_units.update((model_id, case_id, unit_id) for unit_id in required_unit_ids)
+        parsed = _record_parsed_output(record, required_unit_ids)
+        rows_by_model_case[model_id][case_id].append((record, parsed))
+
+    cases_by_model: dict[str, list[ScoringCase]] = defaultdict(list)
+    for model_id, rows_by_case in rows_by_model_case.items():
+        for case_id, rows in rows_by_case.items():
+            identity = {
+                field: _case_field(rows, field, case_id)
+                for field in ("candidate_id", "related_family_id", "mdl_family_id")
+            }
+            outputs = tuple(parsed for _record, parsed in rows)
+            unit_ids = tuple(
+                unit_id for output in outputs for unit_id in output.required_unit_ids
+            )
+            cases_by_model[model_id].append(
+                ScoringCase(
+                    case_id=case_id,
+                    candidate_id=identity["candidate_id"],
+                    model_id=model_id,
+                    related_family_id=identity["related_family_id"],
+                    mdl_family_id=identity["mdl_family_id"],
+                    parsed_output=(
+                        outputs[0]
+                        if len(outputs) == 1
+                        else _merge_parsed_outputs(outputs, required_unit_ids=unit_ids)
+                    ),
+                    outcome_labels=tuple(
+                        labels_by_unit_id[unit_id] for unit_id in unit_ids
+                    ),
+                )
+            )
 
     return tuple(
         score_cases(tuple(cases), base_rate=effective_base_rate)
         for _model_id, cases in sorted(cases_by_model.items())
     )
+
+
+def _case_field(
+    rows: Sequence[tuple[Mapping[str, Any], ParsedModelOutput]],
+    field_name: str,
+    case_id: str,
+) -> str | None:
+    values = {_optional_str(record, field_name) for record, _parsed in rows}
+    if len(values) != 1:
+        raise ValueError(f"run records for case {case_id!r} disagree on {field_name}")
+    return next(iter(values))
 
 
 def _record_ablation(record: Mapping[str, Any]) -> str:
