@@ -22,6 +22,7 @@ from pydantic_ai import (
     ModelSettings,
     NativeOutput,
     RunContext,
+    ToolOutput,
     capture_run_messages,
 )
 from pydantic_ai.models import Model, ModelRequestParameters
@@ -410,11 +411,15 @@ def run_managed_tool_agent(
             }
         settings = google_settings
     unit_ids = json.dumps(list(required_unit_ids), separators=(",", ":"))
+    # Keep Ultramarine's document calls and final result in the SDK tool protocol;
+    # its native JSON mode returned terminal responses before inspecting evidence.
     agent = Agent(
         resolved_model,
         output_type=(
-            NativeOutput(ForecastEnvelope)
-            if provider in {"anthropic", "paperinstruments"}
+            ToolOutput(ForecastEnvelope)
+            if provider == "paperinstruments"
+            else NativeOutput(ForecastEnvelope)
+            if provider == "anthropic"
             else ForecastEnvelope
         ),
         deps_type=ManagedToolAgentDeps,

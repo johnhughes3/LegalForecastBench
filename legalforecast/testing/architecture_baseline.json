@@ -1684,8 +1684,8 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 1103,
-        "nonblank_line_count": 1022,
+        "line_count": 1108,
+        "nonblank_line_count": 1027,
         "top_level_definition_count": 20
       },
       "legalforecast/runner/managed_transcript_recovery.py": {

@@ -89,7 +89,16 @@ def test_ultramarine_managed_wire_and_cache_cost(
         assert body["model"] == entry.model_id
         assert body["thinking"] == {"type": "adaptive", "display": "omitted"}
         assert body["output_config"]["effort"] == "high"
-        assert body["output_config"]["format"]["type"] == "json_schema"
+        assert "format" not in body["output_config"]
+        assert {tool["name"] for tool in body["tools"]} == {
+            "bash",
+            "read",
+            "write",
+            "edit",
+            "glob",
+            "grep",
+            "final_result",
+        }
         assert body["cache_control"] == {"type": "ephemeral"}
         assert body["max_tokens"] == 32768
         assert body["tool_choice"]["type"] == "auto"
@@ -101,7 +110,12 @@ def test_ultramarine_managed_wire_and_cache_cost(
                 "input": {"file_path": "/workspace/documents/motion.txt"},
             }
             if len(requests) == 1
-            else {"type": "text", "text": json.dumps(output)}
+            else {
+                "type": "tool_use",
+                "id": "toolu_final",
+                "name": "final_result",
+                "input": output,
+            }
         )
         usage = {
             "input_tokens": 100,
@@ -115,7 +129,7 @@ def test_ultramarine_managed_wire_and_cache_cost(
             "role": "assistant",
             "model": entry.model_id,
             "content": [block],
-            "stop_reason": "tool_use" if len(requests) == 1 else "end_turn",
+            "stop_reason": "tool_use",
             "stop_sequence": None,
             "usage": usage,
         }
