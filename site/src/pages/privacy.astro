@@ -28,20 +28,22 @@ import Layout from "../layouts/Layout.astro";
 		const signal = navigator.doNotTrack === "1" || Reflect.get(navigator, "globalPrivacyControl") === true;
 		const render = (): void => {
 			try {
+				if (Reflect.get(window, "analyticsOptOutFailed") === true) throw new Error("Preferences unavailable");
 				const disabled = localStorage.getItem("analytics-opt-out") === "1";
 				button.hidden = signal;
 				button.textContent = disabled ? "Allow basic analytics" : "Turn off analytics";
 				status.textContent = signal ? "Analytics is off because of your browser’s privacy preference." : disabled ? "Analytics is off in this browser on this site." : "Basic analytics is on. You can turn it off here.";
 			} catch {
+				Reflect.set(window, "analyticsOptOutFailed", true);
 				button.hidden = true;
-				status.textContent = "Analytics is off because browser preferences are unavailable.";
+				status.textContent = "Analytics is off for this page because browser preferences are unavailable.";
 			}
 		};
 		button.addEventListener("click", () => {
 			try {
 				if (localStorage.getItem("analytics-opt-out") === "1") localStorage.removeItem("analytics-opt-out");
 				else localStorage.setItem("analytics-opt-out", "1");
-			} catch { /* render reports unavailable preferences. */ }
+			} catch { Reflect.set(window, "analyticsOptOutFailed", true); }
 			render();
 		});
 		render();

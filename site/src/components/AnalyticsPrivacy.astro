@@ -3,6 +3,7 @@
 	window.webAnalyticsBeforeSend = function (event) {
 		try {
 			if (
+				window.analyticsOptOutFailed === true ||
 				navigator.doNotTrack === "1" ||
 				navigator.globalPrivacyControl === true ||
 				localStorage.getItem("analytics-opt-out") === "1"
@@ -13,6 +14,7 @@
 			return { ...event, url: url.href };
 		} catch {
 			// Unavailable preferences or an invalid URL must not enable collection.
+			window.analyticsOptOutFailed = true;
 			return null;
 		}
 	};
