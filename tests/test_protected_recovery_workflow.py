@@ -169,8 +169,9 @@ def test_authority_planning_never_reports_success_without_output(
 
 
 @pytest.mark.parametrize("identified", [True, False])
+@pytest.mark.parametrize("case_id", ["", "66996622"])
 def test_child_dispatch_persists_exact_identity_or_unresolved_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identified: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identified: bool, case_id: str
 ) -> None:
     import json
     from collections.abc import Mapping
@@ -201,6 +202,7 @@ def test_child_dispatch_persists_exact_identity_or_unresolved_success(
                     "artifact_root_uri": "artifacts",
                     "model_registry_uri": "registry",
                     "model_key": "provider:model",
+                    "terminal_case_id": case_id,
                     "ceiling_microusd": 100,
                     "account": "account",
                     "repeat_count": 1,
@@ -219,6 +221,8 @@ def test_child_dispatch_persists_exact_identity_or_unresolved_success(
             self, repo: str, workflow: str, ref: str, inputs: Mapping[str, str]
         ) -> Mapping[str, object]:
             calls.append((repo, workflow, ref))
+            assert inputs["terminal_case_id"] == case_id
+            assert inputs["ceiling_microusd"] == "100"
             return dispatched_workflow_record(
                 repo,
                 workflow,

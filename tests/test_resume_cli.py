@@ -622,6 +622,7 @@ def test_resume_command_help_exposes_the_operator_interface() -> None:
     assert "--github-run" in result.stdout
     assert "--ref" in result.stdout
     assert "--max-parallel" in result.stdout
+    assert "--case-id" in result.stdout
     assert "--execute" in result.stdout
 
 
@@ -831,3 +832,114 @@ def test_resume_json_exposes_exact_dispatched_recovery_run(
         == "https://github.com/owner/bench/actions/runs/987654321"
     )
     assert len(client.dispatched) == 1
+
+
+def _scoped_source(
+    *, saved_case: str | None = None, dispatch_only: bool = False
+) -> FakeRecoveryClient:
+    client = FakeRecoveryClient(jev_summaries_uri="artifact:987")
+    for artifact_id in (10, 11):
+        with ZipFile(io.BytesIO(client.payloads[artifact_id])) as archive:
+            members = {name: archive.read(name) for name in archive.namelist()}
+        if artifact_id == 11:
+            members["forecast-release.json"] = json.dumps(
+                {"cases": [{"case_id": "66996622"}, {"case_id": "another"}]}
+            ).encode()
+        metadata = "forecast-run.json" if artifact_id == 10 else "resume-dispatch.json"
+        if saved_case is not None and (artifact_id == 11 or not dispatch_only):
+            record = json.loads(members[metadata])
+            record["terminal_case_id"] = saved_case
+            members[metadata] = json.dumps(record).encode()
+        client.payloads[artifact_id] = _zip(members)
+    return client
+
+
+@pytest.mark.parametrize("dispatch_only", [False, True])
+def test_recovery_preserves_saved_smoke_without_expanding_scope(
+    dispatch_only: bool,
+) -> None:
+    plan = build_recovery_plan(
+        _scoped_source(saved_case="66996622", dispatch_only=dispatch_only),
+        repo="owner/bench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=1,
+    )
+    assert plan.frozen_identity.terminal_case_id == "66996622"
+    assert plan.dispatch_inputs["case_id"] == "66996622"
+    assert plan.to_record()["frozen_identity"]["terminal_case_id"] == "66996622"
+
+
+def test_historical_smoke_override_preserves_original_budget_and_identity() -> None:
+    client = _scoped_source()
+    full = build_recovery_plan(
+        client, repo="owner/bench", run_id=RUN_ID, ref="main", max_parallel=8
+    )
+    smoke = build_recovery_plan(
+        client,
+        repo="owner/bench",
+        run_id=RUN_ID,
+        ref="main",
+        max_parallel=1,
+        case_id="66996622",
+    )
+    assert smoke.dispatch_inputs["case_id"] == "66996622"
+    assert (
+        smoke.frozen_identity.run_identity_sha256
+        == full.frozen_identity.run_identity_sha256
+    )
+    assert (
+        smoke.frozen_identity.ceiling_microusd == full.frozen_identity.ceiling_microusd
+    )
+    assert smoke.resume_sources == full.resume_sources
+    assert "case_id" not in full.dispatch_inputs
+
+
+@pytest.mark.parametrize("case_id", ["another", ""])
+def test_recovery_refuses_changing_or_clearing_saved_smoke(case_id: str) -> None:
+    with pytest.raises(RecoveryError, match="cannot change"):
+        build_recovery_plan(
+            _scoped_source(saved_case="66996622"),
+            repo="owner/bench",
+            run_id=RUN_ID,
+            ref="main",
+            max_parallel=1,
+            case_id=case_id,
+        )
+
+
+def test_recovery_refuses_unknown_historical_smoke_case() -> None:
+    with pytest.raises(RecoveryError, match="absent from the locked"):
+        build_recovery_plan(
+            _scoped_source(),
+            repo="owner/bench",
+            run_id=RUN_ID,
+            ref="main",
+            max_parallel=1,
+            case_id="absent",
+        )
+
+
+def test_resume_cli_forwards_historical_smoke_override(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from legalforecast.cli_commands import run as run_commands
+
+    client = _scoped_source()
+    monkeypatch.setattr(run_commands, "GhRecoveryClient", lambda: client)
+    assert (
+        run_commands.run_resume(
+            argparse.Namespace(
+                repo="owner/bench",
+                github_run=RUN_ID,
+                ref="main",
+                max_parallel=1,
+                case_id="66996622",
+                execute=True,
+            )
+        )
+        == 0
+    )
+    record = json.loads(capsys.readouterr().out)
+    assert record["frozen_identity"]["terminal_case_id"] == "66996622"
+    assert client.dispatched[0][3]["case_id"] == "66996622"

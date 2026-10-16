@@ -22,6 +22,11 @@ on:
         required: true
         default: "8"
         type: string
+      case_id:
+        description: Optional locked case for historical smoke recovery; cannot change a saved smoke selector.
+        required: false
+        default: ""
+        type: string
       execute:
         description: Apply safe authority transitions and dispatch the child run.
         required: true
@@ -142,9 +147,11 @@ jobs:
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
           MAX_PARALLEL: ${{ inputs.max_parallel }}
+          CASE_ID: ${{ inputs.case_id }}
         run: |
           set -euo pipefail
-          uv run legalforecast run resume \
+          case_args=(); if [[ -n "${CASE_ID}" ]]; then case_args=(--case-id "${CASE_ID}"); fi
+          uv run legalforecast run resume "${case_args[@]}" \
             --github-run "${SOURCE_RUN_ID}" \
             --repo "${GITHUB_REPOSITORY}" \
             --ref main \
@@ -276,6 +283,7 @@ jobs:
               "model_registry_uri": frozen["model_registry_uri"],
               "jev_summaries_uri": frozen.get("jev_summaries_uri", ""),
               "model_key": frozen["model_key"],
+              "terminal_case_id": frozen.get("terminal_case_id", ""),
               "ceiling_microusd": str(frozen["ceiling_microusd"]),
               "account": frozen["account"],
               "repeat_count": str(frozen["repeat_count"]),
