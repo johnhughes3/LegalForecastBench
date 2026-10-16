@@ -812,6 +812,7 @@ def test_origin_main_is_resolvable_without_a_separate_unauthenticated_fetch() ->
         ("typesafe:jev-1.13.0", True),
         ("vercel_ai_gateway:typesafe-ai/jev", True),
         ("openai:gpt-5.6-luna", True),
+        ("paperinstruments:ultramarine-1-flash", True),
         ("unknown:jev", False),
         ("typesafe:jev extra", False),
     ],
