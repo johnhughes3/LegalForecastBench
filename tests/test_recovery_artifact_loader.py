@@ -345,8 +345,11 @@ def test_invalid_terminal_transcript_blocks_replacement(
     assert "terminal transcript requires repair" in cell.evidence_error
 
 
+@pytest.mark.parametrize(
+    "reason", ["wrong prediction units", "no successful document tool"]
+)
 def test_nonreplayable_prediction_units_allow_replacement_without_terminal_evidence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reason: str
 ) -> None:
     identity = _identity()
     _state(
@@ -359,7 +362,7 @@ def test_nonreplayable_prediction_units_allow_replacement_without_terminal_evide
     )
 
     def reject_nonreplayable(*_args: object, **_kwargs: object) -> None:
-        raise _recovery.NonReplayablePredictionUnits("wrong prediction units")
+        raise _recovery.NonReplayableTranscript(reason)
 
     monkeypatch.setattr(
         _recovery, "managed_result_from_transcript", reject_nonreplayable

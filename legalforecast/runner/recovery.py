@@ -138,6 +138,7 @@ class FrozenRunIdentity:
     ceiling_microusd: int
     artifact_retention_days: int
     jev_summaries_uri: str | None = None
+    terminal_case_id: str = ""
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -154,6 +155,7 @@ class FrozenRunIdentity:
             "ceiling_microusd": self.ceiling_microusd,
             "artifact_retention_days": self.artifact_retention_days,
             "jev_summaries_uri": self.jev_summaries_uri or "",
+            "terminal_case_id": self.terminal_case_id,
         }
 
 
@@ -236,6 +238,7 @@ def build_recovery_plan(
     run_id: int,
     ref: str,
     max_parallel: int,
+    case_id: str | None = None,
 ) -> RecoveryPlan:
     """Inspect one terminal run and construct its protected recovery request."""
 
@@ -336,6 +339,7 @@ def build_recovery_plan(
         ceiling_microusd=binding.ceiling_microusd,
         artifact_retention_days=_artifact_retention_days(locked_inputs),
         jev_summaries_uri=jev_summaries_uri,
+        terminal_case_id=_recovery_case_selector(input_payload, export, case_id),
     )
     summary_completed = _nonnegative_int(
         summary.get("completed_cells"), "completed_cells"
@@ -423,6 +427,8 @@ def build_recovery_plan(
         "max_parallel": str(max_parallel),
         "execute": "true",
     }
+    if frozen_identity.terminal_case_id:
+        dispatch_inputs["case_id"] = frozen_identity.terminal_case_id
     return RecoveryPlan(
         repo=repo,
         ref=ref,
@@ -442,6 +448,44 @@ def build_recovery_plan(
         blocked_reasons=tuple(blocked),
         dispatch_inputs=dispatch_inputs,
     )
+
+
+def _recovery_case_selector(
+    input_payload: bytes, export: Mapping[str, object], override: str | None
+) -> str:
+    """Preserve smoke scope, allowing only an explicit narrowing for old runs."""
+
+    with _open_zip(input_payload, "locked forecast inputs artifact") as archive:
+        sources = [export]
+        if "resume-dispatch.json" in archive.namelist():
+            sources.append(_read_json_member(archive, "resume-dispatch.json"))
+        recorded = [
+            source["terminal_case_id"]
+            for source in sources
+            if "terminal_case_id" in source
+        ]
+        if any(not isinstance(value, str) for value in recorded):
+            raise RecoveryError("source case selector must be a string")
+        if len(set(recorded)) > 1:
+            raise RecoveryError("source case selectors differ between frozen artifacts")
+        original = str(recorded[0]) if recorded else ""
+        if override is not None and original and override != original:
+            raise RecoveryError("recovery cannot change the source smoke case selector")
+        selected = original if override is None else override
+        if override is not None and not selected:
+            raise RecoveryError("--case-id must name one locked case")
+        if selected:
+            release = _read_json_member(archive, "forecast-release.json")
+            cases = release.get("cases")
+            if not isinstance(cases, list) or not any(
+                isinstance(case, Mapping)
+                and cast(Mapping[str, object], case).get("case_id") == selected
+                for case in cast(list[object], cases)
+            ):
+                raise RecoveryError(
+                    "recovery case selector is absent from the locked forecast release"
+                )
+        return selected
 
 
 def resolve_repository() -> str:
@@ -777,8 +821,8 @@ def _read_locked_inputs(payload: bytes) -> tuple[bytes, str | None]:
                 "artifact_retention_days",
                 "resume_sources",
             }
-            allowed_fields = required_fields | {"jev_summaries_uri"}
-            if set(resume_dispatch) not in (required_fields, allowed_fields):
+            allowed_fields = required_fields | {"jev_summaries_uri", "terminal_case_id"}
+            if not required_fields <= set(resume_dispatch) <= allowed_fields:
                 raise RecoveryError("resume-dispatch.json has unsupported fields")
             if resume_dispatch.get("schema_version") != str(RESUME_DISPATCH_V1):
                 raise RecoveryError("resume-dispatch.json has an unsupported schema")

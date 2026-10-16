@@ -56,7 +56,11 @@ class ManagedTranscriptRecovery:
     result: managed_execution.ManagedToolAgentResult
 
 
-class NonReplayablePredictionUnits(RunValidationError):
+class NonReplayableTranscript(RunValidationError):
+    """A bound terminal response that must be retried, retaining its reservation."""
+
+
+class NonReplayablePredictionUnits(NonReplayableTranscript):
     """A validly recorded response whose prediction-unit set cannot be replayed."""
 
 
@@ -189,7 +193,7 @@ def managed_result_from_transcript(
 
     _verify_managed_prompt(messages, entry=entry, cell=cell)
     provider = entry.provider.strip().lower()
-    calls, _returns, final_call = _verify_tool_history(
+    calls, returns, final_call = _verify_tool_history(
         messages, require_final_result=provider not in {"anthropic", "paperinstruments"}
     )
     if final_call is None:
@@ -340,6 +344,14 @@ def managed_result_from_transcript(
     if wrong_units:
         raise NonReplayablePredictionUnits(
             "managed transcript has the wrong prediction units"
+        )
+    if not any(
+        call.tool_name in {"bash", "read", "grep"}
+        and returns[call.tool_call_id].outcome == "success"
+        for call in calls
+    ):
+        raise NonReplayableTranscript(
+            "managed transcript has no successful document tool"
         )
     return result
 
@@ -642,13 +654,6 @@ def _verify_tool_history(
         raise RunValidationError("managed transcript tool calls lack matching returns")
     if final_calls and returns[final_calls[0].tool_call_id].outcome != "success":
         raise RunValidationError("managed transcript final result was not accepted")
-    successful_read = any(
-        call.tool_name in {"bash", "read", "grep"}
-        and returns[call.tool_call_id].outcome == "success"
-        for call in calls
-    )
-    if not successful_read:
-        raise RunValidationError("managed transcript has no successful document tool")
     response_indexes = [
         index
         for index, message in enumerate(messages)

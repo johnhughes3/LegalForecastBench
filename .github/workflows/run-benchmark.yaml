@@ -551,6 +551,7 @@ jobs:
           MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
           JEV_SUMMARIES_URI: ${{ inputs.jev_summaries_uri }}
           MODEL_KEY: ${{ inputs.model_key }}
+          TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
           ACCOUNT: ${{ inputs.account }}
           REPEAT_COUNT: ${{ inputs.repeat_count }}
@@ -589,6 +590,7 @@ jobs:
               "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
               "jev_summaries_uri": os.environ["JEV_SUMMARIES_URI"],
               "model_key": os.environ["MODEL_KEY"],
+              "terminal_case_id": os.environ["TERMINAL_CASE_ID"],
               "ceiling_microusd": int(os.environ["CEILING_MICROUSD"]),
               "account": os.environ["ACCOUNT"],
               "repeat_count": int(os.environ["REPEAT_COUNT"]),
@@ -1575,6 +1577,7 @@ jobs:
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           ACCOUNT: ${{ inputs.account }}
           CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          TERMINAL_CASE_ID: ${{ inputs.terminal_case_id }}
         run: |
           set -euo pipefail
           uv run python - <<'PY'
@@ -1763,6 +1766,7 @@ jobs:
               "artifact_root_uri": os.environ["ARTIFACT_ROOT_URI"],
               "model_registry_uri": os.environ["MODEL_REGISTRY_URI"],
               "model_key": identity["model_key"],
+              "terminal_case_id": os.environ["TERMINAL_CASE_ID"],
               "ceiling_microusd": int(os.environ["CEILING_MICROUSD"]),
               "account": os.environ["ACCOUNT"],
               "run_identity_sha256": run_identity_sha256,

@@ -220,6 +220,13 @@ def register(
         help="Maximum provider cells for the recovery workflow (default: 8).",
     )
     resume.add_argument(
+        "--case-id",
+        help=(
+            "Preserve one smoke case for historical runs missing selector metadata; "
+            "cannot change a saved smoke selector."
+        ),
+    )
+    resume.add_argument(
         "--repo",
         help="GitHub repository in OWNER/NAME form (defaults to the current origin).",
     )
@@ -370,6 +377,7 @@ def run_resume(args: argparse.Namespace) -> int:
         run_id=cast(int, args.github_run),
         ref=cast(str, args.ref),
         max_parallel=cast(int, args.max_parallel),
+        case_id=cast(str | None, getattr(args, "case_id", None)),
     )
     execute = cast(bool, args.execute)
     record = plan.to_record(execute_requested=execute)

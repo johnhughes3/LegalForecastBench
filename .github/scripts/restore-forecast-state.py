@@ -21,7 +21,7 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.runner.ledger import RunnerLedger
 from legalforecast.runner.managed_transcript_recovery import (
-    NonReplayablePredictionUnits,
+    NonReplayableTranscript,
     managed_result_from_transcript,
 )
 from legalforecast.runner.service import _restore_or_validate_completed_receipt
@@ -325,7 +325,7 @@ def _validate_source_transcript_recovery_state(root: Path, cell_id: str) -> None
         cell = runner_ledger.read_cell_for_recovery(cell_id)
         try:
             managed_result_from_transcript(transcript, entry=entry, cell=cell)
-        except NonReplayablePredictionUnits as exc:
+        except NonReplayableTranscript as exc:
             raise IncompleteSourceState from exc
 
 

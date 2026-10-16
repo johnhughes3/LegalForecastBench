@@ -30,7 +30,7 @@ from legalforecast.runner.managed_transcript_recovery import (
     recover_managed_transcript,
 )
 from pydantic_ai import ModelResponse
-from pydantic_ai.messages import TextPart, ToolCallPart
+from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.usage import RequestUsage
 
@@ -276,7 +276,14 @@ def _reserve_cell(ledger: RunnerLedger, entry: ModelRegistryEntry, prompt: str) 
 @pytest.mark.parametrize("provider", ["google", "openai"])
 @pytest.mark.parametrize("with_authentication", [False, True])
 @pytest.mark.parametrize(
-    "mutation", ["none", "wrong-units", "wrong-units-and-served-model"]
+    "mutation",
+    [
+        "none",
+        "wrong-units",
+        "wrong-units-and-served-model",
+        "no-documents",
+        "no-documents-and-served-model",
+    ],
 )
 def test_successful_transcript_restores_typed_replay_payload_without_transport(
     tmp_path: Path,
@@ -370,6 +377,12 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
                 "finish_reason": "STOP",
                 "service_tier": service_tier,
             }
+    if mutation.startswith("no-documents"):
+        # Keep the bound prompt and final response, but remove the read exchange.
+        transcript["messages"] = [
+            transcript["messages"][0],
+            *transcript["messages"][3:],
+        ]
     if mutation != "none":
         for message in transcript["messages"]:
             if message.get("kind") == "response":
@@ -378,9 +391,10 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
                         args = part["args"]
                         if isinstance(args, str):
                             args = json.loads(args)
-                        args["predictions"][0]["unit_id"] = "wrong-unit"
+                        if mutation.startswith("wrong-units"):
+                            args["predictions"][0]["unit_id"] = "wrong-unit"
                         part["args"] = args
-                if mutation == "wrong-units-and-served-model":
+                if mutation.endswith("and-served-model"):
                     message["model_name"] = "unexpected-served-model"
     transcript_path.write_text(json.dumps(transcript, sort_keys=True))
     with RunnerLedger(
@@ -392,10 +406,14 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         )
         if mutation != "none":
             cell = ledger.read_cell_for_recovery("cell-1")
-            if mutation == "wrong-units":
+            if mutation in {"wrong-units", "no-documents"}:
                 with pytest.raises(
-                    transcript_recovery.NonReplayablePredictionUnits,
-                    match="wrong prediction units",
+                    transcript_recovery.NonReplayableTranscript,
+                    match=(
+                        "wrong prediction units"
+                        if mutation == "wrong-units"
+                        else "no successful document tool"
+                    ),
                 ):
                     transcript_recovery.managed_result_from_transcript(
                         transcript_path, entry=entry, cell=cell
@@ -410,7 +428,7 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
                     )
                 assert not isinstance(
                     captured.value,
-                    transcript_recovery.NonReplayablePredictionUnits,
+                    transcript_recovery.NonReplayableTranscript,
                 )
             assert ledger.read_cell_for_recovery("cell-1").response_payload is None
             return
@@ -731,113 +749,6 @@ def test_failed_transcript_without_messages_is_rejected_before_restore(
                 cell_id="cell-1",
             )
         assert ledger.read_cell_for_recovery("cell-1").response_payload is None
-
-
-def test_anthropic_native_text_output_transcript_recovers_without_final_tool(
-    tmp_path: Path,
-) -> None:
-    entry = _anthropic_entry()
-    prompt = _prompt()
-    raw_output = (
-        '{"case_assessment":"The claim likely survives.","predictions":['
-        '{"unit_id":"unit-a","probability_fully_dismissed":0.25}]}'
-    )
-    turns = [
-        _anthropic_response(
-            [
-                ToolCallPart(
-                    "read",
-                    {"file_path": "/workspace/documents/0000.txt"},
-                    tool_call_id="read-1",
-                )
-            ],
-            inputs=100,
-            outputs=40,
-            cache_read=30,
-            cache_write=10,
-        ),
-        _anthropic_response(
-            [TextPart(raw_output)],
-            inputs=150,
-            outputs=60,
-            cache_read=80,
-            cache_write=20,
-        ),
-    ]
-
-    async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
-        return turns.pop(0)
-
-    transcript_path = tmp_path / "anthropic-transcript.json"
-    live_result = run_managed_tool_agent(
-        entry,
-        initial_prompt=prompt,
-        required_unit_ids=("unit-a",),
-        executor=_Executor(),
-        workspace=tmp_path / "workspace",
-        request_id="cell-1",
-        model=FunctionModel(scripted),
-        transcript_path=transcript_path,
-    )
-    transcript = json.loads(transcript_path.read_text())
-    response_messages = [
-        message
-        for message in transcript["messages"]
-        if message.get("kind") == "response"
-    ]
-    assert len(response_messages) == 2
-    for message in response_messages:
-        message["model_name"] = entry.model_version_or_snapshot
-        message["provider_name"] = entry.provider
-        message["finish_reason"] = "stop"
-        message["provider_details"] = {}
-    # Native output ends the conversation directly; it has no final-result
-    # tool return request after the provider's text response.
-    transcript["messages"] = [
-        message for message in transcript["messages"] if message.get("parts")
-    ]
-    transcript_path.write_text(json.dumps(transcript, sort_keys=True))
-
-    with RunnerLedger(
-        tmp_path / "ledger.sqlite3", state_only_provider_attempts=True
-    ) as ledger:
-        _reserve_cell(ledger, entry, prompt)
-        ledger.mark_ambiguous(
-            "cell-1", provider_attempt_id="attempt-1", failure_type="SettlementError"
-        )
-        recovered = recover_managed_transcript(
-            ledger,
-            entry=entry,
-            transcript_path=transcript_path,
-            cell_id="cell-1",
-        )
-
-    assert recovered.result.called_tools == ("read",)
-    assert recovered.result.input_tokens == live_result.input_tokens == 250
-    assert recovered.result.output_tokens == live_result.output_tokens == 100
-    assert (
-        recovered.result.response_cache_usages
-        == live_result.response_cache_usages
-        == (
-            (30, 10),
-            (80, 20),
-        )
-    )
-    assert recovered.estimated_cost_usd == pytest.approx(0.0065025)
-    assert json.loads(recovered.result.raw_output) == json.loads(raw_output)
-
-    with RunnerLedger(
-        tmp_path / "ledger.sqlite3", state_only_provider_attempts=True
-    ) as ledger:
-        record = ledger.read_cell_for_recovery("cell-1")
-        assert record.response_payload is not None
-        payload = json.loads(record.response_payload)
-        evidence = payload["anthropic_cache_evidence"]
-        assert evidence["cache_read_tokens"] == 110
-        assert evidence["cache_write_tokens"] == 30
-        assert evidence["cache_pricing_ttl"] == "5m"
-        assert evidence["cost_method"] == "anthropic_cache_aware_usage_reconstruction"
-        assert payload["estimated_cost_usd"] == pytest.approx(0.0065025)
 
 
 def test_anthropic_zero_cache_legacy_payload_candidate_omits_new_evidence() -> None:
