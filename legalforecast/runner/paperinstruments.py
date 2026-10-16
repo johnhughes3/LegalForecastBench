@@ -54,6 +54,7 @@ def paperinstruments_settings(entry: ModelRegistryEntry) -> ModelSettings:
             )
             if entry.reasoning_effort is not None
             else "high",
+            tool_choice="auto",
             parallel_tool_calls=False,
             extra_body={"cache_control": {"type": "ephemeral"}},
         ),
