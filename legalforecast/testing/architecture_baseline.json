@@ -176,9 +176,9 @@
         "largest_symbol": "figure3_rows",
         "largest_symbol_lines": 109,
         "layer": "application",
-        "line_count": 543,
-        "nonblank_line_count": 487,
-        "top_level_definition_count": 21
+        "line_count": 805,
+        "nonblank_line_count": 725,
+        "top_level_definition_count": 29
       },
       "docs/papers/pangram_check.py": {
         "cycle_id": "",
@@ -269,7 +269,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "root",
-        "fan_in": 4,
+        "fan_in": 5,
         "fan_out": 1,
         "flags": [
           "relative-path",
@@ -382,25 +382,25 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 175,
         "layer": "application",
-        "line_count": 1971,
-        "nonblank_line_count": 1715,
+        "line_count": 1978,
+        "nonblank_line_count": 1722,
         "top_level_definition_count": 89
       },
       "legalforecast/evals/model_registry.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 29,
+        "fan_in": 30,
         "fan_out": 2,
         "flags": [
           "watch"
         ],
         "lane_owner": "evals",
         "largest_symbol": "ModelRegistryEntry",
-        "largest_symbol_lines": 261,
+        "largest_symbol_lines": 268,
         "layer": "application",
-        "line_count": 854,
-        "nonblank_line_count": 728,
+        "line_count": 868,
+        "nonblank_line_count": 742,
         "top_level_definition_count": 41
       },
       "legalforecast/evals/output_parser.py": {
@@ -501,9 +501,9 @@
         "largest_symbol": "_score_locked_run_records",
         "largest_symbol_lines": 184,
         "layer": "application",
-        "line_count": 685,
-        "nonblank_line_count": 626,
-        "top_level_definition_count": 20
+        "line_count": 729,
+        "nonblank_line_count": 667,
+        "top_level_definition_count": 21
       },
       "legalforecast/evals/scorers.py": {
         "cycle_id": "",
@@ -1684,8 +1684,8 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 1108,
-        "nonblank_line_count": 1027,
+        "line_count": 1111,
+        "nonblank_line_count": 1030,
         "top_level_definition_count": 20
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
@@ -1699,11 +1699,11 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "managed_result_from_transcript",
-        "largest_symbol_lines": 188,
+        "largest_symbol_lines": 199,
         "layer": "application",
-        "line_count": 725,
-        "nonblank_line_count": 680,
-        "top_level_definition_count": 13
+        "line_count": 733,
+        "nonblank_line_count": 686,
+        "top_level_definition_count": 14
       },
       "legalforecast/runner/protected_recovery.py": {
         "cycle_id": "",
@@ -1726,18 +1726,18 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "root",
-        "fan_in": 2,
+        "fan_in": 5,
         "fan_out": 4,
         "flags": [
           "watch"
         ],
         "lane_owner": "root",
         "largest_symbol": "build_recovery_plan",
-        "largest_symbol_lines": 213,
+        "largest_symbol_lines": 217,
         "layer": "application",
-        "line_count": 934,
-        "nonblank_line_count": 845,
-        "top_level_definition_count": 29
+        "line_count": 978,
+        "nonblank_line_count": 886,
+        "top_level_definition_count": 30
       },
       "legalforecast/runner/service.py": {
         "cycle_id": "",
@@ -1887,10 +1887,10 @@
         ],
         "lane_owner": "scripts",
         "largest_symbol": "_Visible",
-        "largest_symbol_lines": 65,
+        "largest_symbol_lines": 75,
         "layer": "entrypoint",
-        "line_count": 350,
-        "nonblank_line_count": 315,
+        "line_count": 370,
+        "nonblank_line_count": 335,
         "top_level_definition_count": 8
       },
       "scripts/probe_openai_compatible_provider.py": {
@@ -1956,10 +1956,10 @@
         ],
         "lane_owner": "other",
         "largest_symbol": "generate",
-        "largest_symbol_lines": 131,
+        "largest_symbol_lines": 133,
         "layer": "application",
-        "line_count": 164,
-        "nonblank_line_count": 151,
+        "line_count": 166,
+        "nonblank_line_count": 153,
         "top_level_definition_count": 3
       },
       "site/scripts/verify-withdrawal-build.py": {
@@ -1973,10 +1973,10 @@
         ],
         "lane_owner": "other",
         "largest_symbol": "verify",
-        "largest_symbol_lines": 77,
+        "largest_symbol_lines": 79,
         "layer": "application",
-        "line_count": 97,
-        "nonblank_line_count": 90,
+        "line_count": 99,
+        "nonblank_line_count": 92,
         "top_level_definition_count": 1
       },
       "tests/fixtures/local_cli_fake_cli.py": {
@@ -2325,9 +2325,9 @@
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
         "largest_symbol_lines": 190,
         "layer": "test",
-        "line_count": 1526,
-        "nonblank_line_count": 1396,
-        "top_level_definition_count": 30
+        "line_count": 1618,
+        "nonblank_line_count": 1483,
+        "top_level_definition_count": 31
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -2340,11 +2340,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
-        "largest_symbol_lines": 267,
+        "largest_symbol_lines": 278,
         "layer": "test",
-        "line_count": 972,
-        "nonblank_line_count": 908,
-        "top_level_definition_count": 21
+        "line_count": 883,
+        "nonblank_line_count": 826,
+        "top_level_definition_count": 20
       },
       "tests/test_model_registry.py": {
         "cycle_id": "",
@@ -2915,9 +2915,9 @@
         "largest_symbol": "FakeRecoveryClient",
         "largest_symbol_lines": 138,
         "layer": "test",
-        "line_count": 748,
-        "nonblank_line_count": 663,
-        "top_level_definition_count": 25
+        "line_count": 945,
+        "nonblank_line_count": 839,
+        "top_level_definition_count": 33
       },
       "tests/test_static_result_sites.py": {
         "cycle_id": "",

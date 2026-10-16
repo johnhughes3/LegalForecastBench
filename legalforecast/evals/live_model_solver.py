@@ -61,6 +61,13 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
 OPENAI_FLEX_TIMEOUT_SECONDS = 900.0
 # Official Anthropic eval calls are non-streaming at 128K max_output_tokens.
 ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS = 900.0
+# Managed Gateway agent turns are non-streaming Responses requests, so the
+# read timeout caps a whole generation. Completed Cycle 1 cells spent up to
+# about 450 s on their final high-effort reasoning turn, and the OpenAI SDK
+# retries a read timeout by silently restarting a billed generation, so a
+# turn longer than pydantic-ai's 600 s default could never finish. Flex-tier
+# Gateway models keep the OpenAI Flex timeout.
+GATEWAY_AGENT_TIMEOUT_SECONDS = 1800.0
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
