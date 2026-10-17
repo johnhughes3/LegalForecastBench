@@ -32,17 +32,13 @@
       "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).",
       "FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.",
       "D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.",
-      "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.",
-      "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.",
       "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.",
       "The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.",
-      "Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.",
-      "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
-      "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.",
-      "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.",
-      "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.",
-      "A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.",
-      "The last original-source pass attempted 124 previously unverified references: 84 verified, five minor-defect proposals, one agreement-article problem proposal awaiting independent review, and 34 still unverified after retrieval attempts."
+      "The second census added 159 internal Chapter 16 cross-references and statutory short forms omitted initially. It did not independently rescan every original occurrence, so the overall census remains incomplete. Navigation metadata and non-authority record references remain excluded as described above.",
+      "All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.",
+      "All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.",
+      "The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.",
+      "Current recorded coverage: 794 real-authority occurrences, including 123 UNABLE_TO_VERIFY. OCR-only and scan-margin defects are distinguished from errors in the original legal authority. No citator or exhaustive later-history review was performed."
     ],
     "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
     "counts": {
@@ -3508,7 +3504,20 @@
           "source_url": "https://go.mpdconline.com/GO/2023_2026FOPContract.pdf",
           "result": "Read official 2023–2026 MPD/FOP agreement, PDF page 12."
         }
-      ]
+      ],
+      "second_check": {
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I tried to overturn Sol's MISCHARACTERIZED and could not, but the finding needs a narrow scope. It is an external citation discrepancy, not a rubric defect. (1) What the dataset says. Final Notice PDF p.4, ¶27: 'Officer Braddock may grieve this action in accordance with Article 12 of the collective bargaining agreement between the Department and the Fraternal Order of Police/Metropolitan Police Department Labor Committee.' The notice is dated May 22, 2024, and the termination took effect June 21, 2024. The fictional Award (braddock_arbitration_award.pdf, PDF p.1, ¶1) states that the Union 'brought this grievance ... under Article 12 of the parties' collective bargaining agreement.' The Article 12 grievance route is therefore a premise shared across the fictional record, not a stray slip in one document. (2) The real agreements. I downloaded and read both official MPD/FOP agreements. The 2020–2023 agreement ('EFFECTIVE October 1, 2020 through September 30, 2023') prints at PDF p.12 'ARTICLE 12 / DISCIPLINE / [DELETED]'. The 2023–2026 agreement ('EFFECTIVE October 1, 2023 through September 30, 2026') prints at PDF p.12 'ARTICLE 12 / DISCIPLINE / [DELETED]'. In both, Article 19 (Grievance Procedure) covers only 'an allegation that there has been a violation, misapplication or misinterpretation of the terms of this Agreement'. Article 50 sets the durations. (3) Why the deletion is not a document quirk. D.C. Code § 1-617.08(c)(1)–(2), which I read on the Council's official code site, provides that '[a]ll matters pertaining to the discipline of sworn law enforcement personnel shall be retained by management and not be negotiable through bargaining' and applies to FOP/MPD agreements 'entered into ... after September 30, 2020, and to any collective bargaining agreements automatically renewed on or after September 30, 2020.' The gap between the 2020–23 agreement's expiry and approval of the 2023–26 agreement therefore does not revive a discipline article. (4) What the scenario mirrors. MPD v. PERB, 901 A.2d 784 (D.C. 2006), which I read by targeted search on CourtListener, involves a pre-2020 agreement whose Article 12, Section 6 governed discipline timing, with FOP arbitration of a discharge. The fictional notice reproduces that older structure. Conclusion: measured against the real agreements in force for a 2024 termination, 'Article 12' does not supply a grievance right, so the reference mischaracterizes the real external document. That is an adaptation or scenario assumption: the whole matter presupposes arbitration of the termination and PERB review of the award. It does not show the task is unanswerable, and no rubric criterion rests on it (see intent record). The row's fictional_by_design=false label is arguably an audit-label issue, since the notice is a fictional record document. The authority it names, however, is a real agreement, and that is what this status measures.",
+        "source_urls": [
+          "https://go.mpdconline.com/GO/CollectiveBargainingAgreement_100120_093023.pdf",
+          "https://go.mpdconline.com/GO/2023_2026FOPContract.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-617.08",
+          "https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/"
+        ],
+        "excerpt_read": "2020–2023 and 2023–2026 MPD/FOP agreements, PDF p.12 each: 'ARTICLE 12 / DISCIPLINE / [DELETED]'. D.C. Code § 1-617.08(c)(1): 'All matters pertaining to the discipline of sworn law enforcement personnel shall be retained by management and not be negotiable through bargaining ...'. Final Notice ¶27: 'Officer Braddock may grieve this action in accordance with Article 12 of the collective bargaining agreement ...'. Award ¶1: 'brought this grievance ... under Article 12 of the parties' collective bargaining agreement'.",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      }
     },
     {
       "ref": "pd-0157",
@@ -5252,7 +5261,17 @@
       },
       "source_reading_attempts": [
         "Read primary text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "I confirm the status and make its scope more precise. In the rendered image of Douglas PDF p.2 (printed 314), the printed citation reads correctly: 'are hereby consolidated for purposes of this decision. 5 U.S.C. 7701(f)(1); 5 C.F.R. 1201.36(a)(1).' The attachment's text layer, which a model reading via pdftotext receives, renders it as '7701(f)(D' and '1201.36(a)(l)'. The defect is therefore only in the supplied attachment's OCR layer. Douglas itself cites the provision correctly. I read the enacted text in the official Statutes at Large print of Pub. L. 95-454, which I re-downloaded from GovInfo this session; it is byte-identical to the audit's saved copy. At 92 Stat. 1139: '(f) The Board, or an administrative law judge or other employee of the Board designated to hear a case, may— (1) consolidate appeals filed by two or more appellants, or (2) join two or more appeals filed by the same appellant ...'. Douglas consolidates the appeals of seven individual appellants, which is exactly paragraph (1). This follows the audit convention for this attachment: citations are recorded as written in the OCR, and the status notes the artifact. I did not read the 1980 U.S.C. edition separately; I am not aware of any amendment to § 7701(f) before 1981.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "92 Stat. 1139: '(f) The Board, or an administrative law judge or other employee of the Board designated to hear a case, may— (1) consolidate appeals filed by two or more appellants, or (2) join two or more appeals filed by the same appellant and hear and decide them concurrently'. Douglas p.314 image: '5 U.S.C. 7701(f)(1); 5 C.F.R. 1201.36(a)(1)'; text layer: '7701(f)(D; ... (a)(l)'.",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      }
     },
     {
       "ref": "pd-0232",
@@ -8352,7 +8371,17 @@
       },
       "source_reading_attempts": [
         "Read judicial opinion at https://law.resource.org/pub/us/case/reporter/F2/470/470.F2d.467.71-1195.html."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "I confirm the status and make its scope more precise. In the rendered image of Douglas PDF p.7 (printed 319), note 19 reads 'Slowick v. Hampton, 470 F.2d 467, 469 (D.C. Cir. 1972) (ordering remand for \"administrative re-[line break]determination of the proper sanction\")'. 'Slotvick' appears only in the attachment's OCR text layer, and the 're-determination' hyphen is a line-break hyphen. I read Slowick v. Hampton in the Caselaw Access Project scan, which carries reporter page labels. The case runs 467–469, and page *469 holds: 'In case of doubt the court will remand for an administrative redetermination of the proper sanction. Meehan v. Macy ... The Meehan doctrine calls for a remand in this case ... Remanded to the District Court to frame an order for further consideration by appellees.' The name, volume, page, pin, court and year all match, and the parenthetical quote is accurate apart from the line-break hyphen. The audit's second quoted phrase, 'a determination of the proper sanction', is Douglas's quotation from the district court's later order of Dec. 13, 1972, not from the D.C. Circuit opinion. I did not read that order. It is attributed correctly in Douglas and is not a defect. The only defect is the OCR rendering of the name in the supplied attachment's text layer.",
+        "source_urls": [
+          "https://static.case.law/f2d/470/html/0467-01.html"
+        ],
+        "excerpt_read": "Slowick, 470 F.2d at *469: 'There is need for assurance that the administrative process has decided upon an appropriate sanction ... In case of doubt the court will remand for an administrative redetermination of the proper sanction. Meehan v. Macy, ... The Meehan doctrine calls for a remand in this case'. Douglas n.19 image: 'Slowick v. Hampton, 470 F.2d 467, 469'.",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      }
     },
     {
       "ref": "pd-0322",
@@ -10846,7 +10875,7 @@
       "authority": "Bowman Transp., Inc. v. Arkansas-Best Freight System, Inc.",
       "citation_as_written": "Bowman Transp., Inc. v. Arkansas-Best Freight System, Inc., 419 U.S. 281, 284 (1974)",
       "pincite": "284",
-      "cited_for": "Rational connection requirement",
+      "cited_for": "Adverse action supported by substantial evidence of record may still be arbitrary and capricious (cited through Doe v. Hampton, 566 F.2d at 271-72 n.15)",
       "quotes": [],
       "context": "",
       "fictional_by_design": false,
@@ -10871,7 +10900,23 @@
       },
       "source_reading_attempts": [
         "Read the cited primary text reproduced at https://supreme.justia.com/cases/federal/us/419/281/."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED",
+        "explanation": "Sol's VERIFIED_MINOR_DEFECT is overturned. The '284 vs 285' defect comes from the audit's narrow cited_for label, not from Douglas. Douglas at printed 325 (PDF p.13), confirmed in the page image, reads: 'an adverse action may be adequately supported by evidence of record but still be arbitrary and capricious, for instance if there is no rational connection between the grounds charged and the interest assertedly served by the sanction. Doe v. Hampton, 566 F.2d 265, 271-72 n. 15 (D.C. Cir. 1977), citing Bowman ..., 419 U.S. 281, 284 (1974).' I read Bowman in the Caselaw Access Project scan, with reporter page labels. Page *284 states: 'The District Court properly concluded that, though an agency's finding may be supported by substantial evidence, ... it may nonetheless reflect arbitrary and capricious action.' That is the main proposition of Douglas's sentence. The 'rational connection' wording is Douglas's 'for instance' illustration, and it comes from Doe, not Bowman. I read Doe v. Hampton's footnote 15 (CAP scan, attached at *271–72). It reads: 'While an adverse action supported by substantial evidence of record may still be arbitrary and capricious, Bowman ..., 419 U.S. 281, 284 ..., for instance if there is no rational connection between the grounds charged and the interest assertedly served by proceeding against the employee, see, e. g., Norton v. Macy ...; Mindel v. Civil Service Comm'n ...'. Douglas therefore reproduces Doe's pin faithfully, and the pin is exact for the point Bowman is cited for. Bowman's own 'articulate a rational connection' sentence is at *285, but Douglas does not cite Bowman for it. The citation is accurate. See the audit_metadata_correction.",
+        "source_urls": [
+          "https://static.case.law/us/419/html/0281-01.html",
+          "https://static.case.law/f2d/566/html/0265-01.html"
+        ],
+        "excerpt_read": "Bowman, 419 U.S. at *284: 'The District Court properly concluded that, though an agency's finding may be supported by substantial evidence, based on the definition in Universal Camera Corp. v. NLRB, 340 U. S. 474 (1951), it may nonetheless reflect arbitrary and capricious action.' Doe v. Hampton n.15: 'While an adverse action supported by substantial evidence of record may still be arbitrary and capricious, Bowman ..., 419 U.S. 281, 284 ..., for instance if there is no rational connection between the grounds charged and the interest assertedly served ..., see, e. g., Norton v. Macy ...'.",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      },
+      "initial_cited_for": "Rational connection requirement",
+      "audit_metadata_correction": {
+        "cited_for": "Adverse action supported by substantial evidence of record may still be arbitrary and capricious (cited through Doe v. Hampton, 566 F.2d at 271-72 n.15)",
+        "explanation": "The audit's label 'Rational connection requirement' names Douglas's illustrative example, which Doe draws from Norton v. Macy and Mindel. It does not name the proposition Bowman is cited for at 284. This is an audit labeling error, not an upstream defect."
+      }
     },
     {
       "ref": "pd-0396",
@@ -14299,7 +14344,7 @@
       "authority": "Cafferello v. Civil Service Commission",
       "citation_as_written": "Cafferello v. Civil Service •ommission, 625 F.2d 285, 288 (9th Cir. 1980)",
       "pincite": "288",
-      "cited_for": "Agency may rebut disparity contention without prior notice",
+      "cited_for": "Cf. (analogy): an agency's penalty decision may take account of circumstances beyond the noticed charges (the 'whole person') without relying on unnoticed charges; Douglas uses this by analogy for an agency's freedom to rebut a disparity contention without prior notice",
       "quotes": [],
       "context": "",
       "fictional_by_design": false,
@@ -14324,7 +14369,22 @@
       },
       "source_reading_attempts": [
         "Read original opinion text at https://law.justia.com/cases/federal/appellate-courts/F2/625/285/57322/ and compared the cited proposition and pin."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED",
+        "explanation": "Sol's VERIFIED_MINOR_DEFECT is overturned. The only 'defect' Sol identified is that Cafferello does not directly address rebutting a disparity contention. That gap comes from the audit's cited_for label, which drops Douglas's signal. Douglas note 65 (printed 331, PDF p.19, read in the page image and text layer) first says agencies must put in the advance notice the factors they intend to rely on, citing 'Cf. Albert v. Chafee'. It then says that 'this does not require designation in the notices of all circumstances that could conceivably be relevant to the penalty; for example, if an appellant contends that a penalty exceeds that imposed upon other employees in like circumstances, the agency would remain free to present evidence to rebut such contention notwithstanding its failure to have recited such information in its advance or final notices. Cf. Cafferello v. Civil Service Commission, 625 F.2d 285, 288 (9th Cir. 1980).' I read Cafferello in the Caselaw Access Project scan, with reporter page labels. The case runs 285–289. At *288 the court states that '[i]t is undoubtedly improper for the agency to cite and rely on infractions not contained in the initial notice', citing Albert. It then holds that the supervisor 'did not remove Cafferello for any reason not stated in the charges' and that the examiner reasonably found he 'had only considered the whole person in determining appropriate punishment', so the action 'was based on the charges contained in the notice'. A 'Cf.' signal marks a proposition that is different but analogous. Cafferello's distinction between unnoticed charges, which are barred, and unnoticed penalty-relevant circumstances, which are permitted, is a sound analogy for Douglas's point that an agency may answer a disparity contention without having noticed the comparators. The name, volume, page, pin, court and year are correct. The supplied attachment's '•ommission' comes from a scan-margin clip ('Cafferello v. Civil Service' / ''ommission'), which matches the case-name OCR noise already disclosed for this attachment. The citation is accurate in the original, and the label error belongs to the audit. See the audit_metadata_correction. I did not treat the margin clip as a separate defect, because the reporter citation is fully legible.",
+        "source_urls": [
+          "https://static.case.law/f2d/625/html/0285-01.html"
+        ],
+        "excerpt_read": "Cafferello, 625 F.2d at *288: 'It is undoubtedly improper for the agency to cite and rely on infractions not contained in the initial notice to justify its action. See Albert v. Chafee ... Such, however, was not the case here. ... he did not remove Cafferello for any reason not stated in the charges. ... Major's clarified testimony showed that he had not improperly relied on new charges but had only considered the whole person in determining appropriate punishment ... we also conclude that the challenged disciplinary action was based on the charges contained in the notice to Cafferello.'",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      },
+      "initial_cited_for": "Agency may rebut disparity contention without prior notice",
+      "audit_metadata_correction": {
+        "cited_for": "Cf. (analogy): an agency's penalty decision may take account of circumstances beyond the noticed charges (the 'whole person') without relying on unnoticed charges; Douglas uses this by analogy for an agency's freedom to rebut a disparity contention without prior notice",
+        "explanation": "The audit label 'Agency may rebut disparity contention without prior notice' states Douglas's own proposition as if Cafferello directly supported it and omits the 'Cf.' signal. The narrowing is an auditor labeling artifact, not an upstream defect."
+      }
     },
     {
       "ref": "pd-0498",
@@ -14643,7 +14703,17 @@
           "source_url": "https://law.counselstack.com/opinion/clark-v-united-states-cc-1963",
           "result": "Full reproduced judicial opinion read at reporter pages 484–86."
         }
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "I confirm the status but correct the reason. The pin is exact, and the only defect is in how the supplied attachment reproduces the year. (1) Pin. I read Clark v. United States, 162 Ct. Cl. 477 (decided July 12, 1963), in the Caselaw Access Project scan with reporter page labels. The discharge holding runs onto *485 ('was an abuse of discretion by [*485] the agency that demands redress by this court'). *485 then goes on: 'This would be so in any case, but it is particularly true in this case, in view of plaintiff's good record with the Agency for nearly a quarter of a century. Since 1943 he had never been rated less than \"very good\" ...', followed by commendations. Page 485 itself therefore covers both the limited gravity of the offense set against removal and the employee's long good-service record, which are core penalty factors in Douglas note 66's general list. Sol's statement that good service is discussed on 'the adjacent page' is wrong; the material is on the pinned page. Douglas separately cites Clark at 486-87 in note 20 for the 90-day reduction, which is consistent with this reading. (2) Year. In the rendered image of Douglas PDF p.19, note 66 ends 'Clark v. United States, 162 Ct. Cl. 477, 485 / [clipped]63).' The scan's left margin cuts off the line start, so the attachment itself, not only its text layer, does not show '(1963)'. The text layer reads '163)'. The original citation is complete and correct. The minor defect is the clipped year in the supplied attachment.",
+        "source_urls": [
+          "https://static.case.law/us-ct-cl/162/html/0477-01.html"
+        ],
+        "excerpt_read": "Clark, 162 Ct. Cl. at *484–*485: 'His discharge on these grounds was unduly harsh and unwarranted, and was an abuse of discretion by [*485] the agency that demands redress by this court. ... This would be so in any case, but it is particularly true in this case, in view of plaintiff's good record with the Agency for nearly a quarter of a century. Since 1943 he had never been rated less than \"very good\", and \"excellent\" on several occasions.'",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      }
     },
     {
       "ref": "pd-0507",
@@ -26139,5 +26209,63 @@
       "Grace's opening citation of Title VII as '78 Stat. 263' looks inconsistent with Title VII beginning at 78 Stat. 253, but that row is outside this two-ref scope and I did not audit it.",
       "Downloads in this pass are untrusted copies in private tmp folders. PDF and HTML text was extracted with uv run python -I. I made no public edits and no git changes, used no paid APIs or secrets, and did no human verification or score correction."
     ]
-  }
+  },
+  "additional_problem_second_review_coverage": [
+    {
+      "model": "claude-opus-5-5",
+      "reasoning_effort": "high (harness-configured)",
+      "coverage": {
+        "files_read": [
+          "AGENTS.md",
+          "docs/legalreasonbench-audit/litigation/citation-check/README.md (Douglas OCR convention) and problems.md (OCR rows)",
+          "Upstream attachment final_notice_adverse_action_braddock.pdf (all 4 pages, text layer)",
+          "Upstream attachment braddock_arbitration_award.pdf (page 1 text; Article 12 search across all pages)",
+          "Upstream attachment douglas_v_veterans_admin.pdf (PDF pages 2, 7, 13, 19: text layer and rendered page images)",
+          "All other upstream attachments for this matter (keyword search for Article 12 / collective bargaining / grievance)",
+          "MPD/FOP collective bargaining agreements 2020–2023 and 2023–2026 (official PDFs from go.mpdconline.com; cover pages, Article 12 at PDF p.12, Article 19, Article 50), downloaded to a private audit folder",
+          "D.C. Code § 1-617.08 (code.dccouncil.gov), subsection (c)",
+          "MPD v. PERB, 901 A.2d 784 (D.C. 2006), CourtListener opinion 1998358 (targeted search for 'Article 12')",
+          "Caselaw Access Project scans with reporter page labels: Slowick v. Hampton, 470 F.2d 467; Bowman Transp. v. Arkansas-Best, 419 U.S. 281 (pp. 283–286); Cafferello v. U.S. Civil Service Comm'n, 625 F.2d 285 (full); Clark v. United States, 162 Ct. Cl. 477 (pp. 484–487); Doe v. Hampton, 566 F.2d 265 (n.15)"
+        ],
+        "limits": [
+          "pd-0156: I did not read the 2017–2020 MPD/FOP agreement. The pre-2020 Article 12 discipline/arbitration structure rests on MPD v. PERB's description of Article 12, Section 6. I did not determine the date the D.C. Council approved the 2023–2026 agreement. § 1-617.08(c)(2) makes that immaterial for discipline bargaining.",
+          "pd-0231: I read the 1978 enacted text, not the 1980 U.S.C. edition Douglas would have used.",
+          "pd-0321: I did not read the district court's Dec. 13, 1972 remand order quoted in Douglas n.19.",
+          "Page breaks for all four cases come from the Caselaw Access Project scan labels, not West or U.S. Reports print images. Clark was read only at pp. 477–478 and 484–487.",
+          "No citator or subsequent-history check was run.",
+          "Downloads in this pass went to private temporary folders outside the repository and were parsed with isolated interpreters. No paid APIs, secrets, host installs, git mutations, public reports, or scoring changes were made. This is a model check, not human verification."
+        ]
+      },
+      "refs": [
+        "pd-0156",
+        "pd-0231",
+        "pd-0321",
+        "pd-0395",
+        "pd-0497",
+        "pd-0506"
+      ]
+    }
+  ],
+  "prior_coverage_statements": [
+    {
+      "stage": "Before final coverage consolidation; per-reference supplemental reads and independent reviews supersede these statements",
+      "limits": [
+        "Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.",
+        "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).",
+        "FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.",
+        "D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.",
+        "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.",
+        "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.",
+        "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.",
+        "The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.",
+        "Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.",
+        "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
+        "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.",
+        "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.",
+        "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.",
+        "A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.",
+        "The last original-source pass attempted 124 previously unverified references: 84 verified, five minor-defect proposals, one agreement-article problem proposal awaiting independent review, and 34 still unverified after retrieval attempts."
+      ]
+    }
+  ]
 }

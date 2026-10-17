@@ -256,6 +256,48 @@
       "targeted_by_criteria": [],
       "rewards_reliance": [],
       "explanation": "The wrong Statutes at Large page (259 for 257) is embedded in the authentic Grace opinion supplied as an attachment. No criterion in the five pinned rubrics mentions § 703(h), 42 U.S.C. § 2000e-2(h), Statutes at Large pages or seniority systems, and no assignment instruction asks for the Title VII session-law citation. No scoring correction is proposed."
+    },
+    {
+      "ref": "pd-0156",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Article 12, the collective bargaining agreement as an authority, or Final Notice ¶27. Assignment 1 criterion 1 cites Final Notice ¶26, not ¶27. Each step's prompt also confines the analysis to the uploaded materials ('If a document is not uploaded, it does not exist'), so the real agreements are outside the task universe. The Article 12 route is a scenario premise shared by the Final Notice and the Award, and it mirrors the pre-2020 Article 12 arbitration structure. It is not a rubric defect, and there is no basis to infer that it was deliberately targeted. No scoring correction is proposed."
+    },
+    {
+      "ref": "pd-0231",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions 5 U.S.C. § 7701(f) or consolidation. The '(f)(D' garble is in the attachment's OCR text layer only, and nothing rewards reliance on it."
+    },
+    {
+      "ref": "pd-0321",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Slowick, 'Slotvick', or remand for redetermination of sanction. The name garble is OCR-only, and nothing rewards reliance on it."
+    },
+    {
+      "ref": "pd-0395",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion mentions Bowman. Assignment 3 criterion 2 ('rationally indefensible' PERB standard) uses similar wording but concerns a different standard and authority. The citation is verified, so there is nothing to target."
+    },
+    {
+      "ref": "pd-0497",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Cafferello. Assignment 2 criteria 4, 5 and 8 cover the comparator burden allocation that Douglas note 65 also addresses: criterion 4 rewards noting that no uploaded authority requires MPD to prove comparability; criterion 5 penalizes stating an employee initial-showing rule as settled law; criterion 8 penalizes non-uploaded authority. Whether note 65's text bears on criterion 5's framing is a rubric question outside this citation check. None of these criteria targets the Cafferello citation or rewards reliance on it. The citation is verified, and the earlier flag came from the audit's own label."
+    },
+    {
+      "ref": "pd-0506",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Clark or the Court of Claims. The clipped year comes from the attachment's scan reproduction, and nothing rewards reliance on it."
     }
   ]
 }
