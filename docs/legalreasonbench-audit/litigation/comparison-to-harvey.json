@@ -13,22 +13,22 @@
       "fictional_by_design": 70,
       "checked": 2296,
       "first_check_problems": 83,
-      "pending_checks": 1,
+      "pending_checks": 0,
       "by_final_status": {
-        "VERIFIED": 1865,
-        "VERIFIED_MINOR_DEFECT": 119,
+        "VERIFIED": 1867,
+        "VERIFIED_MINOR_DEFECT": 117,
         "NOT_FOUND_LIKELY_FABRICATED": 0,
         "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
-        "MISCHARACTERIZED": 46,
+        "MISCHARACTERIZED": 47,
         "MISQUOTED": 5,
         "WRONG_CITATION_REAL_CASE": 21,
         "UNABLE_TO_VERIFY": 239
       },
-      "observed_final_problems": 72,
+      "observed_final_problems": 73,
       "problems": null,
       "problem_rate": null,
-      "checks_complete": false,
-      "observed_problem_rate": null,
+      "checks_complete": true,
+      "observed_problem_rate": 0.031794425087108016,
       "per_matter": [
         {
           "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -52,16 +52,13 @@
               "The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.",
               "The Petition's 28 embedded images (maps, charts, photos, a deed cover page, FAA figure, tax-roll screenshots) were reviewed at contact-sheet scale; the fine-print notes on images 14, 16, 25 and 26 were not legible and were not read. Images 11-12 reproduce FAA AC Figure 1 and were checked.",
               "The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.",
-              "Lee Plan goal/objective/policy/map citations in the Resolution's findings were not checked against the Lee Plan; they are UNABLE_TO_VERIFY.",
               "Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.",
-              "Lee County LDC chapters 2, 10 and 34 and Code of Ordinances chapter 11 were read from Municode's current versions (as of 2026); each section's amendment history was checked. Where a cited section was amended after the document it appears in (LDC ss. 10-261, 10-291, 10-321, 10-329, 10-416, 10-418: Ord. 24-14, Oct. 2024, or Ord. 25-09, Apr. 2025), the pre-amendment text was not retrieved; those entries are VERIFIED only because the cited requirement appears in the current text, and say so. LDC s. 34-145 visibly changed (Oct. 2024, Apr. 2025) and is UNABLE_TO_VERIFY. Admin. Code AC-2-6 was read in its 8/2/22 version; the version in force in 2019-20 was not read.",
-              "Florida Statutes were read in the 2024 edition (with 2023 for s. 333.03). Appellate rules were read from rules.floridaappellate.com; the Florida Bar rules PDFs and Fla. R. Gen. Prac. & Jud. Admin. 2.520 could not be downloaded.",
-              "The Smith Florida Law Review article PDF was blocked (HTTP 403); only its repository landing page was read. Babcock (1966) and Mandelker & Tarlock (1992) were not read; they appear only inside a Snyder quotation that was verified.",
-              "AC 150/5200-33B and AC 150/5300-13A (cancelled) and AC 150/5300-13B and 150/5200-30D were identified from FAA's current and cancelled AC lists; their texts were not read. AC 150/5190-4B, 150/5200-33C and 150/5190-7 were read in full text.",
               "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.",
-              "Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.",
-              "The Sol second pass rechecked all 27 initial problem rows and added a Part 150 citation. It raised five new problems (refs29,78,87,89,136), promoted here to new first-stage findings with initial judgments preserved. Independent review of those five is pending. The two nonproblem supplemental checks remain separately saved pending further primary-source reading.",
-              "The supplemental source pass attempted all 32 assigned references: 17 verified and 11 still unverified after retrieval attempts. Four repeated problem proposals concern references already independently second-checked; the new source evidence is retained without replacing those final rulings. Remaining blocks concern seven compound Lee Plan references, two secondary works, and two historical code subsections."
+              "The supplemental source pass attempted all 32 assigned occurrences. Nine FAA circular references now have substantive source reads, rather than index-only identification. For AC 150/5300-13A the accessible text is the 2014 Change 1 consolidation, not the unamended 2012 issue.",
+              "Historical Lee County code requirements were checked where dated ordinance redlines or compilations supplied the relevant language. A complete January 2024 code/Lee Plan compilation was not recovered. Two historical code subsections and seven compound Lee Plan references remain unverified, along with the Babcock book and Mandelker/Tarlock article. Each row retains the retrieval attempts and any current-text comparison without calling that historical verification.",
+              "All original 27 problem claims and five later claims received independent second review. The Smith article and Jennings characterization claims were downgraded to minor; four duplicate proposals in the later source pass retain their already completed independent rulings. The original first-pass and coverage-only judgments remain in the row history.",
+              "Admin. Code AC-2-6 was read in its August 2022 version, not its 2019-20 version. Fine print in four Petition images remains unreadable, so the citation census is not asserted complete. Unread or inaccessible authority is UNABLE_TO_VERIFY, not evidence of fabrication.",
+              "Current recorded coverage: 230 real-authority occurrences, including 11 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
             "census_complete": false
@@ -104,17 +101,13 @@
               "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).",
               "FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.",
               "D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.",
-              "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.",
-              "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.",
               "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.",
               "The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.",
-              "Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.",
-              "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
-              "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.",
-              "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.",
-              "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.",
-              "A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.",
-              "The last original-source pass attempted 124 previously unverified references: 84 verified, five minor-defect proposals, one agreement-article problem proposal awaiting independent review, and 34 still unverified after retrieval attempts."
+              "The second census added 159 internal Chapter 16 cross-references and statutory short forms omitted initially. It did not independently rescan every original occurrence, so the overall census remains incomplete. Navigation metadata and non-authority record references remain excluded as described above.",
+              "All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.",
+              "All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.",
+              "The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.",
+              "Current recorded coverage: 794 real-authority occurrences, including 123 UNABLE_TO_VERIFY. OCR-only and scan-margin defects are distinguished from errors in the original legal authority. No citator or exhaustive later-history review was performed."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
             "counts": {
@@ -135,7 +128,7 @@
             "census_complete": false
           },
           "citations": 857,
-          "pending_checks": 1,
+          "pending_checks": 0,
           "complete": false
         },
         {
@@ -161,17 +154,18 @@
               "All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).",
               "The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.",
               "The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.",
-              "Counting unit: each citation string (full cite, short form with reporter or pin cite, statute/rule/regulation section, or quoted/named authority in the prompt or rubric) in each unique matter document; parallel reporter cites in one string count once. Bare case-name references with no reporter or pin cite inside the three supplied opinions (e.g. 'In Dawdy, ...') are not separately counted. Repeated identical table-header rule labels on one Annual Report page are counted once per page. Citations in the motion and rubric to the scenario's own record (complaint paragraphs, affidavits, exhibits) are record references, not legal authority, and are not counted; the scenario case caption is recorded as fictional.",
               "Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.",
               "Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.",
               "The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.",
               "The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.",
               "Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.",
-              "Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.",
               "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).",
               "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.",
               "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated.",
-              "The supplemental source pass attempted all 63 initially unverified references: 44 verified, three minor defects, six new problem proposals pending independent review, and ten still unverified after retrieval attempts. Original access descriptions are historical; current per-reference results control."
+              "Counting includes named-authority short forms after the supplemental census; the initial bare-name exclusion is superseded. Repeated attachment copies and non-authority record references are excluded.",
+              "All 63 initially unverified occurrences received retrieval attempts. Independent review retained the Ferris wrong-citation claim and treated five challenged supervisory-order parentheticals as minor defects; all nine supplemental proposals have saved second judgments and rubric-intent records.",
+              "Remaining unverified occurrences concern Restatement section 84 comment c, the Maag/Kitch/Sunderland articles, historical Rule 306, and the truncated Lawson and Eby supervisory orders. The per-reference attempts specify what was unavailable. Historical rule versions beyond those actually read remain a limit.",
+              "Current recorded coverage: 663 real-authority occurrences, including 10 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
             "counts": {
