@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf'], 'limits': ["Unique documents: 12 attachments plus 2 prompts and 2 rubrics. The assignment 2 packet reprints the assignment 1 prompt and all assignment 1 attachments; those were counted once, under assignment 1. Assignment 2's Facts.pdf is byte-identical in extracted text to assignment 1's Facts.pdf except for its source line, so it was read and counted once.", 'Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.', "The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.", "The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.", "Facts.pdf contains no citations to legal authority. Its case-record references (about 97 trial-transcript 'TT' cites, about 32 'R. Doc.' cites, 'Id.' record short forms, and the M./P./G. Br. abbreviation key) are references to the scenario case record, not legal authority, and are excluded. Following the sibling matters' convention for scenario record documents, the 24 prompt and rubric references to Facts.pdf and Patton State Plea.pdf (document lists and rubric source fields) are included as fictional_by_design entries (authority_type 'other') and were not checked. The plea petitions look like real Polk County filings and Facts.pdf reads like a real government brief, so 'fictional_by_design' here means 'scenario record, not legal authority'. Whether the prosecution is real was not investigated. No fictional legal authority (an invented case, statute, or rule) was found.", "Authority types follow the sibling and Harvey vocabulary: U.S. and Iowa constitutional provisions are typed 'statute'; law-review articles and the Model Penal Code are typed 'restatement_or_treatise'; the Iowa model jury instruction is typed 'other'.", "Counting conventions: each explicit citation string counts once, including short forms and Id./id. (resolved to the antecedent in citation_as_written brackets). Statutory section mentions given by number count once each. Bare case names count when invoked as authority ('In Stover, we held', 'Under Aguilar', 'Strickland prejudice') but not when incidental or inside another case's parenthetical. Explicit references to constitutional provisions count. Excluded: bare 'subsection 1/2' references without a section number; citations appearing inside quoted language; case names embedded in law-review titles (Williams v. Taylor, Wiggins v. Smith, Rompilla v. Beard, Cronic); purely factual mentions ('received Miranda warnings', 'post-Miranda interview'); the book cited in Kehoe n.2; and the statute prints' editorial annotations (bracketed history lines, 'Referred to in' lists, and 'see §' notes: roughly 16 history blocks, 8 'Referred to in' lists, and 5 see-notes across the five prints).", 'Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.', "Verification sources: CourtListener (read through its API connector) for case text; Cornell LII for current U.S. Code, federal rules, and the U.S. Constitution; the Iowa Legislature for the 2020 and 2026 Iowa Code and the codified Iowa Constitution. Federal statutes and rules were read in their current form; versions in force at each decision date were not separately retrieved, except Fed. R. Evid. 801(d)(2)(B), whose pre-2011 wording was confirmed as quoted in an 8th Cir. 1996 opinion. Kehoe's Arkansas Code citations and Ellison's Model Penal Code § 3.04 were checked against judicial quotations of those texts, because Justia returned HTTP 403 and the ALI text is not freely available.", "Pin pages: where CourtListener text carried reporter page markers, pins were checked. Lorenzo Baltazar, Gibbs, and Macke exist on CourtListener only as slip opinions, so their N.W.2d pins could not be checked. Several other pins are marked 'not separately checked' in their explanations; in those cases the proposition and quotation were confirmed but the page was not.", "UNABLE_TO_VERIFY (12 occurrences): ten law-review articles cited in Justice Appel's special concurrence in Kuhse, and Iowa Criminal Jury Instruction 800.1 (2018). For the law reviews, repository PDFs were blocked by bot challenges or 404s, or could not be located; for five of the articles, existence was confirmed only from repository bibliographic records. No law-review quotation was checked. None is marked not-found.", "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.", 'Integration counting correction: 24 prompt/rubric references to Facts.pdf and Patton State Plea.pdf were moved to excluded_record_references. The first worker had labelled them fictional_by_design solely because they are scenario records; no finding established that these court records were fictional. They are excluded as non-authority record references, leaving 470 real-law citation occurrences and no fictional legal-authority rows in this matter.', 'Second-pass census supplement adds 139 omitted references and separately records 33 verification-coverage downgrades. Two new alleged problems are promoted to first-stage findings with original judgments retained; fresh independent checks are pending. Initial exclusions of quoted and editorial-note citations are superseded by the supplement.', 'A supplemental GPT-6 Sol source pass attempted 89 unverified occurrences: 82 verified, one quotation proposal awaiting independent review, six still unable to verify. Prior coverage downgrades are preserved as history and superseded by the actual source reads.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'census_complete': True}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf'], 'limits': ["Unique documents: 12 attachments plus 2 prompts and 2 rubrics. The assignment 2 packet reprints the assignment 1 prompt and all assignment 1 attachments; those were counted once, under assignment 1. Assignment 2's Facts.pdf is byte-identical in extracted text to assignment 1's Facts.pdf except for its source line, so it was read and counted once.", 'Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.', "The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.", "The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.", "Authority types follow the sibling and Harvey vocabulary: U.S. and Iowa constitutional provisions are typed 'statute'; law-review articles and the Model Penal Code are typed 'restatement_or_treatise'; the Iowa model jury instruction is typed 'other'.", 'Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.', "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.", 'The initial treatment of non-authority case-record references as fictional is superseded: 24 references to Facts.pdf and Patton State Plea.pdf are excluded_record_references, not fictional legal authorities. No fictional legal authority was found in this matter.', 'The second census adds 139 omitted occurrences, including quoted and editorial-note references, and corrects 33 unsupported verification labels. Those initial exclusions and labels remain only in the history. The census-complete judgment concerns readable printed text, not proof of exhaustive capture or full source verification.', 'The two supplemental source-reading passes attempted all 178 assigned unverified occurrences. Their first substantive results were 160 verified, one quotation proposal, and 17 still unverified. Independent review downgraded that quotation proposal to a minor possessive typo, with the primary reporter page read. The separate Felix spelling modernization was also minor; the Iowa conspiracy-criterion problem was retained.', 'The 17 remaining unverified occurrences involve exact reporter pages, the cited editions of the Model Penal Code and an Iowa jury instruction, journal pages, and a book. Each row records source attempts and the exact remaining limit. Later judicial quotation or bibliographic metadata is not treated as verification of unread original text or historical editions.', 'Current recorded coverage: 609 real-authority occurrences, including 17 UNABLE_TO_VERIFY. Earlier aggregate counts and access statements are historical; current per-reference judgments control. No paid databases, exhaustive citator review, or human verification was used.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'census_complete': True}
 
 ## A1-PROMPT-001: 18 U.S.C. § 1959
 
@@ -3313,20 +3313,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text; Bledsoe states that an enterprise must have an ascertainable structure distinct from that inherent in the pattern of racketeering (page marker not separately checked; Kragness cites Bledsoe at 664-65 for the same discussion).
+The reproduced opinion has reporter marker [665] at the enterprise-structure discussion cited by Kehoe.
 
-Excerpt read: Finally, an enterprise must have an "ascertainable structure" distinct from that inherent in the conduct of a pattern of racketeering activity.
+Excerpt read: [665] an enterprise must have an ascertainable structure distinct from the pattern of racketeering activity.
 
-- https://www.courtlistener.com/opinion/8925413/united-states-v-bledsoe/
+- https://law.counselstack.com/opinion/united-states-v-bledsoe-ca8-1982
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-030: 18 U.S.C. § 1962(c)
 
@@ -3519,20 +3513,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text. Early in the double jeopardy discussion (consistent with 1368) Bennett states the clause protects against successive prosecutions and multiple punishments, citing Pearce; later (consistent with 1375) it quotes the 'axiomatic that a substantive offense is distinct from a conspiracy' sentence from Phillips. Page markers not separately checked.
+The reproduced opinion marks *1368 and states the same-offense standard used in Kehoe.
 
-Excerpt read: Under this clause, a defendant is protected from both successive prosecutions and multiple punishments for the same criminal offense. ... "[a] RICO substantive charge is not a conspiracy and it is axiomatic that a substantive offense is distinct from a conspiracy to commit that or another substantive offense."
+Excerpt read: *1368 the defendant must show that the two offenses charged are in law and fact the same offense.
 
-- https://www.courtlistener.com/opinion/7031268/united-states-v-bennett/
+- https://openjurist.org/44/f3d/1364/united-states-v-bennett
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-038: Blockburger v. United States, 284 U.S. 299 (1932)
 
@@ -4206,22 +4194,16 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: UNABLE_TO_VERIFY
 
-Read CourtListener text; all three quotations appear (Carrillo quoting Miller/Diaz and Coonan). Kehoe's bracketed '[under New York state law]' paraphrases the context; 'states's' tracks the source's 'states''. Pin pages not separately checked.
+Read Carrillo’s reproduced opinion and confirmed the quoted RICO/state-offense discussion, but the available opinion copy lacks reporter pagination. The precise 182 pin remains unverified. Carrillo also says at the following page that state-law elements generally must be proved, so the Kehoe quotation must be kept in its double-jeopardy/procedural context.
 
-Excerpt read: "RICO's allusion to state crimes was not intended to incorporate elements of state crimes, but only to provide a general substantive frame of reference" ... the prior acquittal did not bar the RICO prosecution ... "'Congress did not intend to incorporate the various states' procedural and evidentiary rules into the RICO statute.'"
+Excerpt read: RICO’s allusion to state crimes was not intended to incorporate elements of state crimes; prior state acquittal did not bar the RICO case.
 
-- https://www.courtlistener.com/opinion/7082643/united-states-v-carrillo/
+- https://openjurist.org/229/f3d/177/united-states-of-america-v-xavier-carrillo
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-065: United States v. Carrillo, 229 F.3d 177 (2d Cir. 2000)
 
@@ -4312,22 +4294,16 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: UNABLE_TO_VERIFY
 
-Read CourtListener text; all three quotations appear (Carrillo quoting Miller/Diaz and Coonan). Kehoe's bracketed '[under New York state law]' paraphrases the context; 'states's' tracks the source's 'states''. Pin pages not separately checked.
+Read Carrillo’s reproduced opinion and confirmed the quoted RICO/state-offense discussion, but the available opinion copy lacks reporter pagination. The precise 182 pin remains unverified. Carrillo also says at the following page that state-law elements generally must be proved, so the Kehoe quotation must be kept in its double-jeopardy/procedural context.
 
-Excerpt read: "RICO's allusion to state crimes was not intended to incorporate elements of state crimes, but only to provide a general substantive frame of reference" ... the prior acquittal did not bar the RICO prosecution ... "'Congress did not intend to incorporate the various states' procedural and evidentiary rules into the RICO statute.'"
+Excerpt read: RICO’s allusion to state crimes was not intended to incorporate elements of state crimes; prior state acquittal did not bar the RICO case.
 
-- https://www.courtlistener.com/opinion/7082643/united-states-v-carrillo/
+- https://openjurist.org/229/f3d/177/united-states-of-america-v-xavier-carrillo
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-069: United States v. Carrillo, 229 F.3d 177 (2d Cir. 2000)
 
@@ -4513,20 +4489,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Arkansas Code text could not be fetched from Justia (HTTP 403). Read the statute's text as quoted in Walker v. State, 324 Ark. 106, 918 S.W.2d 172 (1996) (Repl. 1993), on CourtListener; it matches the jury instruction quoted in Kehoe n.3.
+Arkansas Act 856 of 1989 amended §5-10-102(a)(2) of the Arkansas Code of 1987 to the exact language quoted by the Kehoe jury instruction. “Code of 1987” is the code title, not a claim that the unamended 1987 wording remained operative.
 
-Excerpt read: "A person commits Murder in the First Degree if, with a purpose of causing the death of another person, he causes the death of another person." Ark. Code Ann. § 5-10-102(a)(2) (Repl. 1993).
+Excerpt read: (2) With a purpose of causing the death of another person, he causes the death of another person.
 
-- https://www.courtlistener.com/opinion/2417480/walker-v-state/
+- https://www.arkleg.state.ar.us/Home/FTPDocument?path=/ACTS/1989/Public/856.pdf
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-076: United States v. Finch, 16 F.3d 228 (8th Cir. 1994)
 
@@ -4744,20 +4714,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text; the court explains that a screening mechanism or 'Chinese Wall' can avoid disqualifying an entire prosecuting office (pin not separately checked).
+The reproduced opinion marks [1333] at its screening-mechanism discussion.
 
-Excerpt read: we believe that a screening mechanism or Chinese Wall could be implemented to avoid disqualifying the entire Attorney General's office.
+Excerpt read: [1333] a screening mechanism or Chinese wall can avoid disqualifying the entire office.
 
-- https://www.courtlistener.com/opinion/550152/walter-j-blair-v-bill-armontrout-walter-j-blair-v-bill-armontrout/
+- https://law.counselstack.com/opinion/walter-j-blair-v-bill-armontrout-walter-j-blair-v-bill-armontrout-ca8-1990
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-085: Fred Weber, Inc. v. Shell Oil Co., 566 F.2d 602 (8th Cir. 1977)
 
@@ -5010,21 +4974,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Kehoe quotes the pre-2011 text. Read the current restyled rule at Cornell LII and the pre-2011 text as quoted in United States v. Williams, 87 F.3d 249 (8th Cir. 1996), on CourtListener; Kehoe's quotation matches the pre-2011 wording in effect when Kehoe was decided.
+Read the 2002 U.S. Code reproduction of the then-operative Federal Rule of Evidence 801(d)(2)(B); it excludes from hearsay an opposing-party statement the party manifested adopting or believing.
 
-Excerpt read: Pre-2011 (as quoted in Williams): a statement is not hearsay if it is offered against a party and is "a statement of which the party has manifested an adoption or belief in its truth." Current: '(B) is one the party manifested that it adopted or believed to be true;'
+Excerpt read: (B) a statement of which the party has manifested an adoption or belief in its truth.
 
-- https://www.law.cornell.edu/rules/fre/rule_801
-- https://www.courtlistener.com/opinion/720593/united-states-v-louis-williams/
+- https://law.justia.com/codes/us/2002/title28/app/federalru/dup2/rule801/
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-095: Maddox v. Patterson, 905 F.2d 1178 (8th Cir. 1990)
 
@@ -5192,20 +5149,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text; Lilley states the general rule for adoptive admissions (pin not separately checked).
+The reproduced opinion marks *187 at its adoptive-admission discussion; the court rejects adoption on the facts.
 
-Excerpt read: as a general rule, when an accusatory statement is made in the defendant's presence and hearing, and he understands it and has an opportunity to deny it, the statement and his failure to deny it are admissible against him.
+Excerpt read: *187 an accusatory statement may be admitted on failure to deny, but Lilley effectively denied her husband’s account.
 
-- https://www.courtlistener.com/opinion/358620/united-states-v-camille-t-lilley/
+- https://law.counselstack.com/opinion/united-states-v-camille-t-lilley-ca8-1978
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-102: U.S. Const. amend. VI
 
@@ -5787,20 +5738,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener majority text; Kumho restates Daubert's requirement that expert testimony be relevant and reliable and that appellate courts review admission of expert testimony for abuse of discretion, with trial-court latitude. Individual pin pages (142, 147, 152) not separately checked against page markers.
+Read the reproduced bound Supreme Court opinion at U.S. page 147: Rule 702 reliability applies to all expert testimony.
 
-Excerpt read: It pointed out that such testimony is admissible only if it is both relevant and reliable. ... a court of appeals is to apply an abuse-of-discretion standard when it "review[s] a trial court's decision to admit or exclude expert testimony."
+Excerpt read: 147 Rule 702 applies Daubert’s gatekeeping obligation to all expert testimony.
 
-- https://www.courtlistener.com/opinion/118271/kumho-tire-co-v-carmichael/
+- https://supreme.justia.com/cases/federal/us/526/137/case.pdf
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-125: Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)
 
@@ -5893,20 +5838,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener majority text; Kumho restates Daubert's requirement that expert testimony be relevant and reliable and that appellate courts review admission of expert testimony for abuse of discretion, with trial-court latitude. Individual pin pages (142, 147, 152) not separately checked against page markers.
+Read the reproduced bound Supreme Court opinion at U.S. page 142: the trial judge has broad latitude and appellate review is for abuse of discretion.
 
-Excerpt read: It pointed out that such testimony is admissible only if it is both relevant and reliable. ... a court of appeals is to apply an abuse-of-discretion standard when it "review[s] a trial court's decision to admit or exclude expert testimony."
+Excerpt read: 142 the trial judge enjoys the same broad latitude in deciding how to determine reliability.
 
-- https://www.courtlistener.com/opinion/118271/kumho-tire-co-v-carmichael/
+- https://supreme.justia.com/cases/federal/us/526/137/case.pdf
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-129: United States v. Jolivet, 224 F.3d 902 (8th Cir. 2000)
 
@@ -6522,22 +6461,17 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: UNABLE_TO_VERIFY
 
-Read CourtListener text; Williams quotes § 704.1(3) (2018) and describes it as a new stand-your-ground provision eliminating any duty to retreat if one is not engaged in illegal activity. Pin 637 not separately checked.
+The reproduced Williams opinion states the no-duty-to-retreat provision and its nonretroactivity holding; Fordyce cites Williams at 637 for this passage. The reproduced Williams text lacks reporter page breaks, so page 637 was not independently read in a paginated primary copy.
 
-Excerpt read: Most notable is subsection 3, a new stand your ground provision, which eliminates any duty to retreat before using force if one is not engaged in illegal activity.
+Excerpt read: Williams, division VIII: subsection 3 eliminates duty to retreat for one not engaged in illegal activity; amendment effective July 1, 2017.
 
-- https://www.courtlistener.com/opinion/4623040/state-of-iowa-v-antoine-tyree-williams/
+- https://law.counselstack.com/opinion/state-of-iowa-v-antoine-tyree-williams-iowa-2019
+- https://www.iowacourts.gov/courtcases/6343/embed/SupremeCourtOpinion
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-011: Iowa Code § 704.1(3)
 
@@ -7028,22 +6962,17 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: UNABLE_TO_VERIFY
 
-The ALI text is not freely available; read § 3.04(2)(b)(ii) and the 1985 commentaries as quoted in State v. Anderson (Conn. Aug. 31, 1993), on CourtListener. The quoted text shows the MPC treats the retreat rule as a limitation within the self-defense justification, consistent with Ellison's 'See, e.g.' use. Evidence is a judicial quotation, not the ALI publication itself.
+Read a public reproduction of Model Penal Code §3.04 and confirmed its retreat limitation is consistent with Ellison’s use. The citation specifies the American Law Institute 1985 edition; that primary edition was not obtained, and the reproduction does not establish its exact 1985 text. The cited edition therefore remains unverified.
 
-Excerpt read: The Model Penal Code § 3.04 (2) (b) (ii) states that the use of deadly force in self-defense is not justifiable if "the actor knows that he can avoid the necessity of using such force with complete safety by retreating . . . ."
+Excerpt read: §3.04(1) force is justifiable when the actor believes it immediately necessary against unlawful force on the present occasion.
 
-- https://www.courtlistener.com/opinion/7895478/state-v-anderson/
+- https://criminallawweb.net/MPC/PART1/snippets/3_04.htm
+- https://www.ali.org/publications/model-penal-code
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-031: Iowa Code § 704.1(3)
 
@@ -7469,20 +7398,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text; Pearson reversed a going-armed conviction because the uniform marshaling instruction omitted the movement element, and its footnote addresses the element (Ellison cites 265 n.1, 'collecting cases'). Pin not separately checked.
+The reproduced opinion has *265 before the sentence bearing footnote 1; footnote 1 discusses omission of movement from instruction 800.15.
 
-Excerpt read: We reverse the district court's conviction of Pearson for going armed and remand for a new trial on that charge using a corrected marshaling instruction that includes the element of "movement."
+Excerpt read: *265 footnote 1: instruction 800.15 omitted proof of movement, an element of going armed with intent.
 
-- https://www.courtlistener.com/opinion/4472400/state-of-iowa-v-jesse-john-pearson/
+- https://law.counselstack.com/opinion/state-of-iowa-v-jesse-john-pearson-iowa-2011
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-048: U.S. Const. amend. V
 
@@ -8150,20 +8073,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text; Decker discusses testimonial versus nontestimonial evidence under the Fifth Amendment, supporting both Ellison citations (354 and 355). Pins not separately checked.
+The reproduced opinion marks *355 at the list of physical traits that are not testimonial under the Fifth Amendment.
 
-Excerpt read: It is axiomatic that only evidence that is testimonial in nature is protected by the Fifth Amendment. Nontestimonial evidence thus is unprotected
+Excerpt read: *355 fingerprinting, photographing, physical measurements, speaking, walking, and blood testing.
 
-- https://www.courtlistener.com/opinion/2034889/state-v-decker/
+- https://openjurist.org/744/nw2d/346/state-v-decker-2034889
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-075: U.S. Const. amend. V
 
@@ -8931,10 +8848,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-The 2018 Iowa State Bar Association model instruction is not freely accessible; a web search found only paywalled listings of neighboring 800-series instructions. Kuhse's statement that 800.1 omits 'without justification' was not checked.
+Read instruction 800.1 in an authorized 2022 reprint identifying a December 2016 revision, and read Kuhse’s reference to the 2018 issue. The separately cited 2018 ISBA printing was not obtained; the 2022 text corroborates the proposition but cannot establish the exact 2018 edition.
 
-Excerpt read: 
+Excerpt read: 800.1 Assault—Elements (Rev. 12/2016); note: lack of justification is not an element unless defense evidence raises it.
 
+- https://spd.iowa.gov/media/79/download?inline=
+- https://www.iowacourts.gov/courtcases/6442/embed/CourtAppealsOpinion
 
 ### Second check: not required
 
@@ -10255,20 +10174,14 @@ Fictional by design: False;
 
 ### First check: VERIFIED
 
-Read CourtListener text; where a party does not indicate whether a claim rests on the Sixth Amendment or article I, section 10, the court regards both as preserved (consistent with Kuhse n.3; pin 571 not separately checked).
+The reproduced opinion marks *571 before the paragraph explaining that an unspecified constitutional basis preserves both federal and state claims, with the same substantive standards used there.
 
-Excerpt read: When there are parallel constitutional provisions in the federal and state constitutions and a party does not indicate the specific constitutional basis, we regard both federal and state constitutional claims as preserved
+Excerpt read: *571 when no specific constitutional basis is indicated, both federal and state claims are preserved.
 
-- https://www.courtlistener.com/opinion/4472446/daniel-king-v-state-of-iowa/
+- https://openjurist.org/797/nw2d/565/daniel-king-v-state-of-iowa
 
-### Second check: UNABLE_TO_VERIFY
+### Second check: not required
 
-First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
-
-Excerpt read: 
-
-
-Model: GPT-6 Sol; reasoning effort: high.
 
 ## KUHSE-065: Strickland v. Washington, 466 U.S. 668 (1984)
 
@@ -10436,11 +10349,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Existence of the article (title, authors, 2007, American Journal of Criminal Law) confirmed through the Cornell Law faculty-publications record found by web search; the repository PDF was blocked by a bot challenge, so the article text, page 142, and the quoted words were not read.
+The Cornell repository metadata was available, but its full-text PDF returned HTTP 403; page 142 of Blume and Neumann was not read.
 
-Excerpt read: 
+Excerpt read: No primary excerpt read; see the explanation and recorded retrieval attempts.
 
-- https://scholarship.law.cornell.edu/facpub/38
+- https://scholarship.law.cornell.edu/facpub/38/
+- https://scholarship.law.cornell.edu/cgi/viewcontent.cgi?article=1037&context=facpub
 
 ### Second check: not required
 
@@ -10511,10 +10425,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-One web search did not surface the article or a repository record; text and pages 27-28 not read. Not a fabrication finding.
+The BYU Law Review issue and article record were read, but its full-text PDF returned HTTP 403; pages 27–28 of Duncan were not read.
 
-Excerpt read: 
+Excerpt read: No primary excerpt read; see the explanation and recorded retrieval attempts.
 
+- https://digitalcommons.law.byu.edu/lawreview/vol2002/iss1/1/
+- https://digitalcommons.law.byu.edu/cgi/viewcontent.cgi?article=2102&context=lawreview
 
 ### Second check: not required
 
@@ -10560,10 +10476,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Not searched beyond the Calhoun search; text and pages 764-65 not read. Not a fabrication finding.
+Searched Georgetown journal/author sources and found court citations to Gable and Green, but did not retrieve the article’s pages 764–65. Those citations are not primary article text.
 
-Excerpt read: 
+Excerpt read: No primary excerpt read; see the explanation and recorded retrieval attempts.
 
+- https://www.law.georgetown.edu/legal-ethics-journal/
+- https://www.wvsd.uscourts.gov/sites/wvsd/files/opinions/2_05-cv-00033_Goodwin_9-1-05.pdf
 
 ### Second check: not required
 
@@ -10759,10 +10677,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-No freely accessible copy or bibliographic record was found in one web search; text and quotations at 455 and 458 not read. Not a fabrication finding: Georgetown Law Journal back issues are not openly hosted.
+Searched for Calhoun’s original 77 Geo. L.J. article; found Kuhse’s quotation of its statistics, but no accessible original page 458 to read.
 
-Excerpt read: 
+Excerpt read: No primary excerpt read; see the explanation and recorded retrieval attempts.
 
+- https://www.iowacourts.gov/courtcases/6442/embed/SupremeCourtOpinion
+- https://www.law.georgetown.edu/georgetown-law-journal/
 
 ### Second check: not required
 
@@ -10808,11 +10728,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Existence confirmed through the Duke Law scholarship repository record (63 Law & Contemp. Probs. 179-205, Summer 2000); the PDF download was blocked by a bot challenge, so page 199 and the quoted words were not read. Kuhse's '63-SUM' is a Westlaw-style issue designator.
+The Duke repository record was available, but the linked full-text PDF returned HTTP 403; page 199 of Murphy was not read.
 
-Excerpt read: 
+Excerpt read: No primary excerpt read; see the explanation and recorded retrieval attempts.
 
-- https://scholarship.law.duke.edu/lcp/vol63/iss3/10
+- https://scholarship.law.duke.edu/lcp/vol63/iss3/10/
+- https://scholarship.law.duke.edu/cgi/viewcontent.cgi?article=1189&context=lcp
 
 ### Second check: not required
 
@@ -10856,13 +10777,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-A web search returned a Penn Law repository listing (vol. 134, iss. 5, first page 1259, 1986), but the listed page returned 404 when fetched; text and pages 1279-81 not read.
+Read the reproduced article pages numbered 1279–81; Gabriel criticizes the difficulty of proving Strickland prejudice.
 
-Excerpt read: 
+Excerpt read: 1279–81 proving a reasonable probability of a different result is virtually impossible in many cases.
 
-- https://scholarship.law.upenn.edu/penn_law_review/vol134/iss5/5
+- https://scispace.com/pdf/the-stickland-standard-for-claims-of-ineffective-assistance-1ust5n056z.pdf
 
 ### Second check: not required
 
@@ -12047,9 +11968,9 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Publisher and catalog records confirm the book exists, but its text was not read. It is factual source material cited by the court, not a legal rule or rubric authority.
+Publisher/catalog data and Kehoe’s footnote establish the bibliographic claim, but the book text itself was not read. Its factual account of The Order remains unverified.
 
-Excerpt read: Kehoe n.2: The Order is described in the book The Silent Brotherhood: Inside America’s Racist Underground, by Kevin Flynn and Gary Gerhardt.
+Excerpt read: No primary excerpt read; see the explanation and recorded retrieval attempts.
 
 - https://www.simonandschuster.net/books/The-Order/Kevin-Flynn/9781668092132
 - https://search.worldcat.org/title/The-Silent-Brotherhood-%3A-inside-America%27s-racist-underground/oclc/19554887
@@ -12097,13 +12018,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §2, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 85 Acts, ch 180, §2
+Excerpt read: G.A., 1985 SESSION Sec. 2. Section 702.11, Code 1985, is amended to read as follows: 702.11 FORCIBLE FELONY. 354 A "forcible felony" is any felonious child endangerment, assault, murder, sexual abuse, kid­ napping, ro
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/71.1/CH0180.pdf
 
 ### Second check: not required
 
@@ -12147,13 +12068,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §1, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 91 Acts, ch 130, §1
+Excerpt read: e State of Iowa: Section 1. Section 702.11, Code 1991, is amended to read as follows: 702.11 FORCIBLE FELONY. A "forcible felony" is any felonious child endangerment, assault, murder, sexual abuse otheP tfl.aft SfflH:l
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/74.1/CH0130.pdf
 
 ### Second check: not required
 
@@ -12197,13 +12118,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §69, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 94 Acts, ch 1023, §69
+Excerpt read: ng the subsection. Sec. 69. Section 702.11, Code 1993, is amended to read as follows: 702.11 FORCIBLE FELONY. A "forcible felony" is any felonious child endangerment, assault, murder, sexual abuse, kid­ napping, robber
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/75.2/CH1023.pdf
 
 ### Second check: not required
 
@@ -12247,13 +12168,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §1, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2001 Acts, ch 3, §1
+Excerpt read: e State of Iowa: Section 1. Section 702.11, subsection 2, Code 2001, is amended by adding the following new paragraph: NEW PARAGRAPH. e. Child endangerment resulting in bodily injury to a child 1 in vio­ lation of sect
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/79.1/CH0003.pdf
 
 ### Second check: not required
 
@@ -12297,13 +12218,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §64, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2003 Acts, ch 180, §64
+Excerpt read: er section 709.15. Sec. 64. Section 702.11, subsection 2, paragraph d, Code 2003, is amended to read as fol- lows: d. Sexual exploitation by a counselor, or therapist, or school employee in violation of sec- tion 709.1
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/80.1/CH0180.pdf
 
 ### Second check: not required
 
@@ -12347,13 +12268,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §1, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2010 Acts, ch 1072, §1
+Excerpt read: e State of Iowa: Section 1. Section 702.11, subsection 2, Code 2009, is amended by adding the following new paragraph: NEW P ARAGRAPH . f . Assault in violation of section 708.2, subsection 4 . Sec. 2. Section 708.2, s
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/83.2/CH1072.pdf
 
 ### Second check: not required
 
@@ -12397,13 +12318,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §248, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2013 Acts, ch 30, §248
+Excerpt read: ph division (d) . Sec. 248. Section 702.11, subsection 2, paragraph c, Code 2013, is amended to read as follows: c. Sexual abuse in violation of section 709.4, subsection 2 1 , paragraph “c” “b” , subparagraph (4) (3),
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/85.1/CH0030.pdf
 
 ### Second check: not required
 
@@ -12447,13 +12368,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §137, 161, 162, and its change to Code 702.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2015 Acts, ch 138, §137, 161, 162
+Excerpt read: Sec. 137. Section 702.11, subsection 1, Code 2015, is amended to read as follows: 1. A “ forcible felony ” is any felonious child endangerme | Sec. 161. EFFECTIVE UPON ENACTMENT . Unless otherwise provided, this Act, if approved by the governor on or after July 1, 2015, takes effect | Sec. 162. RETRO ACTIVE APPLICABILITY . Unless otherwise provided, this Act, if approved by the governor on or after July 1, 2015, applies re
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/86.1/CH0138.pdf
 
 ### Second check: not required
 
@@ -12497,13 +12418,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §232.52 text directly cites 702.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+Excerpt read: hat the child has been found to have committed an act which is a forcible felony , as defined in section 702.11 , or a felony violation of section 124.401 or chapter 707 , or the court finds any three of the following conditions exist: (1) The ch
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/232.52.pdf
 
 ### Second check: not required
 
@@ -12547,13 +12468,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §272C.15 text directly cites 702.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+Excerpt read: 229A .2 , dependent adult abuse in violation of section 726.26 , a forcible felony as defined in section 702.11 , or domestic abuse assault in violation of section 708.2A , and the applicant has not been convicted of another crime after release f
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/272C.15.pdf
 
 ### Second check: not required
 
@@ -12597,13 +12518,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §718.6 text directly cites 702.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+Excerpt read: felony if the alleged criminal act reported is any of the following: a. A forcible felony under section 702.11 . b. Intimidation with a dangerous weapon under section 708.6 . c. An act of terrorism under chapter 708A . d. Unlawful possession of
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/718.6.pdf
 
 ### Second check: not required
 
@@ -12647,13 +12568,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §808B.3 text directly cites 702.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+Excerpt read: ing in controlled substances, as defined in section 124.101 . 2. A forcible felony as defined in section 702.11 . 3. A felony offense involving ongoing criminal conduct in violation of chapter 706A . 4. A felony offense involving money laundering
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/808B.3.pdf
 
 ### Second check: not required
 
@@ -12697,13 +12618,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §915.10 text directly cites 702.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+Excerpt read: cts of the offense upon the victim. 5. “ V iolent crime” means a forcible felony , as defined in section 702.11 , and includes any other felony or aggravated misdemeanor which involved the actual or threatened infliction of physical or emotional
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/915.10.pdf
 
 ### Second check: not required
 
@@ -12747,13 +12668,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §2773 in each cited original Iowa Code edition (1851). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C51, §2773
+Excerpt read: Lawful resistance to the commission of a public offense may be made by the party about to be injured or by others.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1851%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -12797,13 +12718,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §4112 in each cited original Iowa Code edition (1873). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C73, §4112
+Excerpt read: Lawful resistance to the commission of a public offense may be made by the party about to be injured or by others.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1873%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -12847,13 +12768,17 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §12921 in all five original Iowa Code editions cited (1924, 1927, 1931, 1935, 1939). The statutory wording/section subject matches the printed 2026 history reference; this is historical rather than current law.
 
-Excerpt read: C24, 27, 31, 35, 39, § 12921
+Excerpt read: Lawful resistance to the commission of a public offense may be made by the party about to be injured, or by others.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1924%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1927%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1931%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1935%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1939%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -12906,13 +12831,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.1 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.1
+Excerpt read: §704.1 defines reasonable force and related necessity of force.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -12956,13 +12882,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.2 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.2
+Excerpt read: §704.2 defines deadly force.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13006,13 +12933,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §§4442–4444 in each cited original Iowa Code edition (1860). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: R60, §4442 – 4444
+Excerpt read: §4442 allows lawful resistance; §4443 gives person/property conditions; §4444 permits another person to aid.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1860%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13056,13 +12983,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §§5102–5104 in each cited original Iowa Code edition (1897). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C97, §5102 – 5104
+Excerpt read: §§5102–5104 concern resistance to a public offense by the threatened party or others.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1897%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13110,13 +13037,22 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the substantive text of §§691.1, 691.2(1), and 691.3 in all ten official Iowa Code archive editions cited (1946, 1950, 1954, 1958, 1962, 1966, 1971, 1973, 1975, 1977). The archived editions carry the self-defense provisions: §691.1 addresses justifiable force, §691.2(1) a person assaulted, and §691.3 defense of another. This verifies the historical section targets, not that these pre-1978 provisions govern the 2026 offense.
 
-Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1, 691.2(1), 691.3
+Excerpt read: The archived editions carry the self-defense provisions: §691.1 addresses justifiable force, §691.2(1) a person assaulted, and §691.3 defense of another. This verifies the historical section targets, not that these pre-1978 provisions govern the 2026 offense.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1946%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1950%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1954%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1958%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1962%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1966%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1971%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1973%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1975%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1977%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13161,13 +13097,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §2774 in each cited original Iowa Code edition (1851). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C51, §2774
+Excerpt read: Resistance sufficient to prevent the offense may be made by the party about to be injured.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1851%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13211,13 +13147,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §4113 in each cited original Iowa Code edition (1873). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C73, §4113
+Excerpt read: Resistance sufficient to prevent the offense may be made to prevent an offense against person or illegal force against property.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1873%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13261,13 +13197,17 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §12922 in all five original Iowa Code editions cited (1924, 1927, 1931, 1935, 1939). The statutory wording/section subject matches the printed 2026 history reference; this is historical rather than current law.
 
-Excerpt read: C24, 27, 31, 35, 39, § 12922
+Excerpt read: Resistance sufficient to prevent the offense may be made by the party about to be injured to prevent an offense against the person or unlawful force against property.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1924%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1927%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1931%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1935%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1939%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13320,13 +13260,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.4 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.4
+Excerpt read: A person is justified in the use of reasonable force to prevent or terminate criminal interference with property.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13370,13 +13311,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §4444 in each cited original Iowa Code edition (1860). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: R60, §4444
+Excerpt read: Any other person in aid or defense of the person about to be injured may make resistance sufficient to prevent the offense.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1860%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13420,13 +13361,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §5104 in each cited original Iowa Code edition (1897). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C97, §5104
+Excerpt read: Any other person in aid or defense of the person about to be injured may resist sufficiently to prevent the offense.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1897%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13474,13 +13415,22 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the substantive text of §691.3 in all ten official Iowa Code archive editions cited (1946, 1950, 1954, 1958, 1962, 1966, 1971, 1973, 1975, 1977). The archived §691.3 text concerns defense of another person. This verifies the historical target, not current applicability.
 
-Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.3
+Excerpt read: The archived §691.3 text concerns defense of another person. This verifies the historical target, not current applicability.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1946%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1950%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1954%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1958%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1962%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1966%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1971%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1973%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1975%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1977%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13525,13 +13475,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.6 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.6
+Excerpt read: The defense of justification is unavailable to a person participating in a forcible felony, riot, or duel.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13576,13 +13527,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.8 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.8
+Excerpt read: A correctional officer or peace officer may use necessary reasonable force to prevent escape.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13627,13 +13579,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.10 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.10
+Excerpt read: Compulsion by threats of serious injury is addressed under justification.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13678,13 +13631,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §2844 in each cited original Iowa Code edition (1851). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C51, §2844
+Excerpt read: If a person arrested escapes or resists, the officer may use necessary means to effect the arrest.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1851%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13728,13 +13681,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §4205 in each cited original Iowa Code edition (1873). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C73, §4205
+Excerpt read: An officer may use necessary means when a person arrested escapes or resists.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1873%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13778,13 +13731,17 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §13472 in all five original Iowa Code editions cited (1924, 1927, 1931, 1935, 1939). The statutory wording/section subject matches the printed 2026 history reference; this is historical rather than current law.
 
-Excerpt read: C24, 27, 31, 35, 39, § 13472
+Excerpt read: When a person being arrested under warrant escapes or forcibly resists after notice, the officer may use all necessary means to effect the arrest.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1924%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1927%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1931%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1935%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1939%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13837,13 +13794,14 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §704.12 in each cited original Iowa Code edition (1979, 1981). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C79, 81, §704.12
+Excerpt read: Reasonable force may be used in making an arrest under specified conditions.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1979%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1981%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -13887,13 +13845,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §1, 2, and its change to Code 704.2. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 97 Acts, ch 166, §1, 2
+Excerpt read: e State of Iowa: Section 1. Section 704.2, subsections 3 and 4, Code 1997, are amended to read as fol­ lows: 3. The discharge of a firearm. other than a firearm loaded with less lethal munitions and discharged by a pea
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/77.1/CH0166.pdf
 
 ### Second check: not required
 
@@ -13937,13 +13895,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §38, and its change to Code 704.2. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2017 Acts, ch 69, §38
+Excerpt read: 17 9/13  CH. 69 10 Sec. 38. Section 704.2, Code 2017, is amended by adding the following new subsection: NEW SUBSECTION . 1A . “Deadly force” does not include a threat to cause serious injury or death, by the productio
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/87.1/CH0069.pdf
 
 ### Second check: not required
 
@@ -13987,13 +13945,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §170, and its change to Code 704.2A. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2018 Acts, ch 1026, §170
+Excerpt read: ry pool or panel. Sec. 170. Section 704.2A , subsection 1 , paragraph a, subparagraph (1), Code 2018, is amended to read as follows: (1) Unlawfully entering by force or stealth the dwelling, place of business or employ
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/87.2/CH1026.pdf
 
 ### Second check: not required
 
@@ -14037,13 +13995,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §41, and its change to Code 704.3. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2017 Acts, ch 69, §41
+Excerpt read: such deadly force. Sec. 41. Section 704.3, Code 2017, is amended to read as follows: 704.3 Defense of self or another . A person is justified in the use of reasonable force when the person reasonably believes that such
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/87.1/CH0069.pdf
 
 ### Second check: not required
 
@@ -14087,13 +14045,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §2, and its change to Code 704.8. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2001 Acts, ch 131, §2
+Excerpt read: care of the child. Sec. 2. Section 704.8, Code 2001, is amended to read as follows: 704.8 ESCAPE FROM PLACE OF CONFINEMENT. A correctional officer or peace officer is justified in using reasonable force, including dea
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/79.1/CH0131.pdf
 
 ### Second check: not required
 
@@ -14137,13 +14095,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §43, and its change to Code 704.13. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2017 Acts, ch 69, §43
+Excerpt read: ny . Sec. 43. NEW SECTION . 704.13 Immunity . A person who is justified in using reasonable force against an aggressor in defense of oneself, another person, or property pursuant to section 704.4 is immune from crimina
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/87.1/CH0069.pdf
 
 ### Second check: not required
 
@@ -14187,13 +14145,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official §364.22 source contains a broad municipal-infraction reference to misdemeanors under chapters 687–747, a range including chapter 704; it does not cite §704 specifically.
 
-Excerpt read: Referred to in 331.307 , 364.22 , 701.1
+Excerpt read: misdemeanor , or a serious misdemeanor under state law or if the violation is a simple misdemeanor under chapters 687 through 747 . 4. An officer authorized by a city to enforce a city code or regulation may issue a civil citation to a person who commits a municip
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/2026/364.22.pdf
 
 ### Second check: not required
 
@@ -14237,13 +14195,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §234.40 text directly cites 704.1 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 234.40 , 280.21
+Excerpt read: signed or intended to cause pain or if the foster parent uses reasonable force, as defined under section 704.1 . [C79, 81, §234.40 ] 92 Acts, ch 1241, §71 ; 2023 Acts, ch 19, §685 Referred to in §232.71B Thu Dec 11 19:11:12 2025 Iowa Code 2026,
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/2026/234.40.pdf
 
 ### Second check: not required
 
@@ -14287,13 +14245,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §236.12 text directly cites 704.3 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 236.12
+Excerpt read: who are believed to have committed an assault. P ersons acting with justification, as defined in section 704.3 , are not subject to mandatory arrest. In identifying the primary physical aggressor , a peace officer shall consider the need to prot
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/2026/236.12.pdf
 
 ### Second check: not required
 
@@ -14415,13 +14373,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official chapter 670A text was read. Its definition of crime incorporates forcible felony under §702.11. The 2026 Code’s “See chapter 670A” is a topical pointer, not a literal 704 cross-reference.
 
-Excerpt read: iability of perpetrator of forcible felony , see chapter 670A 70
+Excerpt read: g or attempting to defend against the crime. 4. “Crime” means a forcible felony as defined under section 702.11 . 5. “P erpetrator” means a person who has committed the acts constituting a crime and includes a person who has been convicted of a c
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/2026/670A.pdf
 
 ### Second check: not required
 
@@ -14465,13 +14423,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the original 1860 Revision statutory bodies for both §4408 (OCR renders the section label as "4108" on printed p.753, continuing on p.754) and §4790 (printed p.812). The first defines a fraudulent or malicious conspiracy and punishment; the second requires proof of an alleged overt act when law requires one. The page index and adjacent §§4407/4409 resolve the OCR label. This verifies the historical targets, not current law.
 
-Excerpt read: R60, §4408, 4790
+Excerpt read: §4408: "If any two or more persons conspire or confederate together with the fraudulent or malicious intent wrongfully to injure the person, character, business, or property of another"; §4790 addresses an overt act alleged and proved.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1860%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -14515,13 +14473,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the original 1897 Code bodies for §5059 and §5490. On printed p.2105, the §5490 heading and immediately following §5491 identify the target even though OCR renders its body label "6490"; it states the overt-act proof rule. The §5059 body defines conspiracy. This verifies the historical targets, not current law.
 
-Excerpt read: C97, §5059, 5490
+Excerpt read: §5490: "Upon a trial for conspiracy, a defendant cannot be convicted unless one or more overt acts alleged in the indictment are proved, when required by law to constitute the offense"; §5059 defines conspiracy.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1897%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -14569,13 +14527,22 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the substantive text of §§719.1 and 782.6 in all ten official Iowa Code archive editions cited (1946, 1950, 1954, 1958, 1962, 1966, 1971, 1973, 1975, 1977). The archived §719.1 text begins "If any two or more persons conspire or confederate together" and lists fraudulent or malicious intents; §782.6 addresses proof of overt acts. This verifies the historical targets, not current applicability.
 
-Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §719.1, 782.6
+Excerpt read: The archived §719.1 text begins "If any two or more persons conspire or confederate together" and lists fraudulent or malicious intents; §782.6 addresses proof of overt acts. This verifies the historical targets, not current applicability.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1946%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1950%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1954%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1958%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1962%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1966%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1971%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1973%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1975%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1977%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -14620,13 +14587,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §1, and its change to Code 706.1. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 87 Acts, ch 129, §1
+Excerpt read: e State of Iowa: Section 1. Section 706.1, Code 1987, is amended by striking the section and inserting in lieu thereof the following: 706.1 CONSPIRACY. 1. A person commits conspiracy with another if, with the intent to
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/72.1/CH0129.pdf
 
 ### Second check: not required
 
@@ -14670,13 +14637,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §§2591, 2596 in each cited original Iowa Code edition (1851). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C51, §2591, 2596
+Excerpt read: §2591 concerns assault with intent to murder; §2596 concerns poisoning food or water with intent to kill or injure.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1851%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -14720,13 +14687,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §§3872, 3877 in each cited original Iowa Code edition (1873). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C73, §3872, 3877
+Excerpt read: §3872 addresses assault with intent to murder; §3877 addresses poisoning food or water.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1873%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -14770,13 +14737,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the original 1913 Iowa Code Supplement §4768 statutory body on printed p.1759 (PDF p.1774), beyond the heading and case annotations. It prescribes up to thirty years for assault with intent to commit murder. This verifies the historical target, not current law.
 
-Excerpt read: S13, §4768
+Excerpt read: §4768: "If any person assault another with intent to commit murder, he shall be imprisoned in the penitentiary not exceeding thirty years."
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1913%20Iowa%20Code%20Supplement.pdf
 
 ### Second check: not required
 
@@ -14824,13 +14791,22 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the substantive text of §§690.6, 690.9, and 697.2 in all ten official Iowa Code archive editions cited (1946, 1950, 1954, 1958, 1962, 1966, 1971, 1973, 1975, 1977). The archived §690.6 is assault with intent to commit murder, §690.9 concerns poisoning, and §697.2 states that injury by the specified explosives constitutes assault with intent to commit murder. The §697.2 device wording expands in later editions; this verifies each historical target, not uniform wording or current applicability.
 
-Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §690.6, 690.9, 697.2
+Excerpt read: The archived §690.6 is assault with intent to commit murder, §690.9 concerns poisoning, and §697.2 states that injury by the specified explosives constitutes assault with intent to commit murder. The §697.2 device wording expands in later editions; this verifies each historical target, not uniform wording or current applicability.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1946%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1950%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1954%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1958%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1962%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1966%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1971%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1973%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1975%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1977%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -14875,13 +14851,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §2, and its change to Code 707.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 82 Acts, ch 1239, §2
+Excerpt read: e than fifty years. Sec. 2. Section 707.11, unnumbered paragraph 1, Code 1981, is amended to read as follows: A person commits a class ~ "B" felony when, with the intent to cause the death of ftftY another person and n
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/69.2/CH1239.pdf
 
 ### Second check: not required
 
@@ -14925,13 +14901,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §226, and its change to Code 707.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2013 Acts, ch 90, §226
+Excerpt read: ction 692A .126 . Sec. 226. Section 707.11, Code 2013, is amended to read as follows: 707.11 Attempt to commit murder . 1. A person commits a class “B ” felony attempt to commit murder when, with the intent to cause th
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/85.1/CH0090.pdf
 
 ### Second check: not required
 
@@ -14975,13 +14951,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §12, and its change to Code 707.11. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2017 Acts, ch 122, §12
+Excerpt read: rescribed by law . Sec. 12. Section 707.11, Code 2017, is amended by adding the following new subsection: NEW SUBSECTION . 5. a. As used in this subsection , “peace officer” means the same as defined in section 801.4 .
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/87.1/CH0122.pdf
 
 ### Second check: not required
 
@@ -15025,13 +15001,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §692A.102 text directly cites 707.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 692A .102 , 692A .126 , 902.12 , 903A .2
+Excerpt read: sexually motivated pursuant to section 692A .126 . (5) Attempt to commit murder in violation of section 707.11 , if a determination is made that the offense was sexually motivated pursuant to section 692A .126 . (6) P enetration of the genitalia
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/692A.102.pdf
 
 ### Second check: not required
 
@@ -15075,13 +15051,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §902.12 text directly cites 707.11 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 692A .102 , 692A .126 , 902.12 , 903A .2
+Excerpt read: Murder in the second degree in violation of section 707.3 . b. Attempted murder in violation of section 707.11 , except as provided in section 707.11, subsection 5 . c. Sexual abuse in the second degree in violation of section 709.3 . d. Kidnapp
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://www.legis.iowa.gov/docs/code/2026/902.12.pdf
 
 ### Second check: not required
 
@@ -15125,13 +15101,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read §§4799, 4810 in each cited original Iowa Code edition (1897). The section text supports the editorial history reference; later law may differ.
 
-Excerpt read: C97, §4799, 4810
+Excerpt read: §4799 concerns injuring or terrorizing inhabitants of a dwelling; §4810 prohibits shooting or throwing at a train.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1897%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -15179,13 +15155,22 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the substantive text of §§714.2 and 716.11 in all ten official Iowa Code archive editions cited (1946, 1950, 1954, 1958, 1962, 1966, 1971, 1973, 1975, 1977). The archived §714.2 begins "If any person, with intent to injure or terrorize the inhabitants of any dwelling house" and covers missiles or shots at the dwelling; §716.11 addresses shooting or throwing at a train. OCR distorts some section-number glyphs, but the statutory body and the subsequent edition-history bracket identify §714.2. This verifies the historical targets, not current applicability.
 
-Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §714.2, 716.11
+Excerpt read: The archived §714.2 begins "If any person, with intent to injure or terrorize the inhabitants of any dwelling house" and covers missiles or shots at the dwelling; §716.11 addresses shooting or throwing at a train. OCR distorts some section-number glyphs, but the statutory body and the subsequent edition-history bracket identify §714.2. This verifies the historical targets, not current applicability.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1946%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1950%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1954%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1958%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1962%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1966%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1971%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1973%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1975%20Iowa%20Code.pdf
+- https://www.legis.iowa.gov/docs/shelves/code/ocr/1977%20Iowa%20Code.pdf
 
 ### Second check: not required
 
@@ -15230,13 +15215,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §5, and its change to Code 708.6. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 81 Acts, ch 204, §5
+Excerpt read: a class "D" felony. Sec. 5. Section 708.6, Code 1981, is amended by striking the section and inserting in lieu thereof the following: 708.6 TERRORISM. A person commits a class "D" felony when the person, with the inten
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/69.1/CH0204.pdf
 
 ### Second check: not required
 
@@ -15280,13 +15265,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+Read the official Iowa Acts chapter, cited §8, and its change to Code 708.6. This validates the printed history reference to that enactment; it does not by itself state the current Code rule.
 
-Excerpt read: 2002 Acts, ch 1075, §8
+Excerpt read: lony. DIVISION II Sec. 8./EmSection 708.6, Code 2001, is amended to read as follows: 708.6/EnTERRORISM INTIMIDATION WITH A DANGEROUS WEAPON. A person commits a class /quoteblleftC" felony when the person, with the inte
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/publications/iactc/79.2/CH1075.pdf
 
 ### Second check: not required
 
@@ -15330,13 +15315,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §80A.4 text directly cites 708.6 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+Excerpt read: lving moral turpitude. g. Has not been convicted of a crime described in section 708.3 , 708.4 , 708.5 , 708.6 , 708.8 , or 708.9 . h. Has not been convicted of illegally using, carrying or possessing a dangerous weapon. i. Has not been convicte
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/code/2026/80A.4.pdf
 
 ### Second check: not required
 
@@ -15380,13 +15365,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §708.2A text directly cites 708.6 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+Excerpt read: or displays a dangerous weapon in connection with the assault. This paragraph does not apply if section 708.6 or 708.8 applies. d. An aggravated misdemeanor , if the domestic abuse assault is committed by knowingly impeding the normal breathing
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/code/2026/708.2A.pdf
 
 ### Second check: not required
 
@@ -15430,13 +15415,13 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §718.6 text directly cites 708.6 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+Excerpt read: owing: a. A forcible felony under section 702.11 . b. Intimidation with a dangerous weapon under section 708.6 . c. An act of terrorism under chapter 708A . d. Unlawful possession of biological agents or diseases under chapter 708B . e. Any offe
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/code/2026/718.6.pdf
 
 ### Second check: not required
 
@@ -15480,12 +15465,12 @@ Context: Editorial history or cross-reference in the supplied 2026 Iowa Code pri
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+The official 2026 Iowa Code §804.21 text directly cites 708.6 in the context shown; this checks the current cross-reference only.
 
-Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+Excerpt read: following conditions are met: (1) The person was arrested for a crime other than a violation of section 708.6 , section 724.26, subsection 1 , or a forcible felony , and (2) The courts are not in session. 6. This section does not prevent the re
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://www.legis.iowa.gov/docs/code/2026/804.21.pdf
 
 ### Second check: not required
