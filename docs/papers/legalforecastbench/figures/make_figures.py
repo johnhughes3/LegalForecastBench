@@ -40,6 +40,7 @@ SHORT = {
     "gpt-6-1-sol": "GPT-6.1 Sol",
     "gpt-6-astra": "GPT-6 Astra",
     "gemini-3-8-flash": "Gemini 3.8 Flash",
+    "ultramarine-1-flash": "Ultramarine 1 Flash",
     "grok-4-7": "Grok 4.7",
     "claude-sonnet-5": "Sonnet 5",
     "gpt-6-luna": "GPT-6 Luna",

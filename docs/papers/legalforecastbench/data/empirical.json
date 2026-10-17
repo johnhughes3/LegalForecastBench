@@ -1,9 +1,9 @@
 {
-  "scope": "Eighteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-10-12.",
+  "scope": "Nineteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-10-16.",
   "release": {
     "release": "cycle-1-91-2026-09-08-luna-r5",
     "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
-    "method": "Official scored results for the eighteen ranked configurations on this release: 91 cases and 387 scoreable units each."
+    "method": "Official scored results for the nineteen ranked configurations on this release: 91 cases and 387 scoreable units each."
   },
   "cohort": {
     "case_count": 91,
@@ -18,7 +18,7 @@
     "bootstrap": {
       "method": "Paired case-cluster percentile bootstrap",
       "replicates": 1000000,
-      "correction": "Bonferroni across 171 planned model pairs and three metrics (19-model family including the GPT-4.1 reference)",
+      "correction": "Bonferroni across 190 planned model pairs and three metrics (20-model family including the GPT-4.1 reference)",
       "caveat": "Exploratory. Cross-case dependence (for example, related cases in one MDL) has not yet been verified."
     }
   },
@@ -609,6 +609,68 @@
       "unit_source": null,
       "log_loss": null,
       "log_loss_basis": null
+    },
+    {
+      "slug": "ultramarine-1-flash",
+      "display_name": "Ultramarine 1 Flash",
+      "provider": "Paper Instruments",
+      "model_key": "paperinstruments:ultramarine-1-flash",
+      "access": "Paper Instruments API",
+      "reasoning": "High",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "No published training or knowledge cutoff has been established.",
+      "forecast_run_id": "38897535768",
+      "score_run_id": "38992564711",
+      "micro_brier": 0.15495064599483205,
+      "equal_case_brier": 0.1721145385170385,
+      "correct": 292,
+      "accuracy": 0.7545219638242894,
+      "high_confidence": {
+        "count": 77,
+        "wrong": 1,
+        "mean_confidence": 0.9219480519480518,
+        "accuracy": 0.987012987012987,
+        "share": 0.19896640826873385
+      },
+      "cost": {
+        "usd": 1.34912112,
+        "basis": "standard_rate",
+        "note": "Complete frozen-rate repricing of 91 successful cases; excludes failed attempts, retries and unresolved charges; not an invoice total."
+      },
+      "aggregate_source": "site/src/data/exports/ultramarine-1-flash.json",
+      "cutoff_status": "qualified_unknown_cutoff",
+      "case_count": 91,
+      "unit_count": 387,
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "caveats": [
+          "Successful case receipts only; excludes failed attempts, retries, unresolved charges and summary preparation. These are workload charges or usage estimates, not provider invoice totals. Standard repricing uses ordinary input estimates when cache dimensions or frozen cache rates are missing."
+        ],
+        "cost_methods": [
+          "cache_aware_usage_reconstruction"
+        ],
+        "cost_per_case": 0.014825989010989011,
+        "cost_scope": "successful_case_workload",
+        "covered_case_count": 91,
+        "currency": "USD",
+        "missing_cache_rate_response_count": 0,
+        "missing_cache_read_response_count": 0,
+        "missing_cache_write_response_count": 0,
+        "missing_case_count": 0,
+        "missing_response_usage_case_count": 0,
+        "rate_provenance": [
+          "https://api.paperinstruments.com/v1/pricing and https://docs.paperinstruments.com/docs/ultramarine/billing; checked 2026-10-14: standard USD 0.15/M uncached input, 0.03/M cached input, 0.50/M output including reasoning; cache creation priced as uncached input."
+        ],
+        "response_count": 713,
+        "standard_rate_covered_case_count": 91,
+        "standard_rate_status": "complete",
+        "standard_rate_total_cost": 1.34912112,
+        "total_cost": 1.349165
+      },
+      "unit_source": "site/src/data/significance/ultramarine-1-flash.jsonl",
+      "log_loss": 0.4703303574642433,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
       "slug": "grok-4-7",
@@ -1463,7 +1525,7 @@
     "summary_catalog": "site/public/data/summary-comparison/catalog.json"
   },
   "analysis_limits": [
-    "No complete significance ordering is claimed for the eighteen-configuration panel; unavailable per-unit forecasts limit pairwise comparisons.",
+    "No complete significance ordering is claimed for the nineteen-configuration panel; unavailable per-unit forecasts limit pairwise comparisons.",
     "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
     "No human forecasting baseline was run.",
     "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
@@ -1475,6 +1537,6 @@
     "imported_on": "2026-09-30",
     "source_description": "Cleaned from the manuscript empirical aggregate. Public repository paths are repository-relative; numerical values and recorded caveats are preserved.",
     "private_protocol_limitation": "Historical labeling-protocol evidence remains in the private companion LegalForecastCorpus repository and is not redistributed here. The aggregate values are preserved, but the private protocol path and private corpus bytes are unavailable for independent reconstruction from this package.",
-    "updated_on": "2026-10-12"
+    "updated_on": "2026-10-16"
   }
 }
