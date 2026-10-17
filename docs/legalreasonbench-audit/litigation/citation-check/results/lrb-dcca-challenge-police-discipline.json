@@ -39,7 +39,8 @@
       "Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.",
       "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
       "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.",
-      "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result."
+      "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.",
+      "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history."
     ],
     "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
     "counts": {
@@ -19186,13 +19187,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including separation of personnel management from independent Board adjudication in §§ 201-202 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 3 calls for increased Board authority in hearings and appeals.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0096",
@@ -19208,13 +19230,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the enacted short title in § 1. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 1 names the Civil Service Reform Act of 1978.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Full statutory name repeated in the opinion. The enacted text and precise proposition were not independently read; census only.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0097",
@@ -19230,13 +19273,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including § 3 policy and the Board appeal structure; the opinion's reference to earlier studies is not independently established by the Act. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 3 calls for increased Board authority in hearings and appeals.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0098",
@@ -19252,13 +19316,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including § 905, which supersedes inconsistent provisions of Reorganization Plan No. 2. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 905 supersedes inconsistent reorganization-plan provisions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0099",
@@ -19274,13 +19359,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the § 905 inconsistency condition and Plan § 202 retained functions. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 905 supersedes inconsistent reorganization-plan provisions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0100",
@@ -19296,13 +19402,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including merit-system principles and employee protection in § 3. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 3 states merit-system principles and employee protections.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0101",
@@ -19318,13 +19445,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the distinct OPM and Board roles in §§ 201-202 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 205 leaves the Board independent in decisionmaking.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0102",
@@ -19340,13 +19488,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including Plan § 202 retention of hearing and appeal functions and Act § 205 appellate procedures. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Plan § 202 retains Commission hearing and appeal functions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0103",
@@ -19362,13 +19531,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including Plan § 202 references to pre-reform 5 U.S.C. §§ 1104 and 7701. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Plan § 202 lists 5 U.S.C. 1104 and 7701.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0104",
@@ -19384,13 +19574,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including amendments to 5 U.S.C. §§ 1104 and 7701 in §§ 201 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§§ 201 and 205 amend 5 U.S.C. 1104 and 7701.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0105",
@@ -19406,13 +19617,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the enacted Act and contemporaneous Reorganization Plan No. 2. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Plan § 202 retains adjudicatory functions with the Board.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0106",
@@ -19428,13 +19660,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including Act § 905 and Plan § 202; the no-abrogation conclusion is an interpretation by the Board. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 905 supersedes only inconsistent plan provisions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0107",
@@ -19450,13 +19703,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including Plan § 202 retained Board functions and Act § 205; the sentence reports OPM's litigation position. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Plan § 202 retains adjudicatory functions with the Board.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0108",
@@ -19472,13 +19746,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the Board's statutory appeal role under § 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 7701 permits appeal to the Board.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0109",
@@ -19494,13 +19789,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read § 14 of the 1944 Veterans’ Preference Act and the August 4, 1947 amendment at 61 Stat. 723. The opinion accurately identifies an amendment to that Act; the separate scope of penalty-mitigation authority is the opinion’s interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-58/pdf/STATUTE-58-Pg387.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-61/pdf/STATUTE-61-Pg722.pdf"
+        ],
+        "excerpt_read": "The 1947 act amends § 14 and makes Commission corrective action mandatory.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-58/pdf/STATUTE-58-Pg387.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-61/pdf/STATUTE-61-Pg722.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0110",
@@ -19516,13 +19832,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including Act § 905 and Plan § 202; the no-abrogation conclusion remains interpretive. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 905 supersedes only inconsistent plan provisions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0111",
@@ -19538,13 +19875,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including § 3 purposes, including merit principles and protection in appeals. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 3 states merit-system principles and employee protections.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0112",
@@ -19560,13 +19918,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the Act's hearing and appeal provisions in §§ 202 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 7701 permits appeal to the Board.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0113",
@@ -19582,13 +19961,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including Act § 905 and Plan § 202 as the basis for reading the two instruments together. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Plan § 202 retains functions; Act § 905 addresses conflicts.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0114",
@@ -19604,13 +20004,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including the Board's hearing and final-action powers in § 202 and § 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 1205 authorizes hearing, adjudication, and final action.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0115",
@@ -19626,13 +20047,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1978 enacted Act and Reorganization Plan No. 2, including § 205, especially enacted 5 U.S.C. § 7701(c)'s evidentiary standards. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "§ 7701(c) specifies substantial-evidence and preponderance standards.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0116",
@@ -19648,13 +20090,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports the opinion's named Act and § 5596 remedial scheme. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0117",
@@ -19670,13 +20128,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the named D.C. personnel act and PERB review authority. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02"
+        ],
+        "excerpt_read": "§ 502(f) permits review when an award on its face contravenes law and public policy.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0118",
@@ -19692,13 +20171,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports D.C. Law 2-139 § 502(f), allowing narrow review of grievance arbitration awards. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02"
+        ],
+        "excerpt_read": "§ 502(f) permits review when an award on its face contravenes law and public policy.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0119",
@@ -19714,13 +20214,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 502(f) and its later codification at D.C. Code § 1-605.02(6). Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02"
+        ],
+        "excerpt_read": "§ 502(f) permits review when an award on its face contravenes law and public policy.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0120",
@@ -19736,13 +20257,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the express facial-law-and-policy ground in § 502(f). Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02"
+        ],
+        "excerpt_read": "§ 502(f) permits review when an award on its face contravenes law and public policy.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0121",
@@ -19758,13 +20300,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports the finding that the award expressly relied on the Back Pay Act. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0122",
@@ -19780,13 +20338,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports the arbitrator's reference to the Back Pay Act in the remedy. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0123",
@@ -19802,13 +20376,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)'s unjustified-personnel-action terminology. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0124",
@@ -19824,13 +20414,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)(A)(i)'s pay remedy. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0125",
@@ -19846,13 +20452,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)(A)(i)'s interim-earnings offset. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0126",
@@ -19868,13 +20490,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the § 502(f) review grounds relevant to the party's argument. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02"
+        ],
+        "excerpt_read": "§ 502(f) permits review when an award on its face contravenes law and public policy.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0127",
@@ -19890,13 +20533,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the § 502(f) grounds and PERB authority. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02"
+        ],
+        "excerpt_read": "§ 502(f) permits review when an award on its face contravenes law and public policy.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0128",
@@ -19912,13 +20576,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)(A)(i)-(ii), including pay and attorney-fee provisions. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "excerpt_read": "§ 5596(b)(1)(A)(i): pay less amounts earned through other employment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0129",
@@ -19934,13 +20614,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 204 savings of incumbent personnel rights and benefits. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04"
+        ],
+        "excerpt_read": "§ 204 preserves incumbent rights in force immediately before the Act.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0130",
@@ -19956,13 +20657,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 204(a)'s immediately-prior rights floor. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04"
+        ],
+        "excerpt_read": "§ 204 preserves incumbent rights in force immediately before the Act.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0131",
@@ -19978,13 +20700,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 204(c)'s December 31, 1979 limitation. Court deference and application to the award remain judicial interpretation.",
+        "source_urls": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04"
+        ],
+        "excerpt_read": "§ 204 preserves incumbent rights in force immediately before the Act.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0132",
@@ -20000,13 +20743,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the enacted D.C. Uniform Arbitration Act, D.C. Law 1-117, and the official code history. The June 2009 opinion invokes a real Act; the cited chapter was repealed effective July 1, 2009, after the opinion date. Its requested analogy is a judicial argument, not statutory text.",
+        "source_urls": [
+          "https://code.dccouncil.gov/us/dc/council/laws/docs/1-117.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/16-4301"
+        ],
+        "excerpt_read": "D.C. Law 1-117: District of Columbia Uniform Arbitration Act.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/laws/docs/1-117.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://code.dccouncil.gov/us/dc/council/code/sections/16-4301",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0133",
@@ -20022,13 +20786,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII employment-discrimination duties and EEOC conciliation. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0134",
@@ -20044,13 +20829,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII employment-discrimination and seniority provisions. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0135",
@@ -20066,13 +20872,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII liability as a potential consequence of discriminatory employment practice. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0136",
@@ -20088,13 +20915,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII liability as a potential consequence of discriminatory employment practice. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0137",
@@ -20110,13 +20958,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b)'s informal conference, conciliation, and persuasion process. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0138",
@@ -20132,13 +21001,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b)'s informal conciliation process. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0139",
@@ -20154,13 +21044,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b)'s EEOC conciliation process. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0140",
@@ -20176,13 +21087,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b) and (f)'s conciliation-before-Commission-suit sequence. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0141",
@@ -20198,13 +21130,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) process; the union's role is the opinion's case-specific analysis. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0142",
@@ -20220,13 +21173,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) process; hypothetical union bargaining is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0143",
@@ -20242,13 +21216,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) process; hypothetical union bargaining is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0144",
@@ -20264,13 +21259,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) conciliation mechanism. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "§ 706(b) directs informal conference, conciliation, and persuasion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0145",
@@ -20286,13 +21302,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(g) remedial authority under Title VII. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0146",
@@ -20308,13 +21345,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the Title VII claim distinguished from a § 301 labor-contract claim in the opinion. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0147",
@@ -20330,13 +21388,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the Title VII settlement context; characterization of earlier judicial review is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0148",
@@ -20352,13 +21431,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the second Title VII mention on the same opinion line; characterization of earlier judicial review is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0149",
@@ -20374,13 +21474,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the Title VII cause of action distinguished from the contract action. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0150",
@@ -20396,13 +21517,34 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(g) judicial relief under Title VII. Case-specific facts and outcomes are not established by the statute itself.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf"
+        ],
+        "excerpt_read": "Title VII governs employment discrimination and judicial relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0151",
@@ -20418,13 +21560,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1925 Federal Arbitration Act § 10. Its vacatur grounds include arbitrator misconduct in refusing pertinent and material evidence, matching the opinion’s statutory premise. The separate labor-arbitration analogy is the Court’s reasoning.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf"
+        ],
+        "excerpt_read": "§ 10 lists vacatur grounds including refusal to hear pertinent evidence.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0152",
@@ -20440,13 +21598,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1925 Federal Arbitration Act § 1. The opinion’s quoted employment-contract exclusion matches the enacted text in substance; the omission marks in the opinion are conventional and do not change it.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf"
+        ],
+        "excerpt_read": "§ 1 excludes employment contracts of workers in interstate commerce.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0153",
@@ -20462,6 +21636,17 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.",
+        "source_urls": [
+          "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "https://edpm.dc.gov/chapter/16/"
+        ],
+        "excerpt_read": "66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.",
         "source_urls": [
@@ -20470,7 +21655,17 @@
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://edpm.dc.gov/chapter/16/",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0154",
@@ -20486,6 +21681,17 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.",
+        "source_urls": [
+          "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "https://edpm.dc.gov/chapter/16/"
+        ],
+        "excerpt_read": "66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.",
         "source_urls": [
@@ -20494,7 +21700,17 @@
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://edpm.dc.gov/chapter/16/",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0155",
@@ -20510,6 +21726,17 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.",
+        "source_urls": [
+          "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "https://edpm.dc.gov/chapter/16/"
+        ],
+        "excerpt_read": "66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.",
         "source_urls": [
@@ -20518,7 +21745,17 @@
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://edpm.dc.gov/chapter/16/",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0156",
@@ -20558,6 +21795,17 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.",
+        "source_urls": [
+          "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "https://edpm.dc.gov/chapter/16/"
+        ],
+        "excerpt_read": "66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Addendum states historical correction from §1625(c) to 1625(b). Historical source text not read.",
         "source_urls": [
@@ -20566,7 +21814,17 @@
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        },
+        {
+          "url": "https://edpm.dc.gov/chapter/16/",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0158",
@@ -20583,6 +21841,17 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The August 2019 primary errata and current official Chapter 16 were read; the agency addendum identifies a later October 2019 correction at 66 DCR 013372. The October historical notice itself was not located, so its exact renumbering text is not verified from the target historical primary issue.",
+        "source_urls": [
+          "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "https://edpm.dc.gov/chapter/16/"
+        ],
+        "excerpt_read": "Agency compilation now reads §§ 1625.1(a) and (b).",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Addendum states later historical renumbering; superseded text not independently read. Historical source text not read.",
         "source_urls": [
           "https://edpm.dc.gov/chapter/16/"
@@ -20590,7 +21859,25 @@
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://edpm.dc.gov/chapter/16/",
+          "result": "Read current official § 1600.3(a) and addendum identifying 66 DCR 013372; not the October notice text."
+        },
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "result": "Read August 2019 errata showing the intermediate § 1625(a),(b) correction."
+        },
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_10112019.pdf",
+          "result": "HTTP 404; alternate exact-citation searches for 66 DCR 013372 and § 1600.3(a) returned the agency compilation, not the October issue."
+        },
+        {
+          "url": "https://dclottery.com/sites/default/files/2023-04/dc_register_101119.pdf",
+          "result": "HTTP 404."
+        }
+      ]
     },
     {
       "ref": "pd-sc-0159",
@@ -20606,13 +21893,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Read the 1925 Federal Arbitration Act §§ 1 and 10 and the immediately preceding sentence of Misco. “The Act” resolves to the Federal Arbitration Act; the Court’s use of it as labor-arbitration guidance is its own legal analysis.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf"
+        ],
+        "excerpt_read": "§ 1 excludes certain employment contracts from the Act.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Context resolves “the Act” to the Federal Arbitration Act, but historical statutory text and its precise scope were not independently reread for this short form.",
         "source_urls": [],
         "excerpt_read": "",
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf",
+          "result": "Primary text retrieved and read for this authority group and this row’s proposition."
+        }
+      ]
     }
   ],
   "second_review_coverage": {
@@ -20808,6 +22111,104 @@
           "Older Civil Service Commission decisions/manuals, specified congressional reports and hearings, some Court of Claims and district-court opinions, and copyrighted secondary texts did not yield readable cited passages after the recorded access attempts.",
           "This is the first substantive source-reading check for these refs. Any newly flagged problem requires a separate independent second check before integration."
         ]
+      }
+    },
+    {
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high",
+      "assigned_refs": [
+        "pd-sc-0095",
+        "pd-sc-0096",
+        "pd-sc-0097",
+        "pd-sc-0098",
+        "pd-sc-0099",
+        "pd-sc-0100",
+        "pd-sc-0101",
+        "pd-sc-0102",
+        "pd-sc-0103",
+        "pd-sc-0104",
+        "pd-sc-0105",
+        "pd-sc-0106",
+        "pd-sc-0107",
+        "pd-sc-0108",
+        "pd-sc-0109",
+        "pd-sc-0110",
+        "pd-sc-0111",
+        "pd-sc-0112",
+        "pd-sc-0113",
+        "pd-sc-0114",
+        "pd-sc-0115",
+        "pd-sc-0116",
+        "pd-sc-0117",
+        "pd-sc-0118",
+        "pd-sc-0119",
+        "pd-sc-0120",
+        "pd-sc-0121",
+        "pd-sc-0122",
+        "pd-sc-0123",
+        "pd-sc-0124",
+        "pd-sc-0125",
+        "pd-sc-0126",
+        "pd-sc-0127",
+        "pd-sc-0128",
+        "pd-sc-0129",
+        "pd-sc-0130",
+        "pd-sc-0131",
+        "pd-sc-0132",
+        "pd-sc-0133",
+        "pd-sc-0134",
+        "pd-sc-0135",
+        "pd-sc-0136",
+        "pd-sc-0137",
+        "pd-sc-0138",
+        "pd-sc-0139",
+        "pd-sc-0140",
+        "pd-sc-0141",
+        "pd-sc-0142",
+        "pd-sc-0143",
+        "pd-sc-0144",
+        "pd-sc-0145",
+        "pd-sc-0146",
+        "pd-sc-0147",
+        "pd-sc-0148",
+        "pd-sc-0149",
+        "pd-sc-0150",
+        "pd-sc-0151",
+        "pd-sc-0152",
+        "pd-sc-0153",
+        "pd-sc-0154",
+        "pd-sc-0155",
+        "pd-sc-0157",
+        "pd-sc-0158",
+        "pd-sc-0159"
+      ],
+      "by_status": {
+        "VERIFIED": 63,
+        "UNABLE_TO_VERIFY": 1
+      },
+      "coverage": {
+        "files_read": [
+          "https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02",
+          "https://code.dccouncil.gov/us/dc/council/code/sections/16-4301",
+          "https://code.dccouncil.gov/us/dc/council/laws/docs/1-117.pdf",
+          "https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf",
+          "https://edpm.dc.gov/chapter/16/",
+          "https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-58/pdf/STATUTE-58-Pg387.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-61/pdf/STATUTE-61-Pg722.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf",
+          "https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm"
+        ],
+        "limits": [
+          "The October 11, 2019 D.C. Register primary notice at 66 DCR 013372 was not located after exact-citation searches and two mirror URL attempts returned HTTP 404. Row pd-sc-0158 remains UNABLE_TO_VERIFY for that historical text.",
+          "For named-act short-form rows, VERIFIED is limited to the statutory referent and statutory premise read here. It does not adopt the opinions’ contested legal conclusions or independently establish case-specific facts."
+        ],
+        "files_read_note": "Primary-source URLs associated with the completed reads; private download filenames are omitted."
       }
     }
   ]
