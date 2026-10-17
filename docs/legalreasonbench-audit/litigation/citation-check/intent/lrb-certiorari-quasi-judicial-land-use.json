@@ -35,18 +35,41 @@
       "ref": 14,
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
-      "rewards_reliance": [],
-      "explanation": "No criterion asks the model to check the quotation. The proposition it is cited for (certiorari relief quashes and leaves the matter pending below) is correct law at G.B.V. *844, so the criterion's substance does not reward a wrong rule. The defect is the fabricated quotation and pin cite in grader-facing source text; a model quoting it verbatim would repeat a misquotation."
+      "rewards_reliance": [
+        "assignment-1 #9 penalty"
+      ],
+      "explanation": "The penalty's categorical rejection of saying the Board decision was 'overturned' is too literal. The Order itself both quashes the resolution and says the decision is reversed. Plain-English 'overturned' can accurately describe that effect if the answer does not claim the court made the rezoning merits decision. The exact G.B.V. quotation remains misquoted.",
+      "first_intent": {
+        "ref": 14,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "No criterion asks the model to check the quotation. The proposition it is cited for (certiorari relief quashes and leaves the matter pending below) is correct law at G.B.V. *844, so the criterion's substance does not reward a wrong rule. The defect is the fabricated quotation and pin cite in grader-facing source text; a model quoting it verbatim would repeat a misquotation."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high"
     },
     {
       "ref": 19,
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [
-        "assignment-1 #12 states_in_the_first_assignment_that_the_exclusive_method_of_chal",
-        "assignment-1 #14 states_in_the_first_assignment_that_the_petitioners_may_file_a_s (penalty)"
+        "assignment-1 #12",
+        "assignment-1 #14 penalty"
       ],
-      "explanation": "Criterion #12 (10 points) requires stating that certiorari under s. 163.3215(4) is the exclusive method of challenging a development order. The statute makes certiorari exclusive only where the local government has opted in by ordinance, and otherwise s. 163.3215(3) gives a de novo action that can carry injunctive relief. A model stating the statute accurately may lose the criterion. Penalty #14 (minus 15) penalizes saying petitioners may bring a separate injunction action, a statement s. 163.3215(3) can support for development-order consistency challenges. No instruction or criterion asks the model to identify or correct this citation."
+      "explanation": "The statutory de novo action with joined injunction is limited to comprehensive-plan consistency challenges, absent a qualifying local opt-in. It does not establish that every separate construction injunction is proper. The rubric's categorical certiorari-only rule is wrong; its injunction penalty should be assessed against the claim's actual statutory or equitable basis.",
+      "first_intent": {
+        "ref": 19,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-1 #12 states_in_the_first_assignment_that_the_exclusive_method_of_chal",
+          "assignment-1 #14 states_in_the_first_assignment_that_the_petitioners_may_file_a_s (penalty)"
+        ],
+        "explanation": "Criterion #12 (10 points) requires stating that certiorari under s. 163.3215(4) is the exclusive method of challenging a development order. The statute makes certiorari exclusive only where the local government has opted in by ordinance, and otherwise s. 163.3215(3) gives a de novo action that can carry injunctive relief. A model stating the statute accurately may lose the criterion. Penalty #14 (minus 15) penalizes saying petitioners may bring a separate injunction action, a statement s. 163.3215(3) can support for development-order consistency challenges. No instruction or criterion asks the model to identify or correct this citation."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high"
     },
     {
       "ref": 20,
@@ -178,9 +201,20 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [
-        "assignment-2 #11 states_in_the_second_assignment_that_the_circuit_court_s_erred_b"
+        "assignment-2 #11"
       ],
-      "explanation": "Criterion #11 (30 points) requires stating that the circuit court violated separation of powers 'under Fla. Const. art. III, s. 3'. The separation-of-powers clause is art. II, s. 3; art. III, s. 3 governs legislative sessions. A literal grader could withhold credit from a model that cites the correct article. No instruction or criterion asks the model to identify or correct this citation."
+      "explanation": "Beyond the article-number error, criterion #11 calls this site-specific rezoning a legislative function. Snyder and the supplied Order identify such rezoning adjudication as quasi-judicial. An answer should be able to challenge judicial overreach without misclassifying the Board action or citing article III section 3.",
+      "first_intent": {
+        "ref": 71,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-2 #11 states_in_the_second_assignment_that_the_circuit_court_s_erred_b"
+        ],
+        "explanation": "Criterion #11 (30 points) requires stating that the circuit court violated separation of powers 'under Fla. Const. art. III, s. 3'. The separation-of-powers clause is art. II, s. 3; art. III, s. 3 governs legislative sessions. A literal grader could withhold credit from a model that cites the correct article. No instruction or criterion asks the model to identify or correct this citation."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high"
     },
     {
       "ref": 72,
@@ -232,6 +266,28 @@
       "targeted_by_criteria": [],
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation."
+    },
+    {
+      "ref": 29,
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-1 #19"
+      ],
+      "explanation": "The full Smith article directly rejects unqualified county self-zoning immunity in its conclusion; its quoted A1A/Parkway account describes earlier doctrine. Criterion #19 rewards reliance on a historical passage against the source's own legal synthesis. Its PDF/repository year conflict is a separate bibliographic defect.",
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high"
+    },
+    {
+      "ref": 87,
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-1 #0"
+      ],
+      "rewards_reliance": [],
+      "explanation": "The prompt and supplied record contain inconsistent resolution identifiers. Criterion #0 expects Z-23-035, which is supported by the actual resolution; the Order/Petition captions' Z-23-022 belongs to a different county project. The grader should not treat repetition of the caption as proof of the wastewater action's identity.",
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high"
     }
   ]
 }

@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf'], 'limits': ["Attachment counting: the six attachments are identical in assignment-1 and assignment-2 packets apart from the source-URL line (verified by diff); each is counted once. Prompts and rubric fields are counted per assignment; assignment-2's copy of the prior assignment-1 prompt contains no citations.", "All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).", 'The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.', "The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.", "Counting unit: each citation string (full cite, short form with reporter or pin cite, statute/rule/regulation section, or quoted/named authority in the prompt or rubric) in each unique matter document; parallel reporter cites in one string count once. Bare case-name references with no reporter or pin cite inside the three supplied opinions (e.g. 'In Dawdy, ...') are not separately counted. Repeated identical table-header rule labels on one Annual Report page are counted once per page. Citations in the motion and rubric to the scenario's own record (complaint paragraphs, affidavits, exhibits) are record references, not legal authority, and are not counted; the scenario case caption is recorded as fictional.", "Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.", 'Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.', "The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.", "The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.", 'Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.', 'Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.', "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).", "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled."], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'total_occurrences': 573, 'real_law': 566, 'fictional_by_design': 7, 'first_check_status': {'VERIFIED': 459, 'VERIFIED_MINOR_DEFECT': 27, 'MISCHARACTERIZED': 17, 'UNABLE_TO_VERIFY': 63}, 'problems': 17}, 'census_complete': False}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf'], 'limits': ["Attachment counting: the six attachments are identical in assignment-1 and assignment-2 packets apart from the source-URL line (verified by diff); each is counted once. Prompts and rubric fields are counted per assignment; assignment-2's copy of the prior assignment-1 prompt contains no citations.", "All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).", 'The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.', "The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.", "Counting unit: each citation string (full cite, short form with reporter or pin cite, statute/rule/regulation section, or quoted/named authority in the prompt or rubric) in each unique matter document; parallel reporter cites in one string count once. Bare case-name references with no reporter or pin cite inside the three supplied opinions (e.g. 'In Dawdy, ...') are not separately counted. Repeated identical table-header rule labels on one Annual Report page are counted once per page. Citations in the motion and rubric to the scenario's own record (complaint paragraphs, affidavits, exhibits) are record references, not legal authority, and are not counted; the scenario case caption is recorded as fictional.", "Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.", 'Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.', "The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.", "The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.", 'Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.', 'Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.', "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).", "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.", "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated."], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'total_occurrences': 573, 'real_law': 566, 'fictional_by_design': 7, 'first_check_status': {'VERIFIED': 459, 'VERIFIED_MINOR_DEFECT': 27, 'MISCHARACTERIZED': 17, 'UNABLE_TO_VERIFY': 63}, 'problems': 17}, 'census_complete': True}
 
 ## FNC-0001: Davis v. Smith (scenario case)
 
@@ -14740,5 +14740,2431 @@ Rule exists in the official compiled Illinois Supreme Court Rules (current to Oc
 Excerpt read: 'Rule 753. Inquiry, Hearing and Review Boards'
 
 - https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+
+### Second check: not required
+
+
+## FNC-SECOND-001: Gulf Oil Corp. v. Gilbert, 330 U.S. 501 (1947)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 2, paragraph beginning 'The Gulf Oil Court stated' (extraction line 82).
+
+Authority type: case; as written: The Gulf Oil Court; pincite: .
+
+Cited for: Attributed explanation of the forum non conveniens principle, following a full citation in the preceding sentence
+
+Quotes: []
+
+Context: Named-authority short form omitted as a separate occurrence; full citation appears in FNC-0161.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Gulf Oil opinion at 330 U.S. 507 states the forum non conveniens principle introduced by this short form.
+
+Excerpt read: Gulf Oil majority, 330 U.S. 507: a court may decline jurisdiction even where a general venue statute authorizes it.
+
+- https://supreme.justia.com/cases/federal/us/330/501/
+
+### Second check: not required
+
+
+## FNC-SECOND-002: Peile v. Skelgas, Inc., 163 Ill. 2d 323 (1994)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 4, paragraph beginning 'Our last full discussion' (extraction line 163).
+
+Authority type: case; as written: In Peile; pincite: .
+
+Cited for: Facts and disposition of the earlier intrastate forum non conveniens matter
+
+Quotes: []
+
+Context: Named-authority short form after a full Peile citation earlier in Guerine.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Peile primary opinion describes the Pike County furnace explosion and the transfer sequence summarized in Guerine.
+
+Excerpt read: Peile majority, opening facts: propane furnace explosion at plaintiffs Pike County home; later transfer and refiling history.
+
+- https://app.midpage.ai/document/peile-v-skelgas-inc-2127753
+
+### Second check: not required
+
+
+## FNC-SECOND-003: Torres v. Walsh, 98 Ill. 2d 338 (1983)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 6, paragraph beginning 'In Torres' (extraction line 238).
+
+Authority type: case; as written: In Torres; pincite: .
+
+Cited for: Torres litigation facts used as comparator
+
+Quotes: []
+
+Context: A bare named-authority short form introducing a separate case account; neighboring reporter citations are separately counted.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Torres primary opinion describes the Cook County suit arising from a Sangamon County collision and subsequent hospital care.
+
+Excerpt read: Torres majority, opening facts: Cook County filing, Sangamon County collision and hospital malpractice allegations.
+
+- https://www.neochart.com/catalog/cases/ill-2d/volume_98/0338_01/index.html
+
+### Second check: not required
+
+
+## FNC-SECOND-004: Torres v. Walsh, 98 Ill. 2d 338 (1983)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 7, paragraph beginning 'Unlike Torres, but like Hinshaw' (extraction line 287).
+
+Authority type: case; as written: Unlike Torres; pincite: .
+
+Cited for: Contrast with the present case's dispersed parties and witnesses
+
+Quotes: []
+
+Context: First member of two bare case-name comparisons in one sentence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Torres primary opinion shows a concentrated Sangamon County connection, unlike the dispersed connections in Guerine.
+
+Excerpt read: Torres majority, opening facts: crash, hospital and treating defendant physicians and nurses tied to Sangamon County.
+
+- https://www.neochart.com/catalog/cases/ill-2d/volume_98/0338_01/index.html
+
+### Second check: not required
+
+
+## FNC-SECOND-005: Hinshaw v. Coachmen Industries, Inc., 319 Ill. App. 3d 269 (2001)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 7, paragraph beginning 'Unlike Torres, but like Hinshaw' (extraction line 287).
+
+Authority type: case; as written: like Hinshaw; pincite: .
+
+Cited for: Comparison with dispersed parties and witnesses
+
+Quotes: []
+
+Context: Second member of two bare case-name comparisons in one sentence; full Hinshaw citations appear nearby.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Hinshaw primary opinion expressly describes relevant witnesses and connections dispersed among eight Illinois counties and two other states.
+
+Excerpt read: Hinshaw majority, discussion following public and private factors: no predominant county among dispersed witnesses and connections.
+
+- https://app.midpage.ai/document/hinshaw-v-coachmen-industries-inc-2182385
+
+### Second check: not required
+
+
+## FNC-SECOND-006: Bland v. Norfolk & Western Ry. Co., 116 Ill. 2d 217 (1987)
+
+Document: Bradbury v. St. Mary's Hospital.pdf (attachment, assignments 1-2); location: PDF page 4, sentence beginning 'We, however, fail to see' (extraction line 159).
+
+Authority type: case; as written: the holding in Bland; pincite: .
+
+Cited for: Bradbury's rejection of defendants' Bland argument
+
+Quotes: []
+
+Context: The immediately preceding sentence contains a reporter-pin citation to Bland; this is a separate named-authority short form.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Bland primary majority opinion warns against giving undue weight to a treating physician located in the chosen forum, supporting Bradbury description of the holding.
+
+Excerpt read: Bland majority, 116 Ill. 2d around 227: undue weight on a chosen-forum physician permits manipulation of forum convenience.
+
+- https://app.midpage.ai/document/bland-v-norfolk-western-railway-2210166
+
+### Second check: not required
+
+
+## FNC-SECOND-007: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 7, paragraph beginning 'In Guerine' (extraction line 284).
+
+Authority type: case; as written: In Guerine; pincite: .
+
+Cited for: Facts of the accident, party residences, witnesses and Cook County suit
+
+Quotes: []
+
+Context: Bare named-authority short form starts the case narrative; subsequent reporter pins do not count this occurrence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The separately supplied Guerine opinion PDF pp.1-2 states the Kane/De Kalb/Cook facts and identifies the Cook County suit.
+
+Excerpt read: Guerine attachment PDF p.1: decedent lived in Kane, crash occurred in De Kalb, individual defendant lived in Cook; estate sued in Cook.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+
+### Second check: not required
+
+
+## FNC-SECOND-008: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, paragraph beginning 'We acknowledge the dissent' (extraction lines 481-485).
+
+Authority type: case; as written: Dawdy distinguishable; pincite: .
+
+Cited for: Three grounds for distinguishing Dawdy
+
+Quotes: []
+
+Context: The majority names Dawdy repeatedly without a reporter cite in this paragraph; at least the opening named short form is omitted from the original count.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Dawdy primary majority opinion supports all three distinctions recounted in the Langenhorst majority: no witness residing in chosen Madison, possible accident-scene view, and an individual defendant resident in proposed Macoupin.
+
+Excerpt read: Dawdy majority paragraphs 10, 34-37, 49-50: Riederer resides in Macoupin; no potential witness resides in Madison; a jury view of the Macoupin scene is a practical consideration.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SECOND-009: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, sentence beginning 'We emphasize that Dawdy did not overrule Guerine' (extraction line 486).
+
+Authority type: case; as written: Dawdy did not overrule; pincite: .
+
+Cited for: Dawdy's relationship to Guerine
+
+Quotes: []
+
+Context: Separate named-authority short form without reporter cite in the sentence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Dawdy primary majority opinion distinguishes Guerine in paragraphs 52-55 and applies it; that text does not overrule Guerine.
+
+Excerpt read: Dawdy majority paragraphs 52-55: Guerine is distinguished based on witness locations and Macoupin predominant connection.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SECOND-010: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, Justice Garman dissent, sentence beginning 'We distinguished Guerine in Dawdy' (extraction line 806).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Dissent's assertion that Dawdy distinguished Guerine
+
+Quotes: []
+
+Context: Named-authority short form in the dissent, separate from reporter cites in the following sentence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Dawdy primary majority opinion expressly calls Guerine distinguishable, supporting this dissent description of the treatment.
+
+Excerpt read: Dawdy majority paragraphs 52-54: Guerine described and distinguished from Dawdy.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SECOND-011: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, Justice Garman dissent, sentence beginning 'We distinguished Guerine in Dawdy' (extraction line 806).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Dissent's description of Dawdy's treatment of Guerine
+
+Quotes: []
+
+Context: Second named-authority short form in the same sentence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Dawdy primary majority opinion expressly distinguishes Guerine in paragraphs 52-54.
+
+Excerpt read: Dawdy majority paragraphs 52-54: Guerine rule stated, followed by the different Madison and Macoupin facts.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-001: Peile v. Skelgas, Inc., 163 Ill. 2d 323 (1994)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 184.
+
+Authority type: case; as written: Peile; pincite: .
+
+Cited for: Named case reference in this passage: We reversed the trial court and the appellate court on the merits of the transfer, but the significance of Peile lies less in its obvious outcome and more in its steadfast adherence to the intrastate applicaƟon of forum non conveniens. We acknowledged the frus
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: We reversed the trial court and the appellate court on the merits of the transfer, but the significance of Peile lies less in its obvious outcome and more in its steadfast adherence to the intrastate applicaƟon of forum non conveniens. We acknowledged the frustraƟng liƟgaƟon quagmire created in the wake of
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Peile majority describes the Pike County explosion and refiling, reaffirms intrastate forum non conveniens, and orders transfer to Pike County.
+
+- https://app.midpage.ai/document/peile-v-skelgas-inc-2127753
+
+### Second check: not required
+
+
+## FNC-SUPP-002: Torres v. Walsh, 98 Ill. 2d 338 (1983)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 193.
+
+Authority type: case; as written: Torres; pincite: .
+
+Cited for: Named case reference in this passage: equitable doctrine of forum non conveniens is necessary because of perceived abuses in its invocaƟon or Ɵme consumed in its resoluƟon. The doctrine that was acƟvated in Torres was designed to give the courts ‘discreƟonary power which should be exercised only i
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: equitable doctrine of forum non conveniens is necessary because of perceived abuses in its invocaƟon or Ɵme consumed in its resoluƟon. The doctrine that was acƟvated in Torres was designed to give the courts ‘discreƟonary power which should be exercised only in excepƟonal circumstances when it has
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Torres majority describes the Cook County suit and Sangamon County accident and medical care, then recognizes intrastate forum non conveniens.
+
+- https://www.neochart.com/catalog/cases/ill-2d/volume_98/0338_01/index.html
+
+### Second check: not required
+
+
+## FNC-SUPP-003: Torres v. Walsh, 98 Ill. 2d 338 (1983)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 204.
+
+Authority type: case; as written: Torres v. Walsh; pincite: .
+
+Cited for: Named case reference in this passage: Accordingly, we decline the invitaƟon to abandon intrastate transfer of cases when appropriate, under the principles enunciated in Torres v. Walsh.” Peile, 163 Ill.2d at 335-36, 206 Ill.Dec. 179, 645 N.E.2d 184.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Accordingly, we decline the invitaƟon to abandon intrastate transfer of cases when appropriate, under the principles enunciated in Torres v. Walsh.” Peile, 163 Ill.2d at 335-36, 206 Ill.Dec. 179, 645 N.E.2d 184.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Torres majority describes the Cook County suit and Sangamon County accident and medical care, then recognizes intrastate forum non conveniens.
+
+- https://www.neochart.com/catalog/cases/ill-2d/volume_98/0338_01/index.html
+
+### Second check: not required
+
+
+## FNC-SUPP-004: Peile v. Skelgas, Inc., 163 Ill. 2d 323 (1994)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 206.
+
+Authority type: case; as written: Peile; pincite: .
+
+Cited for: Named case reference in this passage: 184. Since Peile, we have exercised our supervisory authority more than 30 Ɵmes to transfer cases away from plainƟffs' chosen fora. (See appendix.) Obviously, one of the purposes of the forum non
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: 184. Since Peile, we have exercised our supervisory authority more than 30 Ɵmes to transfer cases away from plainƟffs' chosen fora. (See appendix.) Obviously, one of the purposes of the forum non
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Peile majority describes the Pike County explosion and refiling, reaffirms intrastate forum non conveniens, and orders transfer to Pike County.
+
+- https://app.midpage.ai/document/peile-v-skelgas-inc-2127753
+
+### Second check: not required
+
+
+## FNC-SUPP-005: Gulf Oil Corp. v. Gilbert, 330 U.S. 501 (1947)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 6, extraction line 246.
+
+Authority type: case; as written: Gulf Oil; pincite: .
+
+Cited for: Named case reference in this passage: plainƟffs peƟƟoned this court for mandamus relief. We reviewed Gulf Oil and noted that courts in 18 other states have statutory authority to order intrastate venue transfers. Torres, 98 Ill.2d at 345-47, 74 Ill.Dec. 880, 456 N.E.2d 601. We further
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: plainƟffs peƟƟoned this court for mandamus relief. We reviewed Gulf Oil and noted that courts in 18 other states have statutory authority to order intrastate venue transfers. Torres, 98 Ill.2d at 345-47, 74 Ill.Dec. 880, 456 N.E.2d 601. We further
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Gulf Oil majority at 330 U.S. 507-09 describes the doctrine and its private and public factors.
+
+- https://supreme.justia.com/cases/federal/us/330/501/
+
+### Second check: not required
+
+
+## FNC-SUPP-006: Gulf Oil Corp. v. Gilbert, 330 U.S. 501 (1947)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 327.
+
+Authority type: case; as written: Gulf Oil; pincite: .
+
+Cited for: Named case reference in this passage: congesƟon alone is not disposiƟve. We live in a smaller world than that contemplated by the Gulf Oil Court, or even this court in Torres. Today, we are connected by interstate highways, bustling airways, telecommunicaƟons, and the world
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: congesƟon alone is not disposiƟve. We live in a smaller world than that contemplated by the Gulf Oil Court, or even this court in Torres. Today, we are connected by interstate highways, bustling airways, telecommunicaƟons, and the world
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Gulf Oil majority at 330 U.S. 507-09 describes the doctrine and its private and public factors.
+
+- https://supreme.justia.com/cases/federal/us/330/501/
+
+### Second check: not required
+
+
+## FNC-SUPP-007: Torres v. Walsh, 98 Ill. 2d 338 (1983)
+
+Document: First Am Bank v. Guerine.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 327.
+
+Authority type: case; as written: Torres; pincite: .
+
+Cited for: Named case reference in this passage: congesƟon alone is not disposiƟve. We live in a smaller world than that contemplated by the Gulf Oil Court, or even this court in Torres. Today, we are connected by interstate highways, bustling airways, telecommunicaƟons, and the world
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: congesƟon alone is not disposiƟve. We live in a smaller world than that contemplated by the Gulf Oil Court, or even this court in Torres. Today, we are connected by interstate highways, bustling airways, telecommunicaƟons, and the world
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Torres majority describes the Cook County suit and Sangamon County accident and medical care, then recognizes intrastate forum non conveniens.
+
+- https://www.neochart.com/catalog/cases/ill-2d/volume_98/0338_01/index.html
+
+### Second check: not required
+
+
+## FNC-SUPP-008: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 4, extraction line 155.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: Upon reconsideraƟon, the appellate court affirmed the circuit court's denial of defendants' moƟon to transfer. 354 Ill.App.3d 1103, 290 Ill.Dec. 895, 822 N.E.2d 480. AŌer reviewing Guerine and Dawdy, the appellate court examined the public and private interest
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Upon reconsideraƟon, the appellate court affirmed the circuit court's denial of defendants' moƟon to transfer. 354 Ill.App.3d 1103, 290 Ill.Dec. 895, 822 N.E.2d 480. AŌer reviewing Guerine and Dawdy, the appellate court examined the public and private interest factors and held that the circuit court of St.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-009: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 4, extraction line 155.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Upon reconsideraƟon, the appellate court affirmed the circuit court's denial of defendants' moƟon to transfer. 354 Ill.App.3d 1103, 290 Ill.Dec. 895, 822 N.E.2d 480. AŌer reviewing Guerine and Dawdy, the appellate court examined the public and private interest
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Upon reconsideraƟon, the appellate court affirmed the circuit court's denial of defendants' moƟon to transfer. 354 Ill.App.3d 1103, 290 Ill.Dec. 895, 822 N.E.2d 480. AŌer reviewing Guerine and Dawdy, the appellate court examined the public and private interest factors and held that the circuit court of St.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-010: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 7, extraction line 298, Dawdy occurrence 2 on line.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: This court again had the opportunity to review the doctrine of intrastate forum non conveniens in Dawdy, 207 Ill.2d 167, 278 Ill.Dec. 92, 797 N.E.2d 687. In Dawdy, the plainƟff, a Green County resident, was injured in an accident involving a truck driven by a 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: This court again had the opportunity to review the doctrine of intrastate forum non conveniens in Dawdy, 207 Ill.2d 167, 278 Ill.Dec. 92, 797 N.E.2d 687. In Dawdy, the plainƟff, a Green County resident, was injured in an accident involving a truck driven by a Union Pacific employee in Macoupin County.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-011: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 334.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court disƟnguished Guerine on the basis that, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Dawdy, 207 Ill.2d at 184, 278 Ill.Dec. 92, 797 N.E.2d 687. The court
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court disƟnguished Guerine on the basis that, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Dawdy, 207 Ill.2d at 184, 278 Ill.Dec. 92, 797 N.E.2d 687. The court
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-012: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 347.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: and that the balance of factors strongly favors transfer . In the instant case, like Guerine, both St. Clair County and Clinton County have significant Ɵes to the case and the potenƟal witnesses are scaƩered throughout several counƟes in the state, as well as 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: and that the balance of factors strongly favors transfer . In the instant case, like Guerine, both St. Clair County and Clinton County have significant Ɵes to the case and the potenƟal witnesses are scaƩered throughout several counƟes in the state, as well as Indiana and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-013: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 481.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: defendants as well as plainƟff. We acknowledge the dissent's belief that today's opinion is at odds with Dawdy. However, we find Dawdy disƟnguishable on three grounds. First, in Dawdy, none of the witnesses resided in the
+
+Quotes: []
+
+Context: Separate introductory mention at line 481; FNC-SECOND-008 covers the first Dawdy at line 482. Extraction context: defendants as well as plainƟff. We acknowledge the dissent's belief that today's opinion is at odds with Dawdy. However, we find Dawdy disƟnguishable on three grounds. First, in Dawdy, none of the witnesses resided in the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-014: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 482, Dawdy occurrence 2 on line.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: We acknowledge the dissent's belief that today's opinion is at odds with Dawdy. However, we find Dawdy disƟnguishable on three grounds. First, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Second, in Dawdy, the possibility of a jury v
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: We acknowledge the dissent's belief that today's opinion is at odds with Dawdy. However, we find Dawdy disƟnguishable on three grounds. First, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Second, in Dawdy, the possibility of a jury view of the accident scene was a
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-015: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 483.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Dawdy disƟnguishable on three grounds. First, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Second, in Dawdy, the possibility of a jury view of the accident scene was a pracƟcal consideraƟon. Finally, in Dawdy, the defendant railroad 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Dawdy disƟnguishable on three grounds. First, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Second, in Dawdy, the possibility of a jury view of the accident scene was a pracƟcal consideraƟon. Finally, in Dawdy, the defendant railroad was aƩempƟng to transfer the cause
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-016: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 484.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: plainƟff's chosen forum. Second, in Dawdy, the possibility of a jury view of the accident scene was a pracƟcal consideraƟon. Finally, in Dawdy, the defendant railroad was aƩempƟng to transfer the cause to the defendant employee's county of residence.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: plainƟff's chosen forum. Second, in Dawdy, the possibility of a jury view of the accident scene was a pracƟcal consideraƟon. Finally, in Dawdy, the defendant railroad was aƩempƟng to transfer the cause to the defendant employee's county of residence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-017: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 486, Guerine occurrence 1 on line.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: to the defendant employee's county of residence. We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: to the defendant employee's county of residence. We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-018: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 486, Dawdy occurrence 2 on line.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: to the defendant employee's county of residence. We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: to the defendant employee's county of residence. We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-019: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 486, Guerine occurrence 2 on line.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: to the defendant employee's county of residence. We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: to the defendant employee's county of residence. We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-020: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 487.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances 
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-021: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 11, extraction line 487.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: We emphasize that Dawdy did not overrule Guerine. Dawdy is not irreconcilable with Guerine, nor does it conflict with Guerine. Indeed, in Dawdy, this court expressly disƟnguished the circumstances 
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-022: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 491, Guerine occurrence 1 on line.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage:  presented from those presented in Guerine and noted that Guerine was based on the totality of the circumstances. Dawdy, 207 Ill.2d at 183-84, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context:  presented from those presented in Guerine and noted that Guerine was based on the totality of the circumstances. Dawdy, 207 Ill.2d at 183-84, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-023: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 491, Guerine occurrence 2 on line.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage:  presented from those presented in Guerine and noted that Guerine was based on the totality of the circumstances. Dawdy, 207 Ill.2d at 183-84, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context:  presented from those presented in Guerine and noted that Guerine was based on the totality of the circumstances. Dawdy, 207 Ill.2d at 183-84, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-024: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 510 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Less than three years ago, this court addressed the doctrine of forum non conveniens in Dawdy v. Union Pacific R.R. Co., 207 Ill.2d 167, 278 Ill.Dec. 92, 797 N.E.2d 687 (2003). Dawdy was decided in the wake of First American Bank v. Guerine, 198 Ill.2d 511, 26
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Less than three years ago, this court addressed the doctrine of forum non conveniens in Dawdy v. Union Pacific R.R. Co., 207 Ill.2d 167, 278 Ill.Dec. 92, 797 N.E.2d 687 (2003). Dawdy was decided in the wake of First American Bank v. Guerine, 198 Ill.2d 511, 261 Ill.Dec. 763, 764 N.E.2d 54 (2002), another forum
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-025: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 514 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: the circuit court's denial of their moƟon to transfer venue from St. Clair County to Clinton County. We ordered the appellate court to reconsider its judgment in light of Dawdy and Guerine. In affirming the judgment of the circuit court on remand, the appellat
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: the circuit court's denial of their moƟon to transfer venue from St. Clair County to Clinton County. We ordered the appellate court to reconsider its judgment in light of Dawdy and Guerine. In affirming the judgment of the circuit court on remand, the appellate court speculated that it would not have been
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-026: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 514 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: the circuit court's denial of their moƟon to transfer venue from St. Clair County to Clinton County. We ordered the appellate court to reconsider its judgment in light of Dawdy and Guerine. In affirming the judgment of the circuit court on remand, the appellat
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: the circuit court's denial of their moƟon to transfer venue from St. Clair County to Clinton County. We ordered the appellate court to reconsider its judgment in light of Dawdy and Guerine. In affirming the judgment of the circuit court on remand, the appellate court speculated that it would not have been
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-027: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 516 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: judgment of the circuit court on remand, the appellate court speculated that it would not have been “ordered to reconsider a venue transfer quesƟon in light of both Dawdy and Guerine if the supreme court did not think both decisions sƟll represented good law.”
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: judgment of the circuit court on remand, the appellate court speculated that it would not have been “ordered to reconsider a venue transfer quesƟon in light of both Dawdy and Guerine if the supreme court did not think both decisions sƟll represented good law.” 354 Ill.App.3d 1103, 1109, 290 Ill.Dec.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-028: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 516 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: judgment of the circuit court on remand, the appellate court speculated that it would not have been “ordered to reconsider a venue transfer quesƟon in light of both Dawdy and Guerine if the supreme court did not think both decisions sƟll represented good law.”
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: judgment of the circuit court on remand, the appellate court speculated that it would not have been “ordered to reconsider a venue transfer quesƟon in light of both Dawdy and Guerine if the supreme court did not think both decisions sƟll represented good law.” 354 Ill.App.3d 1103, 1109, 290 Ill.Dec.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-029: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 518 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: court did not think both decisions sƟll represented good law.” 354 Ill.App.3d 1103, 1109, 290 Ill.Dec. 895, 822 N.E.2d 480. UnƟl today, Dawdy and Guerine did both represent good law, but the majority's decision places this case directly at odds with Dawdy, sig
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: court did not think both decisions sƟll represented good law.” 354 Ill.App.3d 1103, 1109, 290 Ill.Dec. 895, 822 N.E.2d 480. UnƟl today, Dawdy and Guerine did both represent good law, but the majority's decision places this case directly at odds with Dawdy, significantly obscuring our forum non conveniens
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-030: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 518 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: court did not think both decisions sƟll represented good law.” 354 Ill.App.3d 1103, 1109, 290 Ill.Dec. 895, 822 N.E.2d 480. UnƟl today, Dawdy and Guerine did both represent good law, but the majority's decision places this case directly at odds with Dawdy, sig
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: court did not think both decisions sƟll represented good law.” 354 Ill.App.3d 1103, 1109, 290 Ill.Dec. 895, 822 N.E.2d 480. UnƟl today, Dawdy and Guerine did both represent good law, but the majority's decision places this case directly at odds with Dawdy, significantly obscuring our forum non conveniens
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-031: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 519 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: 895, 822 N.E.2d 480. UnƟl today, Dawdy and Guerine did both represent good law, but the majority's decision places this case directly at odds with Dawdy, significantly obscuring our forum non conveniens jurisprudence. Accordingly, I dissent.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: 895, 822 N.E.2d 480. UnƟl today, Dawdy and Guerine did both represent good law, but the majority's decision places this case directly at odds with Dawdy, significantly obscuring our forum non conveniens jurisprudence. Accordingly, I dissent.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-032: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 521 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: jurisprudence. Accordingly, I dissent. I. Divergence From Dawdy In Dawdy, the plainƟff, a resident of Greene County, was driving a tractor in Macoupin County when he
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: jurisprudence. Accordingly, I dissent. I. Divergence From Dawdy In Dawdy, the plainƟff, a resident of Greene County, was driving a tractor in Macoupin County when he
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-033: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 12, extraction line 522 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: I. Divergence From Dawdy In Dawdy, the plainƟff, a resident of Greene County, was driving a tractor in Macoupin County when he collided with a truck operated by an employee of the Union Pacific Railroad Company (Union Pacific).
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: I. Divergence From Dawdy In Dawdy, the plainƟff, a resident of Greene County, was driving a tractor in Macoupin County when he collided with a truck operated by an employee of the Union Pacific Railroad Company (Union Pacific).
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-034: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 14, extraction line 608 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: transfer venue (Dawdy, 207 Ill.2d at 185, 278 Ill.Dec. 92, 797 N.E.2d 687). The majority disregards significant aspects of our analysis in Dawdy in affirming the circuit court's denial of defendants' moƟon to transfer in this cause. This disregard begins with 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: transfer venue (Dawdy, 207 Ill.2d at 185, 278 Ill.Dec. 92, 797 N.E.2d 687). The majority disregards significant aspects of our analysis in Dawdy in affirming the circuit court's denial of defendants' moƟon to transfer in this cause. This disregard begins with its discussion of the private
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-035: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 14, extraction line 610 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: of defendants' moƟon to transfer in this cause. This disregard begins with its discussion of the private interest factors in the forum non conveniens analysis. IniƟally, the majority ignores Dawdy's conclusion that the possibility of viewing the accident site,
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: of defendants' moƟon to transfer in this cause. This disregard begins with its discussion of the private interest factors in the forum non conveniens analysis. IniƟally, the majority ignores Dawdy's conclusion that the possibility of viewing the accident site, not the necessity of doing so, is the relevant
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-036: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 14, extraction line 613 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: consideraƟon in weighing this factor. Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687. As we noted in Dawdy, “the necessity or propriety of viewing the scene is a decision leŌ within the discreƟon of the trial court.” Dawdy, 207 Ill.2d at 179, 278 Il
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: consideraƟon in weighing this factor. Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687. As we noted in Dawdy, “the necessity or propriety of viewing the scene is a decision leŌ within the discreƟon of the trial court.” Dawdy, 207 Ill.2d at 179, 278 Ill.Dec. 92, 797 N.E.2d 687. The majority concludes that
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-037: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 15, extraction line 629 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Next, in evaluaƟng the relaƟve ease of access to tesƟmonial evidence, the majority fails to conduct a balanced analysis of the residency of potenƟal witnesses. As menƟoned, in Dawdy, we focused primarily on the facts that two of the potenƟal witnesses resided 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Next, in evaluaƟng the relaƟve ease of access to tesƟmonial evidence, the majority fails to conduct a balanced analysis of the residency of potenƟal witnesses. As menƟoned, in Dawdy, we focused primarily on the facts that two of the potenƟal witnesses resided in Macoupin County, none resided in
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-038: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 15, extraction line 662 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: There is no perfect equaƟon for determining whether access to potenƟal witnesses is easier in one county than in another, but if, in Dawdy, Macoupin County provided easier access to witnesses than Madison County, then we can certainly say the same of Clinton C
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: There is no perfect equaƟon for determining whether access to potenƟal witnesses is easier in one county than in another, but if, in Dawdy, Macoupin County provided easier access to witnesses than Madison County, then we can certainly say the same of Clinton County vis-à-vis St. Clair County in this
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-039: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 15, extraction line 664 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Madison County, then we can certainly say the same of Clinton County vis-à-vis St. Clair County in this case. Here, in contrast to Dawdy, a significantly larger proporƟon of the potenƟal witnesses resides in 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Madison County, then we can certainly say the same of Clinton County vis-à-vis St. Clair County in this case. Here, in contrast to Dawdy, a significantly larger proporƟon of the potenƟal witnesses resides in 
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-040: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 16, extraction line 668 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage:  the transferee county, and like Dawdy, the potenƟal witnesses appear, on the whole, to reside closer to the transferee county than to the county where suit was filed. It is true that two potenƟal witnesses
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context:  the transferee county, and like Dawdy, the potenƟal witnesses appear, on the whole, to reside closer to the transferee county than to the county where suit was filed. It is true that two potenƟal witnesses
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-041: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 16, extraction line 679 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: residencies of all the other potenƟal witnesses. The majority also contradicts Dawdy's discussion of other pracƟcal consideraƟons relevant to the forum non conveniens analysis. Specifically, the majority ignores our refusal in Dawdy to “accept the
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: residencies of all the other potenƟal witnesses. The majority also contradicts Dawdy's discussion of other pracƟcal consideraƟons relevant to the forum non conveniens analysis. Specifically, the majority ignores our refusal in Dawdy to “accept the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-042: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 16, extraction line 688 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: potenƟal witnesses, which, as discussed above, favors Clinton County. In addiƟon to disregarding Dawdy's analysis of the private interest forum non conveniens factors, the majority also departs from Dawdy's analysis of the public interest factors. In Dawdy, wi
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: potenƟal witnesses, which, as discussed above, favors Clinton County. In addiƟon to disregarding Dawdy's analysis of the private interest forum non conveniens factors, the majority also departs from Dawdy's analysis of the public interest factors. In Dawdy, with respect to the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-043: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 16, extraction line 689, Dawdy occurrence 1 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: In addiƟon to disregarding Dawdy's analysis of the private interest forum non conveniens factors, the majority also departs from Dawdy's analysis of the public interest factors. In Dawdy, with respect to the local interests in deciding the controversy, we decl
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: In addiƟon to disregarding Dawdy's analysis of the private interest forum non conveniens factors, the majority also departs from Dawdy's analysis of the public interest factors. In Dawdy, with respect to the local interests in deciding the controversy, we declined to aƩach disposiƟve significance to the fact the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-044: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 16, extraction line 689, Dawdy occurrence 2 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: In addiƟon to disregarding Dawdy's analysis of the private interest forum non conveniens factors, the majority also departs from Dawdy's analysis of the public interest factors. In Dawdy, with respect to the local interests in deciding the controversy, we decl
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: In addiƟon to disregarding Dawdy's analysis of the private interest forum non conveniens factors, the majority also departs from Dawdy's analysis of the public interest factors. In Dawdy, with respect to the local interests in deciding the controversy, we declined to aƩach disposiƟve significance to the fact the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-045: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 16, extraction line 703 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: extent of each county's local interest in this case. As menƟoned, in evaluaƟng this factor in Dawdy, we found it significant that the accident occurred in the transferee county; that the plainƟff did not reside in the county where suit was filed; that the indi
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: extent of each county's local interest in this case. As menƟoned, in evaluaƟng this factor in Dawdy, we found it significant that the accident occurred in the transferee county; that the plainƟff did not reside in the county where suit was filed; that the individual
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-046: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 714 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: that the accident occurred in Macoupin County gives the acƟon a local interest”). In this case, as in Dawdy, the accident occurred in the transferee county. Moreover, the plainƟff and the individual defendants do not reside in the county where suit was filed. 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: that the accident occurred in Macoupin County gives the acƟon a local interest”). In this case, as in Dawdy, the accident occurred in the transferee county. Moreover, the plainƟff and the individual defendants do not reside in the county where suit was filed. As for the potenƟal witnesses, they
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-047: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 717 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: appear, on the whole, to reside closer to the transferee county than to the county where suit was filed, and a larger proporƟon of them actually resides in the transferee county than was the case in Dawdy. The only disƟncƟon between this case and Dawdy in term
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: appear, on the whole, to reside closer to the transferee county than to the county where suit was filed, and a larger proporƟon of them actually resides in the transferee county than was the case in Dawdy. The only disƟncƟon between this case and Dawdy in terms of the consideraƟons in quesƟon is that,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-048: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 718 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: and a larger proporƟon of them actually resides in the transferee county than was the case in Dawdy. The only disƟncƟon between this case and Dawdy in terms of the consideraƟons in quesƟon is that, here, none of the individual defendants reside in the transfer
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: and a larger proporƟon of them actually resides in the transferee county than was the case in Dawdy. The only disƟncƟon between this case and Dawdy in terms of the consideraƟons in quesƟon is that, here, none of the individual defendants reside in the transferee county. However, the significance of
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-049: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 720 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: here, none of the individual defendants reside in the transferee county. However, the significance of this disƟncƟon is offset by the fact that plainƟff, unlike the plainƟff in Dawdy, is a resident of the transferee county. In Dawdy, the plainƟff was a residen
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: here, none of the individual defendants reside in the transferee county. However, the significance of this disƟncƟon is offset by the fact that plainƟff, unlike the plainƟff in Dawdy, is a resident of the transferee county. In Dawdy, the plainƟff was a resident of Greene County, suit was filed in Madison
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-050: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 721 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: this disƟncƟon is offset by the fact that plainƟff, unlike the plainƟff in Dawdy, is a resident of the transferee county. In Dawdy, the plainƟff was a resident of Greene County, suit was filed in Madison County, and the defendants wished to transfer venue to M
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: this disƟncƟon is offset by the fact that plainƟff, unlike the plainƟff in Dawdy, is a resident of the transferee county. In Dawdy, the plainƟff was a resident of Greene County, suit was filed in Madison County, and the defendants wished to transfer venue to Macoupin County. Dawdy, 207 Ill.2d at 169-70,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-051: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 726 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: In sum, based on the very same consideraƟons we took into account in evaluaƟng the nature and extent of the local interests at play in Dawdy, it is clear that the controversy at issue here is local to Clinton County, and that Clinton County has a strong intere
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: In sum, based on the very same consideraƟons we took into account in evaluaƟng the nature and extent of the local interests at play in Dawdy, it is clear that the controversy at issue here is local to Clinton County, and that Clinton County has a strong interest in resolving it. The majority unduly emphasizes
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-052: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 739 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Finally, in assessing court congesƟon, the majority fails to examine the staƟsƟcal criteria we considered in Dawdy and instead focuses solely on the circuit court judge's assessment of the St. Clair County circuit court's docket. 219 Ill.2d at 451-52, 302 Ill.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Finally, in assessing court congesƟon, the majority fails to examine the staƟsƟcal criteria we considered in Dawdy and instead focuses solely on the circuit court judge's assessment of the St. Clair County circuit court's docket. 219 Ill.2d at 451-52, 302 Ill.Dec. at 375-76, 848 N.E.2d at 939-40. In Dawdy, we looked
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-053: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 17, extraction line 740 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: in Dawdy and instead focuses solely on the circuit court judge's assessment of the St. Clair County circuit court's docket. 219 Ill.2d at 451-52, 302 Ill.Dec. at 375-76, 848 N.E.2d at 939-40. In Dawdy, we looked to the overall number of pending jury acƟons for
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: in Dawdy and instead focuses solely on the circuit court judge's assessment of the St. Clair County circuit court's docket. 219 Ill.2d at 451-52, 302 Ill.Dec. at 375-76, 848 N.E.2d at 939-40. In Dawdy, we looked to the overall number of pending jury acƟons for damages over $50,000 and the Ɵme to verdict for such
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-054: Boner v. Peabody Coal Co., 142 Ill. 2d 523 (1991)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 760 (Garman, J., dissenting).
+
+Authority type: case; as written: Boner; pincite: .
+
+Cited for: Named case reference in this passage: a reviewing court should turn a blind eye to objecƟve data in weighing one venue's congesƟon against another's. Boner, in fact, did consider court data in arriving at its conclusion that court congesƟon did not necessitate transferring the acƟon at issue to Ga
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: a reviewing court should turn a blind eye to objecƟve data in weighing one venue's congesƟon against another's. Boner, in fact, did consider court data in arriving at its conclusion that court congesƟon did not necessitate transferring the acƟon at issue to GallaƟn County. Boner, 142 Ill.2d at 539, 154 Ill.Dec.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Boner majority at 142 Ill. 2d 538-39 discusses trial-court docket knowledge and compares 1989 court statistics.
+
+- https://law.justia.com/cases/illinois/supreme-court/1991/69684-7.html
+
+### Second check: not required
+
+
+## FNC-SUPP-055: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 767 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: Clair County. II. Guerine, Dawdy, and the Instant Case It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Clair County. II. Guerine, Dawdy, and the Instant Case It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-056: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 767 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Clair County. II. Guerine, Dawdy, and the Instant Case It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Clair County. II. Guerine, Dawdy, and the Instant Case It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-057: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 769, Dawdy occurrence 1 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-058: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 769, Dawdy occurrence 2 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: It is clear, based on the foregoing, that the majority wishes to distance this court from the reasoning we applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-059: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 770, Guerine occurrence 1 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the outcome of this case.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the outcome of this case.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-060: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 770 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the outcome of this case.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the outcome of this case.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-061: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 770, Guerine occurrence 2 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the outcome of this case.
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: applied in Dawdy. I cannot endorse this approach, as it erroneously suggests that Dawdy is irreconcilable with Guerine, when, in fact, Dawdy and Guerine can be applied consistently to govern the outcome of this case.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-062: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 18, extraction line 772 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: outcome of this case. The lawsuit at issue in Guerine arose from a car accident involving the individual defendant and the decedent. Guerine, 198 Ill.2d at 512, 261 Ill.Dec. 763, 764 N.E.2d 54. A boat trailer broke away from
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: outcome of this case. The lawsuit at issue in Guerine arose from a car accident involving the individual defendant and the decedent. Guerine, 198 Ill.2d at 512, 261 Ill.Dec. 763, 764 N.E.2d 54. A boat trailer broke away from
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-063: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 806, Guerine occurrence 2 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: plainƟffs filed suit. Guerine, 198 Ill.2d at 524-25, 261 Ill.Dec. 763, 764 N.E.2d 54. We disƟnguished Guerine in Dawdy. There we observed that, unlike in Guerine, none of the witnesses resided in the county where suit was filed, and the transferee county had a
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: plainƟffs filed suit. Guerine, 198 Ill.2d at 524-25, 261 Ill.Dec. 763, 764 N.E.2d 54. We disƟnguished Guerine in Dawdy. There we observed that, unlike in Guerine, none of the witnesses resided in the county where suit was filed, and the transferee county had a predominant connecƟon to
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-064: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 814 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: the transferee county had a “predominant connecƟon” to the case, our reasons were implicit in our analysis of the private and public interest factors. Unlike the individual defendant in Guerine, the individual defendant in Dawdy was a resident of the transfere
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: the transferee county had a “predominant connecƟon” to the case, our reasons were implicit in our analysis of the private and public interest factors. Unlike the individual defendant in Guerine, the individual defendant in Dawdy was a resident of the transferee county. See Dawdy, 207 Ill.2d at 170,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-065: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 815, Dawdy occurrence 1 on line (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: analysis of the private and public interest factors. Unlike the individual defendant in Guerine, the individual defendant in Dawdy was a resident of the transferee county. See Dawdy, 207 Ill.2d at 170, 183, 278 Ill.Dec. 92, 797 N.E.2d 687. In addiƟon, unlike t
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: analysis of the private and public interest factors. Unlike the individual defendant in Guerine, the individual defendant in Dawdy was a resident of the transferee county. See Dawdy, 207 Ill.2d at 170, 183, 278 Ill.Dec. 92, 797 N.E.2d 687. In addiƟon, unlike the mixed negligence-product liability acƟon in
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-066: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 817 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. In addiƟon, unlike the mixed negligence-product liability acƟon in Guerine, all of the plainƟff's negligence claims in Dawdy related to the specific accident at issue, which occurred in the transferee county. See Dawdy, 20
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. In addiƟon, unlike the mixed negligence-product liability acƟon in Guerine, all of the plainƟff's negligence claims in Dawdy related to the specific accident at issue, which occurred in the transferee county. See Dawdy, 207 Ill.2d at 169, 183, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-067: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 817 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. In addiƟon, unlike the mixed negligence-product liability acƟon in Guerine, all of the plainƟff's negligence claims in Dawdy related to the specific accident at issue, which occurred in the transferee county. See Dawdy, 20
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. In addiƟon, unlike the mixed negligence-product liability acƟon in Guerine, all of the plainƟff's negligence claims in Dawdy related to the specific accident at issue, which occurred in the transferee county. See Dawdy, 207 Ill.2d at 169, 183, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-068: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 819 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: occurred in the transferee county. See Dawdy, 207 Ill.2d at 169, 183, 278 Ill.Dec. 92, 797 N.E.2d 687. Moreover, the potenƟal witnesses in Dawdy were more closely linked to the transferee county than in Guerine. See Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 7
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: occurred in the transferee county. See Dawdy, 207 Ill.2d at 169, 183, 278 Ill.Dec. 92, 797 N.E.2d 687. Moreover, the potenƟal witnesses in Dawdy were more closely linked to the transferee county than in Guerine. See Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-069: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 820 (Garman, J., dissenting).
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: Moreover, the potenƟal witnesses in Dawdy were more closely linked to the transferee county than in Guerine. See Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687. The grounds on which the majority disƟnguishes Dawdy from the instant case are unpersuas
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Moreover, the potenƟal witnesses in Dawdy were more closely linked to the transferee county than in Guerine. See Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687. The grounds on which the majority disƟnguishes Dawdy from the instant case are unpersuasive and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-070: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 821 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Guerine. See Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687. The grounds on which the majority disƟnguishes Dawdy from the instant case are unpersuasive and likely to cause confusion. First, the majority asserts that “in Dawdy, none of the witnesses
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Guerine. See Dawdy, 207 Ill.2d at 178, 278 Ill.Dec. 92, 797 N.E.2d 687. The grounds on which the majority disƟnguishes Dawdy from the instant case are unpersuasive and likely to cause confusion. First, the majority asserts that “in Dawdy, none of the witnesses resided in
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-071: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 822 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: The grounds on which the majority disƟnguishes Dawdy from the instant case are unpersuasive and likely to cause confusion. First, the majority asserts that “in Dawdy, none of the witnesses resided in the plainƟff's chosen forum.” 219 Ill.2d at 453, 302 Ill.Dec
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: The grounds on which the majority disƟnguishes Dawdy from the instant case are unpersuasive and likely to cause confusion. First, the majority asserts that “in Dawdy, none of the witnesses resided in the plainƟff's chosen forum.” 219 Ill.2d at 453, 302 Ill.Dec. at 376, 848 N.E.2d at 940. It is true that, in
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-072: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 827 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: witnesses reside in St. Clair County is relaƟvely inconsequenƟal when considered along with the residencies of all the other potenƟal witnesses. Here, as in Dawdy, the potenƟal witnesses appear, on the whole, to reside closer to the transferee county than to t
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: witnesses reside in St. Clair County is relaƟvely inconsequenƟal when considered along with the residencies of all the other potenƟal witnesses. Here, as in Dawdy, the potenƟal witnesses appear, on the whole, to reside closer to the transferee county than to the county where suit was filed.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-073: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 829 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: the whole, to reside closer to the transferee county than to the county where suit was filed. Second, the majority states that “in Dawdy, the possibility of a jury view of the accident scene was a pracƟcal consideraƟon.” 219 Ill.2d at 453, 302 Ill.Dec. at 376,
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: the whole, to reside closer to the transferee county than to the county where suit was filed. Second, the majority states that “in Dawdy, the possibility of a jury view of the accident scene was a pracƟcal consideraƟon.” 219 Ill.2d at 453, 302 Ill.Dec. at 376, 848 N.E.2d at 940. As discussed, the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-074: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 19, extraction line 832 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: possibility of a jury view of the accident scene is likewise a pracƟcal consideraƟon in this case. Third, the majority notes that “in Dawdy, the defendant railroad was aƩempƟng to transfer the cause to the defendant employee's county of residence.” 219 Ill.2d 
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: possibility of a jury view of the accident scene is likewise a pracƟcal consideraƟon in this case. Third, the majority notes that “in Dawdy, the defendant railroad was aƩempƟng to transfer the cause to the defendant employee's county of residence.” 219 Ill.2d at 453, 302 Ill.Dec. at 376, 848 N.E.2d at 940.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-075: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 20, extraction line 855 (Garman, J., dissenting).
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: Clair County. Balancing these consideraƟons, the convenience of the parƟes does not strongly favor one venue over the other. Thus, the fact that transferring this case would not, unlike in Dawdy, place it in the county of residence of one of the defendants has
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Clair County. Balancing these consideraƟons, the convenience of the parƟes does not strongly favor one venue over the other. Thus, the fact that transferring this case would not, unlike in Dawdy, place it in the county of residence of one of the defendants has no bearing on this factor of the forum non
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source. The comparative criticism belongs to the dissent and is not presented as the majority holding.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-076: Langenhorst v. Norfolk Southern Ry. Co., 219 Ill. 2d 430 (2006)
+
+Document: Defendants Motion to Transfer.pdf (attachment, assignments 1-2); location: PDF page 4, extraction line 170.
+
+Authority type: case; as written: Langenhorst; pincite: .
+
+Cited for: Named case reference in this passage: D. No Predominant Connection to Cook County. This case is readily distinguishable from Guerine and Langenhorst, in each of which the Illinois Supreme Court denied transfer because potential witnesses were scattered among several
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: D. No Predominant Connection to Cook County. This case is readily distinguishable from Guerine and Langenhorst, in each of which the Illinois Supreme Court denied transfer because potential witnesses were scattered among several
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Langenhorst majority PDF pages 7-12 describes scattered witnesses and affirms denial of transfer; Garman dissent disagrees.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-077: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Defendants Motion to Transfer.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 182.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: Clinton County, Indiana, and Missouri, with no predominant connection to either proposed forum. (Langenhorst v. Norfolk Southern.pdf, p.10–p.11.) Here, unlike Guerine and Langenhorst, the situs of the alleged negligence, the residence and location of every Def
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: Clinton County, Indiana, and Missouri, with no predominant connection to either proposed forum. (Langenhorst v. Norfolk Southern.pdf, p.10–p.11.) Here, unlike Guerine and Langenhorst, the situs of the alleged negligence, the residence and location of every Defendant,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-078: Langenhorst v. Norfolk Southern Ry. Co., 219 Ill. 2d 430 (2006)
+
+Document: Defendants Motion to Transfer.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 183.
+
+Authority type: case; as written: Langenhorst; pincite: .
+
+Cited for: Named case reference in this passage: forum. (Langenhorst v. Norfolk Southern.pdf, p.10–p.11.) Here, unlike Guerine and Langenhorst, the situs of the alleged negligence, the residence and location of every Defendant, and the location of virtually every standard-of-care witness converge in a single
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: forum. (Langenhorst v. Norfolk Southern.pdf, p.10–p.11.) Here, unlike Guerine and Langenhorst, the situs of the alleged negligence, the residence and location of every Defendant, and the location of virtually every standard-of-care witness converge in a single county —
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Langenhorst majority PDF pages 7-12 describes scattered witnesses and affirms denial of transfer; Garman dissent disagrees.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-079: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Defendants Motion to Transfer.pdf (attachment, assignments 1-2); location: PDF page 5, extraction line 186.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: DuPage. This is precisely the “predominant connection” the Supreme Court found lacking in Guerine, and its presence here strongly favors transfer. V. THE PUBLIC INTEREST FACTORS STRONGLY FAVOR TRANSFER TO
+
+Quotes: []
+
+Context: Free-standing named reference omitted from first census. Extraction context: DuPage. This is precisely the “predominant connection” the Supreme Court found lacking in Guerine, and its presence here strongly favors transfer. V. THE PUBLIC INTEREST FACTORS STRONGLY FAVOR TRANSFER TO
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The reference identifies the correct decision and its factual or doctrinal comparison is supported by the source.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-080: First American Bank v. Guerine, 198 Ill. 2d 511 (2002)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 7, extraction line 291.
+
+Authority type: case; as written: Guerine; pincite: .
+
+Cited for: Named case reference in this passage: would be necessary. We evaluated the conƟnued vitality of the intrastate forum non conveniens doctrine in Guerine and reaffirmed the doctrine as Illinois law. Guerine, 198 Ill.2d at 514, 261 Ill.Dec. 763, 764 N.E.2d 54. In
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: would be necessary. We evaluated the conƟnued vitality of the intrastate forum non conveniens doctrine in Guerine and reaffirmed the doctrine as Illinois law. Guerine, 198 Ill.2d at 514, 261 Ill.Dec. 763, 764 N.E.2d 54. In
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Supplied Guerine majority PDF pages 1-8 describes dispersed witnesses and the Cook County connection, and reverses transfer where no county predominated.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+### Second check: not required
+
+
+## FNC-SUPP-081: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 7, extraction line 305.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: them resided in Madison County. In applying the forum non conveniens factors, the Dawdy majority concluded that the circuit court abused its discreƟon in denying defendants' moƟon to transfer the cause to Macoupin County. Dawdy,
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: them resided in Madison County. In applying the forum non conveniens factors, the Dawdy majority concluded that the circuit court abused its discreƟon in denying defendants' moƟon to transfer the cause to Macoupin County. Dawdy,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-082: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 7, extraction line 307.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: abused its discreƟon in denying defendants' moƟon to transfer the cause to Macoupin County. Dawdy, 207 Ill.2d at 177, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court first examined the private interest factor of relaƟve ease of access to evidence and determin
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: abused its discreƟon in denying defendants' moƟon to transfer the cause to Macoupin County. Dawdy, 207 Ill.2d at 177, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court first examined the private interest factor of relaƟve ease of access to evidence and determined that because the locaƟon of the accident
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-083: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 322.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: factor should be accorded central emphasis or conclusive effect.” Dawdy, 207 Ill.2d at 180, 278 Ill.Dec. 92, 797 N.E.2d 687, ciƟng Jones, 93 Ill.2d at 373, 67 Ill.Dec. 118, 444 N.E.2d 157. The Dawdy court concluded that, on a whole, the private interest factor
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: factor should be accorded central emphasis or conclusive effect.” Dawdy, 207 Ill.2d at 180, 278 Ill.Dec. 92, 797 N.E.2d 687, ciƟng Jones, 93 Ill.2d at 373, 67 Ill.Dec. 118, 444 N.E.2d 157. The Dawdy court concluded that, on a whole, the private interest factors favored the convenience of Macoupin County
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-084: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 325.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: over Madison County. Dawdy, 207 Ill.2d at 180, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court then determined that the public interest factors strongly weighed against Madison County. Dawdy, 207 Ill.2d at 180-81, 278 Ill.Dec. 92, 797 N.E.2d 687. Although the
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: over Madison County. Dawdy, 207 Ill.2d at 180, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court then determined that the public interest factors strongly weighed against Madison County. Dawdy, 207 Ill.2d at 180-81, 278 Ill.Dec. 92, 797 N.E.2d 687. Although the court recognized
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-085: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 334, Dawdy occurrence 1 on line.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court disƟnguished Guerine on the basis that, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Dawdy, 207 Ill.2d at 184, 278 Ill.Dec. 92, 797 N.E.2d 687. The court
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court disƟnguished Guerine on the basis that, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Dawdy, 207 Ill.2d at 184, 278 Ill.Dec. 92, 797 N.E.2d 687. The court
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
+
+### Second check: not required
+
+
+## FNC-SUPP-086: Dawdy v. Union Pacific R.R. Co., 207 Ill. 2d 167 (2003)
+
+Document: Langenhorst v. Norfolk Southern.pdf (attachment, assignments 1-2); location: PDF page 8, extraction line 334, Dawdy occurrence 2 on line.
+
+Authority type: case; as written: Dawdy; pincite: .
+
+Cited for: Named case reference in this passage: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court disƟnguished Guerine on the basis that, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Dawdy, 207 Ill.2d at 184, 278 Ill.Dec. 92, 797 N.E.2d 687. The court
+
+Quotes: []
+
+Context: The prose name is a separate textual occurrence; the reporter pincite following the sentence was already counted. Extraction context: 183, 278 Ill.Dec. 92, 797 N.E.2d 687. The Dawdy court disƟnguished Guerine on the basis that, in Dawdy, none of the witnesses resided in the plainƟff's chosen forum. Dawdy, 207 Ill.2d at 184, 278 Ill.Dec. 92, 797 N.E.2d 687. The court
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Target judicial opinion text was read. The prose reference correctly identifies the case and the described facts or disposition. The reporter pincite following the sentence remains in the first census and is not repeated.
+
+Excerpt read: Dawdy majority paragraphs 8-10 and 34-55 set out the accident, witness locations, possible scene view, court congestion, local interests, transfer, and distinction from Guerine.
+
+- https://openjurist.org/207/ill2d/167/dawdy-v-union-pacific-rr-co-2078377
 
 ### Second check: not required

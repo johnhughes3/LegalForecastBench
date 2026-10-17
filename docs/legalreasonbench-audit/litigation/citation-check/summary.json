@@ -4,24 +4,26 @@
   "matters_expected": 4,
   "matters_available": 4,
   "complete": false,
-  "citation_instances": 1970,
+  "citation_instances": 2207,
   "fictional_by_design": 70,
-  "checked": 1900,
-  "first_check_problems": 65,
-  "pending_checks": 48,
+  "checked": 2137,
+  "first_check_problems": 72,
+  "pending_checks": 22,
   "by_final_status": {
-    "VERIFIED": 1252,
-    "VERIFIED_MINOR_DEFECT": 104,
+    "VERIFIED": 1321,
+    "VERIFIED_MINOR_DEFECT": 103,
     "NOT_FOUND_LIKELY_FABRICATED": 0,
     "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
-    "MISCHARACTERIZED": 17,
-    "MISQUOTED": 0,
-    "WRONG_CITATION_REAL_CASE": 0,
-    "UNABLE_TO_VERIFY": 479
+    "MISCHARACTERIZED": 35,
+    "MISQUOTED": 3,
+    "WRONG_CITATION_REAL_CASE": 12,
+    "UNABLE_TO_VERIFY": 641
   },
-  "observed_final_problems": 17,
+  "observed_final_problems": 50,
   "problems": null,
   "problem_rate": null,
+  "checks_complete": false,
+  "observed_problem_rate": null,
   "per_matter": [
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -52,12 +54,14 @@
           "The Smith Florida Law Review article PDF was blocked (HTTP 403); only its repository landing page was read. Babcock (1966) and Mandelker & Tarlock (1992) were not read; they appear only inside a Snyder quotation that was verified.",
           "AC 150/5200-33B and AC 150/5300-13A (cancelled) and AC 150/5300-13B and 150/5200-30D were identified from FAA's current and cancelled AC lists; their texts were not read. AC 150/5190-4B, 150/5200-33C and 150/5190-7 were read in full text.",
           "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.",
-          "Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors."
+          "Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.",
+          "The Sol second pass rechecked all 27 initial problem rows and added a Part 150 citation. It raised five new problems (refs29,78,87,89,136), promoted here to new first-stage findings with initial judgments preserved. Independent review of those five is pending. The two nonproblem supplemental checks remain separately saved pending further primary-source reading."
         ],
-        "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences"
+        "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
+        "census_complete": false
       },
-      "citations": 229,
-      "pending_checks": 27,
+      "citations": 230,
+      "pending_checks": 5,
       "complete": false
     },
     {
@@ -153,7 +157,8 @@
           "Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.",
           "Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.",
           "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).",
-          "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled."
+          "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.",
+          "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated."
         ],
         "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
         "counts": {
@@ -168,11 +173,11 @@
           },
           "problems": 17
         },
-        "census_complete": false
+        "census_complete": true
       },
-      "citations": 573,
+      "citations": 670,
       "pending_checks": 0,
-      "complete": false
+      "complete": true
     },
     {
       "matter": "lrb-vicar-trial-jury-instructions",
@@ -204,18 +209,22 @@
           "Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.",
           "The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.",
           "The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.",
-          "Facts.pdf contains no citations to legal authority. Its case-record references (about 97 trial-transcript 'TT' cites, about 32 'R. Doc.' cites, 'Id.' record short forms, and the M./P./G. Br. abbreviation key) are references to the scenario case record, not legal authority, and are excluded. Rubric source fields that cite only Facts.pdf or Patton State Plea.pdf page numbers are record citations and are excluded too. No fictional legal authority was identified in the matter, so the census contains no fictional_by_design entries. The underlying prosecution appears to be a real case, but this was not investigated.",
+          "Facts.pdf contains no citations to legal authority. Its case-record references (about 97 trial-transcript 'TT' cites, about 32 'R. Doc.' cites, 'Id.' record short forms, and the M./P./G. Br. abbreviation key) are references to the scenario case record, not legal authority, and are excluded. Following the sibling matters' convention for scenario record documents, the 24 prompt and rubric references to Facts.pdf and Patton State Plea.pdf (document lists and rubric source fields) are included as fictional_by_design entries (authority_type 'other') and were not checked. The plea petitions look like real Polk County filings and Facts.pdf reads like a real government brief, so 'fictional_by_design' here means 'scenario record, not legal authority'. Whether the prosecution is real was not investigated. No fictional legal authority (an invented case, statute, or rule) was found.",
+          "Authority types follow the sibling and Harvey vocabulary: U.S. and Iowa constitutional provisions are typed 'statute'; law-review articles and the Model Penal Code are typed 'restatement_or_treatise'; the Iowa model jury instruction is typed 'other'.",
           "Counting conventions: each explicit citation string counts once, including short forms and Id./id. (resolved to the antecedent in citation_as_written brackets). Statutory section mentions given by number count once each. Bare case names count when invoked as authority ('In Stover, we held', 'Under Aguilar', 'Strickland prejudice') but not when incidental or inside another case's parenthetical. Explicit references to constitutional provisions count. Excluded: bare 'subsection 1/2' references without a section number; citations appearing inside quoted language; case names embedded in law-review titles (Williams v. Taylor, Wiggins v. Smith, Rompilla v. Beard, Cronic); purely factual mentions ('received Miranda warnings', 'post-Miranda interview'); the book cited in Kehoe n.2; and the statute prints' editorial annotations (bracketed history lines, 'Referred to in' lists, and 'see §' notes: roughly 16 history blocks, 8 'Referred to in' lists, and 5 see-notes across the five prints).",
           "Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.",
           "Verification sources: CourtListener (read through its API connector) for case text; Cornell LII for current U.S. Code, federal rules, and the U.S. Constitution; the Iowa Legislature for the 2020 and 2026 Iowa Code and the codified Iowa Constitution. Federal statutes and rules were read in their current form; versions in force at each decision date were not separately retrieved, except Fed. R. Evid. 801(d)(2)(B), whose pre-2011 wording was confirmed as quoted in an 8th Cir. 1996 opinion. Kehoe's Arkansas Code citations and Ellison's Model Penal Code § 3.04 were checked against judicial quotations of those texts, because Justia returned HTTP 403 and the ALI text is not freely available.",
           "Pin pages: where CourtListener text carried reporter page markers, pins were checked. Lorenzo Baltazar, Gibbs, and Macke exist on CourtListener only as slip opinions, so their N.W.2d pins could not be checked. Several other pins are marked 'not separately checked' in their explanations; in those cases the proposition and quotation were confirmed but the page was not.",
           "UNABLE_TO_VERIFY (12 occurrences): ten law-review articles cited in Justice Appel's special concurrence in Kuhse, and Iowa Criminal Jury Instruction 800.1 (2018). For the law reviews, repository PDFs were blocked by bot challenges or 404s, or could not be located; for five of the articles, existence was confirmed only from repository bibliographic records. No law-review quotation was checked. None is marked not-found.",
-          "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed."
+          "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.",
+          "Integration counting correction: 24 prompt/rubric references to Facts.pdf and Patton State Plea.pdf were moved to excluded_record_references. The first worker had labelled them fictional_by_design solely because they are scenario records; no finding established that these court records were fictional. They are excluded as non-authority record references, leaving 470 real-law citation occurrences and no fictional legal-authority rows in this matter.",
+          "Second-pass census supplement adds 139 omitted references and separately records 33 verification-coverage downgrades. Two new alleged problems are promoted to first-stage findings with original judgments retained; fresh independent checks are pending. Initial exclusions of quoted and editorial-note citations are superseded by the supplement."
         ],
-        "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences"
+        "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
+        "census_complete": true
       },
-      "citations": 470,
-      "pending_checks": 6,
+      "citations": 609,
+      "pending_checks": 2,
       "complete": false
     }
   ]

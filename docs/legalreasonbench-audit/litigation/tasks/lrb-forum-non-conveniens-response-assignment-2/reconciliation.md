@@ -33,7 +33,7 @@ Evidence:
 
 - `criterion_12`: “Identifies in Assignment #2 that the affidavit by the Plaintiff, Sara Davis, indicates that DuPage County would be an inconvenient forum for her to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).”
 - `tasks/lrb-forum-non-conveniens-response-assignment-1/instruction.md, assignment 1`: “By way of background, our client, Sara Davis, resides in Kane County, Illinois.”
-- `tasks/lrb-forum-non-conveniens-response-assignment-2/attachments/assignment-2/Langenhorst v. Norfolk Southern.pdf.md, PDF page 6`: “However, the defendant cannot assert that the plainƟﬀ's  chosen forum is inconvenient to the plainƟﬀ.”
+- `tasks/lrb-forum-non-conveniens-response-assignment-2/attachments/assignment-2/Langenhorst v. Norfolk Southern.pdf.md, PDF page 7`: “However, the defendant cannot assert that the plainƟﬀ's  chosen forum is inconvenient to the plainƟﬀ.”
 
 Authorities (verification is asserted by the auditor):
 

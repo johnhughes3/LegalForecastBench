@@ -42,7 +42,9 @@
       "id": "R1",
       "status": "arguable",
       "category": "unrequested_requirement",
-      "criteria": ["criterion_9"],
+      "criteria": [
+        "criterion_9"
+      ],
       "title": "Criterion 9 makes a 30-point audit of a correct parallel-reporter pincite part of the scope-of-review analysis",
       "explanation": "This consolidates Sol F1 and Opus O1. Criterion 9 (+30 of 88) rewards identifying that the Award's 'Douglas, 5 M.S.P.R. at 306' 'does not correspond to any page of the uploaded Douglas opinion.' That statement is literally true because the upload is paginated in the parallel MSPB reporter, 313-346. In real law, however, the Award's pincite is correct. Douglas is reported at both 5 M.S.P.R. 280 and 5 MSPB 313. Federal Circuit and MSPB decisions cite 5 M.S.P.R. at 306 for the 'not ... mechanistically' passage that follows the 'tolerable limits of reasonableness' sentence on printed p. 333 of the upload. The prompt's own document label, 'Douglas v. Veterans Administration, 5 M.S.P.R. 280 (1981),' signals the parallel citation. The prompt asks for the scope of review, the burden allocation, and the consequences of preservation, and it requires page and paragraph cites to the uploads. It does not ask for verification of the Award's citations. A careful response that cites the standard accurately at upload p. 333, without discussing the Award's M.S.P.R. pincite, loses the largest item. A response that explains the parallel pagination would satisfy the literal text, so the criterion does not exclude every correct answer. For that reason the finding is arguable rather than problematic. The source fields of other criteria cite '5 M.S.P.R. 280, 305-06.' Because the judge does not see those fields, they are not treated as a grading inconsistency.",
       "evidence": [
@@ -84,7 +86,9 @@
       "id": "R2",
       "status": "arguable",
       "category": "source_conflict",
-      "criteria": ["criterion_4"],
+      "criteria": [
+        "criterion_4"
+      ],
       "title": "Criterion 4's categorical 'no uploaded authority' answer conflicts with Douglas's statement that the agency bears the penalty burden of persuasion",
       "explanation": "This consolidates Sol F2 and Opus O2. Criterion 4 (+26) requires identifying 'that no uploaded authority requires MPD to prove the comparability of its comparator cases.' The prompt asks which party bore the burden of production and persuasion on the comparator evidence at each stage. The uploaded Douglas opinion states that 'the ultimate burden is upon the agency to persuade the Board of the appropriateness of the penalty imposed.' It also says that selecting the penalty is 'properly within its burden of persuasion' and that, once the employee 'challenges the severity of the penalty,' the agency must present further evidence. The arbitral issue stipulated in Award ¶ 2 put the penalty in dispute. A careful associate could therefore conclude that MPD bore the burden of persuasion on its factor-six consistency rationale, while also criticizing the arbitrator's strict 'prove comparability' framing under Douglas's warning against 'mathematical rigidity.' The categorical criterion may fail that answer. A narrower reading, that no upload makes strict comparability a threshold element, is defensible and matches the prompt's emphasis on the word 'prove.' The issue is therefore arguable.",
       "evidence": [
@@ -117,8 +121,10 @@
     {
       "id": "R3",
       "status": "arguable",
-      "category": "source_conflict",
-      "criteria": ["criterion_5"],
+      "category": "ambiguous_or_unjudgeable",
+      "criteria": [
+        "criterion_5"
+      ],
       "title": "The -18 'initial showing' penalty may misfire on MPD's Douglas-based forfeiture argument",
       "explanation": "This is Opus O3; Sol did not flag the issue. The penalty may misfire. Criterion 5 deducts 18 points from a response that 'States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden.' Its justification treats that rule as authority outside the uploads. The uploaded Douglas, however, says that a prima facie case 'will normally suffice' when 'no issue has been raised concerning the penalty' and that the agency must present further evidence only when the employee challenges it. Stipulation (b) says Braddock never alleged disparate treatment before the hearing. The prompt asks for the legal consequence of that failure and for 'the strongest position MPD can take.' A response that argues for MPD, citing Douglas, that MPD's comparator showing sufficed because Braddock never raised disparate treatment uses wording close to the penalty. The native penalty judge is told to 'Answer Pass only if the response DOES commit this failure,' and the criterion text lacks the justification's 'as settled law' qualifier. Because Douglas speaks of challenging the penalty generally rather than making a disparate-treatment showing, a careful response can avoid the wording. The risk is therefore arguable, not problematic.",
       "evidence": [
