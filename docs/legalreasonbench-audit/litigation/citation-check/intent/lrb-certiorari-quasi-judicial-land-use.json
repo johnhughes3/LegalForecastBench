@@ -272,22 +272,65 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [
-        "assignment-1 #19"
+        "assignment-1 #19 states_in_the_first_assignment_that_the_county_could_take_the_po"
       ],
-      "explanation": "The full Smith article directly rejects unqualified county self-zoning immunity in its conclusion; its quoted A1A/Parkway account describes earlier doctrine. Criterion #19 rewards reliance on a historical passage against the source's own legal synthesis. Its PDF/repository year conflict is a separate bibliographic defect.",
-      "model": "gpt-6-sol",
-      "reasoning_effort": "high"
+      "explanation": "No instruction or criterion asks the model to evaluate the Smith article. Criterion #19 awards 5 points for presenting county self-zoning immunity as an available position, and the rubric's support is this article plus Parkway Towers. The article accurately reports A1A, a county sewage plant case closely analogous here, and the 3d DCA's Parkway Towers holding, so the option is not baseless as a historical matter. But the article's own conclusion reads the law as having moved away from categorical immunity. The Supreme Court's Parkway Towers per curiam states a prospective expectation that zoning be changed first. Lee County in fact applied for and obtained this rezoning, and the 3d DCA's rule turns on whether the county's own ordinance waived the privilege, which nobody has checked against the Lee County LDC. The criterion therefore rewards a contestable argument presented without its contrary authority. A memo that flags it as weak or unavailable should not lose credit, and a grader should not treat it as settled law. I did not verify current Florida law as of January 1, 2025, including Temple Terrace's balancing test as applied to a county's own zoning or any express Lee County LDC self-application. The 1967 year is a separate bibliographic defect.",
+      "prior_intent": {
+        "ref": 29,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-1 #19"
+        ],
+        "explanation": "The full Smith article directly rejects unqualified county self-zoning immunity in its conclusion; its quoted A1A/Parkway account describes earlier doctrine. Criterion #19 rewards reliance on a historical passage against the source's own legal synthesis. Its PDF/repository year conflict is a separate bibliographic defect.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      }
     },
     {
       "ref": 87,
-      "targeted_by_instructions": false,
+      "targeted_by_instructions": true,
       "targeted_by_criteria": [
-        "assignment-1 #0"
+        "assignment-1 #0 states_in_the_first_assignment_that_the_order_granting_petition"
       ],
       "rewards_reliance": [],
-      "explanation": "The prompt and supplied record contain inconsistent resolution identifiers. Criterion #0 expects Z-23-035, which is supported by the actual resolution; the Order/Petition captions' Z-23-022 belongs to a different county project. The grader should not treat repetition of the caption as proof of the wastewater action's identity.",
-      "model": "gpt-6-sol",
-      "reasoning_effort": "high"
+      "explanation": "The assignment-1 prompt lists the record document as 'Resolution Z-23-035 (Resolution.docx)', and criterion #0 awards 5 points for stating that the Order quashes Res. No. Z-23-035. To earn it, a model must use the correct identifier rather than the Order caption's Z-23-022, so the defect is implicitly tested. The rubric is correct here and rewards the right number. A memo that notes the caption inconsistency should not be penalized. One that repeats Z-23-022 alongside DCI2023-00011 has made an identifier error, not misidentified the action.",
+      "prior_intent": {
+        "ref": 87,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [
+          "assignment-1 #0"
+        ],
+        "rewards_reliance": [],
+        "explanation": "The prompt and supplied record contain inconsistent resolution identifiers. Criterion #0 expects Z-23-035, which is supported by the actual resolution; the Order/Petition captions' Z-23-022 belongs to a different county project. The grader should not treat repetition of the caption as proof of the wastewater action's identity.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      }
+    },
+    {
+      "ref": 78,
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-2 #6 states_in_the_second_assignment_that_the_circuit_court_erred_in"
+      ],
+      "rewards_reliance": [],
+      "explanation": "No criterion rewards relying on Jennings. Assignment-1 #2 (states_in_the_first_assignment_that_the_circuit_court_found_th_2) rewards accurately reporting the Order's finding that the Board departed from the record, which the Order bases on Jennings, but it does not require endorsing or analyzing Jennings. Assignment-2 #6 arguably targets the Order's Jennings-based reasoning by rewarding an argument that communications with staff were not prohibited ex parte communications under LDC s. 2-191. Its premise is loose: the transcribed Order never uses the words 'ex parte' or 'staff communications'. It faults a motion based on 'four years of board direction' outside the record. A brief that attacks the Jennings analogy directly, for example that Jennings concerns ex parte lobbying and sets no motion-timing rule, should be treated as responsive even if it does not frame the issue as staff communications."
+    },
+    {
+      "ref": 89,
+      "targeted_by_instructions": true,
+      "targeted_by_criteria": [
+        "assignment-1 #0 states_in_the_first_assignment_that_the_order_granting_petition"
+      ],
+      "rewards_reliance": [],
+      "explanation": "Same as ref 87: the Petition caption carries the same Z-23-022 identifier, while the prompt and criterion #0 use the correct Z-23-035. No criterion rewards relying on Z-23-022. The Petition's own body uses Z-23-035, so a careful reader can resolve the inconsistency from the record alone."
+    },
+    {
+      "ref": 136,
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "No instruction or criterion addresses LDC s. 34-145(d)(4)a.2 or the Petition's quotation of it. Assignment-2 #8 and #9 concern LDC s. 34-1102 and FAA advisory circulars, which sit next to this quotation in the Petition but are a different section. The prompt's January 1, 2025 version rule means a model quoting the deviation criterion should use the post-22-11 wording ('Protects the public health, safety and welfare'). A model that repeats the Petition's stale wording has made a citation error, but no criterion scores it."
     }
   ]
 }

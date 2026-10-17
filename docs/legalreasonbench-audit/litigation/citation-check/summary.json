@@ -4,22 +4,22 @@
   "matters_expected": 4,
   "matters_available": 4,
   "complete": false,
-  "citation_instances": 2207,
+  "citation_instances": 2366,
   "fictional_by_design": 70,
-  "checked": 2137,
-  "first_check_problems": 72,
-  "pending_checks": 22,
+  "checked": 2296,
+  "first_check_problems": 74,
+  "pending_checks": 2,
   "by_final_status": {
-    "VERIFIED": 1321,
-    "VERIFIED_MINOR_DEFECT": 103,
+    "VERIFIED": 1415,
+    "VERIFIED_MINOR_DEFECT": 104,
     "NOT_FOUND_LIKELY_FABRICATED": 0,
     "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
-    "MISCHARACTERIZED": 35,
-    "MISQUOTED": 3,
-    "WRONG_CITATION_REAL_CASE": 12,
-    "UNABLE_TO_VERIFY": 641
+    "MISCHARACTERIZED": 45,
+    "MISQUOTED": 4,
+    "WRONG_CITATION_REAL_CASE": 20,
+    "UNABLE_TO_VERIFY": 706
   },
-  "observed_final_problems": 50,
+  "observed_final_problems": 69,
   "problems": null,
   "problem_rate": null,
   "checks_complete": false,
@@ -61,7 +61,7 @@
         "census_complete": false
       },
       "citations": 230,
-      "pending_checks": 5,
+      "pending_checks": 0,
       "complete": false
     },
     {
@@ -103,7 +103,8 @@
           "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.",
           "The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.",
           "Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.",
-          "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved."
+          "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
+          "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed."
         ],
         "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
         "counts": {
@@ -120,10 +121,11 @@
           "prompt_occurrences": 45,
           "rubric_occurrences": 103,
           "attachment_occurrences": 550
-        }
+        },
+        "census_complete": false
       },
-      "citations": 698,
-      "pending_checks": 15,
+      "citations": 857,
+      "pending_checks": 2,
       "complete": false
     },
     {
@@ -224,8 +226,8 @@
         "census_complete": true
       },
       "citations": 609,
-      "pending_checks": 2,
-      "complete": false
+      "pending_checks": 0,
+      "complete": true
     }
   ]
 }

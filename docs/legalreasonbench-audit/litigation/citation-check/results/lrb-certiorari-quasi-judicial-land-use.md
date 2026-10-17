@@ -836,8 +836,18 @@ Excerpt read: PDF pages 3-4 contain the quoted Nichols/A1A/Parkway discussion; p
 
 - https://www.floridalawreview.com/article/79428-immunity-of-state-and-state-related-activities-from-local-municipal-zoning-regulations-florida-focus/attachment/165381.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Sol's proposed MISCHARACTERIZED is not adopted. I read the full article (floridalawreview.com copy; the UF repository PDF returns 403). Both rubric quotations appear verbatim in the article's account of the case law: PDF pp. 4-5 describe Nichols, A1A Mobile Home Park v. Brevard County (a county sewage treatment plant, 246 So. 2d 126, 131), and Metropolitan Dade County v. Parkway Towers (3d DCA 1973). Criterion #19 cites the article for that descriptive account and frames the point as a position the County 'could take'. Its source block also takes on the contrary Florida Supreme Court Parkway Towers language and calls it dicta. That is a contested legal inference drawn from accurately reported holdings, not a misstatement of what the source says. I also read both Parkway Towers opinions on CourtListener. The 3d DCA held the county could place a governmental facility notwithstanding its own use classification, absent waiver in the zoning ordinance. The Supreme Court per curiam discharged the writ while stating a prospective view that zoning changes 'should' come first. Real defects remain: (1) the year 1967 is a bibliographic artifact copied from the repository cover and metadata, because the printed running header reads '1976]', volume 28 is 1976, and fn. 10 cites a 1976 decision; (2) a bare 'See' with no contrary signal or parenthetical, although the article's own Conclusion (PDF p. 17) says 'the pendulum in Florida has swung in a new direction' and reads Parkway Towers as meaning that 'unless expressly exempted, a county is subject to its own zoning regulations'; (3) there is no pincite. The article's own text has two artifacts that are not rubric errors: its '1978 decision' should be 1973 (fn. 27 gives 1973), and it renders the 3d DCA's 'may place' as 'to place' inside quotation marks. Whether the position is sound law as of January 1, 2025 is a matter for the intent record, not this citation status.
+
+Excerpt read: Smith PDF p.5: "The Fourth District Court of Appeal relied on Nichols for the premise that in the performance of a governmental activity the county should not be subject to its own zoning restrictions. In a 1978 decision Dade County was challenged ... The Third District Court of Appeal recognized a right under common law and under Florida law for 'a governmental entity to place a governmental facility without regard to a comprehensive zoning ordinance or its procedures.'" Fn. 27: "281 So. 2d 68 (3d D.C.A. Fla. 1973)." Running header: "1976]". Cover: "March 1967 ... 28 Fla. L. Rev. 800 (1967)." Conclusion p.17: "the pendulum in Florida has swung in a new direction ... its future view in such cases would be that unless expressly exempted, a county is subject to its own zoning regulations." 281 So. 2d at 69: "a governmental entity may place a governmental facility without regard to a comprehensive zoning ordinance or its procedures." 295 So. 2d at 295-96: "it is nevertheless our view prospectively that zoning variations to accommodate county or municipal facility purposes should either have been anticipated in zoning ordinances ... or ... construction should not be undertaken thereof until after due modification or change therefor is made in existing zoning ordinances."
+
+- https://www.floridalawreview.com/article/79428-immunity-of-state-and-state-related-activities-from-local-municipal-zoning-regulations-florida-focus/attachment/165381.pdf
+- https://scholarship.law.ufl.edu/flr/vol28/iss3/9
+- https://www.courtlistener.com/opinion/1672985/metropolitan-dade-cty-v-parkway-towers-condominium-assn/
+- https://www.courtlistener.com/opinion/1934327/parkway-towers-con-assn-v-metropolitan-dade-cty/
+
+Model: claude-opus-5-5; reasoning effort: high.
 
 ## 30: "Nichols" (unidentified; possibly Nichols Engineering & Research Corp. v. State ex rel. Knight, 59 So. 2d 874 (Fla. 1952))
 
@@ -2177,8 +2187,15 @@ Excerpt read: Jennings creates a rebuttable prejudice presumption for ex parte c
 
 - https://app.midpage.ai/document/jennings-v-dade-county-1837291
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Sol's proposed MISCHARACTERIZED is not adopted, and the first check's minor-defect label stands. This is the circuit court Order's own citation in a record document, not a rubric authority. The Order (AI transcription of scanned p.3) cites Jennings, 589 So. 2d 1337 (Fla. 3d DCA 1991), for the proposition that the motion was improper because it rested on facts outside the quasi-judicial record. It then says the motion and vote came after public comment, as the 'ultimate decision' was being made, 'in direct contradiction to Jennings'. Read in context, the Order does not claim Jennings prescribes when a motion may be made. It treats the timing as the reason the parties had no chance to answer the undisclosed basis, 'four years of board direction'. I read the full Jennings opinion. It supports the underlying principle: parties 'must ... be informed of all the facts upon which the commission acts', and the adopted PATCO factors ask whether the contacts influenced the 'ultimate decision' and whether their contents were unknown to opposing parties, who therefore had no opportunity to respond. The Order's quoted phrase 'ultimate decision' comes from that PATCO passage. The defect is overstatement. Jennings is an ex parte lobbying case that sets a rebuttable presumption of prejudice; it neither addresses a commission acting on its own prior policy direction nor sets any motion-timing rule. Applying it here is an analogy, so 'direct contradiction' overclaims. Citation form (589 So. 2d 1337, 3d DCA 1991) is correct; the opinion is the December 17, 1991 opinion on rehearing.
+
+Excerpt read: *1339: "The issue we confront is the effect of an ex parte communication upon a decision emanating from a quasi-judicial proceeding of the Dade County Commission. We hold that upon proof that a quasi-judicial officer received an ex parte contact, a presumption arises ... that the contact was prejudicial." *1340-41: "In quasi-judicial zoning proceedings, the parties must be able to present evidence, cross-examine witnesses, and be informed of all the facts upon which the commission acts." *1341-42 (PATCO): "whether the contacts may have influenced the agency's ultimate decision; ... whether the contents of the communications were unknown to opposing parties, who therefore had no opportunity to respond". Order p.3: "The Commission's motion and vote came after public comment and only as the 'ultimate decision' was being made in direct contradiction to Jennings."
+
+- https://www.courtlistener.com/opinion/1837291/jennings-v-dade-county/
+
+Model: claude-opus-5-5; reasoning effort: high.
 
 ## 79: Fla. Att'y Gen. Op. 94-71 (1994)
 
@@ -2409,8 +2426,17 @@ Excerpt read: Agenda cover pairs DCI2022-00002 with Z-23-022 and Daniels Parkway
 
 - https://results.leegov.com/Home/DownloadFile/KT0000315224
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+Sol's factual finding is confirmed, but I relabel it. I rendered and read the cover of Lee County's September 6, 2023 BoCC zoning agenda, which pairs 'DCI2022-00002 / Z-23-022' with 'Daniels Parkway South'. The supplied resolution is 'RESOLUTION NUMBER Z-23-035' and implements the Southeast Advanced Water Reclamation Facility rezoning, Case DCI2023-00011. CITATION_POINTS_TO_DIFFERENT_CASE does not fit, because the reference as a whole does not lead a reader to Daniels Parkway South. The same Order caption block also names 'DCI2023-00011 / Southeast Water Reclamation Facility CFPD / APPLICATION OF LEE COUNTY UTILITIES / OWNER: LEE COUNTY', and the Order's body describes the January 17, 2024 wastewater-plant rezoning. The action is real and correctly identified; only its resolution number is wrong. That is the WRONG_CITATION_REAL_CASE pattern, with the aggravating fact that the stray number is a real identifier assigned to another project. Scope: this is an identifier defect in a real record caption, an internal inconsistency in the supplied record, not fabricated or defective legal authority. It does not affect what the Order decided. Limits: I did not retrieve the executed Z-23-022 resolution. Agenda numbers are assigned before adoption, so a later continuance or renumbering cannot be excluded, and a web search found no adopted Z-23-022 document. I cannot tell whether the error is in the original filings or was introduced in the dataset.
+
+Excerpt read: Agenda cover (rendered image): "ZONING and COMPREHENSIVE PLAN AMENDMENT HEARING AGENDA / Wednesday, September 6, 2023 ... DCI2022-00002 Z-23-022 Daniels Parkway South". Order caption: "(In re DCI2023-00011 / Southeast Water Reclamation Facility CFPD / Rezoning Resolution Z-23-022 / APPLICATION OF LEE COUNTY UTILITIES / OWNER: LEE COUNTY)". Resolution: "RESOLUTION NUMBER Z-23-035 ... in reference to Southeast Advanced Water Reclamation Facility ... Case # DC12023-0001 1 [OCR of DCI2023-00011]".
+
+- https://results.leegov.com/Home/DownloadFile/KT0000315224
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx
+
+Model: claude-opus-5-5; reasoning effort: high.
 
 ## 88: Fla. R. App. P. 9.100(f)(2)
 
@@ -2459,8 +2485,17 @@ Excerpt read: County agenda assigns Z-23-022 to DCI2022-00002; attached resoluti
 
 - https://results.leegov.com/Home/DownloadFile/KT0000315224
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+Same ruling as ref 87, for the Petition caption. The Petition caption reads 'DCI2023-00011 / Southeast Water Reclamation Facility CFPD / Rezoning Resolution Z-23-022 / APPLICATION OF LEE COUNTY UTILITIES'. The Petition's own body identifies the challenged action as 'the current Zoning Action Z-23-035' (petition.docx.md line 91) and 'Z-23-035 Wastewater Facilities' (line 99). Z-23-022 is the identifier the county's September 6, 2023 agenda assigns to DCI2022-00002, Daniels Parkway South, but the caption's case number, project name, applicant and owner all identify the wastewater rezoning. So this is a wrong identifier for a correctly identified real action, not a reference that leads to a different matter. It is a record-caption defect in a party filing, not defective legal authority. The Order caption repeats it, apparently copied from the Petition. The same limits as ref 87 apply: the executed Z-23-022 resolution was not retrieved, renumbering cannot be excluded, and I cannot tell whether the error is original or dataset-introduced.
+
+Excerpt read: Petition line 25-27: "DCI2023-00011 / Southeast Water Reclamation Facility CFPD ... Rezoning Resolution Z-23-022"; line 91: "participants of record in DCI2018-10023 ... as well as the current Zoning Action Z-23-035 that was heard"; line 99: "objected ... on the record to Z-23-035 Wastewater Facilities." Agenda cover: "DCI2022-00002 Z-23-022 Daniels Parkway South".
+
+- https://results.leegov.com/Home/DownloadFile/KT0000315224
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx
+
+Model: claude-opus-5-5; reasoning effort: high.
 
 ## 90: Fla. Const. art. V, s. 5(b)
 
@@ -3673,8 +3708,17 @@ Excerpt read: Ordinance 22-11 page 34 shows the old phrase redlined into 'Protec
 - https://www.leegov.com/bocc/Ordinances/22-11.pdf
 - https://www.leegov.com/bocc/Ordinances/24-14.pdf
 
-### Second check: pending
+### Second check: MISQUOTED
 
+Sol's MISQUOTED is confirmed by primary text read in this session. Lee County Ordinance 22-11 (adopted May 17, 2022; Department of State filing acknowledgment dated May 31, 2022) amends section 34-145(d)(4)a.2.c)2) in the ordinance's own legend, strike-through for deleted text and underline for new text. I rendered page 35 as an image. The struck text is 'Preserves and promotes the general intent of this Code to protect the' and the inserted text is 'Protects', so the provision reads 'Protects the public health, safety and welfare.' Section Thirteen applies the amendment to all applications not complete or found sufficient before the effective date. DCI2023-00011 is a 2023 application, heard October 19, 2023 and January 17, 2024. The Petition, e-filed February 16, 2024, quotes the superseded pre-May 2022 wording in italics as the governing criterion. Ordinance 24-14 (adopted October 1, 2024, after the Petition) amends only (d)(4)a.1.g) and leaves the rest of the section 'unchanged'. The current Municode text quoted by the first check ('Protects the public health, safety and welfare') matches the 22-11 version. A secondary defect: the quotation drops the lead-in 'If the application includes deviations pursuant to section 34-373(a)(9),' and rejoins (b) and (c) with '; and c) That each requested deviation'. Items (a), (b) and (c)1) otherwise match. Scope: this is a stale quotation in opposing-party advocacy in the record. The substantive change is modest (from promoting the Code's intent to protect public health, safety and welfare, to protecting them directly), but the italic quotation does not match the operative text. Limits: I read the pre-2022 text only through the 22-11 strike-through and did not enumerate every ordinance between 22-11 and 24-14. Because the current text matches 22-11, an intervening reversion is implausible but has not been separately excluded.
+
+Excerpt read: Ord. 22-11 p.35 (rendered image), s.34-145(d)(4)a.2: "c) If the application includes deviations pursuant to section 34-373(a)(9), that each requested deviation: 1) Enhances the achievement of the objectives of the planned development; and 2) [struck: Preserves and promotes the general intent of this Code to p][inserted: P]rotects[inserted: s] [struck: the] public health, safety and welfare." Legend: "amended as follows with strike through identifying deleted text and underline identifying new text." s.13: "This ordinance will take effect upon its filing with the Office of the Secretary of the Florida Department of State." p.45: "DULY PASSED AND ADOPTED this 17th day of May 2022." Ord. 24-14 p.45: "(4) Findings/review criteria. a. ... 1. Rezonings generally ... a) through f) remain unchanged. g) Will be served by urban public services ... Remainder of section remains unchanged." Petition line 405: "...c) That each requested deviation: 1) Enhances the achievement of the objectives of the planned development; and 2) Preserves and promotes the general intent of this Code to protect the public health, safety and welfare." Petition header: "E-Filed 02/16/2024".
+
+- https://www.leegov.com/bocc/Ordinances/22-11.pdf
+- https://www.leegov.com/bocc/Ordinances/24-14.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx
+
+Model: claude-opus-5-5; reasoning effort: high.
 
 ## 137: Lee County LDC s. 34-1102
 

@@ -668,8 +668,21 @@ Excerpt read: §704.6(1): One who is participating in a forcible felony, or riot
 - https://www.legis.iowa.gov/docs/code/2020/702.11.pdf
 - https://www.legis.iowa.gov/docs/code/2020/706.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Upholds the GPT-6 Sol proposal (MISCHARACTERIZED) over the first check (VERIFIED_MINOR_DEFECT), with added primary reads and reasoning. (1) Statute: official 2020 §704.6(1) bars justification for 'one who is participating in a forcible felony, or riot, or a duel.' Official 2020 §702.11(1), which the rubric itself cites in criterion_18, lists the forcible felonies as felonious child endangerment, assault, murder, sexual abuse, kidnapping, robbery, human trafficking, first-degree arson and first-degree burglary; conspiracy is not listed. §706.3(1) grades 'conspiracy to commit a forcible felony' as its own class C felony, and §706.1(1), which the rubric also cites, defines conspiracy as an agreement plus intent. None of these says a conspiracy conviction is a forcible felony or by itself bars justification. (2) Plea record: I rendered the original scanned plea. Page 4 shows a guilty plea to 'Conspiracy to Commit a Forcible Felony' under §§706.1 and 706.3. Page 5 contains the admission 'On or about May 10, 2020, in Polk County, Iowa, I did conspire with other individuals to commit a forcible felony by planning with others to engage in a shooting.' The repo's AI transcription records the same line. So criteria 19 and 20 rest on true facts, and Sol's statement that the plea admits planning a shooting is correct. (3) Testing the first check's reading, that Patton was participating in the planned forcible felony: there are two ways to close the gap between §704.6(1) and criterion_21. (a) Treat the shooting itself, a felonious assault or attempted murder, as the forcible felony. That is the bootstrap the rubric expressly rejects in the justification for criteria 28 and 29 ('akin to arguing Patton can't get the justification instruction because he was engaged in the felonious assault of attempted murder'), so the rubric cannot rely on it without contradicting itself. (b) Argue that participation in the planned assault began before Nelson fired. §702.13 (2020) defines 'participating in a public offense' as starting with 'the first act done directly toward the commission of the offense', so arming, the chase and lowering the windows could count. That is the strongest non-circular argument, but it rests on participation in the object felony and on a statute (§702.13) that is neither attached nor cited. It is not the proposition criterion_21 rewards: that 'commission of conspiracy to commit a forcible felony precludes a justification defense.' On the rubric's own terms, criterion_21 works only as a categorical bar based on the conspiracy conviction, and the cited text does not support that. (4) Case law: a bounded CourtListener search found no Iowa decision applying §704.6(1) to conspiracy. State v. Hamilton (Iowa Ct. App. 2015) treats the §702.11 list as controlling ('Theft is not a forcible felony'). State v. Davison (Iowa 2022) vacated a sentence because the trial court may have wrongly treated as a forcible felon a defendant whose other conviction was conspiracy to commit a forcible felony (murder). That is consistent with conspiracy not being a forcible felony, but Davison never addresses the conspiracy count, so I treat it only as consistent context, not a holding. The status reflects a gap between the rubric and its authority. It is not a claim about any court's error. The underlying argument that Patton was not entitled to justification may still succeed on other routes, such as duty to retreat or provocation, which the rubric rewards separately.
+
+Excerpt read: 2020 §704.6: 'The defense of justification is not available to the following: 1. One who is participating in a forcible felony, or riot, or a duel.' 2020 §702.11(1): 'A “forcible felony” is any felonious child endangerment, assault, murder, sexual abuse, kidnapping, robbery, human trafficking, arson in the first degree, or burglary in the first degree.' 2020 §706.3(1): 'A person who commits a conspiracy to commit a forcible felony is guilty of a class “C” felony.' 2020 §702.13: 'A person is “participating in a public offense,” during part or the entire period commencing with the first act done directly toward the commission of the offense ...' Plea PDF p.4: 'Defendant is charged with Conspiracy to Commit a Forcible Felony in violation of Iowa Code §(s) 706.1 and 706.3.' Plea PDF p.5: 'I admit I did the following: On or about May 10, 2020, in Polk County, Iowa, I did conspire with other individuals to commit a forcible felony by planning with others to engage in a shooting.'
+
+- https://www.legis.iowa.gov/docs/code/2020/704.6.pdf
+- https://www.legis.iowa.gov/docs/code/2020/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2020/706.3.pdf
+- https://www.legis.iowa.gov/docs/code/2020/702.13.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf
+- https://www.courtlistener.com/opinion/6332081/state-of-iowa-v-caesar-charles-davison/
+- https://www.courtlistener.com/opinion/2802150/state-of-iowa-v-kyla-shea-hamilton/
+
+Model: Claude Opus 5.5; reasoning effort: low.
 
 ## A1-RUBRIC-017: Iowa Code § 706.1(1) (2020)
 
@@ -3855,8 +3868,16 @@ Excerpt read: 503 U.S. 389: But long antedating any of these cases, and not ques
 
 - https://supreme.justia.com/cases/federal/us/503/378/case.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns the GPT-6 Sol proposal (MISQUOTED). I read both texts. The official U.S. Reports page 389 (Justia PDF, page header '389 Cite as: 503 U. S. 378 (1992)') reads: 'is the rule that a substantive crime and a conspiracy to commit that crime are not the “same offence” for double jeopardy purposes.' CourtListener confirms the page: the passage falls between the *389 and *390 markers. So the pin cite is verified, which the first check had left unchecked. Kehoe slip op. at 9 quotes it as '[a] substantive crime and a conspiracy to commit that crime are not the ‘same offense’ for double jeopardy purposes.' The bracketed '[a]' is a properly marked alteration. The only unmarked change is 'offence' to 'offense'. Felix puts 'same offence' in quotation marks because it follows the Fifth Amendment's spelling (the opinion opens by quoting the Double Jeopardy Clause, 'for the same offence'). No word is added, dropped or reordered, and the meaning is identical. Strictly, silently modernizing a spelling inside a quotation is an unmarked alteration, so the first check's plain VERIFIED was too generous. But MISQUOTED in this audit's own rulings is reserved for purported verbatim text that does not appear in the source (certiorari rows 14, 70 and 98). Comparable non-substantive alterations were ruled VERIFIED_MINOR_DEFECT; for example, certiorari row 95 has a reworded lead-in and (1)-(3) numbering for [1]-[3]. An unbracketed spelling modernization belongs with row 95. The defect sits inside an attached Eighth Circuit opinion, not in the task's instructions or rubric, and it is not a rubric defect.
+
+Excerpt read: 503 U.S. at 389 (official reporter PDF): 'But long antedating any of these cases, and not questioned in any of them, is the rule that a substantive crime and a conspiracy to commit that crime are not the “same offence” for double jeopardy purposes.' Kehoe slip op. at 9: 'The offenses prescribed by 18 U.S.C. §§ 1962(c) and (d), “[a] substantive crime and a conspiracy to commit that crime are not the ‘same offense’ for double jeopardy purposes.” United States v. Felix, 503 U.S. 378, 389 (1992).'
+
+- https://supreme.justia.com/cases/federal/us/503/378/case.pdf
+- https://www.courtlistener.com/opinion/112713/united-states-v-felix/
+
+Model: Claude Opus 5.5; reasoning effort: low.
 
 ## KEHOE-051: United States v. Miller, 995 F.2d 865 (8th Cir. 1993)
 
