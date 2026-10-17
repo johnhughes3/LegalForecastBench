@@ -106,18 +106,36 @@
       "rewards_reliance": [
         "assignment-1 criterion_21"
       ],
-      "explanation": "Criterion_21 awards 15 points for stating the categorical conspiracy-to-forcible-felony bar. Its source field cites §704.6(1), which concerns participation in a forcible felony, not conspiracy as such. The rubric therefore rewards a legal conclusion the cited text does not establish.",
-      "model": "GPT-6 Sol",
-      "reasoning_effort": "high"
+      "explanation": "The assignment 1 prompt asks generally for a response 'focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.' It does not direct the drafter to §704.6(1) or the conspiracy theory. Criterion_21 (+15, Conclusion) awards points for stating that Patton's commission of conspiracy to commit a forcible felony precludes a justification defense, and cites §704.6(1) together with plea p.5 and §706.1(1). It therefore rewards relying on the §704.6(1) proposition that the cited text does not support. Criteria 19 and 20 reward true facts from the plea (the conspiracy plea and the admitted May 10, 2020 shooting plan) and are not affected. Criterion_17 (participating in a forcible felony bars justification) states §704.6(1) accurately and is also not affected. Assignment 2's rubric does not cite §704.6 or the conspiracy theory.",
+      "prior_intent": {
+        "ref": "A1-RUBRIC-016",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [
+          "assignment-1 criterion_21"
+        ],
+        "rewards_reliance": [
+          "assignment-1 criterion_21"
+        ],
+        "explanation": "Criterion_21 awards 15 points for stating the categorical conspiracy-to-forcible-felony bar. Its source field cites §704.6(1), which concerns participation in a forcible felony, not conspiracy as such. The rubric therefore rewards a legal conclusion the cited text does not establish.",
+        "model": "GPT-6 Sol",
+        "reasoning_effort": "high"
+      }
     },
     {
       "ref": "KEHOE-050",
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "The altered spelling appears only in the attached Kehoe court opinion. No prompt asks for an audit of its internal quotes, and no rubric criterion rewards repeating this Felix quotation.",
-      "model": "GPT-6 Sol",
-      "reasoning_effort": "high"
+      "explanation": "The altered spelling appears only in the double-jeopardy section of the attached Kehoe opinion (slip op. at 9). Neither assignment's instructions ask for an audit of quotations inside the attachments. No criterion cites Kehoe at 9, Felix, or double jeopardy: assignment 1 criterion_3 cites Kehoe slip op. at 10 for the state-law VICAR predicate, and assignment 2's ten criteria do not cite Kehoe. A response that repeated the quote would not gain or lose points under either rubric.",
+      "prior_intent": {
+        "ref": "KEHOE-050",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "The altered spelling appears only in the attached Kehoe court opinion. No prompt asks for an audit of its internal quotes, and no rubric criterion rewards repeating this Felix quotation.",
+        "model": "GPT-6 Sol",
+        "reasoning_effort": "high"
+      }
     }
   ]
 }

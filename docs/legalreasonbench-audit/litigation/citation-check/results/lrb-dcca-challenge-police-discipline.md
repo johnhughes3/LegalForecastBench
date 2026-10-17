@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.", "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.", "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.', 'No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.", "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.", "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.', 'No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.', 'The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}, 'census_complete': False}
 
 ## pd-0001: Final Notice of Adverse Action (Braddock)
 
@@ -210,8 +210,16 @@ Excerpt read: Official 6-B DCMR § 1600.2: "The provisions of this chapter apply
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 - https://go.mpdconline.com/GO/GO_120_21.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Official Chapter 16 §1600.2(g) excludes sworn MPD members. Section 1606.2 asks covered managers to demonstrate consideration of listed factors; §1606.3 supplies the balancing language. MPD may still use Douglas-style analysis under its own general order; the regulation does not impose the described duty on this officer.
+
+Excerpt read: §1600.2(g): sworn members of the Metropolitan Police Department excluded; §1606.2: managers shall be prepared to demonstrate factors considered; §1606.3: consider and balance relevant factors.
+
+- https://edpm.dc.gov/chapter/16/
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0010: Final Notice of Adverse Action (Braddock)
 
@@ -473,8 +481,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0021: D.C. Code § 1-605.02(6)
 
@@ -500,8 +516,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0022: Final Notice of Adverse Action (Braddock)
 
@@ -763,8 +787,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0033: D.C. Code § 1-605.02(6)
 
@@ -790,8 +822,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0034: Final Notice of Adverse Action (Braddock)
 
@@ -1053,8 +1093,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0045: D.C. Code § 1-605.02(6)
 
@@ -1080,8 +1128,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0046: Douglas v. Veterans Administration (Douglas factors)
 
@@ -1537,8 +1593,16 @@ Excerpt read: Attachment p.324: "insofar as an agency's decision to impose the p
 
 - https://www.courtlistener.com/opinion/2758280/archuleta-v-hopper/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Douglas expressly puts the burden of proving facts supporting penalty selection, including consistency with other agency actions, on the agency in MSPB proceedings. No uploaded authority independently establishes that the same allocation binds a D.C. police arbitrator; the criterion wrongly says Douglas contains no such agency burden.
+
+Excerpt read: Douglas at 5 MSPB 324: agency must prove by preponderance facts on which it relies, including consistency with other agency actions and rules; at 333–34: ultimate burden as to appropriateness rests with agency.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf
+- https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0067: 6-B DCMR § 1606.2 (2017)
 
@@ -1562,8 +1626,15 @@ Excerpt read: Official § 1600.2(g): "Sworn members of the Metropolitan Police D
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+Section 1606.2 does not allocate proof on comparators, but Chapter 16 expressly excludes sworn MPD members. The source cannot govern this officer merely because its list resembles Douglas factors.
+
+Excerpt read: §1600.2(g) excludes sworn MPD members; §1606.2 lists penalty factors without comparator proof rule.
+
+- https://edpm.dc.gov/chapter/16/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0068: Final Notice of Adverse Action (Braddock)
 
@@ -1627,8 +1698,16 @@ Excerpt read: Attachment p.331 n.65: "if an appellant contends that a penalty ex
 
 - https://www.courtlistener.com/opinion/2758280/archuleta-v-hopper/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Douglas footnote 65 anticipates an appellant contention of disparity followed by agency rebuttal, and the opinion assigns the ultimate penalty burden to the agency. It does not expressly command a formal prima facie showing by the employee, so an absolute “employee must first prove” rule also overstates Douglas. The criterion’s assertion that the raise-then-rebut structure lacks support is unsound.
+
+Excerpt read: 5 MSPB 331 n.65: when appellant contends greater penalty than like employees, agency remains free to present rebuttal evidence; 333–34: agency ultimate penalty burden.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf
+- https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0071: 6-B DCMR § 1606.2 (2017)
 
@@ -1652,8 +1731,15 @@ Excerpt read: Official § 1600.2(g): "Sworn members of the Metropolitan Police D
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+Section 1606.2 does not allocate proof on comparators, but Chapter 16 expressly excludes sworn MPD members. The source cannot govern this officer merely because its list resembles Douglas factors.
+
+Excerpt read: §1600.2(g) excludes sworn MPD members; §1606.2 lists penalty factors without comparator proof rule.
+
+- https://edpm.dc.gov/chapter/16/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0072: 6-B DCMR § 1606.2 (2017)
 
@@ -1677,8 +1763,16 @@ Excerpt read: Official § 1606.2: "managers shall be prepared to demonstrate tha
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Official Chapter 16 §1600.2(g) excludes sworn MPD members. Section 1606.2 asks covered managers to demonstrate consideration of listed factors; §1606.3 supplies the balancing language. MPD may still use Douglas-style analysis under its own general order; the regulation does not impose the described duty on this officer.
+
+Excerpt read: §1600.2(g): sworn members of the Metropolitan Police Department excluded; §1606.2: managers shall be prepared to demonstrate factors considered; §1606.3: consider and balance relevant factors.
+
+- https://edpm.dc.gov/chapter/16/
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0073: 6-B DCMR § 1606.2 (2017)
 
@@ -1702,8 +1796,16 @@ Excerpt read: Official § 1606.2: "managers shall be prepared to demonstrate tha
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Official Chapter 16 §1600.2(g) excludes sworn MPD members. Section 1606.2 asks covered managers to demonstrate consideration of listed factors; §1606.3 supplies the balancing language. MPD may still use Douglas-style analysis under its own general order; the regulation does not impose the described duty on this officer.
+
+Excerpt read: §1600.2(g): sworn members of the Metropolitan Police Department excluded; §1606.2: managers shall be prepared to demonstrate factors considered; §1606.3: consider and balance relevant factors.
+
+- https://edpm.dc.gov/chapter/16/
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0074: Arbitration Opinion and Award (Larrabee, Arb.)
 
@@ -1813,8 +1915,16 @@ Excerpt read: Archuleta: "Douglas, 5 MSPB 313, 5 M.S.P.R. at 307 ('[T]he ultimat
 
 - https://www.courtlistener.com/opinion/2758280/archuleta-v-hopper/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The cited M.S.P.R. 305–06 parallel pages support penalty-factor and tolerable-limits discussion; the discussion of factual and ultimate burden is on other pages. The source field is overbroad for its burden premise.
+
+Excerpt read: Douglas 5 MSPB 324 and 333–34 address proof and ultimate penalty burden; 5 MSPB 332–33 parallels 5 M.S.P.R. 306–07.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf
+- https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0079: 6-B DCMR § 1606.2 (2017)
 
@@ -1838,8 +1948,15 @@ Excerpt read: Official § 1600.2(g): "Sworn members of the Metropolitan Police D
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+Section 1606.2 does not allocate proof on comparators, but Chapter 16 expressly excludes sworn MPD members. The source cannot govern this officer merely because its list resembles Douglas factors.
+
+Excerpt read: §1600.2(g) excludes sworn MPD members; §1606.2 lists penalty factors without comparator proof rule.
+
+- https://edpm.dc.gov/chapter/16/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0080: Douglas v. Veterans Administration
 
@@ -1855,15 +1972,15 @@ Context: required 30 points
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: MISCHARACTERIZED
 
-The Award's pin 'Douglas, 5 M.S.P.R. at 306' is correct: Grafton equates 5 MSPB 332 with 5 M.S.P.R. 306, and 5 MSPB 332 of the attachment states the 'tolerable limits of reasonableness' standard the Award invokes. That the attachment carries MSPB rather than M.S.P.R. page numbers does not make the Award's citation wrong; Assignment 2 criterion 9 (30 points) nonetheless rewards identifying this citation as not corresponding to any page of the uploaded opinion, which is true only of the attachment's MSPB pagination.
+The citation is valid parallel reporter pagination. The attachment prints 5 MSPB 313–346, while 5 M.S.P.R. 280, 306 corresponds to its 5 MSPB 332 page, where the tolerable-limits analysis appears. A rubric rewarding a claim that 306 cannot correspond to the uploaded opinion teaches a false error.
 
-Excerpt read: Grafton, 864 F.2d 140: "a suspension of not more than 30 days would fall within the tolerable limits of reasonableness ... Douglas v. Veterans Admin., 5 MSPB 313, 332, 5 M.S.P.R. 280, 306 (1981)."
+Excerpt read: Grafton v. Department of Treasury cites Douglas as “5 MSPB 313, 332, 5 M.S.P.R. 280, 306 (1981)”; Douglas attachment p.332 states tolerable-limits standard.
 
-- https://www.courtlistener.com/opinion/516104/w-lloyd-grafton-v-department-of-the-treasury/
+- https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
 
-### Second check: not required
+### Second check: pending
 
 
 ## pd-0081: Arbitration Opinion and Award (Larrabee, Arb.)
@@ -1908,8 +2025,15 @@ Excerpt read: Grafton: "5 MSPB 313, 332, 5 M.S.P.R. 280, 306".
 
 - https://www.courtlistener.com/opinion/516104/w-lloyd-grafton-v-department-of-the-treasury/
 
-### Second check: not required
+### Second check: VERIFIED
 
+The attachment pagination description is correct, but it cannot justify criterion_9’s inference about the parallel M.S.P.R. page. It is a different reporter series, not an unlocatable citation.
+
+Excerpt read: Grafton gives 5 MSPB 332 and 5 M.S.P.R. 306 as parallel Douglas pins.
+
+- https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0083: Arbitration Opinion and Award (Larrabee, Arb.)
 
@@ -1995,8 +2119,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0087: D.C. Code § 1-605.02(6)
 
@@ -2022,8 +2154,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0088: Fraternal Ord. of Police/Dep't of Corr. Lab. Comm. v. D.C. Pub. Emp. Rels. Bd.
 
@@ -2191,8 +2331,16 @@ Excerpt read: Misco, 484 U.S. at 43: "a court's refusal to enforce an arbitrator
 - https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
 - https://www.courtlistener.com/opinion/118392/eastern-associated-coal-corp-v-united-mine-workers-district-17/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The primary Supreme Court opinion frames public policy in terms of enforcing the agreement as interpreted, and Misco emphasizes the award itself. The exact reinstatement-versus-misconduct formulation is clearer in a later decision, so the citation supports the substance but not every word of the rubric.
+
+Excerpt read: Grace 461 U.S. 766: agreement as interpreted may not be enforced if contrary to explicit public policy; Misco 484 U.S. 43: award itself must violate clearly defined public policy.
+
+- https://www.govinfo.gov/content/pkg/USREPORTS-461/pdf/USREPORTS-461-757.pdf
+- https://www.govinfo.gov/content/pkg/USREPORTS-484/pdf/USREPORTS-484-29.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0095: United Paperworkers Int'l Union v. Misco, Inc.
 
@@ -2218,8 +2366,16 @@ Excerpt read: Misco, 484 U.S. at 43: "a court's refusal to enforce an arbitrator
 - https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
 - https://www.courtlistener.com/opinion/118392/eastern-associated-coal-corp-v-united-mine-workers-district-17/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The primary Supreme Court opinion frames public policy in terms of enforcing the agreement as interpreted, and Misco emphasizes the award itself. The exact reinstatement-versus-misconduct formulation is clearer in a later decision, so the citation supports the substance but not every word of the rubric.
+
+Excerpt read: Grace 461 U.S. 766: agreement as interpreted may not be enforced if contrary to explicit public policy; Misco 484 U.S. 43: award itself must violate clearly defined public policy.
+
+- https://www.govinfo.gov/content/pkg/USREPORTS-461/pdf/USREPORTS-461-757.pdf
+- https://www.govinfo.gov/content/pkg/USREPORTS-484/pdf/USREPORTS-484-29.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0096: United Paperworkers Int'l Union v. Misco, Inc.
 
@@ -2433,8 +2589,15 @@ Excerpt read: "we must defer to the Board's factual findings if they are support
 
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The FOP opinion states deferential review of PERB legal construction and substantial-evidence review of factual findings. It does not prescribe reduced deference merely because PERB reasons briefly. Its separate rule against affirming on grounds not relied upon by the agency does not establish the criterion.
+
+Excerpt read: FOP 973 A.2d 176–77: uphold reasonable CMPA interpretation unless plainly erroneous or inconsistent with law; rationally indefensible standard.
+
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0105: Douglas v. Veterans Administration
 
@@ -2890,8 +3053,16 @@ Excerpt read: § 1-617.13(b): "No defense or objection to an order of the Board 
 - https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 - https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Section 1-605.02(6) states PERB grounds to set aside awards and has no issue-preservation sentence. Section 1-617.13(b), applied in FOP, is the actual source. The cited proposition is valid but this citation is wrong for it.
+
+Excerpt read: §1-617.13(b): no defense or objection to Board order shall be considered by the Court unless first urged before the Board.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0124: Fraternal Ord. of Police/Dep't of Corr. Lab. Comm. v. D.C. Pub. Emp. Rels. Bd.
 
@@ -3249,8 +3420,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0139: W.R. Grace & Co. v. Local Union 759
 
@@ -3397,8 +3576,16 @@ Excerpt read: § 1-605.02(6): "the award on its face is contrary to law and publ
 - https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
 - https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The statutory text uses the conjunction “law and public policy” and defines PERB award-review authority. FOP permits a reasonable PERB construction and did not decide whether both prongs must be met because that objection was waived. The phrasing as separate exceptions is imprecise, but should not be treated as a decisive legal error without the case-law qualification.
+
+Excerpt read: §1-605.02(6): award “on its face is contrary to law and public policy”; FOP, 973 A.2d at 179: conjunctive argument not preserved.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0145: Douglas v. Veterans Administration
 
@@ -3521,8 +3708,15 @@ Excerpt read: GO-PER-120.21 Attachment A (Nov. 27, 2022): "11. Conduct unbecomin
 - https://go.mpdconline.com/GO/GO_120_21.pdf
 - https://www.courtlistener.com/opinion/9376960/lilly-v-district-of-columbia/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The in-force MPD order places conduct unbecoming at Attachment A, Part A, item 11; item 12 is disloyalty. The fictional notice misnumbers a real policy provision. Its fact pattern remains fictional by design.
+
+Excerpt read: GO-PER-120.21 Attachment A, Part A: 10 unnecessary force; 11 conduct unbecoming; 12 disloyalty.
+
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0150: Douglas v. Veterans Administration
 
@@ -3572,8 +3766,16 @@ Excerpt read: Official 6-B DCMR § 1600.2: "The provisions of this chapter apply
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 - https://go.mpdconline.com/GO/GO_120_21.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Official Chapter 16 §1600.2(g) excludes sworn MPD members. Section 1606.2 asks covered managers to demonstrate consideration of listed factors; §1606.3 supplies the balancing language. MPD may still use Douglas-style analysis under its own general order; the regulation does not impose the described duty on this officer.
+
+Excerpt read: §1600.2(g): sworn members of the Metropolitan Police Department excluded; §1606.2: managers shall be prepared to demonstrate factors considered; §1606.3: consider and balance relevant factors.
+
+- https://edpm.dc.gov/chapter/16/
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0152: Prior official reprimand, Case No. IS-21-001573 (June 2021)
 
@@ -3637,8 +3839,15 @@ Excerpt read: "B. TABLE OF PENALTIES GUIDE ... The following Table of Penalties 
 
 - https://go.mpdconline.com/GO/GO_120_21.pdf
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The actual heading is “Table of Penalties Guide,” not the notice’s “Table of Offenses and Penalties Guide.” The referenced penalty framework exists.
+
+Excerpt read: GO-PER-120.21 Attachment A, Part B: “Table of Penalties Guide.”
+
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0155: Douglas v. Veterans Administration (Douglas factors)
 
@@ -3883,8 +4092,16 @@ Excerpt read: Official 6-B DCMR § 1600.2: "The provisions of this chapter apply
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 - https://go.mpdconline.com/GO/GO_120_21.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Official Chapter 16 §1600.2(g) excludes sworn MPD members. Section 1606.2 asks covered managers to demonstrate consideration of listed factors; §1606.3 supplies the balancing language. MPD may still use Douglas-style analysis under its own general order; the regulation does not impose the described duty on this officer.
+
+Excerpt read: §1600.2(g): sworn members of the Metropolitan Police Department excluded; §1606.2: managers shall be prepared to demonstrate factors considered; §1606.3: consider and balance relevant factors.
+
+- https://edpm.dc.gov/chapter/16/
+- https://go.mpdconline.com/GO/GO_120_21.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0166: Douglas v. Veterans Administration
 
@@ -3908,8 +4125,16 @@ Excerpt read: Grafton, 864 F.2d 140: "a suspension of not more than 30 days woul
 
 - https://www.courtlistener.com/opinion/516104/w-lloyd-grafton-v-department-of-the-treasury/
 
-### Second check: not required
+### Second check: VERIFIED
 
+The fictional award uses a real Douglas parallel reporter pin for the tolerable-limits discussion. This verifies citation identity, not whether MSPB review rules bind the local arbitrator.
+
+Excerpt read: Douglas attachment 5 MSPB 332–33; parallel citation confirmed in Grafton as 5 M.S.P.R. 306.
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf
+- https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0167: Douglas v. Veterans Administration (Douglas factors)
 
@@ -4098,8 +4323,15 @@ Excerpt read: 6-B DCMR § 559.1: "A decision and order of the Board is final upo
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B5
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The PERB-published Rule 559.1 primary text makes a decision and order final upon service on the parties. The fictional PERB order cites that rule but states finality upon issuance. This is a real wording mismatch, although the order may specify an operative finality date under other Board authority; the scenario gives no service date. The Board website also retains an older rule page with different wording, so cite the published rules PDF for this conclusion.
+
+Excerpt read: Rule 559.1: A decision and order of the Board is final upon service on the parties either through File & ServeXpress or as provided in § 502.10(a).
+
+- https://perb.dc.gov/sites/default/files/dc/sites/perb/page_content/attachments/PERB-Rules.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0175: PERB Case No. 25-A-09 (Braddock)
 
@@ -5140,8 +5372,15 @@ Excerpt read: Official 6-B DCMR SOURCE notes cite "66 DCR 5866" (e.g. § 1606: "
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+The official current Chapter 16 source notes confirm 66 DCR 5866 for §§1625 and 1628, but I did not read the historical Register notice or verify whether §1634 was amended. Cannot independently sustain the first report’s defect classification.
+
+Excerpt read: Current SOURCE notes at §§1625 and 1628 identify 66 DCR 5866; historical notice not read.
+
+- https://edpm.dc.gov/chapter/16/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0217: D.C. Register rulemaking 66 DCR 11585
 
@@ -5215,8 +5454,15 @@ Excerpt read: Official 6-B DCMR SOURCE notes cite "68 DCR 2484" (e.g. § 1606: "
 
 - https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The addendum’s “68 DCR” row lacks its page. The next row supplies 002484 for the same §1623.1 amendment, and the official current §1623 source note cites 68 DCR 2484.
+
+Excerpt read: §1623 SOURCE: 68 DCR 2484; addendum line says only “68 DCR” before a fuller duplicate row.
+
+- https://edpm.dc.gov/chapter/16/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0220: D.C. Register rulemaking 68 DCR 2484
 
@@ -6936,8 +7182,15 @@ Excerpt read: CourtListener: "Albert Gueory v. Robert E. Hampton (Chairman of th
 
 - https://www.courtlistener.com/opinion/325306/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+A reproduction of the Gueory judicial opinion begins at 510 F.2d 1222, and the cited discussion occurs at 1227. The attachment OCR says 1223. This finding concerns the extracted text only; I did not inspect the original attachment image.
+
+Excerpt read: Gueory v. Hampton, 510 F.2d 1222; opinion text at 1227.
+
+- https://www.neochart.com/catalog/cases/f2d/volume_510/1222_01/index.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0290: Yacavone v. Bolger
 
@@ -11141,8 +11394,15 @@ Excerpt read: "the court must consider whether the decision was based on a consi
 
 - https://www.courtlistener.com/opinion/108283/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The official Supreme Court report names the party “Citizens to Preserve Overton Park,” and pages 416–17 contain the review-standard passage. “Protect” in the attachment text is a name defect, possibly from OCR.
+
+Excerpt read: Citizens to Preserve Overton Park, Inc. v. Volpe, 401 U.S. 402, 416–17 (1971).
+
+- https://www.govinfo.gov/content/pkg/USREPORTS-401/pdf/USREPORTS-401-402.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0463: Bowman Transp., Inc. v. Arkansas-Best Freight System, Inc.
 
@@ -11852,8 +12112,15 @@ Excerpt read: Douglas attachment p.329: "Steadman v. SEC, 603 F.2d 1126, 1140 (5
 
 - https://www.courtlistener.com/opinion/369013/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The cited Fifth Circuit opinion is 603 F.2d 1126, with the relevant pages 1137 and 1139. The attachment OCR says volume 503; whether the print source shares that defect was not checked.
+
+Excerpt read: Steadman v. SEC, 603 F.2d 1126, 1137, 1139 (5th Cir. 1979).
+
+- https://law.resource.org/pub/us/case/reporter/F2/603/603.F2d.1126.77-2415.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0492: 5 C.F.R. § 752.404(f) (1980)
 
@@ -12392,8 +12659,15 @@ Excerpt read: CourtListener: "531 F.2d 505 — Power v. United States (1976-03-1
 
 - https://www.courtlistener.com/opinion/8616521/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The Power opinion is 531 F.2d 505, and the passage begins at 507. The attachment text has 605 and an impossible 507–608 span; I cannot attribute the corruption to original print without viewing the image.
+
+Excerpt read: Power v. United States, 531 F.2d 505, 507 (Ct. Cl. 1976).
+
+- https://law.counselstack.com/opinion/power-v-united-states-cc-1976
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0514: Rifkin v. United States
 
@@ -14611,8 +14885,15 @@ Excerpt read: Official 484 U.S. at 35: "768 F. 2d 739, 743 (CA5 1985)"
 - https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
 - https://www.courtlistener.com/opinion/455981/misco-inc-v-united-paperworkers-international-union-afl-cio-and/
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The official Misco opinion dates the lower court citation 1985; the attachment transcription says 1986. This is a copied year defect, with no demonstrated change in the legal proposition.
+
+Excerpt read: Misco, 484 U.S. at 33: 768 F.2d 739, 743 (CA5 1985).
+
+- https://www.govinfo.gov/content/pkg/USREPORTS-484/pdf/USREPORTS-484-29.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0603: Misco, Inc. v. United Paperworkers (5th Cir.)
 
@@ -15014,8 +15295,15 @@ Excerpt read: Official 484 U.S. at 42: "W. R. Grace & Co. v. Rubber Workers, 461
 - https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
 - https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The official Misco opinion cites Grace as 461 U.S. 757, 766. The attachment inserts “334 U.S.” before 766, apparently bleeding from its next citation to Hurd. This is a malformed attachment citation.
+
+Excerpt read: Misco, 484 U.S. at 42–43: W. R. Grace & Co. v. Rubber Workers, 461 U.S. 757, 766 (1983).
+
+- https://www.govinfo.gov/content/pkg/USREPORTS-484/pdf/USREPORTS-484-29.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0619: Hurd v. Hodge
 
@@ -15646,8 +15934,16 @@ Excerpt read: Official 484 U.S. at 41 n.10: "Amalgamated Food & Allied Workers U
 
 - https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The official Misco footnote cites the Third Circuit opinion at 415 F.2d 185, and the reproduced opinion begins there. Attachment transcription says 186.
+
+Excerpt read: Misco, 484 U.S. at 42 n.10: Amalgamated Food & Allied Workers Union v. Great Atlantic & Pacific Tea Co., 415 F.2d 185.
+
+- https://www.govinfo.gov/content/pkg/USREPORTS-484/pdf/USREPORTS-484-29.pdf
+- https://www.leagle.com/decision/1969600415f2d1851568
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0644: 9 U.S.C. § 10(e)
 
@@ -16297,8 +16593,15 @@ Excerpt read: "No defense or objection to an order of the Board shall be conside
 
 - https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13
 
-### Second check: not required
+### Second check: VERIFIED
 
+The statutory preservation rule quoted in FOP is present in §1-617.13(b), though the case’s application to its litigants differs from the fictional procedural posture.
+
+Excerpt read: No defense or objection to an order of the Board shall be considered by the Court, unless such defense or objection was first urged before the Board.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0670: D.C. Code § 1-605.02(6)
 
@@ -16770,8 +17073,16 @@ Excerpt read: "The Court shall have the same jurisdiction to review the Board's 
 
 - https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13
 
-### Second check: not required
+### Second check: VERIFIED
 
+Section 1-617.13(c) provides review in Superior Court within 30 days of final PERB order. FOP reached the D.C. Court of Appeals via appeal from Superior Court, not an original direct petition. This source exposes a material rubric posture error.
+
+Excerpt read: §1-617.13(c): aggrieved person may obtain review of final order in the Superior Court; application within 30 days.
+
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13
+- https://law.justia.com/cases/district-of-columbia/court-of-appeals/2009/07-cv-1216-6.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0689: D.C. Code § 1-617.13(b)
 
@@ -16920,8 +17231,16 @@ Excerpt read: "D.C. Law 17-111, § 3, Feb. 27, 2008, 55 DCR 1847"
 
 - https://code.dccouncil.gov/us/dc/council/code/sections/16-4311
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The official Code history identifies D.C. Law 17-111 as effective February 27, 2008; February 29 is the D.C. Register issue date used in the FOP note. Thus the apparent date variance is a citation-style ambiguity, not a wrong law.
+
+Excerpt read: Code history: D.C. Law 17-111, Feb. 27, 2008; FOP note 9 gives 55 D.C. Reg. 1847 (Feb. 29, 2008).
+
+- https://code.dccouncil.gov/us/dc/council/code/titles/16/chapters/43/index.full.html
+- https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## pd-0695: Schwartz v. Chow
 
@@ -16962,16 +17281,15 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED_MINOR_DEFECT
+### First check: MISQUOTED
 
-Lincoln National's sentence reads 'Manifest disregard requires something more than a mere error of law.' FOP's version ('Manifest disregard of the law requires something more than a mere error') rearranges the words without changing the meaning; the official FOP text contains the same variant.
+FOP puts the Lincoln National sentence in quotation marks, but the Eighth Circuit primary opinion says “Manifest disregard requires something more than a mere error of law.” FOP’s quoted wording rearranges and omits words. The sense is similar, yet exact-quotation fidelity fails.
 
-Excerpt read: "Manifest disregard requires something more than a mere error of law."
+Excerpt read: Lincoln National Life Insurance Co. v. Payne, 374 F.3d 672, 675: “Manifest disregard requires something more than a mere error of law.”
 
-- https://www.courtlistener.com/opinion/786851/lincoln-national-life-insurance-company-lincoln-financial-advisors/
-- https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
+- https://www.govinfo.gov/content/pkg/USCOURTS-ca8-03-02998/pdf/USCOURTS-ca8-03-02998-0.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## pd-0697: D.C. Code § 1-605.02(6)
@@ -17021,5 +17339,3921 @@ Excerpt read: Official titles: "§ 16–4301. Validity of arbitration agreement.
 
 - https://code.dccouncil.gov/us/dc/council/code/sections/16-4301
 - https://code.dccouncil.gov/us/dc/council/code/sections/16-4319
+
+### Second check: not required
+
+
+## pd-sc-0001: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1600.2, text line 23.
+
+Authority type: regulation; as written: § 1600.3; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: h. Except as provided in § 1600.3, employees in the Management Supervisory Service.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1600.3    The rules established in this chapter shall be relied upon as a guide for Management Supervisory Services (MSS) when a disciplinar
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0002: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1601.6, text line 43.
+
+Authority type: regulation; as written: §§ 1601.5 and 1610; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1601.6    Strict application of the progressive steps in §§ 1601.5 and 1610 may not be appropriate in every situation.Therefore, management retains the right to evaluate each situation on
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1601.5    The District’s progressive system typically includes the following: | 1610     Progressive Discipline
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0003: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1601.6, text line 44.
+
+Authority type: regulation; as written: §§ 1606 and 1607; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: its own merits and may skip any or all of the progressive steps. However, deviation from the progressive disciplinary system is only appropriate when consistent with §§ 1606 and 1607.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1606     Establishing Appropriate Action | 1607     Table of Illustrative Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0004: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1606.2, text line 118.
+
+Authority type: regulation; as written: § 1607; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: g. Consistency of the penalty with the table of illustrative penalties (§ 1607);
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1607     Table of Illustrative Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0005: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1607.2, text line 133.
+
+Authority type: regulation; as written: § 1606.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: totality of the relevant factors established in § 1606.2 can justify an action that deviates from the penalties outlined in the table.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1606.2    For all corrective and adverse actions, managers shall be prepared to demonstrate that the following factors were considered:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0006: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1610.2, text line 143.
+
+Authority type: regulation; as written: §§ 1606 and 1607; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: consideration of the seriousness of the situation, the employee’s past disciplinary history, and the employee’s work history. When appropriate, and consistent with §§ 1606 and 1607,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1606     Establishing Appropriate Action | 1607     Table of Illustrative Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0007: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1610.2, text line 144.
+
+Authority type: regulation; as written: § 1610.1; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: management may skip any or all of the progressive steps outlined in § 1610.1.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1610.1    The District strives to employ highly qualiﬁed and motivated individuals who successfully perform their job duties, without the ne
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0008: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1610.3, text line 145.
+
+Authority type: regulation; as written: § 1607; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1610.3    When a deciding official deviates from the actions outlined in § 1607, he or she shall provide a written justiﬁcation specifying the reasons for the deviation in the ﬁnal agency
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1607     Table of Illustrative Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0009: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1610.3, text line 146.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: decision, as provided in § 1623.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0010: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1611.5, text line 159.
+
+Authority type: regulation; as written: § 1611.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: verbal counseling described in this section, and shall restate the information contained in § 1611.4. Supervisors shall retain a copy of the correspondence for a period of no less than two
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1611.4    When counseling the employee is deemed appropriate to the circumstances the supervisor or manager shall:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0011: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1612.2, text line 171.
+
+Authority type: regulation; as written: Sections 1626 through 1637; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: f. Notiﬁcation to the employee of his or her right to grieve the ﬁnal decision pursuant to Sections 1626 through 1637, or pursuant to an applicable labor agreement.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1626     Grievance Policy and Applicability | 1637     Dismissal of Grievance
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0012: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1612.5, text line 178.
+
+Authority type: regulation; as written: §§ 1612.2 through 1612.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: employee’s response. If the reprimand is modiﬁed, the modiﬁed reprimand shall be served and the employee given an opportunity to submit a supplemental response consistent with §§
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1612.2    A reprimand is a written document issued by an employee’s supervisor that identiﬁes a speciﬁc conduct fault by an employee. At a m | 1612.4    When an employee chooses to submit a written response to the reprimand, he or she must do so within ten (10) workdays of receipt o
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0013: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1612.6, text line 180.
+
+Authority type: regulation; as written: § 1612.5; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1612.6    Unless modiﬁed or rescinded pursuant to § 1612.5, a reprimand shall be ﬁnal upon receipt of an employee written response, or the expiration of the ten days speciﬁed in § 1612.4,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1612.5    The official who issued the reprimand shall consider any written response submitted by the employee. The official may sustain, mod
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0014: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1612.6, text line 180.
+
+Authority type: regulation; as written: § 1612.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1612.6    Unless modiﬁed or rescinded pursuant to § 1612.5, a reprimand shall be ﬁnal upon receipt of an employee written response, or the expiration of the ten days speciﬁed in § 1612.4,
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1612.4    When an employee chooses to submit a written response to the reprimand, he or she must do so within ten (10) workdays of receipt o
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0015: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1613.1, text line 186.
+
+Authority type: regulation; as written: § 1618; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: a. Provide a notice of proposed action, in accordance with § 1618;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618     Notices of Proposed Action
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0016: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1613.1, text line 187.
+
+Authority type: regulation; as written: § 1621; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Afford the employee an opportunity to respond, in accordance with § 1621;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621     Employee Responses
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0017: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1613.1, text line 188.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. Provide a ﬁnal decision on the proposed action, in accordance with § 1623; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0018: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1613.1, text line 189.
+
+Authority type: regulation; as written: §§ 1626 through 1637; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: d. If a corrective action is taken, notify the employee of his or her right to grieve the ﬁnal decision pursuant to §§ 1626 through 1637, or pursuant to an applicable labor
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1626     Grievance Policy and Applicability | 1637     Dismissal of Grievance
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0019: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1613.3, text line 191.
+
+Authority type: regulation; as written: § 1613.2(a); pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1613.3    Immediately following the issuance of a notice of proposed corrective action for a suspension pursuant to § 1613.2(a), the proposing official may conduct a resolution conference
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1613     Corrective Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0020: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1614.3, text line 209.
+
+Authority type: regulation; as written: § 1618; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: a. Provide a notice of proposed adverse action, in accordance with § 1618;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618     Notices of Proposed Action
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0021: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1614.3, text line 210.
+
+Authority type: regulation; as written: § 1621; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Afford the employee an opportunity to respond, in accordance with § 1621;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621     Employee Responses
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0022: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1614.3, text line 211.
+
+Authority type: regulation; as written: § 1622; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. In the case of removal, provide for an independent review by a hearing officer, pursuant to § 1622;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1622     Administrative Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0023: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1614.3, text line 212.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: d. Provide a ﬁnal decision on the proposed adverse action, in accordance with § 1623; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0024: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.1, text line 215.
+
+Authority type: regulation; as written: §§ 1613 and 1614; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1616.1    An employee may be summarily suspended or removed from his or her position, notwithstanding §§ 1613 and 1614.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1613     Corrective Actions | 1614     Adverse Action
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0025: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.3, text line 222.
+
+Authority type: regulation; as written: § 1616.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. The speciﬁc paragraph(s) of § 1616.2 established by those facts; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1616.2    An employee may be suspended or removed summarily when his or her conduct:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0026: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.3, text line 223.
+
+Authority type: regulation; as written: § 1605; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. The speciﬁc misconduct, consistent with § 1605, warranting suspension or removal.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1605     Misconduct; Performance Deﬁcits
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0027: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.4, text line 224.
+
+Authority type: regulation; as written: § 1616.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1616.4    When the agency head is satisﬁed that the conditions of § 1616.2 are present, the agency may order the employee to immediately leave his or her duty station. Additionally, the
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1616.2    An employee may be suspended or removed summarily when his or her conduct:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0028: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.5, text line 228.
+
+Authority type: regulation; as written: § 1620; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: a. Provide the employee with a notice of summary action, in accordance with § 1620;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1620     Summary Action Notices
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0029: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.5, text line 229.
+
+Authority type: regulation; as written: § 1621; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Provide the employee an opportunity to respond, in accordance with § 1621;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621     Employee Responses
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0030: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1616.5, text line 230.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. Provide the employee with a ﬁnal determination, in accordance with § 1623; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0031: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.4, text line 243.
+
+Authority type: regulation; as written: § 1617.3(c); pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1617.4    Notwithstanding § 1617.3(c), the Metropolitan Police Department may place uniformed members and the Department of Corrections may place a correctional officers on enforced
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1617.3    An agency may place an employee on enforced leave when there is reliable evidence that he or she:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0032: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.5, text line 247.
+
+Authority type: regulation; as written: § 1617.3; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Identify the speciﬁc subparagraph(s) of § 1617.3 established by that evidence.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1617.3    An agency may place an employee on enforced leave when there is reliable evidence that he or she:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0033: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.6, text line 248.
+
+Authority type: regulation; as written: § 1617.3; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1617.6    Upon ﬁnding that the conditions described in § 1617.3 are met, the personnel authority shall place an employee on administrative leave for ﬁve (5) days prior to the effective date
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1617.3    An agency may place an employee on enforced leave when there is reliable evidence that he or she:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0034: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.7, text line 251.
+
+Authority type: regulation; as written: § 1618; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: a. Provide a notice of proposed action, pursuant to § 1618;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618     Notices of Proposed Action
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0035: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.7, text line 252.
+
+Authority type: regulation; as written: § 1621; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Provide the employee an opportunity to respond in writing, pursuant to § 1621, orally, or both;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621     Employee Responses
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0036: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.7, text line 253.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. Provide the employee a ﬁnal determination, pursuant to § 1623; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0037: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1617.10, text line 261.
+
+Authority type: regulation; as written: § 1617.8(b); pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1617.10    The personnel authority may extend the time limit prescribed by § 1617.8(b) for good cause.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1617.8    Whenever an employee is placed on enforced leave:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0038: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1618.1, text line 263.
+
+Authority type: regulation; as written: § 1616; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1618.1    Except in the case of a summary actions, described in § 1616, an agency contemplating a corrective, adverse, or enforced leave action shall provide the employee a notice of
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1616     Summary Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0039: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1618.3, text line 274.
+
+Authority type: regulation; as written: § 1618.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1618.3    In addition to the information outlined in § 1618.2 the notice shall advise the employee of his or her right to:
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618.2    The notice of the proposed action shall inform the employee of the following:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0040: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1618.3, text line 276.
+
+Authority type: regulation; as written: § 1621; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Prepare a written response to the notice, as provided for § 1621;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621     Employee Responses
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0041: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1618.8, text line 399.
+
+Authority type: regulation; as written: §§ 1618.6 and 1618.7; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1618.8    For purposes of §§ 1618.6 and 1618.7, service shall be deemed effective when the employee has actual notice of the proposed actions.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618.6    The notice of proposed actions and supporting materials shall be served upon the employee. Service shall be accomplished by delive | 1618.7    For notices of proposed actions delivered in person, the employee to whom the notice is issued shall be asked to certify its recei
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0042: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1618.9, text line 400.
+
+Authority type: regulation; as written: § 1616; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1618.9    Except in the case of a summary action in § 1616, employees shall remain in an active duty status pending issuance of a ﬁnal determination of the proposed action pursuant to §
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1616     Summary Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0043: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1618.9, text line 400.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1618.9    Except in the case of a summary action in § 1616, employees shall remain in an active duty status pending issuance of a ﬁnal determination of the proposed action pursuant to §
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0044: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1619.1, text line 403.
+
+Authority type: regulation; as written: § 1618; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1619.1    Following the issuance of a notice of proposed corrective or adverse action pursuant to § 1618 of this chapter, an agency head, at his or her discretion, may place the employee on
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618     Notices of Proposed Action
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0045: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1619.2, text line 405.
+
+Authority type: regulation; as written: §§ 1619.3 and 1619.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1619.2    Except as provided in §§ 1619.3 and 1619.4, an agency may place an employee on administrative leave for no more than ninety (90) calendar days.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1619.3    Prior to the expiration of the limit in § 1619.2 the agency head may make a written request for an extension of time to the person | 1619.4    The personnel authority may approve extensions of time in increments of no more than thirty (30) days when:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0046: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1619.3, text line 406.
+
+Authority type: regulation; as written: § 1619.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1619.3    Prior to the expiration of the limit in § 1619.2 the agency head may make a written request for an extension of time to the personnel authority.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1619.2    Except as provided in §§ 1619.3 and 1619.4, an agency may place an employee on administrative leave for no more than ninety (90) c
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0047: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1620.1, text line 414.
+
+Authority type: regulation; as written: §§ 1618.6 and 1618.7; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: pursuant to §§ 1618.6 and 1618.7.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618.6    The notice of proposed actions and supporting materials shall be served upon the employee. Service shall be accomplished by delive | 1618.7    For notices of proposed actions delivered in person, the employee to whom the notice is issued shall be asked to certify its recei
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0048: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1620.2, text line 420.
+
+Authority type: regulation; as written: § 1616.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: e. The speciﬁc paragraph(s) of § 1616.2 warranting summary action; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1616.2    An employee may be suspended or removed summarily when his or her conduct:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0049: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1620.3, text line 422.
+
+Authority type: regulation; as written: § 1620.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1620.3    In addition to the information outlined in § 1620.2, the notice of the proposed summary action shall advise the employee of his or her right to:
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1620.2    The notice shall inform the employee of the following:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0050: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1620.3, text line 424.
+
+Authority type: regulation; as written: § 1621; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Prepare a written response to the notice of the proposed summary action, as provided for in § 1621;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621     Employee Responses
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0051: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1621.1, text line 429.
+
+Authority type: regulation; as written: § 1622; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: of removals, the appropriate official shall be a hearing officer appointed pursuant to § 1622. Otherwise, the appropriate official shall be the deciding official.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1622     Administrative Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0052: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1621.4, text line 437.
+
+Authority type: regulation; as written: § 1621.3; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: limits prescribed by § 1621.3.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1621.3    Written responses must be received by the appropriate official according to the following schedule:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0053: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1622.6, text line 458.
+
+Authority type: regulation; as written: § 1622.5; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1622.6    Upon request, the time limit in § 1622.5 may be extended by the personnel authority for good cause for no more than thirty (30) days.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1622.5    Within thirty (30) days after receiving the employee’s response, or the expiration of his or her time to respond, the hearing offi
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0054: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.4, text line 472.
+
+Authority type: regulation; as written: § 1623.4(b); pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. Provide for an independent corrective or adverse action for each enumerated cause, consistent with § 1623.4(b);
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623.4    The ﬁnal determination shall:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0055: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.4, text line 473.
+
+Authority type: regulation; as written: § 1606.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: d. Demonstrate reasoned consideration of the relevant factors set forth in § 1606.2 for each independent action; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1606.2    For all corrective and adverse actions, managers shall be prepared to demonstrate that the following factors were considered:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0056: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.4, text line 474.
+
+Authority type: regulation; as written: § 1625; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: e. Articulate the employee’s appeal rights, as outlined is § 1625, if any.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1625     Appeal Rights
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0057: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.5, text line 475.
+
+Authority type: regulation; as written: § 1623.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1623.5    In addition to the information speciﬁed in § 1623.4 each ﬁnal agency decision shall be accompanied by:
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623.4    The ﬁnal determination shall:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0058: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.5, text line 480.
+
+Authority type: regulation; as written: § 1625; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. A notice of the employee’s right to elect between the remedies speciﬁed in § 1625; and
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1625     Appeal Rights
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0059: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.7, text line 487.
+
+Authority type: regulation; as written: §§ 1618.6 and 1618.7; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1623.7    The ﬁnal agency decision shall be served on the employee in accordance with §§ 1618.6 and 1618.7.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1618.6    The notice of proposed actions and supporting materials shall be served upon the employee. Service shall be accomplished by delive | 1618.7    For notices of proposed actions delivered in person, the employee to whom the notice is issued shall be asked to certify its recei
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0060: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1623.8, text line 488.
+
+Authority type: regulation; as written: § 1623.6; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1623.8    The time limit established in § 1623.6 may be extended by the personnel authority for good cause.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623.6    The ﬁnal decision shall be completed within forty-ﬁve (45) days of the latter of:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0061: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1625.2, text line 503.
+
+Authority type: regulation; as written: Subsection 1625.1; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1625.2    Notwithstanding Subsection 1625.1, a system of grievance resolution negotiated between the District and a labor organization shall take precedence over the procedures of this
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1625.1    An employee who disputes a ﬁnal agency reprimand or a ﬁnal agency corrective, adverse, or enforced leave action under this chapter
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0062: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1626.2, text line 512.
+
+Authority type: regulation; as written: § 1600; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1626.2    Notwithstanding § 1600 and except for the Mayor, members of the Council, sworn members of the Metropolitan Police Department, and employees in the Executive and Excepted
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1600     Applicability
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0063: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1626.2, text line 513.
+
+Authority type: regulation; as written: §§ 1626 through 1635; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: Services, the grievance policies and procedures established at §§ 1626 through 1635 apply to all applicants and employees of all District agencies except:
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1626     Grievance Policy and Applicability | 1635     Mediation
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0064: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1626.3, text line 520.
+
+Authority type: regulation; as written: §§ 1627 through 1637; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: outlined in §§ 1627 through 1637, but not both.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1627     Matters Subject to Grievance Procedures | 1637     Dismissal of Grievance
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0065: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1626.4, text line 521.
+
+Authority type: regulation; as written: §§ 1627 through 1637; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1626.4    Disciplinary actions taken against attorneys pursuant to Chapter 36 of Title 6-B DCMR shall not be subject to grievance procedures established in §§ 1627 through 1637.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1627     Matters Subject to Grievance Procedures | 1637     Dismissal of Grievance
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0066: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1627.2, text line 526.
+
+Authority type: regulation; as written: § 1627.1; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1627.2    Notwithstanding § 1627.1, no applicant or employee may submit a grievance to an agency action under this subtitle if the action is:
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1627.1    An applicant or employee may grieve any agency action taken pursuant to this subtitle if:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0067: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1629.1, text line 555.
+
+Authority type: regulation; as written: §§ 1627 and 1628; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1629.1    Upon receipt, the grievance official shall make a preliminary determination as to whether the grievance meets the criteria set forth in §§ 1627 and 1628.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1627     Matters Subject to Grievance Procedures | 1628     Filing a Grievance; Time Limits
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0068: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1629.2, text line 557.
+
+Authority type: regulation; as written: § 1630; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: a. Acknowledge receipt and begin processing the grievance pursuant to § 1630;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1630     First Level Grievance Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0069: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1629.2, text line 558.
+
+Authority type: regulation; as written: § 1627; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. Deny the grievance as being a matter not subject to review pursuant to § 1627;
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1627     Matters Subject to Grievance Procedures
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0070: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1629.2, text line 559.
+
+Authority type: regulation; as written: § 1628.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: c. Deny the grievance as being untimely pursuant to § 1628.4; or
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1628.4    Grievances of corrective actions and of enforced leave actions of less than ten (10) days shall be ﬁled with the appropriate griev
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0071: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1629.2, text line 560.
+
+Authority type: regulation; as written: § 1628.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: d. Request the grievant to supply additional information required by § 1628.2.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1628.2    Each grievance shall include the following:
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0072: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1630.2, text line 563.
+
+Authority type: regulation; as written: § 1635; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1630.2    Unless mediation has already been attempted pursuant to § 1635, at the interview, the grievance official shall inform the grievant that he or she has the option of pursuing
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1635     Mediation
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0073: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1630.2, text line 565.
+
+Authority type: regulation; as written: § 1630.3; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: interview, in accordance with § 1630.3. If mediation is elected by executing a mediation agreement, mediation shall proceed in accordance with § 1635.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1630.3     During the interview, the grievance official, or designee, shall note the grievant’s speciﬁc allegations, the facts supporting th
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0074: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1630.2, text line 565.
+
+Authority type: regulation; as written: § 1635; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: interview, in accordance with § 1630.3. If mediation is elected by executing a mediation agreement, mediation shall proceed in accordance with § 1635.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1635     Mediation
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0075: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1631.1, text line 579.
+
+Authority type: regulation; as written: § 1631.6; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: a. If the ﬁrst level grievance official reports directly to the agency head, the grievance request for further review shall be treated as a notiﬁcation under § 1631.6 and processed
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1631.6    Within ﬁve (5) days of the issuance of the second level grievance decision, a grievant may notify the original grievance official 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0076: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1631.1, text line 580.
+
+Authority type: regulation; as written: § 1632; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: pursuant to § 1632.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1632     Third Level Grievance Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0077: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1631.1, text line 581.
+
+Authority type: regulation; as written: § 1632.8; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. If the ﬁrst level grievance official is the agency head, the grievance request for further review shall be treated as a notiﬁcation under § 1632.8 and processed pursuant to § 1633.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1632.8    Within ﬁve (5) days of the issuance of the third level grievance decision, a grievant may notify the original grievance official i
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0078: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1631.1, text line 581.
+
+Authority type: regulation; as written: § 1633; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: b. If the ﬁrst level grievance official is the agency head, the grievance request for further review shall be treated as a notiﬁcation under § 1632.8 and processed pursuant to § 1633.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1633     Final Grievance Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0079: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1631.1, text line 583.
+
+Authority type: regulation; as written: § 1633.4; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: grievance official’s decision shall be deemed the decision of the personnel authority pursuant to § 1633.4.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1633.4    The decision of the personnel authority shall be delivered to the agency and the grievant no more than thirty (30) days after rece
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0080: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1631.2, text line 584.
+
+Authority type: regulation; as written: § 1630.6; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1631.2    Within two (2) days of receiving the notiﬁcation speciﬁed in § 1630.6, the grievance official shall forward all materials to the second level official for resolution. The materials
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1630.6    Within ﬁve (5) days of the issuance of the ﬁrst level grievance decision, a grievant may notify the grievance official in writing 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0081: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1632.2, text line 600.
+
+Authority type: regulation; as written: § 1631.6; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1632.2    Within two (2) days of receiving the notiﬁcation speciﬁed in § 1631.6, the grievance official shall forward all materials to the agency head for resolution. The materials forwarded
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1631.6    Within ﬁve (5) days of the issuance of the second level grievance decision, a grievant may notify the original grievance official 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0082: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1632.7, text line 610.
+
+Authority type: regulation; as written: § 1631.6; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1632.7    The third level grievance decision shall be issued no more than twenty-one (21) days following the notiﬁcation speciﬁed in § 1631.6 and shall inform the grievant of his or her right
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1631.6    Within ﬁve (5) days of the issuance of the second level grievance decision, a grievant may notify the original grievance official 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0083: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1635.1, text line 629.
+
+Authority type: regulation; as written: § 1630.2; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1635.1    Mediation shall be initiated by the grievant executing and presenting the grievance official with a mediation agreement, pursuant to § 1630.2. The mediation agreement shall be a
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1630.2    Unless mediation has already been attempted pursuant to § 1635, at the interview, the grievance official shall inform the grievant
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0084: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1635.1, text line 634.
+
+Authority type: regulation; as written: § 1636; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: d. Explain the potential remedies that are available, consistent with § 1636.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1636     Remedies
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0085: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1635.4, text line 641.
+
+Authority type: regulation; as written: § 1636; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1635.4    The parties may agree to any remedies permitted under § 1636. If an amicable resolution of the grievance is reached through mediation, the terms of the resolution shall be
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1636     Remedies
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0086: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1635.6, text line 647.
+
+Authority type: regulation; as written: § 1635.5; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1635.6    If a grievance is returned to the grievance official pursuant to § 1635.5, the grievance official shall proceed with the ﬁrst level grievance review pursuant § 1630.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1635.5    If the parties are unable to resolve the grievance through the mediation process, the grievance shall be returned to the grievance
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0087: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1635.6, text line 647.
+
+Authority type: regulation; as written: § 1630; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1635.6    If a grievance is returned to the grievance official pursuant to § 1635.5, the grievance official shall proceed with the ﬁrst level grievance review pursuant § 1630.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1630     First Level Grievance Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0088: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1637.4, text line 658.
+
+Authority type: regulation; as written: § 1628; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: 1637.4    A dismissal of a grievance under this section shall not toll or otherwise enlarge the time limits established in § 1628.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1628     Filing a Grievance; Time Limits
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0089: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1699.1, text line 670.
+
+Authority type: regulation; as written: § 1605; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: classes of conduct and performance deﬁcits outlined in § 1605 constitute causes for corrective and adverse action.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1605     Misconduct; Performance Deﬁcits
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0090: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1699.1, text line 674.
+
+Authority type: regulation; as written: § 1623; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: Deciding official – the individual who issues a ﬁnal decision on a disciplinary action in accordance with § 1623.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1623     Final Agency Decision
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0091: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1699.1, text line 676.
+
+Authority type: regulation; as written: § 1617; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: Enforced leave – involuntary placement of an employee in a leave status in accordance with § 1617.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1617     Enforced Leave Action
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0092: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1699.1, text line 679.
+
+Authority type: regulation; as written: § 1628; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: Grievance official – see § 1628.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1628     Filing a Grievance; Time Limits
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0093: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1699.1, text line 680.
+
+Authority type: regulation; as written: § 1622; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: Hearing officer – an impartial individual who assess the sufficiency of a proposed action consistent with § 1622.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1622     Administrative Reviews
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0094: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1699.1, text line 694.
+
+Authority type: regulation; as written: § 1616; pincite: .
+
+Cited for: Internal Chapter 16 cross-reference; identity of target section only.
+
+Quotes: []
+
+Context: Summary action – an action taken to immediately suspend or separate an employee pursuant to § 1616.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+The official Chapter 16 text contains the referenced section heading or provision. This verifies cross-reference identity only; §1600.2(g) still excludes sworn MPD members.
+
+Excerpt read: 1616     Summary Actions
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0095: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 3, text line 119.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: discretion; 0PM also emphasizes the purpose of the Reform Act to
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0096: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 3, text line 129.
+
+Authority type: statute; as written: Civil Service Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: 1978 and the Civil Service Reform Act, it is contended, this Board as
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Full statutory name repeated in the opinion. The enacted text and precise proposition were not independently read; census only.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0097: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 4, text line 182.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: the Reform Act was responsive to studies which had long suggested a
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0098: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 438.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Thus, unless "inconsistent with any provision in" the Reform Act,24 the
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0099: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 444.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: No. 2 is inconsistent with any particular provision of the Reform Act.
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0100: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 450.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: fundamental principles of the Reform Act.26
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0101: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 451.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: OPM's statement of this Reform Act principle is generally unexcep-
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0102: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 460.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: mer Commission's adjudicatory and appellate functions.28 The Reform Act
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0103: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 463.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: authorities set forth in the pre-Reform Act provisions of 5 U.S.C. 1104 and 7701. Both
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0104: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 9, text line 464.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: of those provisions, as amended substantially by the Reform Act in respects not pertinent
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0105: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 10, text line 490.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: gument obsolete. The Reform Act and Reorganization Plan No. 2 of
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0106: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 10, text line 495.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Reform Act somehow had the effect of silently abrogating the Board's
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0107: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 10, text line 522.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: ^OPM does not claim that either the Reorganization Plan or the Reform Act assigned
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0108: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 10, text line 525.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: by the Board under the Reform Act. OPM's argument thus amounts to a contention that
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0109: Veterans Preference Act of 1944
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 10, text line 527.
+
+Authority type: statute; as written: Veterans Preference Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: amendment to the Veterans Preference Act. Nothing in the Reform Act or Reorganization
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0110: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 10, text line 527.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: amendment to the Veterans Preference Act. Nothing in the Reform Act or Reorganization
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0111: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 11, text line 536.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: us that this construction is consistent with the Reform Act's purposes
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0112: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 11, text line 563.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Regional Rait Reorganization Act Cases, 419 U.S. 102,133-34 (1974). If the Reform Act
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0113: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 11, text line 568.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: intention, there is clear indication that Congress intended in the combined Reform Act
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0114: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 14, text line 699.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: discretionary judgment entrusted to the Board by the Reform Act.
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0115: Civil Service Reform Act of 1978
+
+Document: douglas_v_veterans_admin.pdf; location: PDF page 14, text line 726.
+
+Authority type: statute; as written: Reform Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: but was modified by the Reform Act, "Regardless of whether the Commission's adoption
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0116: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 2, text line 66.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: the arbitral award was “contrary to law because it violates ․ the Back Pay Act.” The PERB further
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0117: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 3, text line 86.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: interpretation of the CMPA unless the interpretation is “unreasonable in light of the prevailing law or
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0118: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 3, text line 92.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: The PERB itself has limited authority to overturn an arbitral award.   Pursuant to the CMPA, the
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0119: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 3, text line 110.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: CMPA (specifically, D.C.Code § 1-605.02(6)) is where, in arriving at the award, the arbitrator looks
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0120: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 4, text line 126.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: CMPA language unless the interpretation is plainly erroneous, a conclusion we are unable to reach
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0121: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 4, text line 131.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Substantial evidence supports the PERB's finding that the arbitrator “relied on the Back Pay Act” as
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0122: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 4, text line 134.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: was separated [from his employment], in accordance with the Back Pay Act ” (emphasis added).
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0123: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 4, text line 136.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Arbitrator Barrett used a term of art set forth in the Back Pay Act. See 5 U.S.C. § 5596(b)(1)
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0124: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 4, text line 138.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: The Back Pay Act permits the award of “all or any part of the pay, allowances or differentials, as
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0125: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 4, text line 146.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Back Pay Act requires an offset of interim earnings.  MPD, supra note 2, 901 A.2d at 788.
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0126: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 5, text line 155.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: FOP further contends that the CMPA authorizes PERB to reverse an arbitral award only if the award
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0127: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 5, text line 168.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: reasonable interpretation of the CMPA, we must uphold it.   Drivers, Chauffeurs, & Helpers Local
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0128: Federal Back Pay Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 6, text line 203.
+
+Authority type: statute; as written: Back Pay Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: award in this case was “completely lawful.”FOP also argues that the federal Back Pay Act, including
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0129: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 6, text line 207.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: personnel matters, depends on whether the provision at issue is saved by virtue of the CMPA
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0130: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 6, text line 209.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: under the D.C. CMPA, equal to those applicable to federal employees ‘immediately prior’ to
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0131: District of Columbia Comprehensive Merit Personnel Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 6, text line 213.
+
+Authority type: statute; as written: CMPA; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: those previously available under the federal system, even after the CMPA went into effect.”  Id.
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0132: D.C. Uniform Arbitration Act
+
+Document: fop_doc_labor_comm_v_perb_2009.pdf; location: PDF page 7, text line 237.
+
+Authority type: statute; as written: Uniform Arbitration Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: 9.   Finally, FOP urges us to apply our Uniform Arbitration Act case law holding that we “will not
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0133: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 92.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: compliance with Title VII. Although petitioner and the EEOC agreed to nullify the collective bargaining
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0134: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 151.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Commission and the Company. It held that, under Title VII, the seniority provisions could be modiﬁed to
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0135: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 258.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: contempt citation and Title VII liability. The dilemma, however, was of the Company's own making. The
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0136: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 279.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: faced with possible Title VII liability if it departed
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0137: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 295.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Voluntary compliance with Title VII also is an important public policy. Congress intended cooperation and
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0138: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 298.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: to be the preferred means of enforcing Title VII. Alexander v. Gardner-Denver Co., 415 U. S. 36, 415 U. S. 44
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0139: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 299.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: (1974). Critical to the compliance scheme is the Commission's role in settling Title VII disputes through
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0140: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 300.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: conference, conciliation, and persuasion before a Title VII plaintiff or the Commission may bring suit. See §
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0141: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 315.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: in Title VII conciliation efforts in order to protect its contractual position, neither the employer nor the
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0142: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 322.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: faces Title VII liability, the union may enter the conciliation process with the hope of obtaining concessions
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0143: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 323.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: in exchange for helping the employer avoid a Title VII suit. If, however, both the union and the employer are
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0144: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 325.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: the Commission's demands. On this view, the conciliation process of Title VII and the collective bargaining
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0145: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 391.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: 778-779 (1976), to provide relief to discriminatees under Title VII or other law. See Dennison v. City of Los
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0146: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 409.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: alleging that the Company had violated Title VII, the Court of Appeals treated the case as a § 301 action. See
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0147: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 411.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: (CA7) (judicial review of Title VII settlement agreement is not review of judgment of Title VII liability after
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0148: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 411.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: (CA7) (judicial review of Title VII settlement agreement is not review of judgment of Title VII liability after
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0149: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 413.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: was not brought under Title VII, 565 F.2d at 917, and refused to remand to permit individual women
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0150: Title VII of the Civil Rights Act of 1964
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, text line 415.
+
+Authority type: statute; as written: Title VII; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: 917. Thus, the courts had no occasion to order injunctive relief under Title VII. The decision of the District
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0151: Federal Arbitration Act
+
+Document: paperworkers_v_misco.pdf; location: PDF page 1, text line 260.
+
+Authority type: statute; as written: Arbitration Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: Under the Arbitration Act, the federal courts are empowered to set aside arbitration awards on such
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0152: Federal Arbitration Act
+
+Document: paperworkers_v_misco.pdf; location: PDF page 1, text line 408.
+
+Authority type: statute; as written: Arbitration Act; pincite: .
+
+Cited for: Named statutory short-form reference in judicial opinion; census of the written mention.
+
+Quotes: []
+
+Context: The Arbitration Act does not apply to "contracts of employment of . . . workers engaged in foreign or
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+
+Excerpt read: 
+
+
+### Second check: not required
+
+
+## pd-sc-0153: 6-B DCMR historical Chapter 16 cross-reference
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 851.
+
+Authority type: regulation; as written: Section 1600.3(a); pincite: .
+
+Cited for: Historical addendum statement about cross-reference correction.
+
+Quotes: []
+
+Context: Section 1600.3(a)   Errata correction: due to updates made pursuant to 66 DCR 005866, § 1600.3(a) cross-reference to § 1625(c) updated to 1625(b).
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.
+
+Excerpt read: 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0154: 6-B DCMR historical Chapter 16 cross-reference
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 851.
+
+Authority type: regulation; as written: § 1600.3(a); pincite: .
+
+Cited for: Historical addendum statement about cross-reference correction.
+
+Quotes: []
+
+Context: Section 1600.3(a)   Errata correction: due to updates made pursuant to 66 DCR 005866, § 1600.3(a) cross-reference to § 1625(c) updated to 1625(b).
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.
+
+Excerpt read: 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0155: 6-B DCMR historical Chapter 16 cross-reference
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 851.
+
+Authority type: regulation; as written: § 1625(c); pincite: .
+
+Cited for: Historical addendum statement about cross-reference correction.
+
+Quotes: []
+
+Context: Section 1600.3(a)   Errata correction: due to updates made pursuant to 66 DCR 005866, § 1600.3(a) cross-reference to § 1625(c) updated to 1625(b).
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.
+
+Excerpt read: 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0156: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 1, § 1600.3(a), text line 25.
+
+Authority type: regulation; as written: §§ 1625.1 (a) and (b); pincite: .
+
+Cited for: Current compound cross-reference includes both subsections; earlier regex row captured only (a).
+
+Quotes: []
+
+Context: Current compound cross-reference includes both subsections; earlier regex row captured only (a).
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Current compound cross-reference includes both subsections; earlier regex row captured only (a). The current official text was read for the target subsections.
+
+Excerpt read: §1625.1(a): for enforced leave under ten days and corrective actions, employee may elect grievance; §1625.1(b): for enforced leave of ten days or more and adverse actions, employee may elect an OEA appeal.
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0157: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 851.
+
+Authority type: regulation; as written: 1625(b); pincite: .
+
+Cited for: Addendum states historical correction from §1625(c) to 1625(b).
+
+Quotes: []
+
+Context: Addendum states historical correction from §1625(c) to 1625(b).
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Addendum states historical correction from §1625(c) to 1625(b). Historical source text not read.
+
+Excerpt read: 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0158: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 854.
+
+Authority type: regulation; as written: 1625.1 (a) and (b); pincite: .
+
+Cited for: Addendum states later historical renumbering; superseded text not independently read.
+
+Quotes: []
+
+Context: Addendum states later historical renumbering; superseded text not independently read.
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Addendum states later historical renumbering; superseded text not independently read. Historical source text not read.
+
+Excerpt read: 
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-sc-0159: Federal Arbitration Act
+
+Document: paperworkers_v_misco.pdf; location: PDF page 1, text line 409.
+
+Authority type: statute; as written: the Act; pincite: .
+
+Cited for: Short form for the Arbitration Act in the preceding sentence.
+
+Quotes: []
+
+Context: The Supreme Court opinion explains that federal courts have often looked to the Act for guidance in labor arbitration cases.
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Context resolves “the Act” to the Federal Arbitration Act, but historical statutory text and its precise scope were not independently reread for this short form.
+
+Excerpt read: 
+
 
 ### Second check: not required
