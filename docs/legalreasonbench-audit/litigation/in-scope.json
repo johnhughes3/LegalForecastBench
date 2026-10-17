@@ -1,0 +1,166 @@
+{
+  "dataset": "micro1-inc/LegalReasonBench",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "classification_status": "Final AI classification from all 15 prompts; no human verification",
+  "assignments_total": 15,
+  "criteria_total": 221,
+  "in_scope_assignments": 11,
+  "in_scope_criteria": 179,
+  "attachment_paths_total": 47,
+  "in_scope_attachment_paths": 40,
+  "tasks": [
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "matter_id": "lrb-certiorari-quasi-judicial-land-use",
+      "assignment": 1,
+      "title": "Legal Memorandum to Board of County Commissioners",
+      "criteria_total": 25,
+      "penalty_count": 5,
+      "in_scope": true,
+      "scope_reason": "Litigation-posture memorandum assessing an order granting certiorari, available review and recommended action."
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "matter_id": "lrb-certiorari-quasi-judicial-land-use",
+      "assignment": 2,
+      "title": "Brief Requesting Second-Tier Review",
+      "criteria_total": 12,
+      "penalty_count": 0,
+      "in_scope": true,
+      "scope_reason": "Ready-to-file brief seeking second-tier judicial review of a certiorari order."
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "matter_id": "lrb-dcca-challenge-police-discipline",
+      "assignment": 1,
+      "title": "Record Mapping: Final Notice Against Award",
+      "criteria_total": 9,
+      "penalty_count": 2,
+      "in_scope": true,
+      "scope_reason": "Record analysis of an arbitration award and penalty determination for a proposed appellate challenge."
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "matter_id": "lrb-dcca-challenge-police-discipline",
+      "assignment": 2,
+      "title": "Scope of Review",
+      "criteria_total": 12,
+      "penalty_count": 3,
+      "in_scope": true,
+      "scope_reason": "Scope-of-review and preservation section of a litigation advice memorandum."
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "matter_id": "lrb-dcca-challenge-police-discipline",
+      "assignment": 3,
+      "title": "Statutory Exceptions",
+      "criteria_total": 16,
+      "penalty_count": 4,
+      "in_scope": true,
+      "scope_reason": "Analysis of contrary-to-law and public-policy grounds for judicial review of an arbitration award."
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "matter_id": "lrb-dcca-challenge-police-discipline",
+      "assignment": 4,
+      "title": "Supplemental Comparator Disclosure",
+      "criteria_total": 9,
+      "penalty_count": 1,
+      "in_scope": true,
+      "scope_reason": "Litigation analysis of supplemental comparator evidence and its effect on a proposed petition for review."
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "matter_id": "lrb-dcca-challenge-police-discipline",
+      "assignment": 5,
+      "title": "Memo to the Client",
+      "criteria_total": 8,
+      "penalty_count": 1,
+      "in_scope": true,
+      "scope_reason": "Client memorandum recommending whether to petition for judicial review and evaluating litigation arguments."
+    },
+    {
+      "task": "lrb-interim-cmo-appointment-governance-assignment-1",
+      "matter_id": "lrb-interim-cmo-appointment-governance",
+      "assignment": 1,
+      "title": "",
+      "criteria_total": 10,
+      "penalty_count": 1,
+      "in_scope": false,
+      "scope_reason": "Internal governance chronology and appointment-validity advice; no adversarial proceeding."
+    },
+    {
+      "task": "lrb-interim-cmo-appointment-governance-assignment-2",
+      "matter_id": "lrb-interim-cmo-appointment-governance",
+      "assignment": 2,
+      "title": "",
+      "criteria_total": 15,
+      "penalty_count": 3,
+      "in_scope": false,
+      "scope_reason": "Regulatory notification, filing deadlines and compliance advice; no adversarial proceeding."
+    },
+    {
+      "task": "lrb-interim-cmo-appointment-governance-assignment-3",
+      "matter_id": "lrb-interim-cmo-appointment-governance",
+      "assignment": 3,
+      "title": "",
+      "criteria_total": 11,
+      "penalty_count": 2,
+      "in_scope": false,
+      "scope_reason": "Corrective corporate governance instruments and adoption mechanics; no adversarial proceeding."
+    },
+    {
+      "task": "lrb-interim-cmo-appointment-governance-assignment-4",
+      "matter_id": "lrb-interim-cmo-appointment-governance",
+      "assignment": 4,
+      "title": "",
+      "criteria_total": 6,
+      "penalty_count": 2,
+      "in_scope": false,
+      "scope_reason": "Regulatory exposure and remediation advice concerning an appointment; no adversarial proceeding."
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "matter_id": "lrb-vicar-trial-jury-instructions",
+      "assignment": 1,
+      "title": "Appeal brief re: justification instruction",
+      "criteria_total": 25,
+      "penalty_count": 7,
+      "in_scope": true,
+      "scope_reason": "Responsive appellate brief section defending refusal of a criminal jury instruction."
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "matter_id": "lrb-vicar-trial-jury-instructions",
+      "assignment": 2,
+      "title": "Supplementing brief with new case",
+      "criteria_total": 10,
+      "penalty_count": 0,
+      "in_scope": true,
+      "scope_reason": "Supplement to the criminal appellate brief addressing a newly supplied case."
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "matter_id": "lrb-forum-non-conveniens-response",
+      "assignment": 1,
+      "title": "",
+      "criteria_total": 29,
+      "penalty_count": 2,
+      "in_scope": true,
+      "scope_reason": "Analysis of an adversary's forum non conveniens motion and targets for opposition."
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "matter_id": "lrb-forum-non-conveniens-response",
+      "assignment": 2,
+      "title": "",
+      "criteria_total": 24,
+      "penalty_count": 3,
+      "in_scope": true,
+      "scope_reason": "Response brief opposing a motion to transfer, with supporting affidavits."
+    }
+  ],
+  "distinct_attachment_contents_total": 40,
+  "distinct_attachment_contents_in_scope": 33,
+  "attachment_count_note": "47 upstream attachment paths contain 40 distinct byte contents. Six venue attachments and one VICAR facts attachment repeat in later assignment folders. Litigation scope: 40 paths, 33 distinct contents. Equality was checked directly on downloaded bytes, not inferred from names."
+}

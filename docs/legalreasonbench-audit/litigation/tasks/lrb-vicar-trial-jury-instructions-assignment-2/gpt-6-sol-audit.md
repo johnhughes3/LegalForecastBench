@@ -1,0 +1,38 @@
+# GPT-6 Sol (blind)
+
+> AI-generated audit judgments; no human verification or benchmark score correction is established. Authority verification labels are the auditors' assertions; citation-check results are separate.
+
+Model: GPT-6 Sol (gpt-6-sol); reasoning effort: `high`.
+
+Coverage: Read all 10 criteria and both same-matter prompts, the supplied Facts extract, pertinent portions of Kuhse, and earlier accumulated attachments for context. Checked the Kuhse opinion listing at the Iowa Judicial Branch and the official Eighth Circuit opinion for law; the latter was not treated as a permitted source for the assigned supplement. The prior state plea's text extraction had no substantive text, so I visually read the six-page scanned PDF; it was not a permitted new source for assignment 2. No solver call was made.
+
+## G1: The supplied facts say Nelson opened fire first
+
+Status: **problematic**; category: `source_conflict`; criteria: criterion_4.
+
+The assignment is limited to the uploaded Facts and Kuhse documents. Facts.pdf expressly says Nelson opened fire as the SUV approached, so a careful litigator using that source would not state that the supplied record lacks evidence about who fired first. The actual appellate opinion describes a different, fuller trial record as unclear on sequence; it does not cure the mismatch in this source-restricted assignment. The criterion rewards contradiction of the provided facts.
+
+Evidence:
+
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/input.json:criterion_4`: “Mentions that there was a lack of evidence proving who fired first on May 10, 2020.”
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/attachments/assignment-2/Facts.pdf.md:PDF p.7`: “He opened fire as the Trailbla zer”
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/instruction.md:assignment 2`: “Be sure to limit your review for the Assignment to the attached documents.”
+
+Authorities (verification is asserted by the auditor):
+
+- [United States v. Mallory, Nos. 22-2777, 22-2784, slip op. at 2 (8th Cir. June 12, 2024)](https://ecf.ca8.uscourts.gov/opndir/24/06/222777P.pdf); auditor verification: True. The real appeal says the fuller trial record was unclear about who shot first; that distinct record is not an authorized source for this assignment.
+
+## G2: The supplement is graded as a repeat of the earlier fact section
+
+Status: **problematic**; category: `unrequested_requirement`; criteria: criterion_3, criterion_5, criterion_6, criterion_7, criterion_8, criterion_9.
+
+Sequential dependency: the supervisor asks only to supplement an existing brief with relevant Kuhse analysis. A careful response can add Kuhse's initial production burden and its application without restating every factual point from the earlier submission. These criteria require a repeated evidence inventory and the same categorical inference from assignment 1. Criterion_3 also compresses the source's shots at the SUV and injured passenger into 'only' Nelson also firing, so an accurate account may omit that wording. The grading effect is to fail a responsive, focused supplement for not redoing the earlier answer.
+
+Evidence:
+
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/instruction.md:assignment 2`: “Please supplement your brief with relevant legal analysis of State v. Kuhse.”
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/input.json:criterion_3`: “Mentions that the only evidence of self-defense is that Nelson also fired a gun.”
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/input.json:criterion_9`: “States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.”
+- `docs/legalreasonbench-audit/litigation/tasks/lrb-vicar-trial-jury-instructions-assignment-2/attachments/assignment-2/Facts.pdf.md:PDF p.8`: “During the shootout Shafer was shot in the head.”
+
+Authorities (verification is asserted by the auditor):

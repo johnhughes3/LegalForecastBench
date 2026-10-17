@@ -1,0 +1,42 @@
+# Claude Opus 5.5 (blind)
+
+> AI-generated audit judgments; no human verification or benchmark score correction is established. Authority verification labels are the auditors' assertions; citation-check results are separate.
+
+Model: Claude Opus 5.5 (claude-opus-5-5); reasoning effort: `high`.
+
+Coverage: Read input.json in full: the assignment-1 prompt and all 29 criteria (27 required, 2 penalties; 128 positive points; IDs preserved: no criterion_14, and criterion_30 exists), with sources and justifications. Read the pinned upstream instruction.md (shared role prompt; deliverable is a memorandum, not a brief). Read the pinned judge files: penalty criteria are wrapped as 'Answer Pass only if the response DOES commit this failure', and each judge sees only the criterion text, not its source or justification. Read in full: Defendants Motion to Transfer (motion and both affidavits), Davis Complaint (all counts and the 2-622 report), Bradbury, and Guerine. Read Langenhorst pp. 7-13 of the extraction (the majority opinion's analysis), targeted searches of the rest, and the p. 6 'exceptional circumstances' passage via CourtListener; the dissent was not read beyond its opening. Read the 2023 Annual Report Statistical Summary in part: pp. 19-22 (caseload and clearance rates), p. 163 (time lapse; Cook did not report), and targeted searches; the remaining ~200 pages were not read. Verified on CourtListener: Bradbury (Cook interest because the decedent died there), Langenhorst (no affidavits of inconvenience; 'exceptional circumstances'), and Guerine (court congestion 'relatively insignificant'). Criteria 1-9, 12-13, 15-21, 23-24 and 26-30 were checked against the record and law with no defect found. Considered and not flagged: criteria 10 and 11 require recommending a residence affidavit and an inconvenience affidavit from Sara Davis; these are permissible tactics a lawyer would phrase as 'if accurate', though the record says only that she lives in Kane County. Record inconsistencies that do not change what any criterion requires: the email says the family had Baby Davis transferred to 'Lurie's Children's Hospital', while the complaint (paragraphs 27, 29) and motion say 'Cook County Hospital' on August 28, 2024; the email says he 'almost passed away' on September 16, 2024; the motion cites a custodian affidavit paragraph 6 that does not exist; and the motion misdescribes Guerine's holding on scattered witnesses (an adversary-filing weakness, not a dataset defect). No solver output was examined.
+
+## O1: Penalizes mentioning the 60.5% figure that the motion relies on and the memo must address
+
+Status: **problematic**; category: `internal_inconsistency`; criteria: criterion_25.
+
+Penalty misfire: the task requires a review of 'each argument' in the motion, saying what is strong and weak. The motion's congestion argument rests 'principally' on Cook County's 60.5% all-case clearance rate (report p. 21). The rubric's own justification states the right rebuttal: 60.5% covers all case types, and the relevant civil figures are 97.9% for Cook and 96.3% for the 18th Circuit (p. 22; rewarded by criteria 26 and 27). That rebuttal cannot be written without saying what the defendants' figure is. The judge sees only 'Failure criterion: Mentions in Assignment #1 that Cook County’s overall clearance rate is 60.5%.', so a memo that quotes the figure in order to rebut it literally commits the penalized act. Grading effect: -30 against 128 positive points, applied to the strongest response to the defendants' main congestion argument. A memo that adopts 60.5% as the right comparator deserves a penalty; one that identifies and rebuts it does not.
+
+Evidence:
+
+- `input.json criterion_25`: “Mentions in Assignment #1 that Cook County’s overall clearance rate is 60.5%.”
+- `input.json prompt`: “for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.”
+- `attachments/assignment-1/Defendants Motion to Transfer.pdf.md, PDF page 6`: “Cook County's 2023 clearance rate — the percentage of newly filed and reinstated cases the circuit closed during the year — was 60.5%, compared to 99.0% in the 18th Judicial Circuit (DuPage County).”
+- `attachments/assignment-1/Defendants Motion to Transfer.pdf.md, PDF page 6`: “Defendants accordingly rely principally on the clearance-rate comparison above”
+- `attachments/assignment-1/2023 Annual Report Statistical Summary.pdf.md, PDF page 22`: “COOK  COUNTY . . . . 97.9%”
+- `https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/raw_correctness/criterion_25.toml`: “Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it.”
+
+Authorities (verification is asserted by the auditor):
+
+- [First American Bank v. Guerine, 198 Ill. 2d 511 (2002)](https://www.courtlistener.com/opinion/3134965/first-national-bank-v-guerine/); auditor verification: True. Court congestion is a relatively insignificant factor, especially where the record does not show the other forum would resolve the case more quickly.
+
+## O2: Penalty for 'mentioning' Cook's lack of interest can catch an accurate summary of the motion's argument
+
+Status: **arguable**; category: `ambiguous_or_unjudgeable`; criteria: criterion_22.
+
+Penalty misfire: the motion argues (Part V.A) that Cook County's only connection is that Baby Davis later received treatment and died there, and that DuPage has the real local interest. The assignment asks what is strong about each argument. A careful memo may report that argument and concede it has some force (the alleged negligence occurred entirely in DuPage, and here the family, not the defendants, arranged the transfer, unlike Bradbury) before answering it with Bradbury's holding that the place of death gives Cook an interest (criteria 21 and 23). The penalty text is 'Mentions ... that Cook County lacks interest', at -30 against 128 positive points. The judge's 'commit this failure' wrapper may lead it to penalize only an endorsement, so this is arguable rather than problematic, but a summary-then-rebuttal memo is at real risk.
+
+Evidence:
+
+- `input.json criterion_22`: “Mentions in Assignment #1 that Cook County lacks interest in adjudicating a controversy over care rendered by its DuPage based providers.”
+- `attachments/assignment-1/Defendants Motion to Transfer.pdf.md, PDF page 5`: “Cook County's only connection to this case is that Baby Davis was later transferred to, received treatment at, and died in, a Cook County hospital”
+- `attachments/assignment-1/Bradbury v. St. Mary's Hospital.pdf.md, PDF page 4`: “Cook County has an interest because the decedent died here.”
+
+Authorities (verification is asserted by the auditor):
+
+- [Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555, 652 N.E.2d 1228 (1st Dist. 1995)](https://www.courtlistener.com/opinion/2065674/bradbury-v-st-marys-hospital-of-kankakee/); auditor verification: True. Both Kankakee County (site of the alleged negligence) and Cook County (where the decedent died) had an interest in the litigation.

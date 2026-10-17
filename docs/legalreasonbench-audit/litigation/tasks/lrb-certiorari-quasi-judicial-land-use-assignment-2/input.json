@@ -1,0 +1,164 @@
+{
+  "matter_id": "lrb-certiorari-quasi-judicial-land-use",
+  "matter_title": "Petition for Writ of Certiorari for Quasi-judicial Proceeding",
+  "practice_area": "Real estate and land use",
+  "research_universe": "open-universe",
+  "assignment": 2,
+  "num_assignments": 2,
+  "assignment_title": "Brief Requesting Second-Tier Review",
+  "prompt": "2nd ASSIGNMENT\nTO: Denise Swarek, Assistant County Attorney\nFROM: Thomas Rowe, County Attorney\nRE: PETER SPAHN, ET. AL., V. LEE COUNTY; Case No. 24-CA-1479\nDATE: November 10, 2025\n________________________________________\nThe Board has decided to appeal the Order Granting Petition for Certiorari. Draft a ready-to-file brief requesting second-tier review. All legal analysis should be based on the versions of statutes, regulations, and ordinances in effect as of January 1, 2025. Use full Bluebook citation format.",
+  "attachments": [
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf",
+      "extracted_path": "attachments/assignment-1/1774361815-lcu-project.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx",
+      "extracted_path": "attachments/assignment-1/1774361815-orderpdf.docx.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx",
+      "extracted_path": "attachments/assignment-1/1774361815-petition.docx.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx",
+      "extracted_path": "attachments/assignment-1/1774361815-resolution.docx.md"
+    }
+  ],
+  "rubric_count": 12,
+  "penalty_count": 0,
+  "positive_points": 150.0,
+  "rubric": [
+    {
+      "criterion_id": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+      "source": "Florida Rule of Appellate Procedure 9.030(b)(2)(B); https://rules.floridaappellate.com/rule-9-030/#:~:text=b%29-,Jurisdiction,capacity\n\"Jurisdiction of District Courts of Appeal.\n\"b) Jurisdiction of District Courts of Appeal.\n. . .\n(2) Certiorari Jurisdiction.8 The certiorari jurisdiction of district courts of appeal may be sought to review:\n(A) nonfinal orders of lower tribunals other than as prescribed by rule 9.130; or\n(B) final orders of circuit courts acting in their review capacity.\"\nSee also Map of Florida’s Court Jurisdictions, available at https://flcourts-media.flcourts.gov/content/download/426177/file/ar-17-18-map-of-floridas-court-jurisdictions.pdf (last accessed Mar. 25, 2026)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+      "points": 20.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm’rs, 794 So.2d 1270 (Fla. 2001).",
+      "source": "Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm’rs, 794 So.2d 1270 (Fla. 2001), is the preeminent FL Supreme court case on the limited review of quasi-judicial. \nhttps://caselaw.findlaw.com/court/fl-supreme-court/1489002.html#:~:text=Notably,ended\n\"Notably, when applying the third prong, the court should review the record to determine simply whether the Commission's decision is supported by competent substantial evidence.\n\nWe reiterate that the “competent substantial evidence” standard cannot be used by a reviewing court as a mechanism for exerting covert control over the policy determinations and factual findings of the local agency.   Rather, this standard requires the reviewing court to defer to the agency's superior technical expertise and special vantage point in such matters.   The issue before the court is not whether the agency's decision is the “best” decision or the “right” decision or even a “wise” decision, for these are technical and policy-based determinations properly within the purview of the agency.   The circuit court has no training or experience-and is inherently unsuited-to sit as a roving “super agency” with plenary oversight in such matters.\n\nThe sole issue before the court on first-tier certiorari review is whether the agency's decision is lawful.   The court's task vis-a-vis the third prong of Vaillant is simple:  The court must review the record to assess the evidentiary support for the agency's decision.   Evidence contrary to the agency's decision is outside the scope of the inquiry at this point, for the reviewing court above all cannot reweigh the “pros and cons” of conflicting evidence.   While contrary evidence may be relevant to the wisdom of the decision, it is irrelevant to the lawfulness of the decision.   As long as the record contains competent substantial evidence to support the agency's decision, the decision is presumed lawful and the court's job is ended.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+      "source": "City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D\n\"Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony.   These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.” The primary argument on appeal is that the court failed to apply the standard of review under Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm’rs, 794 So.2d 1270 (Fla. 2001), by ignoring the competent substantial evidence on the record that supported the Board's approval. Identifying the competent substantial evidence on the record supports this argument."
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+      "source": "City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D\n\"Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony.   These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.” The primary argument on appeal is that the court failed to apply the standard of review under Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm’rs, 794 So.2d 1270 (Fla. 2001), by ignoring the competent substantial evidence on the record that supported the Board's approval. Identifying the competent substantial evidence on the record supports this argument."
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+      "source": "City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D\n\"Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony.   These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.” The primary argument on appeal is that the court failed to apply the standard of review under Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm’rs, 794 So.2d 1270 (Fla. 2001), by ignoring the competent substantial evidence on the record that supported the Board's approval. Identifying the competent substantial evidence on the record supports this argument."
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+      "source": "Martin County v. Yusem, 690 So. 2d 1288, 1295 (Fla. 1997), is the controlling FL supreme court case on the limited judicial review of local government legislative functions. https://caselaw.findlaw.com/court/fl-supreme-court/1459273.html#:~:text=-,The%20fairly,1996%29%2E\n \"The fairly debatable standard of review is a highly deferential standard requiring approval of a planning action if reasonable persons could differ as to its propriety.\"\nSee also Modlin v. City of Miami Beach, 201 So.2d 70 (Fla. 1967); https://law.justia.com/cases/florida/supreme-court/1967/34865-0.html#:~:text=liability%2E-,The,persons \n\"The distinction between legislative action, on the one hand, and executive and judicial action, on the other, is not difficult to define. It is sufficient for present purposes to say that the former is typically prospective and nondiscriminatory, whereas the latter operate retroactively and discriminatorily. In other words, legislative action prescribes a general rule for future operation, whereas judicial and executive action is typically concerned with applying the general rule to specific situations or persons.\"\nThis is a landmark FL supreme court case defining the separate functions of government.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+      "points": 20.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code § 2-191 (2025).",
+      "source": "Lee County Fla. Land Development Code § 2-191 (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH2AD_ARTVUNCO_S2-191PRLIUNCO#:~:text=This%20section%20does%20not%20prohibit%20the%20informational%20discussion%20of%20pending%20or%20proposed%20cases%20or%20appeals%20by%20and%20between%20a%20County%20Commissioner%20and%20any%20employee%20of%20the%20Board%20of%20County%20Commissioners%2E\n\"Unauthorized communications with a County Commissioner prohibited. . . . This section does not prohibit the informational discussion of pending or proposed cases or appeals by and between a County Commissioner and any employee of the Board of County Commissioners. \"\nSee also Fla. Stat § 286.0115(3) (2025); https://www.leg.state.fl.us/Statutes/index.cfm?App_mode=Display_Statute&URL=0200-0299/0286/Sections/0286.0115.html#:~:text=%283%29%E2%80%83This%20section%20does%20not%20restrict%20the%20authority%20of%20any%20board%20or%20commission%20to%20establish%20rules%20or%20procedures%20governing%20public%20hearings%20or%20contacts%20with%20local%20public%20officials\n\"286.0115 Access to local public officials; quasi-judicial proceedings on local government land use matters.— (3) This section does not restrict the authority of any board or commission to establish rules or procedures governing public hearings or contacts with local public officials.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+      "source": "Martin County v. Yusem, 690 So. 2d 1288, 1295 (Fla. 1997), is the controlling FL supreme court case on the limited judicial review of local government legislative functions. https://caselaw.findlaw.com/court/fl-supreme-court/1459273.html#:~:text=-,The%20fairly,1996%29%2E\n \"The fairly debatable standard of review is a highly deferential standard requiring approval of a planning action if reasonable persons could differ as to its propriety.\"\nSee also Modlin v. City of Miami Beach, 201 So.2d 70 (Fla. 1967); https://law.justia.com/cases/florida/supreme-court/1967/34865-0.html#:~:text=liability%2E-,The,persons \n\"The distinction between legislative action, on the one hand, and executive and judicial action, on the other, is not difficult to define. It is sufficient for present purposes to say that the former is typically prospective and nondiscriminatory, whereas the latter operate retroactively and discriminatorily. In other words, legislative action prescribes a general rule for future operation, whereas judicial and executive action is typically concerned with applying the general rule to specific situations or persons.\"\nThis is a landmark FL supreme court case defining the separate functions of government.\nSee also Williams v. Public Util. Protective League, 178 So. 286 (Fla. 1938); https://hallapproved.com/fl/cases/supreme/1938/3402391/#:~:text=As%20an,inadequate\n\"As an abstract proposition of law, the power of the City to compromise, settle, and compose litigation of any kind to which it is a party is an incident to and implied from its power to sue and be sued. Like the power to legislate and negotiate it will not be restrained from exercising such power by a court of equity on a mere showing of belief, fear, or apprehension that some wrong or injury will be done, or when the injury is conjectural or speculative. Relief under such circumstances will be granted only in cases where the pleadings and the proof show clearly that the resulting injury will be irreparable and the remedy at law inadequate.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+      "points": 20.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code § 34-1102 (2025).",
+      "source": "The circuit court found that the County had failed to comply with Fed. Aviation Admin., Advisory Circular 150/5190-7 Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023) requirements for airport compatibility, concluding that the most current and restrictive regulations should have been fully considered. This was legal error. Lee County, Fla. Land Development Code § 34-1102 (2025) incorporates only Fed. Aviation Admin.,  Advisory Circular No. 150/5300-13B, Airport Design (2022) and 150/5200-30D Airport Field Condition Assessments and Winter Operations Safety (July 29, 2016), not Fed. Aviation Admin., Advisory CircularNo. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), which the order treats as controlling. Lee County, Fla. Land Development Code § 34-1102 (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTVIDIRE_DIV12AICODI_S34-1102PUIN\n\"The purpose of this division is to establish protections around SWFIA and Page Field in accordance with the provisions of F.S. Chs. 330 and 333, as amended, as well as Federal regulations, as amended, including 14 CFR Parts 77, 150 and 151 and FAA Advisory Circulars 150/5300-13A, as amended, renumbered or replaced, and 150/5200-33B, as amended, renumbered or replaced, which address height obstructions, airport hazards, wildlife attractants, noise, runway protection zones, light emissions, reflectivity and power interference, aircraft overflights, and the public investment in air transportation facilities.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+      "source": "Fed. Aviation Admin., Advisory Circular No. 150/5190-4B, Airport Land Use Compatibility Planning (Sept. 16, 2022) at page 2 confirms that “This AC does not constitute a regulation, and is not legally binding in its own right… Conformity with this AC is voluntary, and nonconformity will not affect rights and obligations under existing statutes and regulations,” https://www.faa.gov/documentLibrary/media/Advisory_Circular/150_5190_4b_Land_Use_Compatibility.pdf",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court erred by purporting to reverse the Board’s rezoning decision.",
+      "source": "Florida law is unequivocal that when a circuit court finds error in a local government’s quasi-judicial land use decision, its power is limited to quashing the decision and remanding the matter “as if no order had been entered.” Broward County v. G.B.V. Int’l, Ltd., 787 So. 2d 838, 845 (Fla. 2001) (“When a circuit court grants certiorari relief, it quashes the order and leaves the matter pending before the lower tribunal as if no order had been entered.”). https://caselaw.findlaw.com/court/fl-supreme-court/1495364.html#:~:text=When,entered,-%2E\nThe Board's decision is not reversed resulting in a denial, it is quashed resulting in a return to the status quo prior to the decision.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    },
+    {
+      "criterion_id": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+      "points": 30.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, § 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+      "source": "Fla. Const. art. III, § 3; https://www.flsenate.gov/laws/constitution#A2S03:~:text=The,herein\n\"The powers of the state government shall be divided into legislative, executive and judicial branches. No person belonging to one branch shall exercise any powers appertaining to either of the other branches unless expressly provided herein\"\nSee also Modlin v. City of Miami Beach, 201 So.2d 70 (Fla. 1967); https://law.justia.com/cases/florida/supreme-court/1967/34865-0.html#:~:text=liability%2E-,The,persons \n\"The distinction between legislative action, on the one hand, and executive and judicial action, on the other, is not difficult to define. It is sufficient for present purposes to say that the former is typically prospective and nondiscriminatory, whereas the latter operate retroactively and discriminatorily. In other words, legislative action prescribes a general rule for future operation, whereas judicial and executive action is typically concerned with applying the general rule to specific situations or persons.\"\nThis is a landmark FL supreme court case defining the separate functions of government.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Draft a ready-to-file brief requesting second-tier review.”"
+    }
+  ],
+  "instruction_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/instruction.md",
+  "rubric_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json",
+  "source_task_path": "tasks/lrb-certiorari-quasi-judicial-land-use",
+  "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "instruction_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/instruction.md",
+  "rubric_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json",
+  "redactions": "Email addresses are replaced with [email redacted] in quoted upstream text. No OCR was performed; PDF pages with no extracted text are explicitly marked. DOCX conversion shows tracked changes; original pagination is not retained.",
+  "prior_prompts": [
+    {
+      "assignment": 1,
+      "prompt": "1st ASSIGNMENT\nTO: Denise Swarek, Assistant County Attorney\nFROM: Thomas Rowe, County Attorney\nRE: PETER SPAHN, ET. AL., V. LEE COUNTY; Case No. 24-CA-1479\nDATE: October 27, 2025\n________________________________________\nWe received the attached Order Granting Petition for Writ of Certiorari.  \nYou are initially provided with the following record as uploaded files. Limit your review to these documents and what legal research is necessary to identify applicable rules and case law relevant to these documents. Do not conduct legal research beyond that. All legal analysis should be based on the versions of statutes, regulations, and ordinances in effect as of January 1, 2025.\n•\tResolution Z-23-035 (Resolution.docx)\n•\tPetition for Writ of Certiorari (Petition.docx)\n•\tOrder Granting Petition (Orderpdf.docx)\n•\tLCU Project Detail (LCU Project.pdf)\nReview only these documents and draft a structured legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history, 2) explains the implications of the Order, 3) identifies options and available actions for Lee County, 4) recommends a legal course of action to the Board. Use full Bluebook citation format.",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md"
+    }
+  ]
+}
