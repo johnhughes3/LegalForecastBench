@@ -6,7 +6,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 7.
+Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 8.
 
 Problem rate: unavailable; coverage or checks pending.
 
@@ -14,14 +14,14 @@ Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1766 |
+| VERIFIED | 1848 |
 | VERIFIED_MINOR_DEFECT | 113 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
 | MISCHARACTERIZED | 46 |
 | MISQUOTED | 5 |
 | WRONG_CITATION_REAL_CASE | 20 |
-| UNABLE_TO_VERIFY | 339 |
+| UNABLE_TO_VERIFY | 256 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
@@ -190,5 +190,6 @@ Coverage limits:
 - No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.
 - Integration counting correction: 24 prompt/rubric references to Facts.pdf and Patton State Plea.pdf were moved to excluded_record_references. The first worker had labelled them fictional_by_design solely because they are scenario records; no finding established that these court records were fictional. They are excluded as non-authority record references, leaving 470 real-law citation occurrences and no fictional legal-authority rows in this matter.
 - Second-pass census supplement adds 139 omitted references and separately records 33 verification-coverage downgrades. Two new alleged problems are promoted to first-stage findings with original judgments retained; fresh independent checks are pending. Initial exclusions of quoted and editorial-note citations are superseded by the supplement.
+- A supplemental GPT-6 Sol source pass attempted 89 unverified occurrences: 82 verified, one quotation proposal awaiting independent review, six still unable to verify. Prior coverage downgrades are preserved as history and superseded by the actual source reads.
 
 [Full citation evidence](results/lrb-vicar-trial-jury-instructions.md)
