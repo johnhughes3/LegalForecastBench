@@ -14,14 +14,14 @@ Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1415 |
-| VERIFIED_MINOR_DEFECT | 104 |
+| VERIFIED | 1484 |
+| VERIFIED_MINOR_DEFECT | 105 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
 | MISCHARACTERIZED | 45 |
 | MISQUOTED | 4 |
 | WRONG_CITATION_REAL_CASE | 20 |
-| UNABLE_TO_VERIFY | 706 |
+| UNABLE_TO_VERIFY | 636 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
@@ -102,6 +102,7 @@ Coverage limits:
 - Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.
 - No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.
 - The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.
+- A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.
 
 [Full citation evidence](results/lrb-dcca-challenge-police-discipline.md)
 
