@@ -129,57 +129,57 @@
       }
     },
     "reconciliation": {
-      "reports_available": 0,
+      "reports_available": 9,
       "reports_expected": 11,
-      "criteria_with_reports": 0,
-      "findings": null,
-      "flagged_criteria": null,
+      "criteria_with_reports": 142,
+      "findings": 19,
+      "flagged_criteria": 21,
       "status_counts": {
-        "problematic": null,
-        "arguable": null
+        "problematic": 5,
+        "arguable": 16
       },
       "categories": {
         "legal_error": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 1,
+          "flagged_criteria": 1,
+          "problematic": 1,
+          "arguable": 0
         },
         "unsupported_fact": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 2,
+          "flagged_criteria": 2,
+          "problematic": 0,
+          "arguable": 2
         },
         "source_conflict": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 4,
+          "flagged_criteria": 4,
+          "problematic": 2,
+          "arguable": 2
         },
         "internal_inconsistency": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 2,
+          "flagged_criteria": 2,
+          "problematic": 2,
+          "arguable": 0
         },
         "ambiguous_or_unjudgeable": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 5,
+          "flagged_criteria": 7,
+          "problematic": 0,
+          "arguable": 7
         },
         "unrequested_requirement": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 5,
+          "flagged_criteria": 5,
+          "problematic": 0,
+          "arguable": 5
         },
         "document_defect": {
-          "findings": null,
-          "flagged_criteria": null,
-          "problematic": null,
-          "arguable": null
+          "findings": 0,
+          "flagged_criteria": 0,
+          "problematic": 0,
+          "arguable": 0
         }
       }
     }
@@ -1098,7 +1098,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1107,8 +1107,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1119,7 +1119,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1128,8 +1128,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1140,7 +1140,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1149,8 +1149,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1161,7 +1161,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1170,8 +1170,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1182,7 +1182,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1191,8 +1191,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1203,7 +1203,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1212,8 +1212,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1224,7 +1224,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -1240,9 +1240,13 @@
       "claude_opus_5_5_categories": [
         "unrequested_requirement"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "unrequested_requirement"
+      ],
       "bucket": "both_arguable"
     },
     {
@@ -1253,7 +1257,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -1269,9 +1273,13 @@
       "claude_opus_5_5_categories": [
         "unsupported_fact"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "problematic",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "source_conflict"
+      ],
       "bucket": "both_problematic"
     },
     {
@@ -1282,7 +1290,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1291,8 +1299,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1303,7 +1311,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1312,8 +1320,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1324,7 +1332,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1333,8 +1341,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1345,7 +1353,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1354,8 +1362,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1366,7 +1374,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -1382,9 +1390,13 @@
       "claude_opus_5_5_categories": [
         "source_conflict"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "source_conflict"
+      ],
       "bucket": "both_arguable"
     },
     {
@@ -1395,7 +1407,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1407,9 +1419,13 @@
       "claude_opus_5_5_categories": [
         "source_conflict"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R3"
+      ],
+      "reconciliation_categories": [
+        "source_conflict"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -1420,7 +1436,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1429,8 +1445,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1441,7 +1457,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1450,8 +1466,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1462,7 +1478,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1471,8 +1487,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1483,7 +1499,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -1499,9 +1515,13 @@
       "claude_opus_5_5_categories": [
         "internal_inconsistency"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "unrequested_requirement"
+      ],
       "bucket": "split"
     },
     {
@@ -1512,7 +1532,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1521,8 +1541,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1533,7 +1553,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1542,8 +1562,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1554,7 +1574,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1563,8 +1583,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1575,7 +1595,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1584,8 +1604,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1596,7 +1616,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1605,8 +1625,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1617,7 +1637,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1626,8 +1646,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1638,7 +1658,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1647,8 +1667,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1659,7 +1679,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1668,8 +1688,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1680,7 +1700,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1689,8 +1709,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1701,7 +1721,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1710,8 +1730,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1722,7 +1742,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1731,8 +1751,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1743,7 +1763,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1752,8 +1772,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1764,7 +1784,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1773,8 +1793,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1785,7 +1805,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1794,8 +1814,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1806,7 +1826,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1815,8 +1835,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1827,7 +1847,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1836,8 +1856,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1848,7 +1868,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1857,8 +1877,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1869,7 +1889,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1878,8 +1898,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1890,7 +1910,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -1903,8 +1923,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -1915,7 +1935,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1924,8 +1944,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1936,7 +1956,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1945,8 +1965,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1957,7 +1977,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1966,8 +1986,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1978,7 +1998,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -1987,8 +2007,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -1999,7 +2019,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2011,9 +2031,13 @@
       "claude_opus_5_5_categories": [
         "ambiguous_or_unjudgeable"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -2024,7 +2048,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2033,8 +2057,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2045,7 +2069,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2054,8 +2078,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2066,7 +2090,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -2082,9 +2106,13 @@
       "claude_opus_5_5_categories": [
         "unrequested_requirement"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "unrequested_requirement"
+      ],
       "bucket": "both_arguable"
     },
     {
@@ -2095,7 +2123,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2108,8 +2136,8 @@
         "unsupported_fact"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "opus_only"
     },
     {
@@ -2120,7 +2148,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -2136,9 +2164,13 @@
       "claude_opus_5_5_categories": [
         "source_conflict"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "unrequested_requirement"
+      ],
       "bucket": "split"
     },
     {
@@ -2149,7 +2181,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -2165,9 +2197,13 @@
       "claude_opus_5_5_categories": [
         "unrequested_requirement"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "unrequested_requirement"
+      ],
       "bucket": "both_arguable"
     },
     {
@@ -2178,7 +2214,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2187,8 +2223,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2199,7 +2235,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2208,8 +2244,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2220,7 +2256,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2229,8 +2265,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2241,7 +2277,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2250,8 +2286,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2262,7 +2298,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2271,8 +2307,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2283,7 +2319,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -2300,8 +2336,8 @@
         "source_conflict"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "both_arguable"
     },
     {
@@ -2312,7 +2348,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2321,8 +2357,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2333,7 +2369,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2345,9 +2381,13 @@
       "claude_opus_5_5_categories": [
         "ambiguous_or_unjudgeable"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -2358,7 +2398,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2367,8 +2407,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2379,7 +2419,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2388,8 +2428,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2400,7 +2440,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2409,8 +2449,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2421,7 +2461,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2430,8 +2470,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2442,7 +2482,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2451,8 +2491,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2463,7 +2503,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2472,8 +2512,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2484,7 +2524,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2493,8 +2533,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2505,7 +2545,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2514,8 +2554,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2526,7 +2566,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2535,8 +2575,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2547,7 +2587,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2556,8 +2596,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2568,7 +2608,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2577,8 +2617,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2589,7 +2629,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2598,8 +2638,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2610,7 +2650,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2619,8 +2659,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2631,7 +2671,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2640,8 +2680,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2652,7 +2692,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2665,8 +2705,8 @@
         "internal_inconsistency"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "opus_only"
     },
     {
@@ -2677,7 +2717,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2690,8 +2730,8 @@
         "internal_inconsistency"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "opus_only"
     },
     {
@@ -2702,7 +2742,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2711,8 +2751,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2723,7 +2763,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2732,8 +2772,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2744,7 +2784,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -2760,9 +2800,13 @@
       "claude_opus_5_5_categories": [
         "internal_inconsistency"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "problematic",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "legal_error"
+      ],
       "bucket": "split"
     },
     {
@@ -2773,7 +2817,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -2785,9 +2829,13 @@
       "claude_opus_5_5": null,
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R4"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "sol_only"
     },
     {
@@ -2798,7 +2846,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2810,9 +2858,13 @@
       "claude_opus_5_5_categories": [
         "ambiguous_or_unjudgeable"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R3"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -2823,7 +2875,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2835,9 +2887,13 @@
       "claude_opus_5_5_categories": [
         "ambiguous_or_unjudgeable"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R3"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -2848,7 +2904,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2860,9 +2916,13 @@
       "claude_opus_5_5_categories": [
         "ambiguous_or_unjudgeable"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -2873,7 +2933,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2882,8 +2942,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2894,7 +2954,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -2903,8 +2963,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -2915,7 +2975,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -2931,9 +2991,13 @@
       "claude_opus_5_5_categories": [
         "unsupported_fact"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "unsupported_fact"
+      ],
       "bucket": "split"
     },
     {
@@ -2944,7 +3008,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -2960,9 +3024,13 @@
       "claude_opus_5_5_categories": [
         "source_conflict"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "problematic",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "source_conflict"
+      ],
       "bucket": "both_problematic"
     },
     {
@@ -2973,7 +3041,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -2990,8 +3058,8 @@
         "ambiguous_or_unjudgeable"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "split"
     },
     {
@@ -3002,7 +3070,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3019,8 +3087,8 @@
         "ambiguous_or_unjudgeable"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "split"
     },
     {
@@ -3031,7 +3099,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3048,8 +3116,8 @@
         "ambiguous_or_unjudgeable"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "split"
     },
     {
@@ -3060,7 +3128,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3077,8 +3145,8 @@
         "ambiguous_or_unjudgeable"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "split"
     },
     {
@@ -3089,7 +3157,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3102,8 +3170,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3114,7 +3182,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3123,8 +3191,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3135,7 +3203,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3144,8 +3212,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3156,7 +3224,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "arguable",
       "gpt_6_sol_findings": [
@@ -3169,8 +3237,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3181,7 +3249,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3190,8 +3258,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3202,7 +3270,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3211,8 +3279,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3223,7 +3291,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3232,8 +3300,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3244,7 +3312,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3253,8 +3321,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3265,7 +3333,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3274,8 +3342,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3286,7 +3354,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3295,8 +3363,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3307,7 +3375,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3316,8 +3384,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3328,7 +3396,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3337,8 +3405,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3349,7 +3417,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3358,8 +3426,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3370,7 +3438,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3379,8 +3447,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3391,7 +3459,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3400,8 +3468,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3412,7 +3480,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3421,8 +3489,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3433,7 +3501,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3442,8 +3510,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3454,7 +3522,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3463,8 +3531,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3475,7 +3543,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3484,8 +3552,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3496,7 +3564,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3505,8 +3573,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3517,7 +3585,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3526,8 +3594,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3538,7 +3606,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3547,8 +3615,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3559,7 +3627,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3568,8 +3636,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3580,7 +3648,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3592,9 +3660,13 @@
       "claude_opus_5_5_categories": [
         "ambiguous_or_unjudgeable"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
       "bucket": "opus_only"
     },
     {
@@ -3605,7 +3677,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3614,8 +3686,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3626,7 +3698,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3635,8 +3707,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3647,7 +3719,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3663,9 +3735,13 @@
       "claude_opus_5_5_categories": [
         "internal_inconsistency"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "problematic",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "internal_inconsistency"
+      ],
       "bucket": "both_problematic"
     },
     {
@@ -3676,7 +3752,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3685,8 +3761,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3697,7 +3773,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3706,8 +3782,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3718,7 +3794,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3727,8 +3803,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3739,7 +3815,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -3748,8 +3824,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -3760,7 +3836,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3773,8 +3849,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3785,7 +3861,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3798,8 +3874,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3810,7 +3886,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3823,8 +3899,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3835,7 +3911,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3848,8 +3924,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3860,7 +3936,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3873,8 +3949,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3885,7 +3961,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3898,8 +3974,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3910,7 +3986,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3923,8 +3999,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3935,7 +4011,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3948,8 +4024,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3960,7 +4036,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3973,8 +4049,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -3985,7 +4061,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -3998,8 +4074,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "sol_only"
     },
     {
@@ -4010,7 +4086,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -4027,8 +4103,8 @@
         "unsupported_fact"
       ],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": "split"
     },
     {
@@ -4039,7 +4115,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -4055,9 +4131,13 @@
       "claude_opus_5_5_categories": [
         "unsupported_fact"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "arguable",
+      "reconciliation_findings": [
+        "R2"
+      ],
+      "reconciliation_categories": [
+        "unsupported_fact"
+      ],
       "bucket": "split"
     },
     {
@@ -4068,7 +4148,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4077,8 +4157,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4089,7 +4169,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4098,8 +4178,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4110,7 +4190,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4119,8 +4199,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4131,7 +4211,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4140,8 +4220,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4152,7 +4232,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4161,8 +4241,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4173,7 +4253,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": "problematic",
       "gpt_6_sol_findings": [
@@ -4189,9 +4269,13 @@
       "claude_opus_5_5_categories": [
         "internal_inconsistency"
       ],
-      "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation": "problematic",
+      "reconciliation_findings": [
+        "R1"
+      ],
+      "reconciliation_categories": [
+        "internal_inconsistency"
+      ],
       "bucket": "both_problematic"
     },
     {
@@ -4202,7 +4286,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4211,8 +4295,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4223,7 +4307,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4232,8 +4316,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4244,7 +4328,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4253,8 +4337,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4265,7 +4349,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4274,8 +4358,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4286,7 +4370,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4295,8 +4379,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     },
     {
@@ -4307,7 +4391,7 @@
       "report_availability": {
         "gpt_6_sol": true,
         "claude_opus_5_5": true,
-        "reconciliation": false
+        "reconciliation": true
       },
       "gpt_6_sol": null,
       "gpt_6_sol_findings": [],
@@ -4316,8 +4400,8 @@
       "claude_opus_5_5_findings": [],
       "claude_opus_5_5_categories": [],
       "reconciliation": null,
-      "reconciliation_findings": null,
-      "reconciliation_categories": null,
+      "reconciliation_findings": [],
+      "reconciliation_categories": [],
       "bucket": null
     }
   ]

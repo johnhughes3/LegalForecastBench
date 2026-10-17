@@ -1,0 +1,47 @@
+{
+  "matter": "lrb-vicar-trial-jury-instructions",
+  "records": [
+    {
+      "ref": "A1-RUBRIC-019",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The miscited subsection appears in the source field of assignment 1 criterion_27, a -20 penalty criterion ('Mentions that Patton lacked a reasonable belief that he was subject to an imminent unlawful threat'). Neither prompt nor any criterion asks the model to catch it. Because the criterion penalizes rather than rewards the statement, no criterion rewards relying on § 704.6(1) for an imminent-threat element. The defect is in grader-facing support: a grader checking the source would find no imminent-threat language in § 704.6(1); the relevant text is § 704.3, which criterion_25 cites. Read all 25 assignment 1 criteria and 10 assignment 2 criteria."
+    },
+    {
+      "ref": "KEHOE-072",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+    },
+    {
+      "ref": "KEHOE-087",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+    },
+    {
+      "ref": "KEHOE-117",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+    },
+    {
+      "ref": "KEHOE-118",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+    },
+    {
+      "ref": "ELLISON-039",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+    }
+  ]
+}

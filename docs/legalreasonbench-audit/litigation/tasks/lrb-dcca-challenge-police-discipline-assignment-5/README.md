@@ -10,19 +10,19 @@ Agreement buckets use the two saved blind reports only. Reconciliation is counte
 |---|---|---|---|---|---|---|
 | GPT-6 Sol (blind) | 1 / 1 | 8 | 3 | 3 / 8 (37.5%) | 1 / 8 (12.5%) | 2 / 8 (25.0%) |
 | Claude Opus 5.5 (blind) | 1 / 1 | 8 | 3 | 3 / 8 (37.5%) | 0 / 8 (0.0%) | 3 / 8 (37.5%) |
-| Final reconciliation | 0 / 1 | 0 | unavailable | unavailable | unavailable | unavailable |
+| Final reconciliation | 1 / 1 | 8 | 2 | 2 / 8 (25.0%) | 0 / 8 (0.0%) | 2 / 8 (25.0%) |
 
 Category totals count distinct task-criterion pairs within each category. They may sum above the overall flagged-criterion count.
 
 | Category | Sol blind flagged criteria | Opus blind flagged criteria | Final flagged criteria |
 |---|---|---|---|
-| legal_error | 0 / 8 (0.0%) | 0 / 8 (0.0%) | unavailable |
-| unsupported_fact | 0 / 8 (0.0%) | 0 / 8 (0.0%) | unavailable |
-| source_conflict | 0 / 8 (0.0%) | 2 / 8 (25.0%) | unavailable |
-| internal_inconsistency | 0 / 8 (0.0%) | 0 / 8 (0.0%) | unavailable |
-| ambiguous_or_unjudgeable | 2 / 8 (25.0%) | 0 / 8 (0.0%) | unavailable |
-| unrequested_requirement | 1 / 8 (12.5%) | 1 / 8 (12.5%) | unavailable |
-| document_defect | 0 / 8 (0.0%) | 0 / 8 (0.0%) | unavailable |
+| legal_error | 0 / 8 (0.0%) | 0 / 8 (0.0%) | 0 / 8 (0.0%) |
+| unsupported_fact | 0 / 8 (0.0%) | 0 / 8 (0.0%) | 0 / 8 (0.0%) |
+| source_conflict | 0 / 8 (0.0%) | 2 / 8 (25.0%) | 0 / 8 (0.0%) |
+| internal_inconsistency | 0 / 8 (0.0%) | 0 / 8 (0.0%) | 0 / 8 (0.0%) |
+| ambiguous_or_unjudgeable | 2 / 8 (25.0%) | 0 / 8 (0.0%) | 0 / 8 (0.0%) |
+| unrequested_requirement | 1 / 8 (12.5%) | 1 / 8 (12.5%) | 2 / 8 (25.0%) |
+| document_defect | 0 / 8 (0.0%) | 0 / 8 (0.0%) | 0 / 8 (0.0%) |
 
 Reports:
 
@@ -34,11 +34,11 @@ Reports:
 
 | Task / criterion | GPT-6 Sol blind | Opus blind | Blind bucket | Final reconciliation |
 |---|---|---|---|---|
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_1 | problematic | arguable | split | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_2 | arguable | arguable | both_arguable | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_3 | unflagged | unflagged | — | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_4 | unflagged | unflagged | — | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_5 | unflagged | unflagged | — | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_6 | unflagged | unflagged | — | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_7 | unflagged | unflagged | — | unavailable |
-| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_8 | arguable | arguable | both_arguable | unavailable |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_1 | problematic | arguable | split | arguable |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_2 | arguable | arguable | both_arguable | arguable |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_3 | unflagged | unflagged | — | unflagged |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_4 | unflagged | unflagged | — | unflagged |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_5 | unflagged | unflagged | — | unflagged |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_6 | unflagged | unflagged | — | unflagged |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_7 | unflagged | unflagged | — | unflagged |
+| lrb-dcca-challenge-police-discipline-assignment-5 / criterion_8 | arguable | arguable | both_arguable | unflagged |
