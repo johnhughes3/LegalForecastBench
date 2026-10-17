@@ -6,7 +6,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 6.
+Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 7.
 
 Problem rate: unavailable; coverage or checks pending.
 
@@ -14,14 +14,14 @@ Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1682 |
-| VERIFIED_MINOR_DEFECT | 108 |
+| VERIFIED | 1766 |
+| VERIFIED_MINOR_DEFECT | 113 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
 | MISCHARACTERIZED | 46 |
 | MISQUOTED | 5 |
 | WRONG_CITATION_REAL_CASE | 20 |
-| UNABLE_TO_VERIFY | 429 |
+| UNABLE_TO_VERIFY | 339 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
@@ -105,6 +105,7 @@ Coverage limits:
 - A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.
 - A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.
 - A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.
+- The last original-source pass attempted 124 previously unverified references: 84 verified, five minor-defect proposals, one agreement-article problem proposal awaiting independent review, and 34 still unverified after retrieval attempts.
 
 [Full citation evidence](results/lrb-dcca-challenge-police-discipline.md)
 

@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.", "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.", "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.', 'No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.', 'The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.', 'A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.', 'A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.', 'A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}, 'census_complete': False}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.", "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.", "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.', 'No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.', 'The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.', 'A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.', 'A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.', 'A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.', 'The last original-source pass attempted 124 previously unverified references: 84 verified, five minor-defect proposals, one agreement-article problem proposal awaiting independent review, and 34 still unverified after retrieval attempts.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}, 'census_complete': False}
 
 ## pd-0001: Final Notice of Adverse Action (Braddock)
 
@@ -3899,15 +3899,16 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-The MPD-FOP collective bargaining agreement exists, and MPD v. PERB, 901 A.2d 784 (D.C. 2006), discusses its Article 12 (Section 6) in a discipline dispute, but the agreement's text was not retrieved, so the grievance-route reference was not checked.
+The uploaded fictional Final Notice cites Article 12 for a 2024 grievance right. Read the actual MPD/FOP agreements covering 2020–2023 and 2023–2026; both print 'ARTICLE 12 DISCIPLINE [DELETED]'. The 2017–2020 historical agreement had discipline provisions, but that text is not the current Article 12. This finding is about the real external agreement, not a conclusion that the fictional task's premise or rubric must change; some grievance route might rest on a different source.
 
-Excerpt read: MPD v. PERB, 901 A.2d at 789: "Here the parties bargained for the arbitrator's interpretation of Article 12, Section 6".
+Excerpt read: ARTICLE 12 DISCIPLINE [DELETED]
 
-- https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/
+- https://go.mpdconline.com/GO/CollectiveBargainingAgreement_100120_093023.pdf
+- https://go.mpdconline.com/GO/2023_2026FOPContract.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## pd-0157: Comparator A, Officer Terrence Guzman (Case No. IS-18-001922)
@@ -5407,13 +5408,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Checked against official 6-B DCMR Chapter 16 SOURCE notes: not found in the SOURCE notes of any Chapter 16 section; § 1600's note lists only the 66 DCR 13372 errata.
+The cited 66 DCR 11585 is the August 30, 2019 final-rule errata for 6-B DCMR Chapter 16, correcting §1600.3(a)'s cross-reference from (a),(c) to (a),(b).
 
-Excerpt read: 
+Excerpt read: 66 DCR 11585: '§ 1600.3(a) is being corrected to reference (a) and (b) ... as opposed to (a) and (c).'
 
-- https://www.dcregs.dc.gov/Common/DCMR/RuleList.aspx?ChapterNum=6-B16
+- https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf
 
 ### Second check: not required
 
@@ -5692,12 +5693,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+Public Law 95-454 is titled the Civil Service Reform Act of 1978 and its Title II creates and defines MSPB functions.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1111 §1 names the Act; Title II includes §§202 and 205 on Board functions and appeals.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -5766,12 +5768,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The enacted §7701(f)(1) allows consolidation of appeals by two or more appellants. The attachment's '(D' is OCR for '(1)', not a different statutory provision.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1139: '(f) The Board ... may—(1) consolidate appeals filed by two or more appellants'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -5840,12 +5843,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The plan's §201 redesignates the Civil Service Commission as the Merit Systems Protection Board; §202 retains specified Commission adjudicative functions in the Board.
 
-Excerpt read: 
+Excerpt read: Reorganization Plan No. 2 of 1978 §§201-202: 'The United States Civil Service Commission is hereby redesignated the Merit Systems Protection Board' and hearing, adjudication and appeals functions 'shall remain with the Board'.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2020-title5/html/USCODE-2020-title5-partII.htm
 
 ### Second check: not required
 
@@ -5912,12 +5916,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The quoted core wording appears in enacted §2301(b)(2); the attached opinion uses only an excerpt of a longer sentence, with its period outside the closing quotation mark.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1114: 'All employees and applicants for employment should receive fair and equitable treatment in all aspects of personnel management without regard to ...'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -5985,12 +5990,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The original 1978 §7701(a)-(c) gives the Board hearing and decision authority on appeals; this supports de novo Board review in context.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1138: the Board 'may hear any case appealed to it' and 'shall make a decision after receipt of the written representations ... and after opportunity for a hearing'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -6058,12 +6064,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+Read the conference report itself in the official FLRA-hosted legislative-history scan. Report pages 137-143 describe MSPB hearings, agency proof burdens, misconduct/performance standards, discrimination appeals, and judicial review; the pinpoint range and legislative-history use are sound.
 
-Excerpt read: 
+Excerpt read: The conference substitute in section 7701(c) provides that the standard of proof in misconduct cases will be 'preponderance of the evidence' ... [and] a lower standard of proof [for performance cases].
 
+- https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf
 
 ### Second check: not required
 
@@ -6131,12 +6138,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The LOC-hosted 1982 supplement reproduces §702's right-of-review wording and attributes the operative amendment to 1976, covering the cited 1977 version.
 
-Excerpt read: 
+Excerpt read: §702: 'A person suffering legal wrong because of agency action, or adversely affected or aggrieved by agency action ... is entitled to judicial review thereof.'
 
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1982-04600/uscode1982-046005007/uscode1982-046005007.pdf
 
 ### Second check: not required
 
@@ -6206,7 +6214,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The 1980 Senate report itself, including pages 2–3 and 5, was not accessible in the consulted public sources; references to its number in later decisions do not expose the cited text.
 
 Excerpt read: 
 
@@ -6278,13 +6286,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Brennan v. Occupational Safety and Health Review Commission (487 F.2d 438; cluster 314833). The cited page and the proposition were not read in this session.
+Brennan holds that contested OSHA penalties are assessed de novo by the Commission and reviewed by a court for abuse of discretion; the cited 441 pin falls in this discussion.
 
-Excerpt read: 
+Excerpt read: 'If ... the employer contests ... the Commission acts de novo'; 'the test of a penalty within the statutory range must be whether the Commission abused its discretion.'
 
-- https://www.courtlistener.com/opinion/314833/
+- https://law.justia.com/cases/federal/appellate-courts/F2/487/438/81828/
 
 ### Second check: not required
 
@@ -6354,7 +6362,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.
+The original 1980 Parker MSPB opinion at reporter page 497 was not retrieved. Official later MSPB decisions and court opinions quote or summarize Parker, but they do not expose the whole cited page in context.
 
 Excerpt read: 
 
@@ -6451,12 +6459,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+Original §7703(c) directs the reviewing court to review the record and set aside Board action under standards parallel to APA §706(2).
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1144: 'the court shall review the record and hold unlawful and set aside any agency action ... found to be ... arbitrary, capricious, an abuse of discretion'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -6525,13 +6534,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to United States v. Morgan (307 U.S. 183; cluster 103204). The cited page and the proposition were not read in this session. The case at 307 U.S. 183 is captioned United States v. Morgan; the attachment inverts the parties.
+The opinion's page 191 coordinates a court of equity with the agency's statutory role; the attachment's description is a fair contextual paraphrase, though the court did not state a universal bar on contrary results.
 
-Excerpt read: 
+Excerpt read: 307 U.S. at 191: 'Court and agency are the means adopted to attain the prescribed end ... through coordinated action.'
 
-- https://www.courtlistener.com/opinion/103204/
+- https://supreme.justia.com/cases/federal/us/307/183/
 
 ### Second check: not required
 
@@ -6600,12 +6609,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+Original §7703(c) directs the reviewing court to review the record and set aside Board action under standards parallel to APA §706(2).
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1144: 'the court shall review the record and hold unlawful and set aside any agency action ... found to be ... arbitrary, capricious, an abuse of discretion'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -6673,13 +6683,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Birnholz v. United States (199 Ct. Cl. 532; cluster 8615625). The cited page and the proposition were not read in this session.
+Birnholz original opinion weighs a challenged removal penalty against the charge, applying the gross-disproportion abuse-of-discretion test and recognizing agency management discretion within legal guidelines.
 
-Excerpt read: 
+Excerpt read: [I]f we are to [find the penalty too harsh], it must be because we find ... an inherent disproportion between offense and punishment so gross as to appear an abuse of discretion.
 
-- https://www.courtlistener.com/opinion/8615625/
+- https://law.counselstack.com/opinion/birnholz-v-united-states-cc-1972
 
 ### Second check: not required
 
@@ -6750,7 +6760,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+A legible 1973 edition of 5 C.F.R. §771.222 was not retrieved. The later Supreme Court opinion in Gomez-Perez cites it, but that is not the regulation's text, and current provisions cannot establish the 1973 wording.
 
 Excerpt read: 
 
@@ -6846,13 +6856,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Bishop v. McKee (400 F.2d 87; cluster 8893091). The cited page and the proposition were not read in this session.
+Bishop's original opinion at reporter page 88 describes choice of remedy as within Commission discretion, subject to exceptional judicial intervention. It supports Douglas's point that Bishop did not impose a separate categorical limit on the Commission's ability to address penalty.
 
-Excerpt read: 
+Excerpt read: The remedy necessary to promote the efficiency of the civil service is a matter peculiarly and necessarily within the discretion of the Civil Service and cannot be disturbed on judicial review absent exceptional circumstances not here present.
 
-- https://www.courtlistener.com/opinion/8893091/
+- https://law.justia.com/cases/federal/appellate-courts/F2/400/87/216/
 
 ### Second check: not required
 
@@ -6923,13 +6933,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Smith v. United States Air Force (566 F.2d 957; cluster 351027). The cited page and the proposition were not read in this session.
+Smith affirms because neither Air Force nor CSC acted arbitrarily, capriciously, or abusively; it states the narrow judicial review rule.
 
-Excerpt read: 
+Excerpt read: Opinion: 'the actions of neither the Air Force nor the Civil Service Commission were arbitrary, capricious, or constituted an abuse of discretion'.
 
-- https://www.courtlistener.com/opinion/351027/
+- https://www.flexlaw.co/case/1253552/1978-smith-v-united-states-air-force-566-f-2d-957
 
 ### Second check: not required
 
@@ -6998,13 +7008,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Pascal v. United States (543 F.2d 1284; cluster 8616672). The cited page and the proposition were not read in this session.
+Pascal at 1290 explicitly states that neither the employing agency nor CSC abused its discretion in choosing removal for deliberate falsification.
 
-Excerpt read: 
+Excerpt read: At 1290: 'Neither the agency nor the Civil Service Commission abused its discretion.'
 
-- https://www.courtlistener.com/opinion/8616672/
+- https://openjurist.org/543/f2d/1284/pascal-v-united-states
 
 ### Second check: not required
 
@@ -7072,13 +7082,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Dabney v. Freeman (358 F.2d 533; cluster 271221). The cited page and the proposition were not read in this session.
+Dabney v. Freeman is the D.C. Circuit decision concerning judicial deference to Civil Service Commission discretion, including disciplinary penalty review.
 
-Excerpt read: 
+Excerpt read: At 537, court discusses Commission discretion in reviewing the employee's dismissal.
 
-- https://www.courtlistener.com/opinion/271221/
+- https://openjurist.org/358/f2d/533
 
 ### Second check: not required
 
@@ -7146,13 +7156,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Cameron v. United States (Ct. Cl. table, 566 F.2d 1191) (566 F.2d 1191; cluster 8617063). The cited page and the proposition were not read in this session. The reporter page is shared by many Court of Claims table entries; a Cameron entry (1977) is among them.
+Cameron original Court of Claims opinion says the measure of penalty is in agency discretion absent abuse and treats courts as reviewers of reasonableness rather than substitute decision makers.
 
-Excerpt read: 
+Excerpt read: Similarly, the measure of the penalty, absent some showing of abuse, is within the discretion of the agency.
 
-- https://www.courtlistener.com/opinion/8617063/
+- https://law.counselstack.com/opinion/cameron-cc-1977
 
 ### Second check: not required
 
@@ -7252,13 +7262,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Boyce v. United States (543 F.2d 1290; cluster 8616666). The cited page and the proposition were not read in this session.
+Boyce reviews both the Commission's reinstatement decisions and the agency's removal and treats both as administrative determinations subject to judicial review, including penalty reasonableness. The cited pages support the parent opinion's narrow comparison.
 
-Excerpt read: 
+Excerpt read: At 1291 the CSC Board of Appeals reversed agency removals and CSC commissioners later upheld them; at 1294-95 the court reviews the penalty as an abuse of discretion.
 
-- https://www.courtlistener.com/opinion/8616666/
+- https://openjurist.org/543/f2d/1290/boyce-v-united-states
 
 ### Second check: not required
 
@@ -7327,13 +7337,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Tucker v. United States (624 F.2d 1029; cluster 8617889). The cited page and the proposition were not read in this session.
+Tucker at 1033-34 separates proof of intentional falsification, nexus to service efficiency, and whether removal was a manifest abuse of penalty discretion; it accords a wide range of discretion to the agency and Commission.
 
-Excerpt read: 
+Excerpt read: At 1034: 'choice of penalty ... was for the employing agency and the Civil Service Commission, not the court'; removal falls within their 'wide range of discretion'.
 
-- https://www.courtlistener.com/opinion/8617889/
+- https://openjurist.org/624/f2d/1029/tucker-v-united-states
 
 ### Second check: not required
 
@@ -7401,13 +7411,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Giles v. United States (553 F.2d 647; cluster 8616860). The cited page and the proposition were not read in this session.
+Giles original opinion states courts normally defer to administrative penalty judgment unless severity is totally unwarranted, with multiple enumerated factors; it supports the cited discretionary-severity proposition.
 
-Excerpt read: 
+Excerpt read: The court will normally defer to the administrative judgment on appropriate corrective action unless its severity appears totally unwarranted in light of such factors as the range of permissible punishment specified by statute or regulation...
 
-- https://www.courtlistener.com/opinion/8616860/
+- https://law.counselstack.com/opinion/giles-v-united-states-cc-1977
 
 ### Second check: not required
 
@@ -7475,13 +7485,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Bishop v. McKee (400 F.2d 87; cluster 8893091). The cited page and the proposition were not read in this session.
+The same Bishop passage confirms that penalty/remedy selection was treated as a matter of civil-service discretion; the quoted exception concerns judicial review rather than denying Commission authority.
 
-Excerpt read: 
+Excerpt read: The remedy necessary to promote the efficiency of the civil service is a matter peculiarly and necessarily within the discretion of the Civil Service.
 
-- https://www.courtlistener.com/opinion/8893091/
+- https://law.justia.com/cases/federal/appellate-courts/F2/400/87/216/
 
 ### Second check: not required
 
@@ -7550,7 +7560,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The individual 1973 commissioners' reopening letter was not located; the Douglas opinion's description is a later judicial summary, not the letter.
 
 Excerpt read: 
 
@@ -7622,7 +7632,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1970 Commission minutes were not located; Meehan v. Macy and Douglas discuss the remand but do not reproduce the minutes.
 
 Excerpt read: 
 
@@ -7695,7 +7705,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1973 BAR order was not located; later Boyce litigation and Douglas summarize it without reproducing its actual order.
 
 Excerpt read: 
 
@@ -7768,7 +7778,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1978 ARB decision was not located; Douglas cites its docket but does not reproduce its reasoning.
 
 Excerpt read: 
 
@@ -7838,12 +7848,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The 1970 historical U.S. Code reproduces the pre-Reform Act §7701 right of preference eligible employees to appeal and requires the agency to take corrective action the Commission finally recommends.
 
-Excerpt read: 
+Excerpt read: 5 U.S.C. §7701 (1970): 'The administrative authority shall take the corrective action that the Commission finally recommends.'
 
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1970-00100/uscode1970-001005079/uscode1970-001005079.pdf
 
 ### Second check: not required
 
@@ -7914,7 +7925,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unreported slip opinion or order cited by docket number; not retrieved in this session.
+The July 3, 1980 D. Nev. memorandum order in Howard v. United States, No. LV-77-219, was not retrieved; Douglas describes a remand but does not reproduce the order.
 
 Excerpt read: 
 
@@ -7985,13 +7996,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Citation resolves on CourtListener citation lookup to Slowick v. Hampton (470 F.2d 467; cluster 307056). The cited page and the proposition were not read in this session. CourtListener's case is Evelyn S. Slowick v. Robert E. Hampton; 'Slotvick' is likely an OCR rendering.
+The case is Slowick, not 'Slotvick' (OCR), and at 469 the D.C. Circuit ordered remand for administrative redetermination of the proper sanction.
 
-Excerpt read: 
+Excerpt read: Opinion identifies 'Evelyn S. SLOWICK'; remands for further consideration after finding disciplinary schedule not properly applied.
 
-- https://www.courtlistener.com/opinion/307056/
+- https://law.resource.org/pub/us/case/reporter/F2/470/470.F2d.467.71-1195.html
 
 ### Second check: not required
 
@@ -8061,7 +8072,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The referenced 1970 Commission minutes were not located; this cross-reference cannot be checked from Meehan v. Macy or Douglas alone.
 
 Excerpt read: 
 
@@ -8132,13 +8143,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Clark v. United States (162 Ct. Cl. 477; cluster 8614192). The cited page and the proposition were not read in this session.
+Read the Court of Claims opinion itself. At reporter page 487 the court awards back salary less 90 days because an infraction required at least 30 days' suspension; cited pages 486–87 encompass the remedy.
 
-Excerpt read: 
+Excerpt read: [487] we award him a judgment for the full amount of the salary ... less 90 days
 
-- https://www.courtlistener.com/opinion/8614192/
+- https://law.counselstack.com/opinion/clark-v-united-states-cc-1963
 
 ### Second check: not required
 
@@ -8207,12 +8218,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The historical and revision note to §7701 identifies former 5 U.S.C. §863 as a source of its recodification, with specified omitted language.
 
-Excerpt read: 
+Excerpt read: Historical and Revision Notes: '5 U.S.C. 863 (less 1st 168 words, and less 2d proviso)' is listed as a derivation of §7701.
 
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1970-00100/uscode1970-001005079/uscode1970-001005079.pdf
 
 ### Second check: not required
 
@@ -8281,12 +8293,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+Read §1104(a)(5) and (b)(4) in the LOC-hosted pre-reform U.S. Code supplement reproducing the 1966 codification, then the 1978 Plan's direct transfer reference. The 1977 cited law gave the Commission enforcement and final appellate functions; modern §1104 text differs after the 1978 reform.
 
-Excerpt read: 
+Excerpt read: (a)(5) executing, administering, and enforcing ... the civil service rules and regulations ...; (b)(4) the hearing or providing for the hearing of appeals ... and the taking of final action in [appealable] matters.
 
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1964-02000/uscode1964-020005011/uscode1964-020005011.pdf
+- https://www.govinfo.gov/content/pkg/USCODE-2020-title5/html/USCODE-2020-title5-partII.htm
 
 ### Second check: not required
 
@@ -8355,12 +8369,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The historical and revision note to §7701 also identifies the proviso of former 5 U.S.C. §868 as a source.
 
-Excerpt read: 
+Excerpt read: Historical and Revision Notes: '5 U.S.C. 868 (proviso)' is listed as a derivation of §7701.
 
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1970-00100/uscode1970-001005079/uscode1970-001005079.pdf
 
 ### Second check: not required
 
@@ -8428,13 +8443,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Wettre v. Hague (74 F.Supp. 396; cluster 1410264). The cited page and the proposition were not read in this session.
+Read the original district-court opinion. Wettre directly quotes the 1947 amendment's mandatory corrective-action language, finding the veteran employees must first use Commission appeals before seeking extraordinary judicial relief. This supports the cited effect of the 1947 amendment. The district judgment was later vacated/remanded on other grounds, a separate treatment question.
 
-Excerpt read: 
+Excerpt read: [I]t shall be mandatory for such administrative officer to take such corrective action as the Commission finally recommends.
 
-- https://www.courtlistener.com/opinion/1410264/
+- https://law.justia.com/cases/federal/district-courts/FSupp/74/396/1410264/
 
 ### Second check: not required
 
@@ -8504,7 +8519,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The cited 28 Comp. Gen. 489 at page 491 was not located as GAO decision text. Nearby 28 Comp. Gen. decisions were found, but they are distinct decisions and cannot verify this citation.
 
 Excerpt read: 
 
@@ -8576,12 +8591,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+Read Executive Order 11491's adverse-action appeals clause in National Archives' codification and checked the original 1969 Federal Register source. Section 22 extends preference-eligible adverse-action rights to competitive-service employees and gives a Commission appeal; the Archives page reflects the 1978 amendment substituting MSPB for Commission, so the pre-1978 Commission wording is historical.
 
-Excerpt read: 
+Excerpt read: The head of each agency ... shall extend to all employees in the competitive civil service rights identical in adverse action cases to those provided preference eligibles under sections 7511-7512...
 
+- https://www.archives.gov/federal-register/codification/executive-order/11491.html
+- https://www.govinfo.gov/content/pkg/FR-1969-10-31/pdf/FR-1969-10-31.pdf
 
 ### Second check: not required
 
@@ -8651,12 +8668,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+Section 905 retains the plan except to the extent inconsistent with the 1978 Act.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1224 §905: 'Any provision in either Reorganization Plan Numbered 1 or 2 of 1978 inconsistent with any provision in this Act is hereby superseded.'
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -8725,12 +8743,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The President's message reproduced with the official plan expressly explains separation of management and employee-protection functions.
 
-Excerpt read: 
+Excerpt read: Message of the President: 'The Civil Service Commission has acquired inherently conflicting responsibilities ... The Plan would separate the two functions.'
 
+- https://www.govinfo.gov/content/pkg/USCODE-2020-title5/html/USCODE-2020-title5-partII.htm
 
 ### Second check: not required
 
@@ -8797,12 +8816,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+Read the President's original message reproduced with Reorganization Plan No. 2 in the official U.S. Code. It states that the MSPB would perform Civil Service Commission adjudication and prosecution responsibilities; the Plan itself §202(a) gives the Board the hearing, adjudication, and appeals functions, with listed exceptions. Douglas's summary 'all' must be understood subject to those stated exceptions.
 
-Excerpt read: 
+Excerpt read: The adjudication and prosecution responsibilities of the Civil Service Commission will be performed by the Merit Systems Protection Board.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2020-title5/html/USCODE-2020-title5-partII.htm
 
 ### Second check: not required
 
@@ -8869,12 +8889,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The actual 1947 amendment adds mandatory compliance with the Commission's corrective-action recommendation, establishing the mitigation authority described in Douglas.
 
-Excerpt read: 
+Excerpt read: 61 Stat. 723: 'it shall be mandatory for such administrative officer to take such corrective action as the Commission finally recommends'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-61/pdf/STATUTE-61-Pg723.pdf
 
 ### Second check: not required
 
@@ -8944,7 +8965,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The 1947 House Report No. 80-315 on H.R. 966, pages 1–2, was not retrieved; Douglas's later paraphrase is not the committee report.
 
 Excerpt read: 
 
@@ -9017,7 +9038,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The June 19, 1947 Congressional Record at page 7467 was not retrieved as original floor text; Douglas's quoted phrase is a later reproduction too short to check the entire cited passage and context.
 
 Excerpt read: 
 
@@ -9089,7 +9110,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The 1947 Senate Report No. 80-568 on H.R. 966, pages 2–3 and 5–6, was not retrieved; the proposition cannot be checked against the report itself.
 
 Excerpt read: 
 
@@ -9162,7 +9183,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The 1978 House hearings are catalogued with a 319-page scan, but the consulted preview exposed bibliographic/contents information rather than the cited pages 15–16, 106, 108, and 232. Those pages were not read.
 
 Excerpt read: 
 
@@ -9233,13 +9254,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Tennessee Valley Authority v. Hill (437 U.S. 153; cluster 109897). The cited page and the proposition were not read in this session.
+At 189-90 the Court expressly says implied repeals are disfavored.
 
-Excerpt read: 
+Excerpt read: 437 U.S. at 189-90: 'repeals by implication are not favored' and the intention to repeal must be 'clear and manifest.'
 
-- https://www.courtlistener.com/opinion/109897/
+- https://supreme.justia.com/cases/federal/us/437/153/
 
 ### Second check: not required
 
@@ -9333,12 +9354,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The original §7701(i)(4) imposes an expedition duty.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1140: 'It shall be the duty of the Board, an administrative law judge, or employee designated by the Board to hear any proceeding under this section to expedite to the extent practicable that proceeding.'
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -9409,7 +9431,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+The 1979 American University Law Review note by Kathleen Buffon was identified by bibliographic citations, but its article text at page 207 onward was not retrieved.
 
 Excerpt read: 
 
@@ -9479,12 +9501,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+GAO's original B-179810 report at cited pages 6-7 and 22-26 discusses problems with CSC adverse-action appeals and recommends broader appellate mitigation authority; GAO notes regional offices and BAR then lacked general delegated authority.
 
-Excerpt read: 
+Excerpt read: Report p.22: 'Too severe a penalty can be just as arbitrary and unjust'; pp.24-26 propose broader mitigation authority.
 
+- https://www.gao.gov/assets/b-179810.pdf
 
 ### Second check: not required
 
@@ -9553,12 +9576,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The enacted §7701(b) gives the Board or its designated presiding official authority to hear an appeal and make a decision.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1138: 'The Board may hear any case appealed to it or may refer the case to an administrative law judge ... or other employee ... designated by the Board'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -9627,12 +9651,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+Title 5 chapter 75 as revised by the 1978 Act covers suspensions and removals, including adverse actions.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1134-1135: §204 amends chapter 75; subchapters address suspensions, removals, reductions in grade or pay, and furloughs.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -9701,12 +9726,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+Original §7701(c)(1) addresses sustaining the agency's decision; the statute does not expressly say 'penalty', which is Douglas's interpretation of the whole agency decision.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1138: 'the decision of the agency shall be sustained ... only if the agency's decision ... is supported by ... a preponderance of the evidence'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -9800,13 +9826,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Citation resolves on CourtListener citation lookup to Bowman Transportation, Inc. v. Arkansas-Best Freight System, Inc. (419 U.S. 281; cluster 109122). The cited page and the proposition were not read in this session.
+The opinion articulates the rational-connection requirement on reporter page 285; the citation's pinpoint 284 starts the APA discussion but misses that sentence.
 
-Excerpt read: 
+Excerpt read: 419 U.S. at 285: 'The agency must articulate a rational connection between the facts found and the choice made.'
 
-- https://www.courtlistener.com/opinion/109122/
+- https://supreme.justia.com/cases/federal/us/419/281/
 
 ### Second check: not required
 
@@ -9900,12 +9926,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The Food Stamp Act is the actual statute underlying Goodman, with §12 permitting retailer disqualification for noncompliance. The citation is generic, and the Act was amended repeatedly; this confirms identity, not every historical subsection in Goodman.
 
-Excerpt read: 
+Excerpt read: Pub. L. 88-525: 'That this Act may be cited as The Food Stamp Act of 1964'; §12 concerns retailer participation and disqualification.
 
+- https://www.govinfo.gov/link/statute/78/703
 
 ### Second check: not required
 
@@ -9976,7 +10003,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+Merrill's 1973 Virginia Law Review article was identified and cited in later decisions, but its page 232 was not retrieved; the distinct ACUS report is not a substitute for the law-review page.
 
 Excerpt read: 
 
@@ -10047,13 +10074,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Addington v. Texas (441 U.S. 418; cluster 110067). The cited page and the proposition were not read in this session.
+The opinion discusses standards of proof as allocation of error risk at 423-27.
 
-Excerpt read: 
+Excerpt read: 441 U.S. at 423: 'The standard serves to allocate the risk of error between the litigants'.
 
-- https://www.courtlistener.com/opinion/110067/
+- https://supreme.justia.com/cases/federal/us/441/418/
 
 ### Second check: not required
 
@@ -10122,7 +10149,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+Cambridge's publisher record gives the original Winter article's abstract/extract and pagination, but the cited page 337 was behind a PDF response that returned an HTML access page; the page 337 proposition was not read.
 
 Excerpt read: 
 
@@ -10194,13 +10221,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Giles v. United States (553 F.2d 647; cluster 8616860). The cited page and the proposition were not read in this session.
+Read the original Giles opinion; its discussion is specifically about the limited judicial review standard for factual support, arbitrariness and penalty severity.
 
-Excerpt read: 
+Excerpt read: [O]ur review is limited to ascertaining that the final administrative appellate decision was in conformance with the Constitution, statutes, and regulations, was not arbitrary or capricious or taken in bad faith, and was supported by substantial evidence.
 
-- https://www.courtlistener.com/opinion/8616860/
+- https://law.counselstack.com/opinion/giles-v-united-states-cc-1977
 
 ### Second check: not required
 
@@ -10269,12 +10296,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The cited subsection expressly includes arbitrary, capricious, and abuse-of-discretion review of Board decisions.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1144 §7703(c)(1): 'arbitrary, capricious, an abuse of discretion, or otherwise not in accordance with law'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -10343,12 +10371,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The 1978 enacted §7701(c) sets the agency proof standard and limits sustaining decisions upon harmful error, prohibited personnel practice, or lack of legal accordance. This is the version in effect in 1980.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1138-39 §7701(c): agency decision sustained only if supported by substantial evidence or preponderance, depending on action; exceptions in (c)(2).
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -10418,7 +10447,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The 1978 House committee mark-up print No. 33-782 was not retrieved at pages 64, 85–86, or 93–94. Douglas cites those pages but does not reproduce their discussion.
 
 Excerpt read: 
 
@@ -10491,7 +10520,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.
+The original Parker decision's reporter page 499 note 14 was not retrieved. Douglas quotes one fragment, but that does not permit checking the original note's context or exact wording.
 
 Excerpt read: 
 
@@ -10563,7 +10592,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1977 ARB decision was not located. Douglas confirms the year 1977; the attachment's '1911' is OCR, not evidence of a different decision. Its actual standard remains unread.
 
 Excerpt read: 
 
@@ -10635,7 +10664,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1974 ARB decision was not located; Douglas reports a reduced penalty but does not reproduce the decision's words.
 
 Excerpt read: 
 
@@ -10707,7 +10736,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1979 Office of Appeals Review decision was not located; Douglas's example list does not reproduce its test.
 
 Excerpt read: 
 
@@ -10779,7 +10808,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1973 BAR order was not located; Douglas summarizes the outcome but does not reproduce the order's analysis.
 
 Excerpt read: 
 
@@ -10851,7 +10880,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The 1972 BAR order was not located; Douglas supplies a descriptor and penalty result, not the actual order.
 
 Excerpt read: 
 
@@ -10922,12 +10951,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+Read the original May 1896 presidential Civil Service Rules implementing the 1883 Civil Service Act. Rule II §6 expressly required like penalties for like misconduct regardless of political or religious affiliation, matching the Douglas opinion's point. This is a historical rule, not current law.
 
-Excerpt read: 
+Excerpt read: In making removals or reductions or in imposing punishment for delinquency or misconduct penalties like in character shall be imposed for like offenses
 
+- https://www.presidency.ucsb.edu/documents/executive-order-civil-service-rules
 
 ### Second check: not required
 
@@ -10995,13 +11025,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Francisco v. Campbell (625 F.2d 266; cluster 380094). The cited page and the proposition were not read in this session.
+Francisco independently reviews sustained charges and penalty; it finds removal disproportionate after only one charge survives, and remands for consideration of appropriate discipline rather than itself fixing the final sanction.
 
-Excerpt read: 
+Excerpt read: Opinion: 'Francisco's removal was an abuse of discretion'; agency's factual findings receive substantial-evidence review and sanction receives abuse-of-discretion review.
 
-- https://www.courtlistener.com/opinion/380094/
+- https://law.justia.com/cases/federal/appellate-courts/F2/625/266/57056/
 
 ### Second check: not required
 
@@ -11070,13 +11100,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Giles v. United States (553 F.2d 647; cluster 8616860). The cited page and the proposition were not read in this session.
+Original Giles opinion establishes deferential court review of penalty, subject to totally unwarranted severity in light of the regulatory range, job, record, nexus and proof.
 
-Excerpt read: 
+Excerpt read: The court will normally defer to the administrative judgment on appropriate corrective action unless its severity appears totally unwarranted...
 
-- https://www.courtlistener.com/opinion/8616860/
+- https://law.counselstack.com/opinion/giles-v-united-states-cc-1977
 
 ### Second check: not required
 
@@ -11144,13 +11174,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Rifkin v. United States (209 Ct. Cl. 566; cluster 8616550). The cited page and the proposition were not read in this session.
+Rifkin at 584-85 discusses limited judicial review of penalty, disproportion, and case-specific penalty factors; the Court of Claims ultimately upheld removal while reversing its trial judge's mitigation recommendation.
 
-Excerpt read: 
+Excerpt read: At 584-85: penalty is ordinarily within agency discretion; abuse requires 'inherent disproportion between offense and punishment'; court may set aside even a permitted penalty, but here found no abuse.
 
-- https://www.courtlistener.com/opinion/8616550/
+- https://law.counselstack.com/opinion/rifkin-v-united-states-cc-1976
 
 ### Second check: not required
 
@@ -11244,12 +11274,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The 1978 enactment of §7106 reserves management authority over assignment, discipline, and removal, subject to its subsection (b).
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1198 §7106(a): 'nothing in this chapter shall affect the authority of any management official' to assign, suspend, remove, or discipline employees.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -11319,7 +11350,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.
+The original 1980 Losure MSPB opinion at reporter page 366 was not retrieved. Official later MSPB decisions quote or describe aspects of it, but the original cited page and note were not read. The attachment's 'I960' is OCR for 1980.
 
 Excerpt read: 
 
@@ -11390,12 +11421,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+Official U.S. Code §706(2)(A) reproduces the quoted standard; its source note traces this unchanged subsection to the 1966 codification. The attached opinion's '1964 ed., Supp. V' parenthetical is an odd edition citation for a post-1966 section, but the legal text and pinpoint are correct.
 
-Excerpt read: 
+Excerpt read: §706(2)(A): 'arbitrary, capricious, an abuse of discretion, or otherwise not in accordance with law' (source note: Pub. L. 89-554, 80 Stat. 393).
 
+- https://www.govinfo.gov/content/pkg/USCODE-2022-title5/html/USCODE-2022-title5-partI-chap7-sec706.htm
 
 ### Second check: not required
 
@@ -11496,13 +11528,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to American Optometric Ass'n v. FTC (626 F.2d 896; cluster 7894073). The cited page and the proposition were not read in this session.
+American Optometric is a FTC rulemaking review case. At 905, it separates substantial-evidence review of factual determinations from arbitrary/capricious review of conclusions and discusses why reasoned agency assessment matters. It is an analogy, not an employee-discipline decision.
 
-Excerpt read: 
+Excerpt read: At 905: factual determinations take substantial-evidence review; other conclusions are tested for whether supported facts justify them 'on the basis of logic'.
 
-- https://www.courtlistener.com/opinion/7894073/
+- https://app.midpage.ai/document/american-optometric-association-v-federal-380739
 
 ### Second check: not required
 
@@ -11595,13 +11627,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Hernandez v. United States (636 F.2d 704; cluster 384947). The cited page and the proposition were not read in this session.
+Hernandez quotes the Gypsum formulation of clearly erroneous review and uses it to reverse a factual standard-of-care finding.
 
-Excerpt read: 
+Excerpt read: At 707: a finding is clearly erroneous when the reviewing court has a definite and firm conviction that a mistake has been committed.
 
-- https://www.courtlistener.com/opinion/384947/
+- https://law.justia.com/cases/federal/appellate-courts/F2/636/704/26537/
 
 ### Second check: not required
 
@@ -11697,7 +11729,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unreported slip opinion or order cited by docket number; not retrieved in this session.
+The 1980 Howard D. Nev. memorandum order at page 11 was not retrieved; Douglas's later characterization does not establish the original order's nexus analysis.
 
 Excerpt read: 
 
@@ -11794,13 +11826,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Tucker v. United States (624 F.2d 1029; cluster 8617889). The cited page and the proposition were not read in this session.
+Tucker at 1033-34 separates proof of intentional falsification, nexus to service efficiency, and whether removal was a manifest abuse of penalty discretion; it accords a wide range of discretion to the agency and Commission.
 
-Excerpt read: 
+Excerpt read: At 1034: 'choice of penalty ... was for the employing agency and the Civil Service Commission, not the court'; removal falls within their 'wide range of discretion'.
 
-- https://www.courtlistener.com/opinion/8617889/
+- https://openjurist.org/624/f2d/1029/tucker-v-united-states
 
 ### Second check: not required
 
@@ -11894,12 +11926,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The quote follows the original Act's §3(1), with an ellipsis omitting intervening text.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1112 §3(1): 'in order to provide the people ... with a competent, honest, and productive Federal work force ... and to improve the quality of public service'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -11967,13 +12000,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Masino v. United States (589 F.2d 1048; cluster 8617303). The cited page and the proposition were not read in this session.
+Masino treats nexus and disproportionate penalty as separate review issues. It holds that a Customs inspector's personal marijuana use and transportation supplied a clear nexus to the job enforcing import bans.
 
-Excerpt read: 
+Excerpt read: At 1055-56: 'the misconduct speaks for itself'; Customs Service action was neither arbitrary nor capricious.
 
-- https://www.courtlistener.com/opinion/8617303/
+- https://www.flexlaw.co/case/1258901/1978-masino-v-the-united-states-589-f-2d-1048
 
 ### Second check: not required
 
@@ -12040,13 +12073,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Doe v. Hampton (566 F.2d 265; cluster 350873). The cited page and the proposition were not read in this session.
+Doe's original majority opinion explicitly distinguishes binding from merely precatory Federal Personnel Manual provisions and remands for a determination of Commission intent from the language, context, and available extrinsic evidence.
 
-Excerpt read: 
+Excerpt read: Certainly much of the Manual is not mandatory, but some unpublished provisions may be binding if so intended by the Commission.
 
-- https://www.courtlistener.com/opinion/350873/
+- https://law.justia.com/cases/federal/appellate-courts/F2/566/265/400320/
 
 ### Second check: not required
 
@@ -12115,12 +12148,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Unreported slip opinion or order cited by docket number; not retrieved in this session.
+Read the cited 1980 D.C. Circuit opinion itself. The majority states that deference depends on the quality, thoroughness, reasoning, and consistency of an agency determination. The Supreme Court later reversed this judgment in 454 U.S. 27 (1981), a temporal treatment relevant to present-day reliance but not to identity or the 1980 text Douglas cited.
 
-Excerpt read: 
+Excerpt read: [A]n agency's entitlement to deference depends upon the quality of its determinations ... the thoroughness evident in its consideration, the validity of its reasoning, [and] its consistency with earlier and later pronouncements.
 
+- https://calculators.law/caselaw/decisions/zvjRA62v8150/democratic-senatorial-campaign-committee-v-federal-election-commission
+- https://www.govinfo.gov/content/pkg/USREPORTS-454/pdf/USREPORTS-454-27.pdf
 
 ### Second check: not required
 
@@ -12246,13 +12281,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Albert v. Chafee (571 F.2d 1063; cluster 8916503). The cited page and the proposition were not read in this session.
+Albert's original opinion at reporter page 1066 holds that the advance notice must state any and all reasons specifically and in detail, and disallows reliance on previously unstated infractions. Douglas draws a reasonable application to factors intended to support the decision.
 
-Excerpt read: 
+Excerpt read: The agency may not ... rely on reasons which were not stated in the initial notice; a change of either type is a defect requiring the adverse action to be started entirely anew.
 
-- https://www.courtlistener.com/opinion/8916503/
+- https://law.justia.com/cases/federal/appellate-courts/F2/571/1063/323239/
 
 ### Second check: not required
 
@@ -12321,13 +12356,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Citation resolves on CourtListener citation lookup to Cafferello v. United States Civil Service Commission (625 F.2d 285; cluster 380099). The cited page and the proposition were not read in this session.
+The original opinion at page 288 distinguishes impermissible reliance on uncharged past infractions from consideration of the whole person to set punishment. It does not itself address rebutting a comparator-disparity claim; Douglas's express cf. citation is an analogy rather than direct authority for that precise proposition.
 
-Excerpt read: 
+Excerpt read: Major ... did not remove Cafferello for any reason not stated in the charges ... [he] had only considered the whole person in determining appropriate punishment.
 
-- https://www.courtlistener.com/opinion/380099/
+- https://law.justia.com/cases/federal/appellate-courts/F2/625/285/57322/
 
 ### Second check: not required
 
@@ -12397,7 +12432,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The internal Board memorandum cited in Douglas note 47 was not located or reproduced; its guidance cannot be verified from the Board's quotation alone.
 
 Excerpt read: 
 
@@ -12468,13 +12503,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Boyce v. United States (543 F.2d 1290; cluster 8616666). The cited page and the proposition were not read in this session. The attachment's OCR clips the left margin of this footnote.
+Boyce identifies relevant penalty factors including agency discretion, proportionality, deterrence, employee record, and intentionality.
 
-Excerpt read: 
+Excerpt read: At 1294 the court states agency punishment is usually discretionary but an unduly harsh penalty is an abuse; it weighs plaintiffs' records, intent and deterrence.
 
-- https://www.courtlistener.com/opinion/8616666/
+- https://openjurist.org/543/f2d/1290/boyce-v-united-states
 
 ### Second check: not required
 
@@ -12543,13 +12578,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Citation resolves on CourtListener citation lookup to Clark v. United States (162 Ct. Cl. 477; cluster 8614192). The cited page and the proposition were not read in this session. The attachment's OCR clips the left margin of this footnote.
+Read the Court of Claims opinion itself. Reporter page 485 addresses the limited gravity of misconduct and explains that discharge was unduly harsh; the adjacent page discusses lengthy good service. The attachment's clipped '(163)' is OCR for '(1963)', not a different case.
 
-Excerpt read: 
+Excerpt read: His discharge on these grounds was unduly harsh and unwarranted, and was an abuse of discretion
 
-- https://www.courtlistener.com/opinion/8614192/
+- https://law.counselstack.com/opinion/clark-v-united-states-cc-1963
 
 ### Second check: not required
 
@@ -12617,12 +12652,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.
+The original Federal Register text of Executive Order 9830 §01.2(d) substantially matches the quotation; source OCR has a stray star after equitable.
 
-Excerpt read: 
+Excerpt read: 12 Fed. Reg. 1259: '(d) The Commission shall prescribe procedures ... removals, demotions, and suspensions ... equitable and uniform treatment'.
 
+- https://www.govinfo.gov/content/pkg/FR-1947-02-25/pdf/FR-1947-02-25.pdf
 
 ### Second check: not required
 
@@ -12746,13 +12782,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Rifkin v. United States (209 Ct. Cl. 566; cluster 8616550). The cited page and the proposition were not read in this session.
+Rifkin at 584-85 discusses limited judicial review of penalty, disproportion, and case-specific penalty factors; the Court of Claims ultimately upheld removal while reversing its trial judge's mitigation recommendation.
 
-Excerpt read: 
+Excerpt read: At 584-85: penalty is ordinarily within agency discretion; abuse requires 'inherent disproportion between offense and punishment'; court may set aside even a permitted penalty, but here found no abuse.
 
-- https://www.courtlistener.com/opinion/8616550/
+- https://law.counselstack.com/opinion/rifkin-v-united-states-cc-1976
 
 ### Second check: not required
 
@@ -12820,13 +12856,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Daub v. United States (292 F.2d 895; cluster 254685). The cited page and the proposition were not read in this session.
+Read the original Daub opinion, which holds that a nonbinding guide table still carries a fairness principle; discharging a first offender for an offense whose suggested penalty was reprimand grossly misapplied the agency regulation. It supports considering consistency, seriousness, and regulatory penalty guidance.
 
-Excerpt read: 
+Excerpt read: The Government argues, correctly, that the table of penalties was intended to be a guide to administrative officers, and not an immutable schedule. But the regulation containing the table had a spirit, as well as a body, and the spirit of fair treatment would hardly have authorized ... discharge ... unless the case at hand was a most extraordinary one.
 
-- https://www.courtlistener.com/opinion/254685/
+- https://law.justia.com/cases/federal/appellate-courts/F2/292/895/90331/
 
 ### Second check: not required
 
@@ -12895,13 +12931,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Young v. Hampton (568 F.2d 1253; cluster 352339). The cited page and the proposition were not read in this session.
+Young's original opinion at page 1264 says determining the amount of punishment for specific misconduct is properly committed to sound agency discretion, subject to abuse-of-discretion limits. This supports Douglas's placement of initial penalty selection with the agency.
 
-Excerpt read: 
+Excerpt read: [T]he agency must determine the amount of punishment for specific misconduct. We believe that this determination, too, is very properly committed to the sound discretion of the agency involved.
 
-- https://www.courtlistener.com/opinion/352339/
+- https://law.justia.com/cases/federal/appellate-courts/F2/568/1253/288028/
 
 ### Second check: not required
 
@@ -12972,7 +13008,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.
+The original Parker opinion pages 492 and 495–96 were not retrieved. The later Supreme Court opinion in Cornelius v. Nutt discusses Parker, but that is not the full original passage.
 
 Excerpt read: 
 
@@ -13046,7 +13082,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.
+The original Parker opinion page 496 note 9 was not retrieved; later case citations are insufficient to verify the note's equity discussion.
 
 Excerpt read: 
 
@@ -13116,13 +13152,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Citation resolves on CourtListener citation lookup to Francisco v. Campbell (625 F.2d 266; cluster 380094). The cited page and the proposition were not read in this session.
+Francisco independently reviews sustained charges and penalty; it finds removal disproportionate after only one charge survives, and remands for consideration of appropriate discipline rather than itself fixing the final sanction.
 
-Excerpt read: 
+Excerpt read: Opinion: 'Francisco's removal was an abuse of discretion'; agency's factual findings receive substantial-evidence review and sanction receives abuse-of-discretion review.
 
-- https://www.courtlistener.com/opinion/380094/
+- https://law.justia.com/cases/federal/appellate-courts/F2/625/266/57056/
 
 ### Second check: not required
 
@@ -13191,12 +13227,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.
+The original §7701(c)(2)(B) says an agency decision cannot be sustained if based on a prohibited personnel practice. 'Same' in context concerns limits on sustaining the agency action.
 
-Excerpt read: 
+Excerpt read: 92 Stat. 1138: agency decision may not be sustained if employee 'shows that the decision was based on any prohibited personnel practice described in section 2302(b)'.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
 
 ### Second check: not required
 
@@ -13265,7 +13302,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The relevant late-1970s/1981 version of Army Regulation 600-50 was not retrieved. The Library of Congress indexes 1982 and later editions, which cannot establish the cited version's text or application.
 
 Excerpt read: 
 
@@ -13335,12 +13372,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.
+The Douglas Board opinion reproduces the operative words of the 1977 Shipyard Notice from Agency Exhibit 2: theft or attempted theft warranted removal for a first offense unless extraordinary mitigating circumstances existed. This verifies the cited proposition through a judicial reproduction, while the standalone notice and its remaining terms were not obtained.
 
-Excerpt read: 
+Excerpt read: the offense of attempted or actual theft of government property as warranting the penalty of removal for the first offense, 'unless extraordinary mitigating circumstances exist which would indicate the suitability of a lesser penalty.'
 
+- https://www.mspb.gov/decisions/precedential/Douglas_Curtis_et_al_AT075299006_Opinion_and_Order_253434.pdf
 
 ### Second check: not required
 
@@ -13434,13 +13472,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears in the Justia print's syllabus, the Reporter of Decisions' headnote, which is not part of the official opinion text compared on CourtListener; the cited material was not separately retrieved in this session.
+The 1976 U.S. Code reproduces Title VII's equal-employment provisions as they stood before the W.R. Grace dispute; the attached Supreme Court opinion applies that statute to the employer's conciliation agreement.
 
-Excerpt read: 
+Excerpt read: 1976 Code, Title 42, subchapter VI 'Equal Employment Opportunities', including §2000e-2's unlawful employment practices and §2000e-5 enforcement.
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1976-01004/uscode1976-010042021/uscode1976-010042021.pdf
 
 ### Second check: not required
 
@@ -13509,13 +13547,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.
+Historical §706(b), codified at 42 U.S.C. §2000e-5(b), instructs the EEOC to try conference, conciliation, and persuasion after a reasonable-cause finding.
 
-Excerpt read: 
+Excerpt read: 1976 Code p.1240: if the Commission finds reasonable cause, it 'shall endeavor to eliminate any such alleged unlawful employment practice by informal methods of conference, conciliation, and persuasion.'
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1976-01004/uscode1976-010042021/uscode1976-010042021.pdf
 
 ### Second check: not required
 
@@ -13594,14 +13632,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Southbridge Plastics Division, W. R. Grace & Co. v. Local 759 (cluster 1560150). The cited page and the proposition were not read in this session.
+The district court granted Southbridge/EEOC summary judgment, held conciliation terms binding despite conflicting collective bargaining seniority terms, and found arbitration futile.
 
-Excerpt read: 
+Excerpt read: At 1188: 'terms of the conciliation agreement should be, and are, binding upon all the parties ...'; 'no useful purpose would be served by requiring arbitration'.
 
-- https://www.courtlistener.com/opinion/1560150/
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://openjurist.org/403/fsupp/1183/southbridge-plastics-division-w-r-grace-co-v-local-759-international-union-of-th-1560150
 
 ### Second check: not required
 
@@ -13670,13 +13707,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.
+The Fifth Circuit reversed the district court, held the bona fide seniority system protected and ordered arbitration; it explicitly said individual Title VII claims could not be transformed into this LMRA §301 suit.
 
-Excerpt read: 
+Excerpt read: At 916-17: 'An action brought pursuant to Title VII, not § 301 ... is the proper vehicle'; court grants union counterclaim seeking arbitration.
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://app.midpage.ai/document/southbridge-plastics-division-v-local-350687
 
 ### Second check: not required
 
@@ -13745,13 +13782,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.
+The official U.S. Reports orders page expressly grants certiorari in the named W.R. Grace case and identifies the Fifth Circuit's 652 F.2d 1248 decision.
 
-Excerpt read: 
+Excerpt read: 458 U.S. 1105: 'No. 81-1314. W. R. Grace & Co. v. Local Union 759 ... C. A. 5th Cir. Certiorari granted.'
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://www.govinfo.gov/content/pkg/USREPORTS-458/pdf/USREPORTS-458-BackMatter-2.pdf
 
 ### Second check: not required
 
@@ -13947,7 +13984,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+Kaden's 1980 Columbia Law Review article at page 287 was not retrieved; later citations to the article do not verify its public-policy discussion.
 
 Excerpt read: 
 
@@ -14169,13 +14206,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.
+Historical §706(b), codified at 42 U.S.C. §2000e-5(b), instructs the EEOC to try conference, conciliation, and persuasion after a reasonable-cause finding.
 
-Excerpt read: 
+Excerpt read: 1976 Code p.1240: if the Commission finds reasonable cause, it 'shall endeavor to eliminate any such alleged unlawful employment practice by informal methods of conference, conciliation, and persuasion.'
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1976-01004/uscode1976-010042021/uscode1976-010042021.pdf
 
 ### Second check: not required
 
@@ -14294,14 +14331,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to W. R. Grace and Company v. Local Union No. 759 (5th Cir. 1981) (cluster 392036). The cited page and the proposition were not read in this session.
+The later Fifth Circuit decision frames the validity of the earlier Sabella award as the core inquiry, because it was based on equity rather than interpretation of the collective bargaining agreement.
 
-Excerpt read: 
+Excerpt read: At 1252 vicinity: 'core inquiry ... whether the Sabella award can stand'; 'Sabella decision departed from the terms of the collective bargaining agreement'.
 
-- https://www.courtlistener.com/opinion/392036/
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://openjurist.org/652/f2d/1248/grace-v-local
 
 ### Second check: not required
 
@@ -14370,14 +14406,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Franks v. Bowman Transportation Co. (cluster 109404). The cited page and the proposition were not read in this session.
+Franks addresses retroactive seniority relief under Title VII and explains why a court may award seniority within an existing system to remedy discrimination.
 
-Excerpt read: 
+Excerpt read: 424 U.S. at 778-79: denying seniority relief solely because of effects on other employees would frustrate Title VII's make-whole objective.
 
-- https://www.courtlistener.com/opinion/109404/franks-v-bowman-transportation-co/
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://supreme.justia.com/cases/federal/us/424/747/
 
 ### Second check: not required
 
@@ -14458,7 +14493,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+The cited 1978 Jaeger/Williston treatise volume §§1931–1979 was not retrieved. W.R. Grace's note 10 cites and summarizes the treatise but does not reproduce the sections.
 
 Excerpt read: 
 
@@ -14529,14 +14564,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Lowenschuss v. Kane (cluster 329229). The cited page and the proposition were not read in this session.
+Lowenschuss holds that a judicial injunction may make performance impracticable, but a party whose own fault contributed to the order may not invoke the defense.
 
-Excerpt read: 
+Excerpt read: At 265 vicinity: 'Impossibility caused by a judicial order ... will excuse a party's performance only if the fault of the party owing performance did not contribute to the order.'
 
-- https://www.courtlistener.com/opinion/329229/lowenschuss-v-kane/
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://openjurist.org/520/f2d/255/lowenschuss-v-w-j-kane-c
 
 ### Second check: not required
 
@@ -14604,13 +14638,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.
+Section 301 of the 1947 LMRA, codified at 29 U.S.C. §185(a), creates federal jurisdiction for suits over employer-union contracts; the quoted words match the codified statute. The code edition read is 2010, whose section source note traces to 1947; no intervening change to this passage is shown.
 
-Excerpt read: 
+Excerpt read: §185(a): 'Suits for violation of contracts between an employer and a labor organization representing employees in an industry affecting commerce ... may be brought in any district court of the United States'.
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://www.govinfo.gov/content/pkg/USCODE-2010-title29/html/USCODE-2010-title29-chap7.htm
 
 ### Second check: not required
 
@@ -14679,13 +14713,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.
+The Fifth Circuit reversed the district court, held the bona fide seniority system protected and ordered arbitration; it explicitly said individual Title VII claims could not be transformed into this LMRA §301 suit.
 
-Excerpt read: 
+Excerpt read: At 916-17: 'An action brought pursuant to Title VII, not § 301 ... is the proper vehicle'; court grants union counterclaim seeking arbitration.
 
-- https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/
+- https://app.midpage.ai/document/southbridge-plastics-division-v-local-350687
 
 ### Second check: not required
 
@@ -14754,12 +14788,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+A federal district-court opinion reproduces U.C.C. §2-615 Official Comment 4 in full. It confirms increased cost alone ordinarily does not excuse performance, subject to the stated unforeseen-contingency exception. Douglas's general analogy is supported, though the UCC provision addresses seller impracticability in goods contracts.
 
-Excerpt read: 
+Excerpt read: Increased cost alone does not excuse performance unless the rise in cost is due to some unforeseen contingency which alters the essential nature of the performance.
 
+- https://cases.justia.com/federal/district-courts/new-york/nywdce/6%3A2006cv06155/58982/43/0.pdf
 
 ### Second check: not required
 
@@ -14828,7 +14863,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+The American Law Institute Restatement (Second) of Contracts §180 comment a itself was not retrieved. W.R. Grace states the innocent-party rule in its own words and cites the comment, but does not reproduce the comment text.
 
 Excerpt read: 
 
@@ -15033,13 +15068,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, arbitral, or secondary citation not separately retrieved in this session.
+The Supreme Court's scanned 1986 Term Journal reports the certiorari grant for the named Misco case.
 
-Excerpt read: 
+Excerpt read: Jan. 12, 1987, Journal p. 317: 'No. 86-651. United Paperworkers ... v. Misco, Inc. Petition for writ of certiorari ... granted.'
 
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://www.supremecourt.gov/pdfs/journals/scannedjournals/1986_journal.pdf
 
 ### Second check: not required
 
@@ -15258,13 +15293,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, arbitral, or secondary citation not separately retrieved in this session.
+The historical 1970 U.S. Code directly contains the quoted language at §10(c). The later renumbering to §10(a)(3) does not change the historical citation.
 
-Excerpt read: 
+Excerpt read: 1970 Code, 9 U.S.C. §10(c): 'Where the arbitrators were guilty of misconduct ... in refusing to hear evidence pertinent and material to the controversy'.
 
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1970-00200/uscode1970-002009001/uscode1970-002009001.pdf
 
 ### Second check: not required
 
@@ -15441,14 +15476,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Twin City Pipe Line Co. v. Harding Glass Co. (cluster 101740). The cited page and the proposition were not read in this session.
+Pages 356-358 contain the Court's caution against using public policy to avoid a fair contract and its public-detriment analysis.
 
-Excerpt read: 
+Excerpt read: 283 U.S. at 356-58: the public-policy nonenforcement principle 'should be applied with caution' and requires clear public detriment.
 
-- https://www.courtlistener.com/opinion/101740/twin-city-pipe-line-co-v-harding-glass-co/
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://supreme.justia.com/cases/federal/us/283/353/
 
 ### Second check: not required
 
@@ -15692,14 +15726,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Bevles Company, Inc. v. Teamsters Local 986 (cluster 9474900). The cited page and the proposition were not read in this session.
+Bevles confirms the narrow public-policy exception to enforcement of an arbitration award and upheld reinstatement/backpay for undocumented workers in the pre-IRCA legal setting. Temporal context matters.
 
-Excerpt read: 
+Excerpt read: Opinion: award 'neither violates a clearly defined public policy nor is in manifest disregard of the law'; no explicit dominant policy then barred the remedy.
 
-- https://www.courtlistener.com/opinion/9474900/
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://openjurist.org/791/f2d/1391/bevles-company-inc-v-teamsters-local
 
 ### Second check: not required
 
@@ -15794,7 +15827,7 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.
+The 1983 second edition of Fairweather's arbitration treatise, pages 303–306, was not accessible. Google Books exposed catalog/snippet material for different editions, not the cited pages.
 
 Excerpt read: 
 
@@ -15865,13 +15898,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, arbitral, or secondary citation not separately retrieved in this session.
+Section 301 of the 1947 LMRA, codified at 29 U.S.C. §185(a), creates federal jurisdiction for suits over employer-union contracts; the quoted words match the codified statute. The code edition read is 2010, whose section source note traces to 1947; no intervening change to this passage is shown.
 
-Excerpt read: 
+Excerpt read: §185(a): 'Suits for violation of contracts between an employer and a labor organization representing employees in an industry affecting commerce ... may be brought in any district court of the United States'.
 
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://www.govinfo.gov/content/pkg/USCODE-2010-title29/html/USCODE-2010-title29-chap7.htm
 
 ### Second check: not required
 
@@ -15940,14 +15973,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Ludwig Honold Mfg. Co. v. Harold A. Fletcher (cluster 283115). The cited page and the proposition were not read in this session.
+Ludwig Honold treats FAA cases as analogical guidance for reviewing labor awards while expressly saying the FAA itself does not govern these employment-contract appeals.
 
-Excerpt read: 
+Excerpt read: Opinion: commercial FAA cases 'are not controlling authority' but 'an examination of standards applied by reviewing courts is invited'; footnote says FAA inapplicable to labor awards.
 
-- https://www.courtlistener.com/opinion/283115/
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://law.justia.com/cases/federal/appellate-courts/F2/405/1123/370104/
 
 ### Second check: not required
 
@@ -16249,13 +16281,13 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Appears identically in the official opinion text on CourtListener; statutory, arbitral, or secondary citation not separately retrieved in this session.
+The 1976 U.S. Code reproduces Title VII's equal-employment provisions as they stood before the W.R. Grace dispute; the attached Supreme Court opinion applies that statute to the employer's conciliation agreement.
 
-Excerpt read: 
+Excerpt read: 1976 Code, Title 42, subchapter VI 'Equal Employment Opportunities', including §2000e-2's unlawful employment practices and §2000e-5 enforcement.
 
-- https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/
+- https://tile.loc.gov/storage-services/service/ll/uscode/uscode1976-01004/uscode1976-010042021/uscode1976-010042021.pdf
 
 ### Second check: not required
 
