@@ -37,6 +37,8 @@ The completed reconciliation rules on all 64 blind findings: 21 problematic, 29 
 
 Citation checking has a separate census of legal-authority occurrences in each unique matter document, with prompt and rubric occurrences counted separately. Repeated attachment copies in later assignment packets are not counted again. Each first-check problem receives a second review, and the records distinguish a defective authority from an instruction or criterion that asks the solver to catch it. Source-access failures and incomplete checks remain visible; they do not count as verified authorities.
 
+Opus prepared the initial citation censuses; Sol reviewed their proposed problems and supplemented omitted references. Further Sol workers attempted sources that the first pass had not read. Those reads are recorded as first substantive checks, with the original judgments retained, and new problem claims receive a fresh Opus review. A rejected claim based on an auditor's misreading of citation-summary metadata remains visible without counting as an upstream problem. High effort was requested for these workers; one supplemental Opus reviewer reported low effort, so its JSON retains both the requested and reported settings rather than asserting a confirmed runtime setting.
+
 The rendering code reuses the Harvey status aggregation and agreement buckets. It assigns each criterion the strongest status in a model's findings, deduplicates criteria within a category, and preserves overlaps between categories. It counts reconciliation separately. No model responses were submitted to benchmark judges, and no scores were adjusted.
 
 ## Reproduction

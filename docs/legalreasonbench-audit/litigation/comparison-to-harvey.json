@@ -12,17 +12,17 @@
       "citation_instances": 2366,
       "fictional_by_design": 70,
       "checked": 2296,
-      "first_check_problems": 82,
-      "pending_checks": 7,
+      "first_check_problems": 83,
+      "pending_checks": 8,
       "by_final_status": {
-        "VERIFIED": 1766,
+        "VERIFIED": 1848,
         "VERIFIED_MINOR_DEFECT": 113,
         "NOT_FOUND_LIKELY_FABRICATED": 0,
         "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
         "MISCHARACTERIZED": 46,
         "MISQUOTED": 5,
         "WRONG_CITATION_REAL_CASE": 20,
-        "UNABLE_TO_VERIFY": 339
+        "UNABLE_TO_VERIFY": 256
       },
       "observed_final_problems": 71,
       "problems": null,
@@ -230,14 +230,15 @@
               "UNABLE_TO_VERIFY (12 occurrences): ten law-review articles cited in Justice Appel's special concurrence in Kuhse, and Iowa Criminal Jury Instruction 800.1 (2018). For the law reviews, repository PDFs were blocked by bot challenges or 404s, or could not be located; for five of the articles, existence was confirmed only from repository bibliographic records. No law-review quotation was checked. None is marked not-found.",
               "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.",
               "Integration counting correction: 24 prompt/rubric references to Facts.pdf and Patton State Plea.pdf were moved to excluded_record_references. The first worker had labelled them fictional_by_design solely because they are scenario records; no finding established that these court records were fictional. They are excluded as non-authority record references, leaving 470 real-law citation occurrences and no fictional legal-authority rows in this matter.",
-              "Second-pass census supplement adds 139 omitted references and separately records 33 verification-coverage downgrades. Two new alleged problems are promoted to first-stage findings with original judgments retained; fresh independent checks are pending. Initial exclusions of quoted and editorial-note citations are superseded by the supplement."
+              "Second-pass census supplement adds 139 omitted references and separately records 33 verification-coverage downgrades. Two new alleged problems are promoted to first-stage findings with original judgments retained; fresh independent checks are pending. Initial exclusions of quoted and editorial-note citations are superseded by the supplement.",
+              "A supplemental GPT-6 Sol source pass attempted 89 unverified occurrences: 82 verified, one quotation proposal awaiting independent review, six still unable to verify. Prior coverage downgrades are preserved as history and superseded by the actual source reads."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
             "census_complete": true
           },
           "citations": 609,
-          "pending_checks": 0,
-          "complete": true
+          "pending_checks": 1,
+          "complete": false
         }
       ]
     },
