@@ -1980,8 +1980,19 @@ Excerpt read: Grafton v. Department of Treasury cites Douglas as “5 MSPB 313, 
 
 - https://law.justia.com/cases/federal/appellate-courts/F2/864/140/239881/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+I tried to overturn Sol's MISCHARACTERIZED and could not, although I correct one detail. The case at the citation is right: the uploaded Douglas opinion carries MSPB-reporter pagination, 5 MSPB 313-346 (printed footers 313 through 346), and the Award pins 'Cf. Douglas, 5 M.S.P.R. at 306' for the 'tolerable limits of reasonableness' standard. In the upload, that standard sentence starts at the foot of printed p. 332 ('the Board's review of an agency-imposed penalty is essentially to assure that the agency did conscien-') and finishes at the top of p. 333 ('tiously consider the relevant factors and did strike a responsible balance within tolerable limits of reasonableness'). Four courts pin the same passage to 5 M.S.P.R. 306. Grafton (Fed. Cir.) gives '5 MSPB 313, 332, 5 M.S.P.R. 280, 306' for tolerable limits. Love v. D.C. OEA, 90 A.3d 412 (D.C. 2014), quotes the full sentence and cites 'Douglas, 5 M.S.P.R. at 306' (n.22). Kemp (Fed. Cir. 2006) uses 306 for 'not all factors pertinent', which is on upload p. 332. McNab (MSPB 2014) uses 306 for 'not to be evaluated mechanistically', which is on upload p. 333. So 5 M.S.P.R. 306 corresponds to upload pp. 332-333, not to p. 332 alone as Sol and the first check say. The Award's pin is the canonical pin for exactly the proposition it cites. Criterion 9 (+30) rewards saying the citation 'does not correspond to any page of the uploaded Douglas opinion', and its source field adds 'paginated 313 to 346'. That exposes the author's premise: 306 falls outside the upload's range, so the pin is defective. The premise is false, and in its ordinary cite-check sense 'correspond' is false too, because the M.S.P.R. page does correspond to upload pp. 332-333. The strongest counter-reading is the one the reconciliation took: at the page-label level no upload page reads '306', so the statement is 'literally true', and a closed-universe solver cannot prove the mapping without outside sources. I considered VERIFIED_MINOR_DEFECT on that basis and rejected it. The closed universe itself signals the parallel pagination: the prompt labels the upload 'Douglas v. Veterans Administration, 5 M.S.P.R. 280 (1981)' even though its first printed page is 313, and other criteria in this dataset cite '5 M.S.P.R. 280, 305-06' to this same upload. The dataset therefore treats M.S.P.R. pins as mapping onto this document. A response that correctly reports the 306-to-332/333 correspondence contradicts the criterion's wording, so it is unlikely to earn the 30 points, while a response that calls a correct pin an error does earn them. Residual uncertainty: I read no M.S.P.R.-paginated copy of Douglas. The 306 mapping rests on four courts' pins plus the content match in the MSPB-paginated primary text, not on reading the M.S.P.R. page itself.
+
+Excerpt read: Upload p. 332 (foot) to p. 333 (top): 'Rather, the Board's review of an agency-imposed penalty is essentially to assure that the agency did conscien-' / 'tiously consider the relevant factors and did strike a responsible balance within tolerable limits of reasonableness.' Award ¶5: 'I ask whether the Department's conclusions on those factors fall within tolerable limits of reasonableness. Cf. Douglas, 5 M.S.P.R. at 306.' Grafton: 'Douglas v. Veterans Admin., 5 MSPB 313, 332, 5 M.S.P.R. 280, 306 (1981).' Love, 90 A.3d at 445 & n.22: 'review of an agency-imposed penalty is essentially to assure that the agency did conscientiously consider the relevant factors and did strike a responsible balance within tolerable limits of reasonableness' — 'Douglas, 5 M.S.P.R. at 306.'
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf
+- https://www.courtlistener.com/opinion/516104/w-lloyd-grafton-v-department-of-the-treasury/
+- https://www.courtlistener.com/opinion/2672919/darryl-love-and-alphonso-bryant-v-district-of-columbia-office-of-employee-appeals-and-district-of-columbia-department-of-corrections/
+- https://www.courtlistener.com/opinion/8438912/kemp-v-department-of-veterans-affairs/
+- https://www.courtlistener.com/opinion/2740282/sean-mcnab-v-department-of-the-army/
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## pd-0081: Arbitration Opinion and Award (Larrabee, Arb.)
 
@@ -17302,8 +17313,18 @@ Excerpt read: Lincoln National Life Insurance Co. v. Payne, 374 F.3d 672, 675: �
 
 - https://www.govinfo.gov/content/pkg/USCOURTS-ca8-03-02998/pdf/USCOURTS-ca8-03-02998-0.pdf
 
-### Second check: pending
+### Second check: MISQUOTED
 
+I tried to overturn Sol's MISQUOTED in favor of the first check's VERIFIED_MINOR_DEFECT and could not. The Eighth Circuit sentence at 374 F.3d 672, 675 reads 'Manifest disregard requires something more than a mere error of law.' I confirmed it in three readings: the CourtListener reporter text with *675 star pagination immediately before the paragraph containing the sentence, a second CourtListener copy, and the court's own slip opinion (govinfo PDF, 4 pages, text extracted this session), which has the same sentence verbatim. No official version supports FOP's wording. The variant is the DCCA's own and not an extraction artifact: the published FOP text on CourtListener and the uploaded FindLaw copy both read '(“Manifest disregard of the law requires something more than a mere error”)'. The difference goes beyond spelling or punctuation. Inside quotation marks, without brackets or ellipses, FOP inserts 'of the law' after 'disregard' and deletes 'of law' from the end. The deletion has some effect: the original says manifest disregard requires more than a mere error of law, while FOP's version says it requires more than a mere error of any kind. The brief's carve-out for harmless spelling and punctuation therefore does not apply, and exact-quotation fidelity fails. Materiality is low. The proposition is substantively the same, it sits in a 'Cf., e.g.' parenthetical supporting a point FOP does not rest on Lincoln National, the pin and citation are correct, and no prompt or criterion targets the quotation.
+
+Excerpt read: Lincoln Nat'l, 374 F.3d at *675 (reporter and slip opinion): 'Manifest disregard requires something more than a mere error of law. If an arbitrator, for example, stated the law, acknowledged that he was rendering a decision contrary to law, and said that he was doing so because he thought the law unfair, that would be an instance of "manifest disregard."' FOP, 973 A.2d 174, n.9 (published text and upload PDF p. 7): 'Cf., e.g., Lincoln Nat'l Life Ins. Co. v. Payne, 374 F.3d 672, 675 (8th Cir.2004) (“Manifest disregard of the law requires something more than a mere error”).'
+
+- https://www.courtlistener.com/opinion/786851/lincoln-national-life-insurance-company-lincoln-financial-advisors/
+- https://www.courtlistener.com/opinion/3035377/lincoln-national-life-insurance-v-payne/
+- https://www.govinfo.gov/content/pkg/USCOURTS-ca8-03-02998/pdf/USCOURTS-ca8-03-02998-0.pdf
+- https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## pd-0697: D.C. Code § 1-605.02(6)
 

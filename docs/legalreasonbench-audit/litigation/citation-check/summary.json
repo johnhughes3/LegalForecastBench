@@ -8,22 +8,22 @@
   "fictional_by_design": 70,
   "checked": 2296,
   "first_check_problems": 74,
-  "pending_checks": 2,
+  "pending_checks": 0,
   "by_final_status": {
     "VERIFIED": 1547,
     "VERIFIED_MINOR_DEFECT": 105,
     "NOT_FOUND_LIKELY_FABRICATED": 0,
     "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
-    "MISCHARACTERIZED": 45,
-    "MISQUOTED": 4,
+    "MISCHARACTERIZED": 46,
+    "MISQUOTED": 5,
     "WRONG_CITATION_REAL_CASE": 20,
     "UNABLE_TO_VERIFY": 573
   },
-  "observed_final_problems": 69,
+  "observed_final_problems": 71,
   "problems": null,
   "problem_rate": null,
-  "checks_complete": false,
-  "observed_problem_rate": null,
+  "checks_complete": true,
+  "observed_problem_rate": 0.03092334494773519,
   "per_matter": [
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -127,7 +127,7 @@
         "census_complete": false
       },
       "citations": 857,
-      "pending_checks": 2,
+      "pending_checks": 0,
       "complete": false
     },
     {

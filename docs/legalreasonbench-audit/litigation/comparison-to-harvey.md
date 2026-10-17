@@ -32,7 +32,7 @@ Category denominators are criteria covered by each final report; categories over
 | Citation check | Problem citations / checked real citations |
 |---|---|
 | Harvey | 467 / 3618 (12.9%) |
-| LegalReasonBench | unavailable; coverage or checks pending |
+| LegalReasonBench | 71 / 2296 (3.1%) among recorded citations; coverage incomplete |
 
 Harvey counts citation occurrences in task environments, including repeated documents across tasks; LegalReasonBench counts citations in unique matter documents and avoids repeated assignment copies. These citation denominators are different counting units. Fictional authorities are excluded; unable-to-verify results remain disclosed in each citation summary, not treated as verified successes.
 

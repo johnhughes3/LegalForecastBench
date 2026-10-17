@@ -684,9 +684,20 @@
       "rewards_reliance": [
         "assignment-2 criterion_9"
       ],
-      "explanation": "Criterion awards 30 points for treating Douglas 5 M.S.P.R. 306 as absent from attachment paginated 5 MSPB 313–346. They are parallel reporter pages, 5 MSPB 332 = 5 M.S.P.R. 306; reward would penalize correct citation handling.",
+      "explanation": "The assignment-2 prompt asks for scope-of-review and burden/preservation analysis with page and paragraph cites. It does not ask for the Award's citations to be audited; criterion 9's justification calls the item 'implied, though not directly requested'. Criterion 9 (+30 of 88 positive points, the largest item) rewards asserting that a correct M.S.P.R. pin corresponds to no page of the upload. A response that cites the standard correctly at upload pp. 332-333, or that explains the parallel pagination, is penalized or at best uncertain. This record does not decide whether the criterion should be removed or rewritten, and it makes no score correction.",
+      "prior_intent": {
+        "ref": "pd-0080",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [
+          "assignment-2 criterion_9"
+        ],
+        "rewards_reliance": [
+          "assignment-2 criterion_9"
+        ],
+        "explanation": "Criterion awards 30 points for treating Douglas 5 M.S.P.R. 306 as absent from attachment paginated 5 MSPB 313–346. They are parallel reporter pages, 5 MSPB 332 = 5 M.S.P.R. 306; reward would penalize correct citation handling."
+      },
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-dcca-challenge-police-discipline",
@@ -708,9 +719,16 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "FOP’s exact quotation of Lincoln National differs from the Eighth Circuit original. The wording difference is small in substance and is not a grading target, but the quote should be marked MISQUOTED.",
+      "explanation": "A search of all five assignment prompts, criteria, and source fields found no reference to Lincoln National or 'manifest disregard'. The misquotation sits in an uploaded authority's Cf. parenthetical and does not change any graded proposition. A response that repeated FOP's parenthetical would carry the DCCA's wording, not the Eighth Circuit's, but no criterion rewards or penalizes that.",
+      "prior_intent": {
+        "ref": "pd-0696",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "FOP’s exact quotation of Lincoln National differs from the Eighth Circuit original. The wording difference is small in substance and is not a grading target, but the quote should be marked MISQUOTED."
+      },
       "first_check_status": "MISQUOTED",
-      "final_status": null
+      "final_status": "MISQUOTED"
     },
     {
       "matter": "lrb-forum-non-conveniens-response",
