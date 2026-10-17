@@ -13,9 +13,9 @@
       "fictional_by_design": 70,
       "checked": 2296,
       "first_check_problems": 81,
-      "pending_checks": 7,
+      "pending_checks": 6,
       "by_final_status": {
-        "VERIFIED": 1681,
+        "VERIFIED": 1682,
         "VERIFIED_MINOR_DEFECT": 108,
         "NOT_FOUND_LIKELY_FABRICATED": 0,
         "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
@@ -133,7 +133,7 @@
             "census_complete": false
           },
           "citations": 857,
-          "pending_checks": 1,
+          "pending_checks": 0,
           "complete": false
         },
         {

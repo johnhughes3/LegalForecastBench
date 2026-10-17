@@ -3,10 +3,6 @@
   "missing_matters": [],
   "first_check_problems_without_intent": [
     {
-      "matter": "lrb-dcca-challenge-police-discipline",
-      "ref": "pd-0580"
-    },
-    {
       "matter": "lrb-forum-non-conveniens-response",
       "ref": "FNC-0211"
     },
@@ -31,7 +27,7 @@
       "ref": "FNC-0238"
     }
   ],
-  "records_available": 75,
+  "records_available": 77,
   "targeted_by_instructions": 7,
   "targeted_by_criteria": 13,
   "rewards_reliance": 43,
@@ -758,6 +754,26 @@
       },
       "first_check_status": "MISQUOTED",
       "final_status": "MISQUOTED"
+    },
+    {
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "ref": "pd-0580",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The Dennison citation appears only in footnote 9 of the attached Grace opinion. I fetched all five pinned rubric.json files for this matter: 9, 12, 16, 9 and 8 criteria for assignments 1 through 5. No criterion mentions Dennison, Franks, McCall, seniority or consent decrees. The criteria that cite Grace (for example assignment 3 criteria 4, 5, 13 and 14, and assignment 5 criteria 5 and 6) concern the explicit, well-defined and dominant public-policy standard for refusing to enforce an award. The upstream citation is verified, and the first check's flag came from misreading audit metadata, so there is nothing to target or reward.",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": "VERIFIED"
+    },
+    {
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "ref": "pd-0547",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The wrong Statutes at Large page (259 for 257) is embedded in the authentic Grace opinion supplied as an attachment. No criterion in the five pinned rubrics mentions § 703(h), 42 U.S.C. § 2000e-2(h), Statutes at Large pages or seniority systems, and no assignment instruction asks for the Title VII session-law citation. No scoring correction is proposed.",
+      "first_check_status": "VERIFIED_MINOR_DEFECT",
+      "final_status": "VERIFIED_MINOR_DEFECT"
     },
     {
       "matter": "lrb-forum-non-conveniens-response",

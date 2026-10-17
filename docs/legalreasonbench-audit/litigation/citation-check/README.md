@@ -6,7 +6,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 7.
+Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 6.
 
 Problem rate: unavailable; coverage or checks pending.
 
@@ -14,7 +14,7 @@ Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1681 |
+| VERIFIED | 1682 |
 | VERIFIED_MINOR_DEFECT | 108 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
