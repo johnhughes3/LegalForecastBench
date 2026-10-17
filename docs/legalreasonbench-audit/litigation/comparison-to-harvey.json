@@ -8,14 +8,14 @@
       "counting_unit": "citation in a unique matter document",
       "matters_expected": 4,
       "matters_available": 4,
-      "complete": false,
-      "citation_instances": 2381,
+      "complete": true,
+      "citation_instances": 2382,
       "fictional_by_design": 70,
-      "checked": 2311,
+      "checked": 2312,
       "first_check_problems": 83,
       "pending_checks": 0,
       "by_final_status": {
-        "VERIFIED": 1956,
+        "VERIFIED": 1957,
         "VERIFIED_MINOR_DEFECT": 118,
         "NOT_FOUND_LIKELY_FABRICATED": 0,
         "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
@@ -25,10 +25,10 @@
         "UNABLE_TO_VERIFY": 164
       },
       "observed_final_problems": 73,
-      "problems": null,
-      "problem_rate": null,
+      "problems": 73,
+      "problem_rate": 0.03157439446366782,
       "checks_complete": true,
-      "observed_problem_rate": 0.03158805711813068,
+      "observed_problem_rate": 0.03157439446366782,
       "per_matter": [
         {
           "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -50,22 +50,23 @@
               "Both assignments carry the same four attachments (byte-identical conversions), so each attachment is counted once. Assignment 2's input repeats the assignment-1 prompt; only each assignment's own current prompt is counted.",
               "The Order (orderpdf.docx) is six scanned page images with no text layer; the packet conversion contains only image tags. All six pages were read visually from the images embedded in the pinned original DOCX (no OCR). The service list on page 6 (email addresses) is not reproduced.",
               "The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.",
-              "The Petition's 28 embedded images (maps, charts, photos, a deed cover page, FAA figure, tax-roll screenshots) were reviewed at contact-sheet scale; the fine-print notes on images 14, 16, 25 and 26 were not legible and were not read. Images 11-12 reproduce FAA AC Figure 1 and were checked.",
               "The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.",
               "Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.",
               "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.",
               "The supplemental source pass attempted all 32 assigned occurrences. Nine FAA circular references now have substantive source reads, rather than index-only identification. For AC 150/5300-13A the accessible text is the 2014 Change 1 consolidation, not the unamended 2012 issue.",
               "Historical Lee County code requirements were checked where dated ordinance redlines or compilations supplied the relevant language. A complete January 2024 code/Lee Plan compilation was not recovered. Two historical code subsections and seven compound Lee Plan references remain unverified, along with the Babcock book and Mandelker/Tarlock article. Each row retains the retrieval attempts and any current-text comparison without calling that historical verification.",
               "All original 27 problem claims and five later claims received independent second review. The Smith article and Jennings characterization claims were downgraded to minor; four duplicate proposals in the later source pass retain their already completed independent rulings. The original first-pass and coverage-only judgments remain in the row history.",
-              "Admin. Code AC-2-6 was read in its August 2022 version, not its 2019-20 version. Fine print in four Petition images remains unreadable, so the citation census is not asserted complete. Unread or inaccessible authority is UNABLE_TO_VERIFY, not evidence of fabrication.",
-              "Current recorded coverage: 230 real-authority occurrences, including 11 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
+              "All 28 original Petition media files and all 41 Resolution media files were inspected at native resolution, with enlarged crops and rotation for narrow text. The previously unread notes/legends in Petition images 14, 16, 25 and 26 contain map notes, data-source credits and drafting details, with no new legal-authority reference. Residual unreadable text consists of geographic labels, map credits, CAD plot stamps and title-block microtext. The final reviewer judges the image-level legal-authority census complete under the existing counting convention.",
+              "The rotated Resolution Exhibit A margin strip image11 cites Rule 5J-17.062, F.A.C.; this omitted occurrence was added and verified against official rule text. The image15 Part 150 study title repeats its already counted caption and is not counted twice. Duplicated Resolution image files are not additional occurrences.",
+              "Admin. Code AC-2-6 was read in its August 2022 version, not its 2019-20 version. The historical Lee Plan/code and secondary-work access limits remain. Census completeness concerns occurrence enumeration, not verification of every authority or complete transcription of every graphic.",
+              "Current recorded coverage: 231 real-authority occurrences, including 11 UNABLE_TO_VERIFY. The image reviewer reported that the effort setting was not visible; both that report and the orchestration request for high effort are retained."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
-            "census_complete": false
+            "census_complete": true
           },
-          "citations": 230,
+          "citations": 231,
           "pending_checks": 0,
-          "complete": false
+          "complete": true
         },
         {
           "matter": "lrb-dcca-challenge-police-discipline",

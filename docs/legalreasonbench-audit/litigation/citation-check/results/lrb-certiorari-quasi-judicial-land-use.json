@@ -18,18 +18,19 @@
       "Both assignments carry the same four attachments (byte-identical conversions), so each attachment is counted once. Assignment 2's input repeats the assignment-1 prompt; only each assignment's own current prompt is counted.",
       "The Order (orderpdf.docx) is six scanned page images with no text layer; the packet conversion contains only image tags. All six pages were read visually from the images embedded in the pinned original DOCX (no OCR). The service list on page 6 (email addresses) is not reproduced.",
       "The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.",
-      "The Petition's 28 embedded images (maps, charts, photos, a deed cover page, FAA figure, tax-roll screenshots) were reviewed at contact-sheet scale; the fine-print notes on images 14, 16, 25 and 26 were not legible and were not read. Images 11-12 reproduce FAA AC Figure 1 and were checked.",
       "The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.",
       "Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.",
       "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.",
       "The supplemental source pass attempted all 32 assigned occurrences. Nine FAA circular references now have substantive source reads, rather than index-only identification. For AC 150/5300-13A the accessible text is the 2014 Change 1 consolidation, not the unamended 2012 issue.",
       "Historical Lee County code requirements were checked where dated ordinance redlines or compilations supplied the relevant language. A complete January 2024 code/Lee Plan compilation was not recovered. Two historical code subsections and seven compound Lee Plan references remain unverified, along with the Babcock book and Mandelker/Tarlock article. Each row retains the retrieval attempts and any current-text comparison without calling that historical verification.",
       "All original 27 problem claims and five later claims received independent second review. The Smith article and Jennings characterization claims were downgraded to minor; four duplicate proposals in the later source pass retain their already completed independent rulings. The original first-pass and coverage-only judgments remain in the row history.",
-      "Admin. Code AC-2-6 was read in its August 2022 version, not its 2019-20 version. Fine print in four Petition images remains unreadable, so the citation census is not asserted complete. Unread or inaccessible authority is UNABLE_TO_VERIFY, not evidence of fabrication.",
-      "Current recorded coverage: 230 real-authority occurrences, including 11 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
+      "All 28 original Petition media files and all 41 Resolution media files were inspected at native resolution, with enlarged crops and rotation for narrow text. The previously unread notes/legends in Petition images 14, 16, 25 and 26 contain map notes, data-source credits and drafting details, with no new legal-authority reference. Residual unreadable text consists of geographic labels, map credits, CAD plot stamps and title-block microtext. The final reviewer judges the image-level legal-authority census complete under the existing counting convention.",
+      "The rotated Resolution Exhibit A margin strip image11 cites Rule 5J-17.062, F.A.C.; this omitted occurrence was added and verified against official rule text. The image15 Part 150 study title repeats its already counted caption and is not counted twice. Duplicated Resolution image files are not additional occurrences.",
+      "Admin. Code AC-2-6 was read in its August 2022 version, not its 2019-20 version. The historical Lee Plan/code and secondary-work access limits remain. Census completeness concerns occurrence enumeration, not verification of every authority or complete transcription of every graphic.",
+      "Current recorded coverage: 231 real-authority occurrences, including 11 UNABLE_TO_VERIFY. The image reviewer reported that the effort setting was not visible; both that report and the orchestration request for high effort are retained."
     ],
     "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
-    "census_complete": false
+    "census_complete": true
   },
   "citations": [
     {
@@ -6486,6 +6487,34 @@
         ],
         "excerpt_read": "Part 150 is headed Airport Noise Compatibility Planning; section 150.1 covers noise exposure maps and compatibility programs."
       }
+    },
+    {
+      "ref": "lu-final0001",
+      "document": "1774361815-resolution.docx",
+      "location": "resolution Exhibit A, sketch sheet 1 margin notice (inline image word/media/image11.jpg, rotated vertical strip; resolution.docx.md line 288)",
+      "authority_type": "regulation",
+      "authority": "Fla. Admin. Code R. 5J-17.062 (Procedures for Signing and Sealing Electronically Transmitted Surveys or Other Documents)",
+      "citation_as_written": "RULE 5J-17.062, F.A.C.",
+      "pincite": "",
+      "cited_for": "The sheet's official record is the electronic file, digitally signed and sealed under this rule",
+      "quotes": [],
+      "context": "NOTICE: THE OFFICIAL RECORD OF THIS SHEET IS THE ELECTRONIC FILE DIGITALLY SIGNED AND SEALED UNDER RULE 5J-17.062, F.A.C.",
+      "fictional_by_design": false,
+      "fictional_reason": "Real surveying regulation.",
+      "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Rule 5J-17.062, F.A.C., exists in the Professional Surveyors and Mappers chapter. It governs signing and sealing of electronic survey files, including electronic signatures that carry the same effect as an original signature and seal. That matches the notice's use of the rule. The version effective 7/15/2018 has no later amendment in its history note, so it was in force on the sketch's 2023.02.06 digital-signature date. The citation was located in an inline image that the Pandoc extraction and prior figure note had not transcribed. It is counted under the same treatment as the surveyor-certification citations in the same Exhibit A (rows 225-226). The notice quotes no rule language. Text read in the official flrules.org Word file of the rule (5J-17.062.doc) and confirmed against the Cornell LII copy.",
+        "source_urls": [
+          "https://www.flrules.org/gateway/readFile.asp?sid=0&tid=20621732&type=1&file=5J-17.062.doc",
+          "https://www.law.cornell.edu/regulations/florida/Fla-Admin-Code-Ann-R-5J-17-062",
+          "https://www.flrules.org/gateway/ruleNo.asp?id=5J-17.062",
+          "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
+        ],
+        "excerpt_read": "\"Fla. Admin. Code Ann. R. 5J-17.062 - Procedures for Signing and Sealing Electronically Transmitted Surveys or Other Documents ... (1) Information stored in electronic files representing plans, specifications, plats, reports, or other documents which must be sealed under the provisions of Chapter 472, F.S., shall be signed, dated and sealed by the professional surveyor and mapper in responsible charge. ... (3) An electronic signature is a digital authentication process attached to or logically associated with an electronic document and shall carry the same weight, authority, and effect as an original signature and seal.\" History: \"New 2-1-00, Amended 12-16-07, Formerly 61G17-7.0025, Amended 11-13-17, 7-15-18.\"",
+        "model": "Claude Opus 5.5",
+        "reasoning_effort": "not recorded",
+        "orchestrator_configured_effort": "high"
+      }
     }
   ],
   "second_check_model": "gpt-6-sol",
@@ -6631,5 +6660,92 @@
         "The supplemental source pass attempted all 32 assigned references: 17 verified and 11 still unverified after retrieval attempts. Four repeated problem proposals concern references already independently second-checked; the new source evidence is retained without replacing those final rulings. Remaining blocks concern seven compound Lee Plan references, two secondary works, and two historical code subsections."
       ]
     }
-  ]
+  ],
+  "native_image_census": {
+    "model": "Claude Opus 5.5",
+    "reasoning_effort": "not recorded",
+    "orchestrator_configured_effort": "high",
+    "coverage": {
+      "files_read": [
+        "AGENTS.md (Standard of Rigor; Public Repository Hygiene)",
+        "docs/legalreasonbench-audit/litigation/citation-check/results/lrb-certiorari-quasi-judicial-land-use.json (envelope, coverage limits, all 230 rows listed; rows 0, 224-226, 230 read in full)",
+        "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-petition.docx.figures.md",
+        "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-resolution.docx.figures.md",
+        "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-petition.docx.md (lines 495-575 and 755-775, the text around images 11-16 and 23-26)",
+        "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-resolution.docx.md (lines 280-368, signature block and Exhibit A sketch sheet; grep for 5J, F.A.C., digital/sealed)",
+        "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-orderpdf.docx.transcription.md (pages 1-6) and 1774361815-lcu-project.pdf.transcription.md (grep for authority markers)",
+        "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx (all 28 original word/media files extracted from the pinned DOCX and viewed at native resolution; notes, legends, title blocks and margins of images 14, 16, 25, 26 and the footer of image 15 cropped and upscaled 2.5x-5x)",
+        "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx (all 41 original word/media files extracted; images 10, 15, 16 viewed at native resolution; narrow margin strips 11, 12/13, 20, 22, 23, 36, 37, 39, 40 rotated and upscaled 2x; the 27 small OCR fragments viewed in a 4x grid)",
+        "https://www.flrules.org/gateway/readFile.asp?sid=0&tid=20621732&type=1&file=5J-17.062.doc (official F.A.C. rule text, Word file; read via strings extraction)",
+        "https://www.law.cornell.edu/regulations/florida/Fla-Admin-Code-Ann-R-5J-17-062 (full rule text and history note)",
+        "https://www.flrules.org/gateway/ruleNo.asp?id=5J-17.062 (rule title, effective date and version history)"
+      ],
+      "limits": [
+        "The source images were not modified. Crops and upscales were made into separate ignored scratch files; upscaling does not add detail, so text that remains blurred is reported as only partly legible.",
+        "Petition image 14 is itself a low-resolution screenshot of a hearing exhibit. Its Perimeter B/C note box reads with moderate confidence, and the Esri basemap attribution line is only partly legible. No legible or partly legible text in image 14 has the form of a statute, rule, code section, or case citation.",
+        "Petition image 16 notes, species/data-layer list, legend and title block are now readable apart from scattered characters. The rotated left-margin CAD plot stamp (file path, date and time) is only partly legible.",
+        "Petition images 25 and 26 notes and title blocks read cleanly. The bottom CAD file-path stamps are partly legible, and the title-block date, project number and file number microtext is not legible at native resolution. Those fields are drafting metadata by position and format, not authority references.",
+        "Basemap street and place labels in Petition images 14, 16, 25 and 26 were not exhaustively read; they are geographic labels.",
+        "Only the Rule 5J-17.062 occurrence was verified against primary text. The Lee County Part 150 study and the Johnson Engineering, SFWMD and USFWS/FWC data sources named in images are record and data materials, not legal authority, and were not retrieved.",
+        "Rule 5J-17.062 was read from the official flrules.org Word file in the version effective July 15, 2018 and cross-checked against Cornell LII. The history note lists no later amendment, so that version was in force on the sketch's February 6, 2023 digital-signature date.",
+        "The session's reasoning-effort setting was not exposed as a named level, so reasoning_effort is recorded as 'not recorded' rather than copied from the parent envelope."
+      ],
+      "census_complete": true,
+      "counting_unit": "Embedded original media file in the Petition DOCX (28 files, 29 placements) and the Resolution DOCX (41 files, 2 byte-identical duplicates), checked for legal-authority citation occurrences under the existing results file's counting rule (citation occurrence in each unique matter document). census_complete covers this image-level legal-authority question only. It does not cover the results file's separate open limits (historical Lee Plan/LDC text, AC-2-6 version, etc.)."
+    },
+    "added_refs": [
+      "lu-final0001"
+    ],
+    "image_findings": [
+      {
+        "image": "1774361815-petition.docx word/media/image14.jpg (1031x670; petition.docx.md line 511, 'RVI Planner's Map of Airport Compatability')",
+        "legal_authorities": [],
+        "unreadable_text": "Basemap street and place labels (geographic) and the attribution line in the lower right, which is partly legible and not transcribed."
+      },
+      {
+        "image": "1774361815-petition.docx word/media/image16.jpg (1187x795; petition.docx.md line 571, Johnson Engineering 'Documented Occurrences of Listed Species', February 2023)",
+        "legal_authorities": [],
+        "unreadable_text": "Rotated left-margin CAD plot stamp (file path and plot date/time) is only partly legible. A few characters in the notes and in the title-block project number are blurred. The parenthetical sources (USFWS, FFWCC, FGDL, Morrison, with years) are GIS data-layer provenance, not citations to statutes, regulations or cases. 'Consultation area' alludes to Endangered Species Act consultation practice without citing any provision. The Petition's own ESA s.7 and 50 CFR 402.16 references are already rows 135 and 188."
+      },
+      {
+        "image": "1774361815-petition.docx word/media/image25.jpg (712x479; petition.docx.md line 763, Johnson Engineering Figure 3a)",
+        "legal_authorities": [],
+        "unreadable_text": "Title-block microtext fields (exact date, project number, file number, scale) and parts of the bottom CAD path are not legible at native resolution. By position and format they are drafting metadata. Road labels on the basemap were not exhaustively read."
+      },
+      {
+        "image": "1774361815-petition.docx word/media/image26.jpg (710x478; petition.docx.md line 769, Johnson Engineering Figure 2)",
+        "legal_authorities": [],
+        "unreadable_text": "Title-block date, project and file numbers are not legible at native resolution (drafting metadata). Small basemap road labels were not exhaustively read."
+      },
+      {
+        "image": "1774361815-petition.docx word/media/image15.jpg (741x439; petition.docx.md line 555)",
+        "legal_authorities": [
+          "14 CFR Part 150 (named in the study title in the image's title block)"
+        ],
+        "unreadable_text": "Small basemap labels and part of the source line. The '14 CFR Part 150 Study' title in the image is the source of the Petition's own caption at line 557, which is existing row 230. That caption already counts this reference. Not added as a separate occurrence, consistent with the existing treatment of Petition images 11-12, where the reproduced figure is counted only through its caption, row 169."
+      },
+      {
+        "image": "1774361815-petition.docx all other media (image1-13, 17-24, 27, 28)",
+        "legal_authorities": [],
+        "unreadable_text": "Small basemap labels, hydrograph axis-date microtext, and the cut-off right edges of the FDEP rows. None of the legible text has the form of a legal citation. The deed, tax roll, SFWMD plan, FDEP database and EJScreen are record or data sources excluded by the existing counting rule."
+      },
+      {
+        "image": "1774361815-resolution.docx word/media/image11.jpg (10x714 vertical strip; resolution.docx.md line 288, immediately before 'Exhibit A')",
+        "legal_authorities": [
+          "Fla. Admin. Code R. 5J-17.062"
+        ],
+        "unreadable_text": "None. The strip reads cleanly when rotated and upscaled 2x."
+      },
+      {
+        "image": "1774361815-resolution.docx word/media/image12.jpg (= image13.jpeg), image22, image36, image37, image39, image40 (margin strips)",
+        "legal_authorities": [],
+        "unreadable_text": "None material."
+      },
+      {
+        "image": "1774361815-resolution.docx images 1-9, 14, 18-21, 23-35, 38, 41 (small fragments) and 10, 15, 16",
+        "legal_authorities": [],
+        "unreadable_text": "Image16's certification sentence is cut off at the crop edge. The visible portion contains no authority citation, and the adjacent extracted certification prose (Chapter 5J-17.05, F.A.C.; Chapter 472, F.S.) is already rows 225-226."
+      }
+    ]
+  }
 }
