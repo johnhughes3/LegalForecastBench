@@ -1,0 +1,4324 @@
+{
+  "dataset": "micro1-inc/LegalReasonBench",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "status_notes": "Agreement buckets use the two saved blind reports only. Reconciliation is counted separately and never replaces a blind report. Each criterion takes the strongest status among that report's findings. A criterion can occur in multiple categories; category counts deduplicate within task and category. Missing reports are unavailable, never zero findings. Counts describe AI reviewer judgments, not human-verified errors or corrected benchmark scores.",
+  "tasks_total": 11,
+  "criteria_total": 179,
+  "blind_agreement": {
+    "paired_tasks": 11,
+    "criteria_with_both_reports": 179,
+    "flagged_criteria": 63,
+    "unflagged_criteria": 116,
+    "buckets": {
+      "both_problematic": 9,
+      "both_arguable": 6,
+      "split": 16,
+      "sol_only": 20,
+      "opus_only": 12
+    }
+  },
+  "report_counts": {
+    "gpt_6_sol": {
+      "reports_available": 11,
+      "reports_expected": 11,
+      "criteria_with_reports": 179,
+      "findings": 31,
+      "flagged_criteria": 51,
+      "status_counts": {
+        "problematic": 35,
+        "arguable": 16
+      },
+      "categories": {
+        "legal_error": {
+          "findings": 7,
+          "flagged_criteria": 8,
+          "problematic": 7,
+          "arguable": 1
+        },
+        "unsupported_fact": {
+          "findings": 3,
+          "flagged_criteria": 6,
+          "problematic": 3,
+          "arguable": 3
+        },
+        "source_conflict": {
+          "findings": 3,
+          "flagged_criteria": 4,
+          "problematic": 2,
+          "arguable": 2
+        },
+        "internal_inconsistency": {
+          "findings": 5,
+          "flagged_criteria": 5,
+          "problematic": 5,
+          "arguable": 0
+        },
+        "ambiguous_or_unjudgeable": {
+          "findings": 4,
+          "flagged_criteria": 4,
+          "problematic": 0,
+          "arguable": 4
+        },
+        "unrequested_requirement": {
+          "findings": 7,
+          "flagged_criteria": 13,
+          "problematic": 7,
+          "arguable": 6
+        },
+        "document_defect": {
+          "findings": 2,
+          "flagged_criteria": 11,
+          "problematic": 11,
+          "arguable": 0
+        }
+      }
+    },
+    "claude_opus_5_5": {
+      "reports_available": 11,
+      "reports_expected": 11,
+      "criteria_with_reports": 179,
+      "findings": 33,
+      "flagged_criteria": 43,
+      "status_counts": {
+        "problematic": 12,
+        "arguable": 31
+      },
+      "categories": {
+        "legal_error": {
+          "findings": 8,
+          "flagged_criteria": 10,
+          "problematic": 6,
+          "arguable": 4
+        },
+        "unsupported_fact": {
+          "findings": 7,
+          "flagged_criteria": 8,
+          "problematic": 2,
+          "arguable": 6
+        },
+        "source_conflict": {
+          "findings": 5,
+          "flagged_criteria": 5,
+          "problematic": 1,
+          "arguable": 4
+        },
+        "internal_inconsistency": {
+          "findings": 4,
+          "flagged_criteria": 6,
+          "problematic": 3,
+          "arguable": 3
+        },
+        "ambiguous_or_unjudgeable": {
+          "findings": 6,
+          "flagged_criteria": 11,
+          "problematic": 0,
+          "arguable": 11
+        },
+        "unrequested_requirement": {
+          "findings": 3,
+          "flagged_criteria": 3,
+          "problematic": 0,
+          "arguable": 3
+        },
+        "document_defect": {
+          "findings": 0,
+          "flagged_criteria": 0,
+          "problematic": 0,
+          "arguable": 0
+        }
+      }
+    },
+    "reconciliation": {
+      "reports_available": 0,
+      "reports_expected": 11,
+      "criteria_with_reports": 0,
+      "findings": null,
+      "flagged_criteria": null,
+      "status_counts": {
+        "problematic": null,
+        "arguable": null
+      },
+      "categories": {
+        "legal_error": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        },
+        "unsupported_fact": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        },
+        "source_conflict": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        },
+        "internal_inconsistency": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        },
+        "ambiguous_or_unjudgeable": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        },
+        "unrequested_requirement": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        },
+        "document_defect": {
+          "findings": null,
+          "flagged_criteria": null,
+          "problematic": null,
+          "arguable": null
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_order_granting_petition",
+      "criterion_text": "States in the first assignment that the Order Granting Petition for Writ of Certiorari quashes Lee County, Fla., Res. No. Z-23-035 (2024).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_circuit_court_found_that",
+      "criterion_text": "States in the first assignment that the circuit court found that the Petitioners had standing to bring the petition based on proximity of the Petitioners' property to the proposed facility.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_circuit_court_found_th_2",
+      "criterion_text": "States in the first assignment that the circuit court found that the Lee County Board of County Commissioners \"improperly departed from the record created at the quasi-judicial hearings held below.\"",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_circuit_court_found_th_3",
+      "criterion_text": "States in the first assignment that the circuit court found that Lee County's conduct \"created prejudice and bias\" surrounding the rezoning.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_circuit_court_found_th_4",
+      "criterion_text": "States in the first assignment that the circuit court found that certain Federal Aviation Administration regulations \"were not fully considered below.\"",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "mentions_in_the_first_assignment_that_the_county_s_prior_rezonin",
+      "criterion_text": "Mentions in the first assignment that the county's prior rezoning request in DCI2018-10023 was remanded by the Hearing Examiner to staff for further evaluation and analysis on August 13, 2019.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_under_lee_county_fla_admin_c",
+      "criterion_text": "States in the first assignment that under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_dci2018_10023_remained_activ",
+      "criterion_text": "States in the first assignment that DCI2018-10023 remained active until September 13, 2023.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "mentions_in_the_first_assignment_that_the_subject_property_was_p",
+      "criterion_text": "Mentions in the first assignment that the subject property was placed into the Public Facilities future land use category of the Lee County Comprehensive Plan pursuant to Lee County, Fla. Ordinance 23-28 (2023).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O8"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_effect_of_the_order_gran",
+      "criterion_text": "States in the first assignment that the effect of the Order Granting Writ of Certiorari is that the Board's decision is overturned.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F3"
+      ],
+      "gpt_6_sol_categories": [
+        "internal_inconsistency"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O5"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_must_stop_constru",
+      "criterion_text": "States in the first assignment that the county must stop construction activities as a result of the Order Granting Writ of Certiorari.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_exclusive_method_of_revi",
+      "criterion_text": "States in the first assignment that the exclusive method of review of a quasi-judicial decision is by petition for writ of certiorari under Fla. R. App. P. 9.100(c) (2025) within 30 days of the written decision.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_exclusive_method_of_chal",
+      "criterion_text": "States in the first assignment that the exclusive method of challenging the issuance of a development order that materially alters the use or density or intensity of use on a particular piece of property is by filing a petition for writ of certiorari under Fla. Stat. § 163.3215(4) (2025) within 30 days of rendition of the development order.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F4"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2",
+      "criterion_text": "States in the first assignment that under Fla. Stat § 163.3167(10) (2025) the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal of the development order has expired.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F5"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_petitioners_may_file_a_s",
+      "criterion_text": "States in the first assignment that the Petitioners may file a separate cause of action for injunction to stop construction activities.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F8"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O4"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_arguable"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_appeal_the",
+      "criterion_text": "States in the first assignment that the county could appeal the Order Granting Writ of Certiorari to the Sixth District Court of Appeals pursuant to Fla. R. App. P. 9.030(b)(2)(B).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_remand_the",
+      "criterion_text": "States in the first assignment that the county could remand the case back to the Hearing Examiner for an evidentiary hearing to address the deficiencies identified in the Order Granting Petition for Writ of Certiorari under Lee County Fla. Land Development Code § 34-83(a)(6) (2025).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_file_a_new",
+      "criterion_text": "States in the first assignment that the County could file a new application for rezoning.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_voluntarily",
+      "criterion_text": "States in the first assignment that the County could voluntarily cease construction activities pending resolution of the challenge.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_take_the_po",
+      "criterion_text": "States in the first assignment that the County could take the position that the rezoning is not necessary because the county is not bound by its local zoning laws in carrying out a governmental function.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O7"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_negotiate_f",
+      "criterion_text": "States in the first assignment that the County could negotiate for additional conditions protecting wildlife that address Petitioners' concerns.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_could_negotiate_2",
+      "criterion_text": "States in the first assignment that the County could negotiate for additional conditions protecting water quality that address Petitioners' concerns.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_should_file_a_tim",
+      "criterion_text": "States in the first assignment that the County should file a timely appeal with the 6th District Court of Appeals.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F7"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_should_remand_the",
+      "criterion_text": "States in the first assignment that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order Granting Writ of Certiorari while an appeal is pending.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F7"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_should_cease_cons",
+      "criterion_text": "States in the first assignment that the County should cease construction activities at the subject property.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F6"
+      ],
+      "gpt_6_sol_categories": [
+        "internal_inconsistency"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O6"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+      "criterion_text": "Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+      "criterion_text": "States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm’rs, 794 So.2d 1270 (Fla. 2001).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unsupported_fact"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+      "criterion_text": "States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unsupported_fact"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+      "criterion_text": "States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unsupported_fact"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+      "criterion_text": "States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+      "criterion_text": "States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "source_conflict"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+      "criterion_text": "States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code § 2-191 (2025).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F3"
+      ],
+      "gpt_6_sol_categories": [
+        "unsupported_fact"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O4"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+      "criterion_text": "States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "source_conflict"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+      "criterion_text": "States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code § 34-1102 (2025).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F4"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+      "criterion_text": "States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+      "criterion_text": "States in the second assignment that the circuit court erred by purporting to reverse the Board’s rezoning decision.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+      "criterion_text": "States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, § 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F5"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "legal_error"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_1",
+      "criterion_text": "Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_2",
+      "criterion_text": "Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_3",
+      "criterion_text": "Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_4",
+      "criterion_text": "States that the arbitrator reviewed MPD’s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_5",
+      "criterion_text": "States that the arbitrator overturned the finding of cause.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_6",
+      "criterion_text": "States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_7",
+      "criterion_text": "Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "unrequested_requirement"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_arguable"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_8",
+      "criterion_text": "Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "source_conflict"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_9",
+      "criterion_text": "Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_1",
+      "criterion_text": "Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_2",
+      "criterion_text": "Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_3",
+      "criterion_text": "Identifies that the arbitrator’s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_4",
+      "criterion_text": "Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "source_conflict"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_arguable"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_5",
+      "criterion_text": "States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "source_conflict"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_6",
+      "criterion_text": "Mentions that D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_7",
+      "criterion_text": "States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD’s penalty selection",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_8",
+      "criterion_text": "Mentions authority absent from the uploaded materials in support of the burden allocation.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_9",
+      "criterion_text": "Identifies that the Award’s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "internal_inconsistency"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_10",
+      "criterion_text": "Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_11",
+      "criterion_text": "Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_12",
+      "criterion_text": "Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_1",
+      "criterion_text": "States that under D.C. Code § 1-605.02(6) (2016) an arbitration award may be set aside where the award on its face is contrary to law.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_2",
+      "criterion_text": "States that a decision of PERB must stand unless it is rationally indefensible",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_3",
+      "criterion_text": "Mentions that MPD’s contrary-to-law argument can be framed as the arbitrator purporting to apply Douglas while overlooking its limits on penalty review.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_4",
+      "criterion_text": "States that the invoked policy against the unjustified use of deadly force by police officers must be well defined and dominant.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_5",
+      "criterion_text": "Mentions that the public policy question is whether enforcing the award would violate public policy rather than whether the misconduct did.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_6",
+      "criterion_text": "Mentions that a violation of the properly framed public policy must be clearly shown before an award may be refused enforcement.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_7",
+      "criterion_text": "Identifies that the PERB Decision affirmed the Award without addressing MPD's specific contrary-to-law arguments",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_8",
+      "criterion_text": "States that the DCCA applies PERB decisions under the ordinary deference owed to expert agencies rather than an unusually deferential standard in its reviews.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_9",
+      "criterion_text": "States that the wrongfulness of Braddock’s misconduct itself establishes that the Award violates public policy.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_10",
+      "criterion_text": "States that disagreement with the arbitrator’s weighing of the Douglas factors is itself sufficient to render the Award contrary to law.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_11",
+      "criterion_text": "Identifies that PERB's unexplained rejection of MPD's arguments undermines the deference its interpretation would otherwise receive.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_12",
+      "criterion_text": "Identifies that no uploaded opinion decides whether an arbitrator's penalty determination can be on its face contrary to law.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_13",
+      "criterion_text": "Identifies that MPD's public policy argument must target enforcement of the reinstatement remedy rather than the shooting itself.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_14",
+      "criterion_text": "Identifies that the public policy MPD should invoke is a policy against the unjustified use of deadly force by police officers",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_15",
+      "criterion_text": "Mentions Eastern Associated Coal Corp. v. United Mine Workers as authority for the public policy analysis.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_16",
+      "criterion_text": "Identifies that the PERB Decision misstates the length of the suspension imposed by the Award.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_1",
+      "criterion_text": "Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_2",
+      "criterion_text": "States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD’s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_3",
+      "criterion_text": "Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_4",
+      "criterion_text": "States that objections not first urged before the Board cannot be considered by the DCCA",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_5",
+      "criterion_text": "Mentions that the supplemental comparator document holds each of MPD's arguments.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_6",
+      "criterion_text": "Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_7",
+      "criterion_text": "Mentions that the Kucera case sat outside the record before the arbitrator.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_8",
+      "criterion_text": "Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "unrequested_requirement"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_arguable"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion": "criterion_9",
+      "criterion_text": "States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_1",
+      "criterion_text": "States that MPD should petition the DCCA for review.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "F1"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "source_conflict"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_2",
+      "criterion_text": "Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F2"
+      ],
+      "gpt_6_sol_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "unrequested_requirement"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_arguable"
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_3",
+      "criterion_text": "Identifies that the contrary-to-law argument is weakened by the Kucera comparator’s support for the arbitrator’s factor six conclusion.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_4",
+      "criterion_text": "States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_5",
+      "criterion_text": "States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_6",
+      "criterion_text": "States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_7",
+      "criterion_text": "Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion": "criterion_8",
+      "criterion_text": "Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "F3"
+      ],
+      "gpt_6_sol_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "source_conflict"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_arguable"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_1",
+      "criterion_text": "Identifies that the district court's refusal to submit a justification instruction is reviewed de novo.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_2",
+      "criterion_text": "Identifies that the district court's refusal to give a jury instruction is reviewed for abuse of discretion.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_3",
+      "criterion_text": "Identifies that the predicate offense for a federal attempted murder in aid of racketeering charge can come from state law.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_5",
+      "criterion_text": "Identifies that justification is a defense to an Iowa attempted murder charge.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_7",
+      "criterion_text": "States that a person who is engaged in illegal activity has a duty to retreat before using force.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_8",
+      "criterion_text": "States that Patton was engaged in the illegal activity of possessing a firearm as a felon.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_9",
+      "criterion_text": "States that Patton had a duty to retreat before using deadly force.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_10",
+      "criterion_text": "Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_11",
+      "criterion_text": "Mentions that Patton was hanging out the window with a firearm.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_12",
+      "criterion_text": "Mentions that Nelson's car was already stopped when Patton fired his gun.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_13",
+      "criterion_text": "States that the OTB group could have driven away.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_14",
+      "criterion_text": "States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_16",
+      "criterion_text": "States that Patton's actions on May 10, 2020 show he engaged in a pre-planned drive-by shooting.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_15",
+      "criterion_text": "States that Patton's shooting at Nelson was not an act of justified self-defense.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_17",
+      "criterion_text": "Identifies that a defendant is not entitled to a justification defense if he is participating in a forcible felony.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_18",
+      "criterion_text": "Mentions that a forcible felony under Iowa law includes felonious assault.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_28",
+      "criterion_text": "Mentions that Patton was committing the crime of intimidation with dangerous weapon on May 10, 2020.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "internal_inconsistency"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_29",
+      "criterion_text": "States that Patton's commission of intimidation with a dangerous weapon precludes a justification instruction.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "internal_inconsistency"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_19",
+      "criterion_text": "Mentions that Patton pled guilty in state court to conspiracy to commit a forcible felony on May 10, 2020.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_20",
+      "criterion_text": "Mentions that Patton admitted he planned with others to commit a shooting on May 10, 2020.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_21",
+      "criterion_text": "States that Patton's commission of conspiracy to commit a forcible felony precludes a justification defense.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "legal_error"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "internal_inconsistency"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_23",
+      "criterion_text": "Mentions that Patton pled guilty in state court to intimidation with a dangerous weapon.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "internal_inconsistency"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_25",
+      "criterion_text": "Mentions that Patton lacked a reasonable belief that deadly force was necessary.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_27",
+      "criterion_text": "Mentions that Patton lacked a reasonable belief that he was subject to an imminent unlawful threat.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_26",
+      "criterion_text": "States that the district court was within its discretion to refuse to provide the justification instruction.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_1",
+      "criterion_text": "Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_2",
+      "criterion_text": "Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_3",
+      "criterion_text": "Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_4",
+      "criterion_text": "Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "source_conflict"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "source_conflict"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_5",
+      "criterion_text": "Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_6",
+      "criterion_text": "Mentions that Patton was hanging out the window with a firearm.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_7",
+      "criterion_text": "Mentions that Nelson's car was already stopped when Patton fired his gun.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_8",
+      "criterion_text": "States that the OTB group could have driven away.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O3"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_9",
+      "criterion_text": "States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unrequested_requirement"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_10",
+      "criterion_text": "States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_1",
+      "criterion_text": "States in Assignment #1that the Defendants motion was supported by two affidavits which was absent in Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_2",
+      "criterion_text": "Identifies in Assignment #1 an affidavit by John Smith, M.D. does not indicate that Cook County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "arguable",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_3",
+      "criterion_text": "Identifies in Assignment #1 an affidavit by Safe Hospital representative does not indicate that Cook County would be an inconvenient forum for them to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_4",
+      "criterion_text": "States in Assignment #1 that the burden is on the movant to show that the balance of private interest factors with all other factors, strongly favors the proposed forum, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_30",
+      "criterion_text": "States in Assignment #1 that the burden is on the movant to show that the balance of public interest factors with all other factors, strongly favors the proposed forum under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_5",
+      "criterion_text": "Mentions in Assignment #1 that the plaintiff’s interest in choosing the forum receives less deference when the plaintiff’s residence is located outside the chosen forum, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_6",
+      "criterion_text": "Identifies in Assignment #1 that in Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) the reviewing court affirmed the denial of transfer even though the plaintiff’s residence was outside the chosen forum.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_7",
+      "criterion_text": "Identifies in Assignment #1 that in Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 the reviewing court affirmed the denial of transfer even though the plaintiff failed to establish residency in the chosen forum.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_8",
+      "criterion_text": "Identifies in Assignment #1 that in First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) the reviewing court reversed a grant of transfer even though the plaintiff’s residence was outside the chosen forum.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_9",
+      "criterion_text": "Mentions in Assignment #1 that Plaintiff, Sara Davis’ residence is unknown by the Defendant in its analysis for the motion to transfer.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_10",
+      "criterion_text": "States in Assignment #1 that Plaintiff, Sara Davis should file an affidavit establishing her residence outside of DuPage County.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_11",
+      "criterion_text": "States in Assignment #1 that Plaintiff, Sara Davis should file an affidavit that it would be inconvenient to proceed with this litigation in DuPage County.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_12",
+      "criterion_text": "Mentions in Assignment #1 that 5 of the Cook County Hospital Doctors who provided care to Baby Davis are located within Cook County.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_13",
+      "criterion_text": "States in Assignment #1 that Plaintiff should obtain affidavits from the 5 Cook County Hospital Doctors who provided care to Baby Davis that it would be inconvenient for them to testify in DuPage County.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_15",
+      "criterion_text": "Identifies in Assignment #1 that the medical records from Cook County Hospital are important for the analysis of the Plaintiff’s survival action.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_16",
+      "criterion_text": "States in Assignment #1 that the medical records from Cook County Hospital are relevant for the analysis of the Plaintiff’s wrongful death claim.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_17",
+      "criterion_text": "Mentions in Assignment #1 that Defendants have provided no evidentiary basis regarding the burden of the compulsory process for attendance of witnesses.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_18",
+      "criterion_text": "Mentions in Assignment #1 that we live in a smaller world, we are connected by interstate highways, bustling airways, today, convenience - the touchstone of the forum non conveniens doctrine has a different meaning, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_19",
+      "criterion_text": "Identifies in Assignment #1 that the Defendants have distinguished First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) where potential witnesses resided in multiple counties.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_20",
+      "criterion_text": "Identifies in Assignment #1 that the Defendants have distinguished Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) where potential witnesses resided in multiple counties",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_21",
+      "criterion_text": "States in Assignment #1 that Cook County has an interest in this litigation because the decedent died in Cook County, under Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_22",
+      "criterion_text": "Mentions in Assignment #1 that Cook County lacks interest in adjudicating a controversy over care rendered by its DuPage based providers.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "ambiguous_or_unjudgeable"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "opus_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_23",
+      "criterion_text": "Identifies in Assignment #1 that Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) treated the location of death alone as sufficient to give Cook County a genuine interest in the litigation.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_24",
+      "criterion_text": "States in Assignment #1 that court congestion is a relatively insignificant factor, especially where the record does not show the other forum would resolve the case more quickly, under First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_25",
+      "criterion_text": "Mentions in Assignment #1 that Cook County’s overall clearance rate is 60.5%.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "internal_inconsistency"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "internal_inconsistency"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_26",
+      "criterion_text": "Identifies in Assignment #1 that in the overall Civil Category, Cook County had a clearance rate of 97.9%.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_27",
+      "criterion_text": "States in Assignment #1 that in the overall Civil Category, the 18th Judicial Circuit had a clearance rate of 96.3%.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_28",
+      "criterion_text": "States in Assignment #1 that the Defendants cannot supply information regarding the time lapse for civil cases in excess of $50,000.00 because Cook County did not report information in 2023.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_29",
+      "criterion_text": "States in Assignment #1 that the Defendants have provided no evidence to show that DuPage County will resolve the case more quickly than Cook County.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_1",
+      "criterion_text": "States in Assignment #2 that the response is supported by the affidavit of Liam Vance, a physician who provided care to Baby Davis at Cook County Hospital.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_2",
+      "criterion_text": "States in Assignment #2 that the response is supported by the affidavit of Savannah Brooks, a physician who provided care to Baby Davis at Cook County Hospital.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_3",
+      "criterion_text": "States in Assignment #2 that the response is supported by the affidavit of Caleb Montgomery, a physician who provided care to Baby Davis at Cook County Hospital.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_4",
+      "criterion_text": "States in Assignment #2 that the response is supported by the affidavit of Maya Linwood, a physician who provided care to Baby Davis at Cook County Hospital.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_5",
+      "criterion_text": "States in Assignment #2 that the response is supported by the affidavit of Garrett Hayes, a physician who provided care to Baby Davis at Cook County Hospital.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_6",
+      "criterion_text": "Identifies in Assignment #2 that the affidavit by Liam Vance indicates that DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_7",
+      "criterion_text": "Identifies in Assignment #2 that the affidavit by Savannah Brooks indicates that DuPage County would be an inconvenient forum for her to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_8",
+      "criterion_text": "Identifies in Assignment #2 that the affidavit by Caleb Montgomery indicates that DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_9",
+      "criterion_text": "Identifies in Assignment #2 that the affidavit by Maya Linwood indicates that DuPage County would be an inconvenient forum for her to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_10",
+      "criterion_text": "Identifies in Assignment #2 that the affidavit by Garrett Hayes indicates that DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G1"
+      ],
+      "gpt_6_sol_categories": [
+        "document_defect"
+      ],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "sol_only"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_11",
+      "criterion_text": "States in Assignment #2 that the response is supported by the affidavit of the plaintiff, Sara Davis.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unsupported_fact"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_12",
+      "criterion_text": "Identifies in Assignment #2 that the affidavit by the Plaintiff, Sara Davis, indicates that DuPage County would be an inconvenient forum for her to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G2"
+      ],
+      "gpt_6_sol_categories": [
+        "unsupported_fact"
+      ],
+      "claude_opus_5_5": "arguable",
+      "claude_opus_5_5_findings": [
+        "O2"
+      ],
+      "claude_opus_5_5_categories": [
+        "unsupported_fact"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "split"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_13",
+      "criterion_text": "Mentions in Assignment #2 that the forum non conveniens doctrine gives courts discretionary power that should be exercised only in exceptional circumstances when the interests of justice require a trial in a more convenient forum under Langenhorst v. Norfolk S. Ry. Co., 219 Ill.2d 430 (2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_14",
+      "criterion_text": "Mentions in Assignment #2 that the test is whether the relevant factors, viewed in their totality, strongly favor transfer to the forum suggested by defendant under First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_15",
+      "criterion_text": "States in Assignment #2 that the Defendants have failed to meet their burden of proving that balance of factors must strongly favor transfer of the case before the plaintiff can be deprived of her chosen forum.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_16",
+      "criterion_text": "Identifies in Assignment #2 that the plaintiff has a substantial interest in choosing the forum where his rights will be vindicated under First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_17",
+      "criterion_text": "States in Assignment #2 that the issue of court congestion is a relatively insignificant factor, especially where the record does not show the other forum would resolve the case more quickly, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_18",
+      "criterion_text": "States in Assignment #2 that the 2023 Illinois Annual Report Statistics report a 60.5% clearance rate in Cook County, Illinois.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": "problematic",
+      "gpt_6_sol_findings": [
+        "G3"
+      ],
+      "gpt_6_sol_categories": [
+        "internal_inconsistency"
+      ],
+      "claude_opus_5_5": "problematic",
+      "claude_opus_5_5_findings": [
+        "O1"
+      ],
+      "claude_opus_5_5_categories": [
+        "internal_inconsistency"
+      ],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": "both_problematic"
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_19",
+      "criterion_text": "States in Assignment #2 that the 2023 Illinois Annual Report Statistics report a 96.3% clearance rate in DuPage County Civil cases.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_20",
+      "criterion_text": "States in Assignment #2 that the 2023 Illinois Annual Report Statistics report a 97.9% clearance rate in Cook County Civil cases.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_21",
+      "criterion_text": "States in Assignment #2 that the medical treatment rendered to Baby Davis from Cook County physicians are relevant for the analysis of the Plaintiff’s wrongful death claim.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_22",
+      "criterion_text": "States in Assignment #2 that the medical treatment rendered to Baby Davis from Cook County physicians are relevant for the testimony necessary to offer evidence on the damages sustained by Baby Davis under the Plaintiff’s survival claims.",
+      "polarity": "required",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_23",
+      "criterion_text": "States in Assignment #2 that Plaintiff has met its burden of establishing Cook County as the appropriate forum.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_24",
+      "criterion_text": "Mentions in Assignment #2 that Plaintiff receives no deference to Cook County as it is a forum in which she does not reside.",
+      "polarity": "penalty",
+      "report_availability": {
+        "gpt_6_sol": true,
+        "claude_opus_5_5": true,
+        "reconciliation": false
+      },
+      "gpt_6_sol": null,
+      "gpt_6_sol_findings": [],
+      "gpt_6_sol_categories": [],
+      "claude_opus_5_5": null,
+      "claude_opus_5_5_findings": [],
+      "claude_opus_5_5_categories": [],
+      "reconciliation": null,
+      "reconciliation_findings": null,
+      "reconciliation_categories": null,
+      "bucket": null
+    }
+  ]
+}

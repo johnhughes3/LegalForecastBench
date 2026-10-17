@@ -1,0 +1,317 @@
+{
+  "matter_id": "lrb-vicar-trial-jury-instructions",
+  "matter_title": "OTB Gang VICAR Trial Jury Instructions",
+  "practice_area": "Criminal and investigations",
+  "research_universe": "closed-universe",
+  "assignment": 1,
+  "num_assignments": 2,
+  "assignment_title": "Appeal brief re: justification instruction",
+  "prompt": "You are an Assistant United States Attorney, practicing law in the Southern District of Iowa. You received the following email from your direct supervisor.\n\nASSIGNMENT #1\nFrom: Molly Short ([email redacted])\nTo: Alexa Pierre ([email redacted])\nRe: OTB appeal argument section\nDate: July 15, 2026\n\nGood morning, Alexa,\n\nThanks for agreeing to help me draft a section of this appellate brief! You are going to be handling the response to Defendant Raekwon's Patton's argument. Patton was an OTB member, who was involved in a gang-related shooting on May 10, 2020. He was charged with, among other things, attempted murder in aid of racketeering under the VICAR statute (18 U.S.C. § 1959). Although there were a ton of issues at the trial and sentencing, Patton only disputes one major issue on appeal. He contends that the court should have given his requested justification instruction. In short, he argued that the evidence showed that Patton was acting in self-defense when he fired at Raysean Nelson's car. The court declined to give the instruction, and we're taking it up on appeal. \n\nPlease draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law. I've already drafted the facts section of this brief, which I've provided below. You can cite to that document, and I will take care of the citations to the trial transcript or rest of the record. That should save you some time. Below is everything you'll need for this project. Our brief is due July 29, 2026.\n\nFacts (Facts.pdf)\nIowa Code § 702.11 (2020) (702.11.pdf)\nIowa Code ch. 704 (2020) (704.pdf)\nIowa Code § 706.1 (2020) (706.1.pdf)\nIowa Code § 707.11 (2020) (707.11.pdf)\nIowa Code § 708.6 (2020) (708.6.pdf)\nPatton State Plea (Patton State Plea.pdf)\nState v. Ellison, No. 21-0657, slip op. (Iowa Feb. 3, 2023) (Ellison.pdf)\nUnited States v. Kehoe, No. 99-2897, slip op. (8th Cir. Nov. 8 2002) (Kehoe.pdf)\nUnited States v. Poe, No. 05-2914, slip op. (8th Cir. Apr. 6. 2006) (Poe.pdf)\nUnited States v. White Horse, No. 21-2871, slip op. (8th Cir. June 3, 2022) (White Horse.pdf)\n\nBe sure to limit your review for the Assignment to the attached documents. Do not rely on, reference, or infer any legal authority, factual information, or data beyond what is contained in these uploaded files. If a document is not uploaded, it does not exist for purposes of this analysis. All citations must reference the document by its exact name as listed above, followed by the page number, section, or paragraph number if applicable. Do not cite external websites, databases, or any source outside the uploaded materials.",
+  "attachments": [
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf",
+      "extracted_path": "attachments/assignment-1/Facts.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White Horse.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf",
+      "extracted_path": "attachments/assignment-1/White Horse.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf",
+      "extracted_path": "attachments/assignment-1/702.11.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf",
+      "extracted_path": "attachments/assignment-1/704.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf",
+      "extracted_path": "attachments/assignment-1/706.1.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf",
+      "extracted_path": "attachments/assignment-1/707.11.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf",
+      "extracted_path": "attachments/assignment-1/708.6.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf",
+      "extracted_path": "attachments/assignment-1/Ellison.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf",
+      "extracted_path": "attachments/assignment-1/Kehoe.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf",
+      "extracted_path": "attachments/assignment-1/Poe.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton State Plea.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf",
+      "extracted_path": "attachments/assignment-1/Patton State Plea.pdf.md"
+    }
+  ],
+  "rubric_count": 25,
+  "penalty_count": 7,
+  "positive_points": 175.0,
+  "rubric": [
+    {
+      "criterion_id": "criterion_1",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Identifies that the district court's refusal to submit a justification instruction is reviewed de novo.",
+      "source": "United States v. Poe, No. 05-2914, slip op. at 3 (8th Cir. Apr. 6. 2006) (Poe.pdf) (“Whether there is sufficient evidence to support the submission of an instruction on an affirmative defense is a question of law which we review de novo.”).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_2",
+      "points": -30.0,
+      "polarity": "penalty",
+      "irac_section": "Rule",
+      "criterion": "Identifies that the district court's refusal to give a jury instruction is reviewed for abuse of discretion.",
+      "source": "United States v. White Horse, No. 21-2871, slip op. at 2-3 (8th Cir. June 3, 2022) (White Horse.pdf) (speaking of jury instructions as drafted generally, not the district court's consideration of substantial evidence to warrant submission of a justification instruction and providing that the court \"review[s] jury instructions for an abuse of discretion\").",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_3",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Identifies that the predicate offense for a federal attempted murder in aid of racketeering charge can come from state law.",
+      "source": "United States v. Kehoe, No. 99-2897, slip op. at 10 (8th Cir. Nov. 8 2002) (Kehoe.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_5",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Identifies that justification is a defense to an Iowa attempted murder charge.",
+      "source": "Iowa Code § 707.11(1) (2020) (707.11.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_7",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "States that a person who is engaged in illegal activity has a duty to retreat before using force.",
+      "source": "State v. Ellison, No. 21-0657, slip op. at 8 (Iowa Feb. 3, 2023) (Ellison.pdf); Iowa Code ch. 704, § 704.1(3)(2020) (704.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_8",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that Patton was engaged in the illegal activity of possessing a firearm as a felon.",
+      "source": "Facts pp. 7-8, 10 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_9",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that Patton had a duty to retreat before using deadly force.",
+      "source": "State v. Ellison, No. 21-0657, slip op. at 8 (Iowa Feb. 3, 2023) (Ellison.pdf); Iowa Code ch. 704 § 704.1(3) (2020) (704.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_10",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+      "source": "Facts p. 7 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_11",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton was hanging out the window with a firearm.",
+      "source": "Facts pp. 7-8 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_12",
+      "points": 15.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that Nelson's car was already stopped when Patton fired his gun.",
+      "source": "Facts pp. 7-8 (Facts.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_13",
+      "points": 15.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that the OTB group could have driven away.",
+      "source": "Facts pp. 7-8 (Facts.pdf) (Nelson's car was stopped; Nelson was outside of the car; the OTB group remained in a moving car).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_14",
+      "points": 25.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+      "source": "Facts pp. 6-8 (Facts.pdf) (Patton was armed with a gun, they chased Nelson across the city, rolled the windows down before being fired at).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_16",
+      "points": 20.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that Patton's actions on May 10, 2020 show he engaged in a pre-planned drive-by shooting.",
+      "source": "Facts pp. 6-8 (Facts.pdf) (Patton was armed with a gun, they chased Nelson across the city, rolled the windows down before being fired at).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_15",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "Conclusion",
+      "criterion": "States that Patton's shooting at Nelson was not an act of justified self-defense.",
+      "source": "Iowa Code ch. 704 § 704.6(3) (2020) (704.pdf) (“The defense of justification is not available to . . . [o]ne who initially provokes the use of force against oneself by one’s unlawful acts . . . .”).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_17",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Identifies that a defendant is not entitled to a justification defense if he is participating in a forcible felony.",
+      "source": "Iowa Code ch. 704, § 704.6(1) (2020) (704.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_18",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Mentions that a forcible felony under Iowa law includes felonious assault.",
+      "source": "Iowa Code § 702.11(1) (2020) (702.11.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_28",
+      "points": -20.0,
+      "polarity": "penalty",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton was committing the crime of intimidation with dangerous weapon on May 10, 2020.",
+      "source": "Iowa Code § 708.6 (2020) (708.6.pdf); Facts pp. 7-8 (Facts.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\" Obviously, the government's position is that Patton committed the crime of intimidation with a dangerous weapon, in addition to attempted murder. However, the whole crux of the argument on appeal is whether Patton's shooting was justified. Essentially, arguing the intimidation with a dangerous weapon precludes the instruction is akin to arguing Patton can't get the justification instruction because he was engaged in the felonious assault of attempted murder."
+    },
+    {
+      "criterion_id": "criterion_29",
+      "points": -10.0,
+      "polarity": "penalty",
+      "irac_section": "Conclusion",
+      "criterion": "States that Patton's commission of intimidation with a dangerous weapon precludes a justification instruction.",
+      "source": "Iowa Code ch. 704, § 704.6(1) (2020) (704.pdf); Iowa Code § 708.6 (2020) (708.6.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\" Obviously, the government's position is that Patton committed the crime of intimidation with a dangerous weapon, in addition to attempted murder. However, the whole crux of the argument on appeal is whether Patton's shooting was justified. Essentially, arguing the intimidation with a dangerous weapon precludes the instruction is akin to arguing Patton can't get the justification instruction because he was engaged in the felonious assault of attempted murder."
+    },
+    {
+      "criterion_id": "criterion_19",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton pled guilty in state court to conspiracy to commit a forcible felony on May 10, 2020.",
+      "source": "Patton State Plea pp. 4-6 (Patton State Plea.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_20",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton admitted he planned with others to commit a shooting on May 10, 2020.",
+      "source": "Patton State Plea p. 5 (Patton State Plea.pdf); Iowa Code ch. 706, § 706.1(1) (2020) (706.1.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_21",
+      "points": 15.0,
+      "polarity": "required",
+      "irac_section": "Conclusion",
+      "criterion": "States that Patton's commission of conspiracy to commit a forcible felony precludes a justification defense.",
+      "source": "Patton State Plea p. 5 (Patton State Plea.pdf); Iowa Code ch. 704, § 704.6(1) (2020) (704.pdf); Iowa Code ch. 706, § 706.1(1) (2020) (706.1.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\""
+    },
+    {
+      "criterion_id": "criterion_23",
+      "points": -5.0,
+      "polarity": "penalty",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton pled guilty in state court to intimidation with a dangerous weapon.",
+      "source": "Patton State Plea pp. 1-3 (Patton State Plea.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\"Patton's written guilty plea indicates that he committed the offense of intimidation with a dangerous weapon on April 13, 2020. Because that involved a different shooting, it's not relevant to whether Patton should receive a justification instruction for the May 10, 2020 shooting."
+    },
+    {
+      "criterion_id": "criterion_25",
+      "points": -20.0,
+      "polarity": "penalty",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton lacked a reasonable belief that deadly force was necessary.",
+      "source": "Facts p. 7 (Facts.pdf); Iowa Code ch. 704, § 704.3 (2020) (704.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\" The evidence at trial suggests that, at a minimum, it is unclear which side fired first. Because some evidence supports that Nelson fired first, Patton might have reasonably believed deadly force was necessary. The better arguments on appeal relate to Patton's duty to retreat or pre-planning of the shooting."
+    },
+    {
+      "criterion_id": "criterion_27",
+      "points": -20.0,
+      "polarity": "penalty",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton lacked a reasonable belief that he was subject to an imminent unlawful threat.",
+      "source": "Facts p. 7 (Facts.pdf); Iowa Code ch. 704, § 704.6(1) (2020) (704.pdf).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\" The evidence at trial suggests that, at a minimum, it is unclear which side fired first. Because some evidence supports that Nelson fired first, Patton might have had a fear of imminent unlawful threat. The better arguments on appeal relate to Patton's duty to retreat or pre-planning of the shooting."
+    },
+    {
+      "criterion_id": "criterion_26",
+      "points": -30.0,
+      "polarity": "penalty",
+      "irac_section": "Conclusion",
+      "criterion": "States that the district court was within its discretion to refuse to provide the justification instruction.",
+      "source": "United States v. White Horse, No. 21-2871, slip op. at 2-3 (8th Cir. June 3, 2022) (White Horse.pdf) (speaking of jury instructions as drafted generally, not the district court's consideration of substantial evidence to warrant submission of a justification instruction); United States v. Poe, No. 05-2914, slip op. at 3 (8th Cir. Apr. 6. 2006) (Poe.pdf) (“Whether there is sufficient evidence to support the submission of an instruction on an affirmative defense is a question of law,\" rather than a matter of discretion).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.\" This conclusion uses the wrong standard of review for the district court's failure to give a justification instruction."
+    }
+  ],
+  "instruction_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md",
+  "rubric_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json",
+  "source_task_path": "tasks/lrb-vicar-trial-jury-instructions",
+  "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "instruction_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md",
+  "rubric_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json",
+  "redactions": "Email addresses are replaced with [email redacted] in quoted upstream text. No OCR was performed; PDF pages with no extracted text are explicitly marked. DOCX conversion shows tracked changes; original pagination is not retained.",
+  "prior_prompts": []
+}

@@ -1,0 +1,46 @@
+{
+  "dataset_revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "counting_unit": "citation in a unique matter document",
+  "matters_expected": 4,
+  "matters_available": 0,
+  "complete": false,
+  "citation_instances": null,
+  "fictional_by_design": null,
+  "checked": null,
+  "first_check_problems": null,
+  "pending_checks": null,
+  "by_final_status": null,
+  "observed_final_problems": null,
+  "problems": null,
+  "problem_rate": null,
+  "per_matter": [
+    {
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "available": false,
+      "complete": false,
+      "coverage": null,
+      "citations": null
+    },
+    {
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "available": false,
+      "complete": false,
+      "coverage": null,
+      "citations": null
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "available": false,
+      "complete": false,
+      "coverage": null,
+      "citations": null
+    },
+    {
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "available": false,
+      "complete": false,
+      "coverage": null,
+      "citations": null
+    }
+  ]
+}
