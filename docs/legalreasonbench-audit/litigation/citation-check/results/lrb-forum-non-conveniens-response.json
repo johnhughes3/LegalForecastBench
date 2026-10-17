@@ -35,18 +35,6 @@
       "Current recorded coverage: 663 real-authority occurrences, including 10 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
     ],
     "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
-    "counts": {
-      "total_occurrences": 573,
-      "real_law": 566,
-      "fictional_by_design": 7,
-      "first_check_status": {
-        "VERIFIED": 459,
-        "VERIFIED_MINOR_DEFECT": 27,
-        "MISCHARACTERIZED": 17,
-        "UNABLE_TO_VERIFY": 63
-      },
-      "problems": 17
-    },
     "census_complete": true
   },
   "citations": [
@@ -16584,5 +16572,17 @@
         "The supplemental source pass attempted all 63 initially unverified references: 44 verified, three minor defects, six new problem proposals pending independent review, and ten still unverified after retrieval attempts. Original access descriptions are historical; current per-reference results control."
       ]
     }
-  ]
+  ],
+  "initial_census_counts": {
+    "total_occurrences": 573,
+    "real_law": 566,
+    "fictional_by_design": 7,
+    "first_check_status": {
+      "VERIFIED": 459,
+      "VERIFIED_MINOR_DEFECT": 27,
+      "MISCHARACTERIZED": 17,
+      "UNABLE_TO_VERIFY": 63
+    },
+    "problems": 17
+  }
 }

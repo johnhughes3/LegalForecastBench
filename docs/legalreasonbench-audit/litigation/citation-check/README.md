@@ -6,22 +6,22 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 0.
+Checked real citations in available reports: 2311. Fictional by design (excluded): 70. Pending checks: 0.
 
-Problem rate: 3.2% (73 / 2296) among recorded citations; coverage incomplete.
+Problem rate: 3.2% (73 / 2311) among recorded citations; coverage incomplete.
 
 Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1945 |
-| VERIFIED_MINOR_DEFECT | 117 |
+| VERIFIED | 1956 |
+| VERIFIED_MINOR_DEFECT | 118 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
 | MISCHARACTERIZED | 47 |
 | MISQUOTED | 5 |
 | WRONG_CITATION_REAL_CASE | 21 |
-| UNABLE_TO_VERIFY | 161 |
+| UNABLE_TO_VERIFY | 164 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
@@ -95,11 +95,12 @@ Coverage limits:
 - D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.
 - Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.
 - The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.
-- The second census added 159 internal Chapter 16 cross-references and statutory short forms omitted initially. It did not independently rescan every original occurrence, so the overall census remains incomplete. Navigation metadata and non-authority record references remain excluded as described above.
 - All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.
 - All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.
 - The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.
-- Current recorded coverage: 794 real-authority occurrences, including 123 UNABLE_TO_VERIFY. OCR-only and scan-margin defects are distinguished from errors in the original legal authority. No citator or exhaustive later-history review was performed.
+- The final full readable-text rescan covered all five current prompts, rubric criteria/source fields, native instructions, and eleven unique attachments. It added 15 occurrences (11 verified, one minor duplicate section number in an addendum, three unable to verify), on top of the earlier 159-reference supplement. Its census-complete judgment concerns readable extracted text; unreadable OCR glyphs, navigation/index cells, repeated packet copies and non-authority record references are excluded under the stated convention.
+- The duplicated section 1631 is a first-stage minor-defect judgment, outside the problem-status set requiring independent second review. No new problem-status claim arose from the final census.
+- Current recorded coverage: 809 real-authority occurrences, including 126 UNABLE_TO_VERIFY. Census completeness does not imply verification of all authority, original-glyph capture, or historical versions.
 
 [Full citation evidence](results/lrb-dcca-challenge-police-discipline.md)
 

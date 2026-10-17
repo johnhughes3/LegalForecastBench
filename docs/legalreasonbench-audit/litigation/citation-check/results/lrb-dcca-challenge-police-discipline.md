@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'The second census added 159 internal Chapter 16 cross-references and statutory short forms omitted initially. It did not independently rescan every original occurrence, so the overall census remains incomplete. Navigation metadata and non-authority record references remain excluded as described above.', 'All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.', 'All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.', 'The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.', 'Current recorded coverage: 794 real-authority occurrences, including 123 UNABLE_TO_VERIFY. OCR-only and scan-margin defects are distinguished from errors in the original legal authority. No citator or exhaustive later-history review was performed.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}, 'census_complete': False}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.', 'All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.', 'The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.', 'The final full readable-text rescan covered all five current prompts, rubric criteria/source fields, native instructions, and eleven unique attachments. It added 15 occurrences (11 verified, one minor duplicate section number in an addendum, three unable to verify), on top of the earlier 159-reference supplement. Its census-complete judgment concerns readable extracted text; unreadable OCR glyphs, navigation/index cells, repeated packet copies and non-authority record references are excluded under the stated convention.', 'The duplicated section 1631 is a first-stage minor-defect judgment, outside the problem-status set requiring independent second review. No new problem-status claim arose from the final census.', 'Current recorded coverage: 809 real-authority occurrences, including 126 UNABLE_TO_VERIFY. Census completeness does not imply verification of all authority, original-glyph capture, or historical versions.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'census_complete': True}
 
 ## pd-0001: Final Notice of Adverse Action (Braddock)
 
@@ -21477,7 +21477,7 @@ Excerpt read: 66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).
 
 ## pd-sc-0158: 6-B DCMR Chapter 16
 
-Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 854.
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum, text line 855.
 
 Authority type: regulation; as written: 1625.1 (a) and (b); pincite: .
 
@@ -21522,5 +21522,388 @@ Read the 1925 Federal Arbitration Act §§ 1 and 10 and the immediately precedin
 Excerpt read: § 1 excludes certain employment contracts from the Act.
 
 - https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf
+
+### Second check: not required
+
+
+## pd-final0001: 6-B DCMR Chapter 1 (variances)
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, § 1636.2, text line 651.
+
+Authority type: regulation; as written: Chapter 1; pincite: § 104.
+
+Cited for: Remedies varying from the regulation must conform to the Chapter 1 variance standards.
+
+Quotes: []
+
+Context: Explicit cross-reference in § 1636.2.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read DCHR Chapter 1 § 104.1-104.3, which gives the variance standards, and official Chapter 16 § 1636.2.
+
+Excerpt read: Chapter 1 § 104 is headed VARIANCES.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/page_content/attachments/chap_1_human_resources_management_trans_225_0.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0002: Historical 6-B DCMR § 1603
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 46 DCR 7208 comment, text line 735.
+
+Authority type: regulation; as written: Section 1603; pincite: .
+
+Cited for: Addendum identifies the section historically titled Definition of Cause.
+
+Quotes: []
+
+Context: This is the comment text, separate from the Section(s) table cell at line 732.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read the official DCHR 2012 Chapter 16 primary text at § 1603 (causes for disciplinary action) and the official addendum identifying the 1999 amendment. This checks the section identity; the 1999 notice itself was not used to assess amendment history.
+
+Excerpt read: § 1603 sets out causes for disciplinary action.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_general_discipline_and_grievances.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0003: Historical 6-B DCMR § 1601.5
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 53 DCR 3974 comment, text line 782.
+
+Authority type: regulation; as written: section 1601.5; pincite: .
+
+Cited for: Addendum states this section was amended to address the 2004 Public Safety Act.
+
+Quotes: []
+
+Context: The Act itself is already counted at pd-0225; this is a separate section cross-reference.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read § 1601.5 in the official 2012 DCHR Chapter 16 text and the agency addendum. It is the cited section on MPD/FEMSD discipline procedures.
+
+Excerpt read: § 1601.5 addresses uniformed members of MPD and FEMSD.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_general_discipline_and_grievances.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0004: Historical 6-B DCMR § 1604.3
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 55 DCR 1775 comment, text line 792.
+
+Authority type: regulation; as written: section 1604.3; pincite: .
+
+Cited for: Addendum describes the new resolution-conference provision.
+
+Quotes: []
+
+Context: Narrative addendum comment rather than the Section(s) column.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read § 1604.3(a) in the official 2012 DCHR text; it permits a Resolution Conference for a proposed suspension of less than ten days.
+
+Excerpt read: § 1604.3(a) permits a Resolution Conference.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_general_discipline_and_grievances.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0005: Historical 6-B DCMR § 1603.3
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 55 DCR 1775 comment, text line 793.
+
+Authority type: regulation; as written: section 1603.3; pincite: .
+
+Cited for: Addendum says this section changed the definition of causes for discipline.
+
+Quotes: []
+
+Context: Narrative addendum comment.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read § 1603.3 in the official 2012 DCHR text; it defines causes for disciplinary action.
+
+Excerpt read: § 1603.3 defines cause for disciplinary action.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_general_discipline_and_grievances.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0006: Historical 6-B DCMR § 1619
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 55 DCR 1775 comment, text line 794.
+
+Authority type: regulation; as written: section 1619; pincite: .
+
+Cited for: Addendum says the Table of Appropriate Penalties was placed here.
+
+Quotes: []
+
+Context: Narrative addendum comment.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read the official 2012 DCHR § 1619 heading and § 1619.1; they contain the Table of Appropriate Penalties.
+
+Excerpt read: § 1619 is the Table of Appropriate Penalties.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_general_discipline_and_grievances.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0007: Historical 6-B DCMR §§ 1600.2, 1630.1, 1630.2
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 59 DCR 008398 comment, text line 803.
+
+Authority type: regulation; as written: subsections 1600.2, 1630.1 and 1630.2; pincite: .
+
+Cited for: Addendum describes changes to Educational Service employee coverage.
+
+Quotes: []
+
+Context: The comment repeats the Section(s) column; following the existing compound-reference convention, it is one narrative occurrence.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read these three sections in the official 2012 DCHR text. §§ 1600.2 and 1630.1 expressly address Educational Service employees and § 1630.2 lists grievance-coverage exclusions.
+
+Excerpt read: § 1630.1 includes Educational Service employees.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_general_discipline_and_grievances.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0008: 6-B DCMR Chapter 16 amended sections
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 64 DCR 004623 comment, text line 839.
+
+Authority type: regulation; as written: sections 1602, 1606, 1607, 1612, 1613, 1621, 1622, 1623, 1625, 1626, 1629, 1630, 1631, 1631, 1699; pincite: .
+
+Cited for: Addendum lists sections affected by the 2017 rulemaking.
+
+Quotes: []
+
+Context: Narrative list in the Comments cell. The repeated 1631 is in the source text.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED_MINOR_DEFECT
+
+Read the official 2017 DCHR Chapter 16 text and E-DPM addendum. The listed section numbers are real, but the addendum repeats 1631 twice. This is a minor duplication in the source citation list, with no indication that a second distinct section was meant.
+
+Excerpt read: The addendum repeats 1631 in its amended-sections list.
+
+- https://dchr.dc.gov/sites/default/files/dc/sites/dchr/publication/attachments/chap_16_trans_231_personnel_regs.pdf
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0009: 6-B DCMR Chapter 16
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 66 DCR 005866 comment, text line 847.
+
+Authority type: regulation; as written: Chapter 16; pincite: .
+
+Cited for: Addendum says negotiated grievance procedures supersede this chapter’s grievance provisions.
+
+Quotes: []
+
+Context: Specific named chapter in the narrative comment.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read the official E-DPM Chapter 16 and its § 1625.2, which gives negotiated grievance procedures precedence; the addendum identifies Chapter 16.
+
+Excerpt read: § 1625.2 gives negotiated procedures precedence.
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0010: 66 DCR 005866 (May 10, 2019)
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 66 DCR 011585 comment, text line 851.
+
+Authority type: regulation; as written: 66 DCR 005866; pincite: .
+
+Cited for: Addendum attributes the earlier update to this D.C. Register notice.
+
+Quotes: []
+
+Context: Second occurrence of the Register citation; pd-0216 covers the separate 66 DCR table row.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: UNABLE_TO_VERIFY
+
+Read the agency E-DPM addendum, which lists 66 DCR 005866 and repeats it in this errata comment. The May 2019 Register notice text was not obtained in this session, so the exact historical amendment is not independently checked.
+
+Excerpt read: Agency addendum names 66 DCR 005866.
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0011: 6-B DCMR § 1600.3(a)
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 66 DCR 013372 comment, text line 855.
+
+Authority type: regulation; as written: Section1600.3(a); pincite: .
+
+Cited for: October 2019 errata identifies the section whose numbering was corrected.
+
+Quotes: []
+
+Context: The same section is cited in the August errata at line 851, but this is a separate October row.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: UNABLE_TO_VERIFY
+
+The current official E-DPM § 1600.3(a) and its October 2019 addendum were read. The linked October 2019 Register notice was blocked by robots.txt, so the historical correction itself remains unverified.
+
+Excerpt read: Current § 1600.3(a) refers to §§ 1625.1(a) and (b).
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0012: 6-B DCMR § 1600.3
+
+Document: dcmr_title6b_1606.pdf; location: PDF page 2, Addendum 66 DCR 013372 comment, text line 855.
+
+Authority type: regulation; as written: 1600.3; pincite: .
+
+Cited for: Short form in the October 2019 errata description.
+
+Quotes: []
+
+Context: Separate mention in the same comment after Section1600.3(a).
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: UNABLE_TO_VERIFY
+
+The current official E-DPM § 1600.3 and its October 2019 addendum were read. The linked historical Register notice was blocked by robots.txt; the renumbering history remains unverified.
+
+Excerpt read: Current § 1600.3 contains subsection (a).
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0013: 6-B DCMR § 1623.1
+
+Document: dcmr_title6b_1606.pdf; location: PDF pages 2-3, Addendum 68 DCR 002484 row, text lines 856 and 863 (same row repeated at page break).
+
+Authority type: regulation; as written: Section 1623.1; pincite: .
+
+Cited for: Addendum table identifies the section affected by 2021 amendment.
+
+Quotes: []
+
+Context: Line 863 repeats line 856 when the table row crosses the page break; counted once.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read official E-DPM § 1623.1 and its addendum. The section names the agency head, personnel authority, or designee as deciding official.
+
+Excerpt read: § 1623.1 includes the personnel authority.
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0014: 6-B DCMR § 1623.1
+
+Document: dcmr_title6b_1606.pdf; location: PDF pages 2-3, Addendum 68 DCR 002484 row, text lines 856 and 863 (same row repeated at page break).
+
+Authority type: regulation; as written: § 1623.1; pincite: .
+
+Cited for: Addendum comment cites the provision authorizing personnel authority as deciding official.
+
+Quotes: []
+
+Context: This is a second citation within the row, distinct from its Section(s) cell, while the page-break duplicate is counted once.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read official E-DPM § 1623.1 and its addendum; current section text expressly includes the personnel authority as deciding official.
+
+Excerpt read: § 1623.1 includes the personnel authority.
+
+- https://edpm.dc.gov/chapter/16/
+
+### Second check: not required
+
+
+## pd-final0015: Labor Management Relations Act of 1947 § 301
+
+Document: wr_grace_v_rubber_workers.pdf; location: PDF page 1, 461 U.S. 761, text line 139.
+
+Authority type: statute; as written: § 301; pincite: 29 U.S.C. § 185.
+
+Cited for: Short form for the labor-contract jurisdiction provision cited fully at text lines 130-131.
+
+Quotes: []
+
+Context: Separate occurrence in the opinion’s narrative, after the full cite at line 130.
+
+Fictional by design: False; Real regulatory authority.
+
+### First check: VERIFIED
+
+Read the primary 2024 United States Code § 185(a) and its source note identifying 1947 Act title III § 301, 61 Stat. 156. It authorizes federal district-court suits over covered labor contracts.
+
+Excerpt read: Source note identifies 1947 title III § 301.
+
+- https://www.govinfo.gov/content/pkg/USCODE-2024-title29/html/USCODE-2024-title29-chap7-subchapIV-sec185.htm
 
 ### Second check: not required
