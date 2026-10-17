@@ -1,0 +1,200 @@
+{
+  "matter_id": "lrb-vicar-trial-jury-instructions",
+  "matter_title": "OTB Gang VICAR Trial Jury Instructions",
+  "practice_area": "Criminal and investigations",
+  "research_universe": "closed-universe",
+  "assignment": 2,
+  "num_assignments": 2,
+  "assignment_title": "Supplementing brief with new case",
+  "prompt": "ASSIGNMENT #2\nFrom: Molly Short ([email redacted])\nTo: Alexa Pierre ([email redacted])\nRe: OTB appeal purpose instruction\nDate: July 22, 2026\n\nHi Alexa,\n\nThanks for your help on Patton's appeal brief. I found State v. Kuhse, No. 18-0765, slip op. (Iowa Apr. 8, 2020) (Kuhse.pdf), which I didn't see in your initial response. Please supplement your brief with relevant legal analysis of State v. Kuhse. State v. Kuhse, No. 18-0765, slip op. (Iowa Apr. 8, 2020) (Kuhse.pdf) and Facts (Facts.pdf) have been uploaded for your use.\n\nBe sure to limit your review for the Assignment to the attached documents. Do not rely on, reference, or infer any legal authority, factual information, or data beyond what is contained in these uploaded files. If a document is not uploaded, it does not exist for purposes of this analysis. Do not cite external websites, databases, or any source outside the uploaded materials.",
+  "attachments": [
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf",
+      "extracted_path": "attachments/assignment-1/Facts.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White Horse.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf",
+      "extracted_path": "attachments/assignment-1/White Horse.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf",
+      "extracted_path": "attachments/assignment-1/702.11.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf",
+      "extracted_path": "attachments/assignment-1/704.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf",
+      "extracted_path": "attachments/assignment-1/706.1.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf",
+      "extracted_path": "attachments/assignment-1/707.11.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf",
+      "extracted_path": "attachments/assignment-1/708.6.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf",
+      "extracted_path": "attachments/assignment-1/Ellison.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf",
+      "extracted_path": "attachments/assignment-1/Kehoe.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf",
+      "extracted_path": "attachments/assignment-1/Poe.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton State Plea.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf",
+      "extracted_path": "attachments/assignment-1/Patton State Plea.pdf.md"
+    },
+    {
+      "assignment": 2,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf",
+      "extracted_path": "attachments/assignment-2/Kuhse.pdf.md"
+    },
+    {
+      "assignment": 2,
+      "upstream_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf",
+      "extracted_path": "attachments/assignment-2/Facts.pdf.md"
+    }
+  ],
+  "rubric_count": 10,
+  "penalty_count": 0,
+  "positive_points": 135.0,
+  "rubric": [
+    {
+      "criterion_id": "criterion_1",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+      "source": "State v. Kuhse, No. 18-0765, slip op. at 9 (Iowa Apr. 8, 2020) (\"The defendant bears the initial burden of producing sufficient evidence to support the instruction.\").",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_2",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+      "source": "State v. Kuhse, No. 18-0765, slip op. at 9 (Iowa Apr. 8, 2020) (\"Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt.\").",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_3",
+      "points": 25.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+      "source": "Facts p. 7 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_4",
+      "points": 25.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+      "source": "Facts p. 7 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_5",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+      "source": "Facts p. 7 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_6",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that Patton was hanging out the window with a firearm.",
+      "source": "Facts pp. 7-8 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_7",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Mentions that Nelson's car was already stopped when Patton fired his gun.",
+      "source": "Facts pp. 7-8 (Facts.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_8",
+      "points": 15.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that the OTB group could have driven away.",
+      "source": "Facts pp. 7-8 (Facts.pdf) (Nelson's car was stopped; Nelson was outside of the car; the OTB group remained in a moving car)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_9",
+      "points": 30.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+      "source": "Facts pp. 6-8 (Facts.pdf) (Patton was armed with a gun, they chased Nelson across the city, the OTB group rolled the windows of the Trailblazer down before being fired upon.).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    },
+    {
+      "criterion_id": "criterion_10",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "Conclusion",
+      "criterion": "States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+      "source": "State v. Kuhse, No. 18-0765, slip op. at 9 (Iowa Apr. 8, 2020) (\"The defendant bears the initial burden of producing sufficient evidence to support the instruction.\").",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\""
+    }
+  ],
+  "instruction_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md",
+  "rubric_path": "tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json",
+  "source_task_path": "tasks/lrb-vicar-trial-jury-instructions",
+  "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "instruction_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md",
+  "rubric_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json",
+  "redactions": "Email addresses are replaced with [email redacted] in quoted upstream text. No OCR was performed; PDF pages with no extracted text are explicitly marked. DOCX conversion shows tracked changes; original pagination is not retained.",
+  "prior_prompts": [
+    {
+      "assignment": 1,
+      "prompt": "You are an Assistant United States Attorney, practicing law in the Southern District of Iowa. You received the following email from your direct supervisor.\n\nASSIGNMENT #1\nFrom: Molly Short ([email redacted])\nTo: Alexa Pierre ([email redacted])\nRe: OTB appeal argument section\nDate: July 15, 2026\n\nGood morning, Alexa,\n\nThanks for agreeing to help me draft a section of this appellate brief! You are going to be handling the response to Defendant Raekwon's Patton's argument. Patton was an OTB member, who was involved in a gang-related shooting on May 10, 2020. He was charged with, among other things, attempted murder in aid of racketeering under the VICAR statute (18 U.S.C. § 1959). Although there were a ton of issues at the trial and sentencing, Patton only disputes one major issue on appeal. He contends that the court should have given his requested justification instruction. In short, he argued that the evidence showed that Patton was acting in self-defense when he fired at Raysean Nelson's car. The court declined to give the instruction, and we're taking it up on appeal. \n\nPlease draft the responsive section for this argument, focusing on Patton's claim, the evidence, and the relevant jurisdiction's law. I've already drafted the facts section of this brief, which I've provided below. You can cite to that document, and I will take care of the citations to the trial transcript or rest of the record. That should save you some time. Below is everything you'll need for this project. Our brief is due July 29, 2026.\n\nFacts (Facts.pdf)\nIowa Code § 702.11 (2020) (702.11.pdf)\nIowa Code ch. 704 (2020) (704.pdf)\nIowa Code § 706.1 (2020) (706.1.pdf)\nIowa Code § 707.11 (2020) (707.11.pdf)\nIowa Code § 708.6 (2020) (708.6.pdf)\nPatton State Plea (Patton State Plea.pdf)\nState v. Ellison, No. 21-0657, slip op. (Iowa Feb. 3, 2023) (Ellison.pdf)\nUnited States v. Kehoe, No. 99-2897, slip op. (8th Cir. Nov. 8 2002) (Kehoe.pdf)\nUnited States v. Poe, No. 05-2914, slip op. (8th Cir. Apr. 6. 2006) (Poe.pdf)\nUnited States v. White Horse, No. 21-2871, slip op. (8th Cir. June 3, 2022) (White Horse.pdf)\n\nBe sure to limit your review for the Assignment to the attached documents. Do not rely on, reference, or infer any legal authority, factual information, or data beyond what is contained in these uploaded files. If a document is not uploaded, it does not exist for purposes of this analysis. All citations must reference the document by its exact name as listed above, followed by the page number, section, or paragraph number if applicable. Do not cite external websites, databases, or any source outside the uploaded materials.",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md"
+    }
+  ]
+}

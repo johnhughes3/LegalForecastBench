@@ -1,0 +1,125 @@
+{
+  "matter_id": "lrb-dcca-challenge-police-discipline",
+  "matter_title": "Viability of a DCCA Challenge",
+  "practice_area": "Employment and labor",
+  "research_universe": "closed-universe",
+  "assignment": 1,
+  "num_assignments": 5,
+  "assignment_title": "Record Mapping: Final Notice Against Award",
+  "prompt": "Our firm represents the District of Columbia Metropolitan Police Department (“MPD”). MPD terminated Officer Colin Braddock after its Internal Affairs Division and Use of Force Review Board found that he used excessive force in an off-duty shooting. On the evening of October 3, 2023, Braddock was at his home in Virginia when his car alarm went off. He saw a man, later identified as Devon Pryor, crouched beside his personal vehicle. Braddock went inside, retrieved his service pistol, and confronted Pryor without calling 911. Pryor, who had dropped his phone under the car while walking home and had hit his head on the frame while reaching for it, stumbled toward Braddock with his hands in his jacket pockets. Braddock fired twice, striking Pryor in the chest and shoulder. Pryor survived after three surgeries and eight months of treatment. MPD issued a Final Notice of Adverse Action on May 22, 2024, finding all twelve Douglas factors aggravating and terminating Braddock. Braddock grieved the termination. On March 14, 2025, an arbitrator reduced the penalty to a 45-day suspension based solely on his findings regarding Douglas factors six and twelve. The D.C. Public Employee Relations Board (“PERB”) affirmed the award in all respects on November 6, 2025. MPD wants to challenge the award at the District of Columbia Court of Appeals (“DCCA”) and has asked us to assess its options. You are the associate assigned to this matter.\n\nThe following documents have been uploaded for this Step:\nD.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)\nIn re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)\nMemorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock) (Apr. 11, 2024) (comparator_discipline_cases.pdf)\n\nThe documents listed above constitute the complete and exclusive universe of materials for this Step. Limit your review to the attached documents. Do not rely on, reference, or infer any legal authority, factual information, or data beyond what is contained in these uploaded files. If a document is not uploaded, it does not exist for purposes of this analysis. All citations must reference the document by its exact name as listed above, followed by the page and paragraph number. Do not cite external websites, databases, or any source outside the uploaded materials.\n\nComplete the following:\n\n1. Reconstruct MPD’s penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD’s finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.\n\n2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator’s finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.",
+  "attachments": [
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+      "extracted_path": "attachments/assignment-1/final_notice_adverse_action_braddock.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf",
+      "extracted_path": "attachments/assignment-1/comparator_discipline_cases.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+      "extracted_path": "attachments/assignment-1/braddock_arbitration_award.pdf.md"
+    }
+  ],
+  "rubric_count": 9,
+  "penalty_count": 2,
+  "positive_points": 71.0,
+  "rubric": [
+    {
+      "criterion_id": "criterion_1",
+      "points": 2.0,
+      "polarity": "required",
+      "irac_section": "Issue",
+      "criterion": "Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+      "source": "D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 26 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Reconstruct MPD’s penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD’s finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.”"
+    },
+    {
+      "criterion_id": "criterion_2",
+      "points": 2.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+      "source": "Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), ¶¶ 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. Reconstruct MPD's penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD's finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.\""
+    },
+    {
+      "criterion_id": "criterion_3",
+      "points": 2.0,
+      "polarity": "required",
+      "irac_section": "Conclusion",
+      "criterion": "Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+      "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 4 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\""
+    },
+    {
+      "criterion_id": "criterion_4",
+      "points": 4.0,
+      "polarity": "required",
+      "irac_section": "Rule",
+      "criterion": "States that the arbitrator reviewed MPD’s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+      "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 5 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\""
+    },
+    {
+      "criterion_id": "criterion_5",
+      "points": -20.0,
+      "polarity": "penalty",
+      "irac_section": "Conclusion",
+      "criterion": "States that the arbitrator overturned the finding of cause.",
+      "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 4 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\" Misreading the scope of the arbitrator's departures poisons every later Step so the plausible misread is penalized here."
+    },
+    {
+      "criterion_id": "criterion_6",
+      "points": -16.0,
+      "polarity": "penalty",
+      "irac_section": "Application",
+      "criterion": "States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+      "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶¶ 6-9 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\" A reduction attributed to an undisturbed factor is the plausible misread of the Award's structure."
+    },
+    {
+      "criterion_id": "criterion_7",
+      "points": 30.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+      "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 3 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶¶ 4-11 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"1. Reconstruct MPD's penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD's finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.\" Reconstructing the factors against the actual paragraphs exposes the Award's miscitation."
+    },
+    {
+      "criterion_id": "criterion_8",
+      "points": 28.0,
+      "polarity": "required",
+      "irac_section": "Issue",
+      "criterion": "Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+      "source": "Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), ¶¶ 1, 3 (Apr. 11, 2024) (comparator_discipline_cases.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\" The comparator memorandum's stated coverage window is part of the record the departures are mapped against."
+    },
+    {
+      "criterion_id": "criterion_9",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "Application",
+      "criterion": "Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+      "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶¶ 6-9 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\""
+    }
+  ],
+  "instruction_path": "tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md",
+  "rubric_path": "tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json",
+  "source_task_path": "tasks/lrb-dcca-challenge-police-discipline",
+  "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "instruction_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md",
+  "rubric_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json",
+  "redactions": "Email addresses are replaced with [email redacted] in quoted upstream text. No OCR was performed; PDF pages with no extracted text are explicitly marked. DOCX conversion shows tracked changes; original pagination is not retained.",
+  "prior_prompts": []
+}

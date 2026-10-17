@@ -1,0 +1,36 @@
+{
+  "model": "GPT-6 Sol (gpt-6-sol)",
+  "reasoning_effort": "high",
+  "dataset_revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+  "criteria_total": 16,
+  "coverage": "Reviewed the upstream common role prompt and all 16 criteria, all three prompts, the accumulated ten unique PDFs, and the pertinent passages of Douglas, the D.C. Code, the 2009 D.C. Court of Appeals opinion, Misco, W.R. Grace, and PERB’s decision. External primary D.C. appellate text was consulted only to test legal-error possibilities; the solver’s exclusive-source instruction remains controlling.",
+  "findings": [
+    {
+      "id": "F1",
+      "status": "arguable",
+      "category": "unrequested_requirement",
+      "criteria": [
+        "criterion_16"
+      ],
+      "title": "Suspension-length typo does not decide the requested exceptions",
+      "explanation": "PERB paragraph 1 says 40 days while the Award unmistakably imposes 45 days, so the discrepancy is real. The prompt asks for the strongest contrary-to-law and public-policy arguments and each weakest point. It does not ask for clerical comparison, and PERB affirms the award “in all respects.” A lawyer could correctly analyze the remedy as 45 days without highlighting PERB’s isolated typo.",
+      "evidence": [
+        {
+          "source": "perb_decision_braddock.pdf, p. 1 ¶ 1",
+          "quote": "reduced the penalty of termination to a 40-day suspension without pay"
+        },
+        {
+          "source": "braddock_arbitration_award.pdf, p. 2 ¶ 10",
+          "quote": "reduced to a 45-day suspension without pay"
+        },
+        {
+          "source": "perb_decision_braddock.pdf, p. 2 ¶ 7",
+          "quote": "affirmed in all respects"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Make the discrepancy optional unless the grader can show it affects the statutory exception analysis."
+    }
+  ]
+}

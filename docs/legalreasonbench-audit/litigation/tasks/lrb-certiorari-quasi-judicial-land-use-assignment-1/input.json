@@ -1,0 +1,275 @@
+{
+  "matter_id": "lrb-certiorari-quasi-judicial-land-use",
+  "matter_title": "Petition for Writ of Certiorari for Quasi-judicial Proceeding",
+  "practice_area": "Real estate and land use",
+  "research_universe": "open-universe",
+  "assignment": 1,
+  "num_assignments": 2,
+  "assignment_title": "Legal Memorandum to Board of County Commissioners",
+  "prompt": "1st ASSIGNMENT\nTO: Denise Swarek, Assistant County Attorney\nFROM: Thomas Rowe, County Attorney\nRE: PETER SPAHN, ET. AL., V. LEE COUNTY; Case No. 24-CA-1479\nDATE: October 27, 2025\n________________________________________\nWe received the attached Order Granting Petition for Writ of Certiorari.  \nYou are initially provided with the following record as uploaded files. Limit your review to these documents and what legal research is necessary to identify applicable rules and case law relevant to these documents. Do not conduct legal research beyond that. All legal analysis should be based on the versions of statutes, regulations, and ordinances in effect as of January 1, 2025.\n•\tResolution Z-23-035 (Resolution.docx)\n•\tPetition for Writ of Certiorari (Petition.docx)\n•\tOrder Granting Petition (Orderpdf.docx)\n•\tLCU Project Detail (LCU Project.pdf)\nReview only these documents and draft a structured legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history, 2) explains the implications of the Order, 3) identifies options and available actions for Lee County, 4) recommends a legal course of action to the Board. Use full Bluebook citation format.",
+  "attachments": [
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf",
+      "extracted_path": "attachments/assignment-1/1774361815-lcu-project.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx",
+      "extracted_path": "attachments/assignment-1/1774361815-orderpdf.docx.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx",
+      "extracted_path": "attachments/assignment-1/1774361815-petition.docx.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx",
+      "extracted_path": "attachments/assignment-1/1774361815-resolution.docx.md"
+    }
+  ],
+  "rubric_count": 25,
+  "penalty_count": 5,
+  "positive_points": 170.0,
+  "rubric": [
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_order_granting_petition",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the Order Granting Petition for Writ of Certiorari quashes Lee County, Fla., Res. No. Z-23-035 (2024).",
+      "source": "Order.docx at 1. \"the petition for writ of certiorari is hereby GRANTED and the rezoning is QUASHED for the reasons discussed below.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_circuit_court_found_that",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the circuit court found that the Petitioners had standing to bring the petition based on proximity of the Petitioners' property to the proposed facility.",
+      "source": "Order.docx at 2. \"The court finds that Petitioners have standing to bring this petition for writ of certiorari based on their proximity of Petitioners' property.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_circuit_court_found_th_2",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the circuit court found that the Lee County Board of County Commissioners \"improperly departed from the record created at the quasi-judicial hearings held below.\"",
+      "source": "Order.docx at 2. \"[t]he Lee County Board of County Commissioners (\"BOCC\") improperly departed from the record created at the quasi-judicial hearings held below.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_circuit_court_found_th_3",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the circuit court found that Lee County's conduct \"created prejudice and bias\" surrounding the rezoning.",
+      "source": "Order.docx at 3. \"Lee county further prejudiced the quasi-judicial process surrounding the quasi-judicial hearing required for rezoning for this wastewater facility  by its conduct which predetermined, or at very least created prejudice and bias, the decision to approve this quasi-judicial rezoning.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_circuit_court_found_th_4",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the circuit court found that certain Federal Aviation Administration regulations \"were not fully considered below.\"",
+      "source": "Order.docx at 5. \"The decision below violated the essential requirements of law contained in the substantive provisions of the Land Development Code (LDC), adopting by reference \"protective\" regulatory guidance such as issued by the FAA regulating Land Use and Compatibility Advisories that were not fully considered below.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "mentions_in_the_first_assignment_that_the_county_s_prior_rezonin",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in the first assignment that the county's prior rezoning request in DCI2018-10023 was remanded by the Hearing Examiner to staff for further evaluation and analysis on August 13, 2019.",
+      "source": "Petition.docx at 17-18. \"LEE COUNTY planner Dirk Danley read into the record the August \n13, 2019 Remand (Tr5 p.2-3): \nFollowing the coordination between the applicant and staff we jointly request that DCI2018-10023 be remanded back to the staff for further evaluation and analysis to include public outreach sessions to address the concerns presented by the public participants during hearing pursuant to comprehensive plan amendments for the proposed public facility and the protection of environmental resources, evaluation and development for a more detailed site plan and to ensure that all alternatives have been fully reviewed and analyzed.  The case will be re-analyzed, and future hearings will be noticed in compliance with the Land Development Code and Administrative Code. \"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_under_lee_county_fla_admin_c",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020.",
+      "source": "Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025); https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf\n\"If the six month deadline is not met because of action or inaction of the Applicant/Appellant, the\napplication/appeal will be considered withdrawn.\"\nRemand occurred on August 13, 2029, and six months after that is February 13, 2020.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_dci2018_10023_remained_activ",
+      "points": -15.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "States in the first assignment that DCI2018-10023 remained active until September 13, 2023.",
+      "source": "Petition.docx at 19. \"Procedurally, the 2019 zoning case was left open until September 13, 2023.\" This is incorrect because under Lee County Administrative Code 2-6, sec. 4.1 B., the case was considered withdrawn for not meeting the 6 month remand hearing deadline.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "mentions_in_the_first_assignment_that_the_subject_property_was_p",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in the first assignment that the subject property was placed into the Public Facilities future land use category of the Lee County Comprehensive Plan pursuant to Lee County, Fla. Ordinance 23-28 (2023).",
+      "source": "Lee County Fla. Ordinance 23-28 (2023); https://results.leegov.com/Home/DownloadFile/KT0000348490\n\"WHEREAS , the Board held a public hearing for the adoption of the proposed amendment on October 18 , 2023. At that hearing , the Board approved a motion to adopt proposed amendment CPA2023-00003 pertaining to Southeast Advanced Water\nReclamation Facility, amending Map 1-A of the Lee Plan , the Future Land Use Map. \"\nThe future land use category dictates permissible zoning districts, which dictate permitted uses.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that 1) outlines the Order and case history.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_effect_of_the_order_gran",
+      "points": -10.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the effect of the Order Granting Writ of Certiorari is that the Board's decision is overturned.",
+      "source": "Florida law is unequivocal that when a circuit court finds error in a local government’s quasi-judicial land use decision, its power is limited to quashing the decision and remanding the matter “as if no order had been entered.” See Broward County v. G.B.V. Int’l, Ltd., 787 So. 2d 838, 845 (Fla. 2001) (“When a circuit court grants certiorari relief, it quashes the order and leaves the matter pending before the lower tribunal as if no order had been entered.”).\nhttps://caselaw.findlaw.com/court/fl-supreme-court/1495364.html#:~:text=When,judgment,-%2E",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .2) explains the implications of the Order.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_must_stop_constru",
+      "points": -20.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the county must stop construction activities as a result of the Order Granting Writ of Certiorari.",
+      "source": "LCU Project.pdf at 1 shows that construction has started.\n\"Construction of the Southeast Advanced Water Reclamation Facility started on October 6, 2025.\"\nInjunctive relief is not an available remedy in a writ of certiorari of a quasi-judicial decision. See City of Fort Pierce v. Dickerson, 588 So.2d 1080, 1082 (Fla. 4th DCA 1991). https://www.casemine.com/judgement/us/59148822add7b049344ef125#:~:text=Since,injunction \n\"Since review of the resolution should have been by certiorari, the trial court was without jurisdiction to entertain a complaint for declaratory and injunctive relief and should not have granted the Dickersons' motion for a temporary injunction.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .2) explains the implications of the Order.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_exclusive_method_of_revi",
+      "points": 15.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the exclusive method of review of a quasi-judicial decision is by petition for writ of certiorari under Fla. R. App. P. 9.100(c) (2025) within 30 days of the written decision.",
+      "source": "Fla. R. App. P. 9.100(c) (2025); https://rules.floridaappellate.com/rule-9-100/#:~:text=Petitions,by%20certiorari\n\"Petitions for Certiorari; Review of NonFinal Agency Action; Review of Prisoner Disciplinary Action. The following shall be filed within 30 days of rendition of the order to be reviewed:\n\n(1) a petition for certiorari;\n\n(2) a petition to review quasi-judicial action of agencies, boards, and commissions of local government, which action is not directly appealable under any other provision of general law but may be subject to review by certiorari;\"\nSee City of Fort Pierce v. Dickerson, 588 So.2d 1080, 1082 (Fla. 4th DCA 1991).\nhttps://www.casemine.com/judgement/us/59148822add7b049344ef125#:~:text=Thus,relief\n\"Thus, we conclude that the resolution by the Ft. Pierce City Commission was quasi-judicial. Consequently, we agree with Ft. Pierce's assertion that since the resolution was a quasi-judicial decision rendered by the Commission, it was reviewable only by petition for writ of certiorari, and not by a complaint for declaratory and injunctive relief.\"",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .2) explains the implications of the Order.” This is important in responding to the prompt question about implications of the order because it explains why injunctive relief is not available in a writ of certiorari of a quasi-judicial decision."
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_exclusive_method_of_chal",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the exclusive method of challenging the issuance of a development order that materially alters the use or density or intensity of use on a particular piece of property is by filing a petition for writ of certiorari under Fla. Stat. § 163.3215(4) (2025) within 30 days of rendition of the development order.",
+      "source": "Fla. Stat. 163.3215(4) (2025); https://www.leg.state.fl.us/Statutes/index.cfm?App_mode=Display_Statute&URL=0100-0199/0163/Sections/0163.3215.html#:~:text=the%20sole,for%20certiorari\n\"the sole method by which an aggrieved and adversely affected party may challenge any decision of local government granting or denying an application for a development order, as defined in s. 163.3164, which materially alters the use or density or intensity of use on a particular piece of property, is by an appeal filed by a petition for writ of certiorari filed in circuit court no later than 30 days following rendition of a development order or other written decision of the local government, or when all local administrative appeals, if any, are exhausted, whichever occurs later. An action for injunctive or other relief may be joined with the petition for certiorari.\"\nA challenge to issuance of a development order, which is an executive function, is a separate cause of action from appeal of a quasi-judicial decision.",
+      "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .2) explains the implications of the Order.” This is crucial because challenging a development order is the sole method to seek injunctive relief under Fla. Stat. 163.3215(4)."
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that under Fla. Stat § 163.3167(10) (2025) the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal of the development order has expired.",
+      "source": "Fla. Stat 163.3167(10) (2025); https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0100-0199/0163/Sections/0163.3167.html#:~:text=If,standards\n\"If a local government grants a development order pursuant to its adopted land development regulations and the order is not the subject of a pending appeal and the timeframe for filing an appeal has expired, the development order may not be invalidated by a subsequent judicial determination that such land development regulations, or any portion thereof that is relevant to the development order, are invalid because of a deficiency in the approval standards\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .2) explains the implications of the Order.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_petitioners_may_file_a_s",
+      "points": -15.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the Petitioners may file a separate cause of action for injunction to stop construction activities.",
+      "source": "See City of Fort Pierce v. Dickerson, 588 So.2d 1080, 1082 (Fla. 4th DCA 1991). https://www.casemine.com/judgement/us/59148822add7b049344ef125#:~:text=Since,injunction \n\"Since review of the resolution should have been by certiorari, the trial court was without jurisdiction to entertain a complaint for declaratory and injunctive relief and should not have granted the Dickersons' motion for a temporary injunction.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .2) explains the implications of the Order.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_appeal_the",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the county could appeal the Order Granting Writ of Certiorari to the Sixth District Court of Appeals pursuant to Fla. R. App. P. 9.030(b)(2)(B).",
+      "source": "Florida Rule of Appellate Procedure 9.030(b)(2)(B); https://rules.floridaappellate.com/rule-9-030/#:~:text=b%29-,Jurisdiction,capacity\n\"Jurisdiction of District Courts of Appeal.\n\"b) Jurisdiction of District Courts of Appeal.\n. . .\n(2) Certiorari Jurisdiction.8 The certiorari jurisdiction of district courts of appeal may be sought to review:\n(A) nonfinal orders of lower tribunals other than as prescribed by rule 9.130; or\n(B) final orders of circuit courts acting in their review capacity.\"\nSee also Map of Florida’s Court Jurisdictions, available at https://flcourts-media.flcourts.gov/content/download/426177/file/ar-17-18-map-of-floridas-court-jurisdictions.pdf (last accessed Mar. 25, 2026).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_remand_the",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the county could remand the case back to the Hearing Examiner for an evidentiary hearing to address the deficiencies identified in the Order Granting Petition for Writ of Certiorari under Lee County Fla. Land Development Code § 34-83(a)(6) (2025).",
+      "source": "Lee County Fla. Land Development Code § 34-83(a)(6) (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU#:~:text=The%20Board%20may%20remand%20a%20case%20back%20to%20the%20Hearing%20Examiner%20for%20further%20review%20of%20specific%20issues%2E%20The%20scope%20of%20the%20remanded%20hearing%20will%20be%20limited%20to%20the%20specific%20issues%20identified%20by%20the%20Board\n\"The Board may remand a case back to the Hearing Examiner for further review of specific issues. The scope of the remanded hearing will be limited to the specific issues identified by the Board.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_file_a_new",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County could file a new application for rezoning.",
+      "source": "The Lee County Department of Community Development website has a link to an application for \"Continuance, Deferral, or Withdrawal\" which can be filed at any time by the county; https://www.leegov.com/dcd/zoning/apps#:~:text=Continuance%2C%20Deferral%2C%20OR%20Withdrawal,-%E2%80%8B",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_voluntarily",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County could voluntarily cease construction activities pending resolution of the challenge.",
+      "source": "LCU Project.pdf at 1. Construction has started, but could be stopped at the direction of the Board, though the costs would be extremely high.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_take_the_po",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County could take the position that the rezoning is not necessary because the county is not bound by its local zoning laws in carrying out a governmental function.",
+      "source": "See Sandra G. Smith, Immunity of State and State Related Activities from Local Municipal Zoning Regulations: Florida Focus, 28 Fla. L. Rev. 800 (1967).\nAvailable at: https://scholarship.law.ufl.edu/flr/vol28/iss3/9 \nhttps://scholarship.law.ufl.edu/cgi/viewcontent.cgi?article=2881&context=flr\n\"The Fourth District Court of Appeal relied\non Nichols for the premise that in the performance of a governmental activity the county should not be subject to its own zoning restrictions. 2 In a 1978\ndecision Dade County was challenged by private property owners when it attempted to violate its own zoning restrictions by building a jail facility on\nproperty reserved for another use under a comprehensive zoning ordinance. 28\nThe Third District Court of Appeal recognized a right under common law and under Florida law for \"a governmental entity to place a governmental\nfacility without regard to a comprehensive zoning ordinance or its procedures.\"\nThe article quotes Metropolitan Dade County v. Parkway Towers Condominium Ass'n, 281 So. 2d 68\n(Fla. 3d DCA 1973), a 3rd DCA case establishing immunity from zoning for governmental purposes. The case is not found publicly available, however the FL Supreme Court accepted, but then discharged), a petition for writ. Note that the FL Supreme Court expressed a \"prospective opinion\" that local governments \"should\" go through rezonings if not in compliance, this is dicta and not binding as the court upheld the district court's decision on immunity.  \nParkway Towers Con. Ass'n v. Metropolitan Dade Cnty., 295 So.2d 295 (Fla. 1974); https://law.justia.com/cases/florida/supreme-court/1974/44260-0.html#:~:text=Although,ordinances,-%2E\n\"Although we now consider our issuance of the writ of certiorari to have been improvident in this case, which results in our discharge thereof, it is nevertheless our view prospectively that zoning variations to accommodate county or municipal facility purposes should either have been anticipated in zoning ordinances before construction or operation of such facilities is commenced *296 or, if this has not been done, construction should not be undertaken thereof until after due modification or change therefor is made in existing zoning ordinances.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_negotiate_f",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County could negotiate for additional conditions protecting wildlife that address Petitioners' concerns.",
+      "source": "Petitioners' concerns are outlined in Petition.docx at pages 3-13. These include concerns about protection of wild life.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_could_negotiate_2",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County could negotiate for additional conditions protecting water quality that address Petitioners' concerns.",
+      "source": "Petitioners' concerns are outlined in Petition.docx at pages 3-13. These include concerns about protection of water quality.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .3) identifies options and available actions for the county.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_should_file_a_tim",
+      "points": 20.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County should file a timely appeal with the 6th District Court of Appeals.",
+      "source": "Because the Order contains reversible errors, and because an appeal can be pursued parallel to a remand, this is the best recommendation.\nFlorida Rule of Appellate Procedure 9.030(b)(2)(B); https://rules.floridaappellate.com/rule-9-030/#:~:text=b%29-,Jurisdiction,capacity\n\"Jurisdiction of District Courts of Appeal.\n\"b) Jurisdiction of District Courts of Appeal.\n. . .\n(2) Certiorari Jurisdiction.8 The certiorari jurisdiction of district courts of appeal may be sought to review:\n(A) nonfinal orders of lower tribunals other than as prescribed by rule 9.130; or\n(B) final orders of circuit courts acting in their review capacity.\"\nSee also Map of Florida’s Court Jurisdictions, available at https://flcourts-media.flcourts.gov/content/download/426177/file/ar-17-18-map-of-floridas-court-jurisdictions.pdf (last accessed Mar. 25, 2026).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .4) recommends a legal course of action to the Board.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_should_remand_the",
+      "points": 20.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order Granting Writ of Certiorari while an appeal is pending.",
+      "source": "Because the Order contains reversible errors, and because an appeal can be pursued parallel to a remand, this is the best recommendation.\nLee County Fla. Land Development Code § 34-83(a)(6) (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU#:~:text=The%20Board%20may%20remand%20a%20case%20back%20to%20the%20Hearing%20Examiner%20for%20further%20review%20of%20specific%20issues%2E%20The%20scope%20of%20the%20remanded%20hearing%20will%20be%20limited%20to%20the%20specific%20issues%20identified%20by%20the%20Board\n\"The Board may remand a case back to the Hearing Examiner for further review of specific issues. The scope of the remanded hearing will be limited to the specific issues identified by the Board.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .4) recommends a legal course of action to the Board.”"
+    },
+    {
+      "criterion_id": "states_in_the_first_assignment_that_the_county_should_cease_cons",
+      "points": -30.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "States in the first assignment that the County should cease construction activities at the subject property.",
+      "source": "LCU Project.pdf at 1 shows that construction has started, which means the county has spent time and money on design, permitting, procurement of contractors, etc. The facility is also necessary to serve increased demand for water and sewer service caused by population growth and has been planned since 2010 (LCU Project.pdf at 4.)\nIn a similar case, the FL Supreme Court declined to delay construction of a public project based on zoning.\nSee Parkway Towers Con. Ass'n v. Metropolitan Dade Cty., 295 So.2d 295 (Fla. 1974); https://law.justia.com/cases/florida/supreme-court/1974/44260-0.html#:~:text=This%20being,result\n\"In this case it appears that on at least two occasions public hearings were held by the Metro County Commission on the question whether the construction of the subject holding facility for prisoners and the work release facility should go forward in the absence of a waiver therefor in the zoning ordinance and in each instance it was agreed by the Commission the construction should proceed. This being so, we feel no useful or practical purpose would be served in interrupting and delaying the construction until a zoning change is effected retroactively to accommodate the Commission's expressly resolved purpose when considered in connection with the fact that no direct conflict of decisions appears. To interrupt the construction now would cause needless expense and damage with no prospect or likelihood that the Commission would reach a different final result.\"",
+      "justification": "This rubric item is requested directly in the following portion of the prompt: “Review only these documents and draft a legal memorandum to the Board of County Commissioners that . . .4) recommends a legal course of action to the Board.”"
+    }
+  ],
+  "instruction_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md",
+  "rubric_path": "tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json",
+  "source_task_path": "tasks/lrb-certiorari-quasi-judicial-land-use",
+  "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "instruction_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md",
+  "rubric_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json",
+  "redactions": "Email addresses are replaced with [email redacted] in quoted upstream text. No OCR was performed; PDF pages with no extracted text are explicitly marked. DOCX conversion shows tracked changes; original pagination is not retained.",
+  "prior_prompts": []
+}
