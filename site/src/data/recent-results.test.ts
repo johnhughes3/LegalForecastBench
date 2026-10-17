@@ -8,7 +8,7 @@ import { historicalSnapshot, snapshot } from "./results.js";
 
 test("native agentic exports augment and replace rows in the unchanged beta snapshot", () => {
 	assert.equal(historicalSnapshot.models.length, 10);
-	assert.equal(snapshot.models.length, 19);
+	assert.equal(snapshot.models.length, 20);
 	for (const slug of [
 		"gpt-6-sol",
 		"gpt-6-luna",
@@ -19,6 +19,7 @@ test("native agentic exports augment and replace rows in the unchanged beta snap
 		"gpt-6-1-sol",
 		"claude-sonnet-5-5",
 		"muse-wonder-1-0",
+		"ultramarine-1-flash",
 	])
 		assert.ok(snapshot.models.some((m) => m.slug === slug));
 	for (const { source, data } of recentResults) {
@@ -104,13 +105,13 @@ test("release mismatch fails before combining metrics", () => {
 
 test("updated significance replaces the historical family and excludes untested models", () => {
 	assert.equal(historicalSnapshot.significant_pairs.length, 3);
-	assert.equal(snapshot.significant_pairs.length, 36);
+	assert.equal(snapshot.significant_pairs.length, 39);
 	for (const pair of snapshot.significant_pairs) {
 		assert.equal(pair.worse, "gpt-4-1");
 		assert.notEqual(pair.better, "gpt-4-1");
 	}
-	assert.match(snapshot.cohort.bootstrap.correction, /171 model pairs/);
-	assert.match(snapshot.cohort.bootstrap.caveat, /13 of 19/);
+	assert.match(snapshot.cohort.bootstrap.correction, /190 model pairs/);
+	assert.match(snapshot.cohort.bootstrap.caveat, /14 of 20/);
 	assert.ok(
 		!snapshot.significant_pairs.some(
 			(pair) => pair.better === "grok-4-6" || pair.worse === "muse-spark-1-3",
