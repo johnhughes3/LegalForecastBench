@@ -9,26 +9,26 @@
       "matters_expected": 4,
       "matters_available": 4,
       "complete": false,
-      "citation_instances": 2366,
+      "citation_instances": 2381,
       "fictional_by_design": 70,
-      "checked": 2296,
+      "checked": 2311,
       "first_check_problems": 83,
       "pending_checks": 0,
       "by_final_status": {
-        "VERIFIED": 1945,
-        "VERIFIED_MINOR_DEFECT": 117,
+        "VERIFIED": 1956,
+        "VERIFIED_MINOR_DEFECT": 118,
         "NOT_FOUND_LIKELY_FABRICATED": 0,
         "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
         "MISCHARACTERIZED": 47,
         "MISQUOTED": 5,
         "WRONG_CITATION_REAL_CASE": 21,
-        "UNABLE_TO_VERIFY": 161
+        "UNABLE_TO_VERIFY": 164
       },
       "observed_final_problems": 73,
       "problems": null,
       "problem_rate": null,
       "checks_complete": true,
-      "observed_problem_rate": 0.031794425087108016,
+      "observed_problem_rate": 0.03158805711813068,
       "per_matter": [
         {
           "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -103,33 +103,19 @@
               "D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.",
               "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.",
               "The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.",
-              "The second census added 159 internal Chapter 16 cross-references and statutory short forms omitted initially. It did not independently rescan every original occurrence, so the overall census remains incomplete. Navigation metadata and non-authority record references remain excluded as described above.",
               "All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.",
               "All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.",
               "The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.",
-              "Current recorded coverage: 794 real-authority occurrences, including 123 UNABLE_TO_VERIFY. OCR-only and scan-margin defects are distinguished from errors in the original legal authority. No citator or exhaustive later-history review was performed."
+              "The final full readable-text rescan covered all five current prompts, rubric criteria/source fields, native instructions, and eleven unique attachments. It added 15 occurrences (11 verified, one minor duplicate section number in an addendum, three unable to verify), on top of the earlier 159-reference supplement. Its census-complete judgment concerns readable extracted text; unreadable OCR glyphs, navigation/index cells, repeated packet copies and non-authority record references are excluded under the stated convention.",
+              "The duplicated section 1631 is a first-stage minor-defect judgment, outside the problem-status set requiring independent second review. No new problem-status claim arose from the final census.",
+              "Current recorded coverage: 809 real-authority occurrences, including 126 UNABLE_TO_VERIFY. Census completeness does not imply verification of all authority, original-glyph capture, or historical versions."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
-            "counts": {
-              "citation_instances": 698,
-              "fictional_by_design": 63,
-              "real_law": 635,
-              "by_first_check_status": {
-                "VERIFIED": 224,
-                "MISCHARACTERIZED": 9,
-                "VERIFIED_MINOR_DEFECT": 24,
-                "WRONG_CITATION_REAL_CASE": 6,
-                "UNABLE_TO_VERIFY": 372
-              },
-              "prompt_occurrences": 45,
-              "rubric_occurrences": 103,
-              "attachment_occurrences": 550
-            },
-            "census_complete": false
+            "census_complete": true
           },
-          "citations": 857,
+          "citations": 872,
           "pending_checks": 0,
-          "complete": false
+          "complete": true
         },
         {
           "matter": "lrb-forum-non-conveniens-response",
@@ -168,18 +154,6 @@
               "Current recorded coverage: 663 real-authority occurrences, including 10 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
-            "counts": {
-              "total_occurrences": 573,
-              "real_law": 566,
-              "fictional_by_design": 7,
-              "first_check_status": {
-                "VERIFIED": 459,
-                "VERIFIED_MINOR_DEFECT": 27,
-                "MISCHARACTERIZED": 17,
-                "UNABLE_TO_VERIFY": 63
-              },
-              "problems": 17
-            },
             "census_complete": true
           },
           "citations": 670,
