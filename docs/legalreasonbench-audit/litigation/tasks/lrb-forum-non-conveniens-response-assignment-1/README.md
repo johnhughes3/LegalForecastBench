@@ -10,19 +10,19 @@ Agreement buckets use the two saved blind reports only. Reconciliation is counte
 |---|---|---|---|---|---|---|
 | GPT-6 Sol (blind) | 1 / 1 | 29 | 2 | 2 / 29 (6.9%) | 1 / 29 (3.4%) | 1 / 29 (3.4%) |
 | Claude Opus 5.5 (blind) | 1 / 1 | 29 | 2 | 2 / 29 (6.9%) | 1 / 29 (3.4%) | 1 / 29 (3.4%) |
-| Final reconciliation | 0 / 1 | 0 | unavailable | unavailable | unavailable | unavailable |
+| Final reconciliation | 1 / 1 | 29 | 2 | 2 / 29 (6.9%) | 1 / 29 (3.4%) | 1 / 29 (3.4%) |
 
 Category totals count distinct task-criterion pairs within each category. They may sum above the overall flagged-criterion count.
 
 | Category | Sol blind flagged criteria | Opus blind flagged criteria | Final flagged criteria |
 |---|---|---|---|
-| legal_error | 0 / 29 (0.0%) | 0 / 29 (0.0%) | unavailable |
-| unsupported_fact | 0 / 29 (0.0%) | 0 / 29 (0.0%) | unavailable |
-| source_conflict | 0 / 29 (0.0%) | 0 / 29 (0.0%) | unavailable |
-| internal_inconsistency | 1 / 29 (3.4%) | 1 / 29 (3.4%) | unavailable |
-| ambiguous_or_unjudgeable | 1 / 29 (3.4%) | 1 / 29 (3.4%) | unavailable |
-| unrequested_requirement | 0 / 29 (0.0%) | 0 / 29 (0.0%) | unavailable |
-| document_defect | 0 / 29 (0.0%) | 0 / 29 (0.0%) | unavailable |
+| legal_error | 0 / 29 (0.0%) | 0 / 29 (0.0%) | 0 / 29 (0.0%) |
+| unsupported_fact | 0 / 29 (0.0%) | 0 / 29 (0.0%) | 0 / 29 (0.0%) |
+| source_conflict | 0 / 29 (0.0%) | 0 / 29 (0.0%) | 0 / 29 (0.0%) |
+| internal_inconsistency | 1 / 29 (3.4%) | 1 / 29 (3.4%) | 1 / 29 (3.4%) |
+| ambiguous_or_unjudgeable | 1 / 29 (3.4%) | 1 / 29 (3.4%) | 1 / 29 (3.4%) |
+| unrequested_requirement | 0 / 29 (0.0%) | 0 / 29 (0.0%) | 0 / 29 (0.0%) |
+| document_defect | 0 / 29 (0.0%) | 0 / 29 (0.0%) | 0 / 29 (0.0%) |
 
 Reports:
 
@@ -34,32 +34,32 @@ Reports:
 
 | Task / criterion | GPT-6 Sol blind | Opus blind | Blind bucket | Final reconciliation |
 |---|---|---|---|---|
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_1 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_2 | arguable | unflagged | sol_only | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_3 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_4 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_30 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_5 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_6 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_7 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_8 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_9 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_10 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_11 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_12 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_13 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_15 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_16 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_17 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_18 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_19 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_20 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_21 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_22 | unflagged | arguable | opus_only | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_23 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_24 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_25 | problematic | problematic | both_problematic | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_26 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_27 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_28 | unflagged | unflagged | — | unavailable |
-| lrb-forum-non-conveniens-response-assignment-1 / criterion_29 | unflagged | unflagged | — | unavailable |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_1 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_2 | arguable | unflagged | sol_only | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_3 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_4 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_30 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_5 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_6 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_7 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_8 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_9 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_10 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_11 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_12 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_13 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_15 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_16 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_17 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_18 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_19 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_20 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_21 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_22 | unflagged | arguable | opus_only | arguable |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_23 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_24 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_25 | problematic | problematic | both_problematic | problematic |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_26 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_27 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_28 | unflagged | unflagged | — | unflagged |
+| lrb-forum-non-conveniens-response-assignment-1 / criterion_29 | unflagged | unflagged | — | unflagged |

@@ -1,12 +1,12 @@
 # LegalReasonBench citation check
 
-AI-generated citation checks, not human legal verification or score corrections. The counting unit is a citation in a unique matter document, not each repeated assignment packet. Worker file lists and limits are reproduced below; absence of a stated limit does not independently establish exhaustive coverage. Every first-check problem requires an independent second check, including overturned findings. Missing files and pending checks never establish a zero-problem result.
+AI-generated citation checks, not human legal verification or score corrections. The counting unit is a citation in a unique matter document, not each repeated assignment packet. Worker file lists and limits are reproduced below; absence of a stated limit does not independently establish exhaustive coverage. Completion requires an explicit census-complete judgment; verification limits remain visible. Every first-check problem requires an independent second check, including overturned findings. Missing files and pending checks never establish a zero-problem result.
 
 [Summary JSON](summary.json) · [Problems and second checks](problems.md) · [Rubric intent](rubric-intent.json)
 
-Complete: False. Available matter reports: 0 / 4.
+Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: unavailable. Fictional by design (excluded): unavailable. Pending checks: unavailable.
+Checked real citations in available reports: 1900. Fictional by design (excluded): 70. Pending checks: 48.
 
 Problem rate: unavailable; coverage or checks pending.
 
@@ -14,27 +14,170 @@ Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | unavailable |
-| VERIFIED_MINOR_DEFECT | unavailable |
-| NOT_FOUND_LIKELY_FABRICATED | unavailable |
-| CITATION_POINTS_TO_DIFFERENT_CASE | unavailable |
-| MISCHARACTERIZED | unavailable |
-| MISQUOTED | unavailable |
-| WRONG_CITATION_REAL_CASE | unavailable |
-| UNABLE_TO_VERIFY | unavailable |
+| VERIFIED | 1252 |
+| VERIFIED_MINOR_DEFECT | 104 |
+| NOT_FOUND_LIKELY_FABRICATED | 0 |
+| CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
+| MISCHARACTERIZED | 17 |
+| MISQUOTED | 0 |
+| WRONG_CITATION_REAL_CASE | 0 |
+| UNABLE_TO_VERIFY | 479 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
-Report unavailable; coverage and findings pending.
+Model: Claude Opus 5.5; reasoning effort: high.
+
+Worker counting unit: citation occurrence in each unique matter document, separate prompt and rubric occurrences
+
+Files read (worker reported):
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf
+
+Coverage limits:
+
+- Both assignments carry the same four attachments (byte-identical conversions), so each attachment is counted once. Assignment 2's input repeats the assignment-1 prompt; only each assignment's own current prompt is counted.
+- The Order (orderpdf.docx) is six scanned page images with no text layer; the packet conversion contains only image tags. All six pages were read visually from the images embedded in the pinned original DOCX (no OCR). The service list on page 6 (email addresses) is not reproduced.
+- The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.
+- The Petition's 28 embedded images (maps, charts, photos, a deed cover page, FAA figure, tax-roll screenshots) were reviewed at contact-sheet scale; the fine-print notes on images 14, 16, 25 and 26 were not legible and were not read. Images 11-12 reproduce FAA AC Figure 1 and were checked.
+- The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.
+- Lee Plan goal/objective/policy/map citations in the Resolution's findings were not checked against the Lee Plan; they are UNABLE_TO_VERIFY.
+- Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.
+- Lee County LDC chapters 2, 10 and 34 and Code of Ordinances chapter 11 were read from Municode's current versions (as of 2026); each section's amendment history was checked. Where a cited section was amended after the document it appears in (LDC ss. 10-261, 10-291, 10-321, 10-329, 10-416, 10-418: Ord. 24-14, Oct. 2024, or Ord. 25-09, Apr. 2025), the pre-amendment text was not retrieved; those entries are VERIFIED only because the cited requirement appears in the current text, and say so. LDC s. 34-145 visibly changed (Oct. 2024, Apr. 2025) and is UNABLE_TO_VERIFY. Admin. Code AC-2-6 was read in its 8/2/22 version; the version in force in 2019-20 was not read.
+- Florida Statutes were read in the 2024 edition (with 2023 for s. 333.03). Appellate rules were read from rules.floridaappellate.com; the Florida Bar rules PDFs and Fla. R. Gen. Prac. & Jud. Admin. 2.520 could not be downloaded.
+- The Smith Florida Law Review article PDF was blocked (HTTP 403); only its repository landing page was read. Babcock (1966) and Mandelker & Tarlock (1992) were not read; they appear only inside a Snyder quotation that was verified.
+- AC 150/5200-33B and AC 150/5300-13A (cancelled) and AC 150/5300-13B and 150/5200-30D were identified from FAA's current and cancelled AC lists; their texts were not read. AC 150/5190-4B, 150/5200-33C and 150/5190-7 were read in full text.
+- Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.
+- Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.
+
+[Full citation evidence](results/lrb-certiorari-quasi-judicial-land-use.md)
 
 ## lrb-dcca-challenge-police-discipline
 
-Report unavailable; coverage and findings pending.
+Model: Claude Opus 5.5; reasoning effort: high.
+
+Worker counting unit: citation occurrence in each unique matter document, separate prompt and rubric occurrences
+
+Files read (worker reported):
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf
+
+Coverage limits:
+
+- Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.
+- W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).
+- FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.
+- D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.
+- DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.
+- Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.
+- Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.
+- The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.
+- Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.
+- No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.
+
+[Full citation evidence](results/lrb-dcca-challenge-police-discipline.md)
 
 ## lrb-forum-non-conveniens-response
 
-Report unavailable; coverage and findings pending.
+Model: Claude Opus 5.5; reasoning effort: high.
+
+Worker counting unit: citation occurrence in each unique matter document, separate prompt and rubric occurrences
+
+Files read (worker reported):
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
+
+Coverage limits:
+
+- Attachment counting: the six attachments are identical in assignment-1 and assignment-2 packets apart from the source-URL line (verified by diff); each is counted once. Prompts and rubric fields are counted per assignment; assignment-2's copy of the prior assignment-1 prompt contains no citations.
+- All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).
+- The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.
+- The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.
+- Counting unit: each citation string (full cite, short form with reporter or pin cite, statute/rule/regulation section, or quoted/named authority in the prompt or rubric) in each unique matter document; parallel reporter cites in one string count once. Bare case-name references with no reporter or pin cite inside the three supplied opinions (e.g. 'In Dawdy, ...') are not separately counted. Repeated identical table-header rule labels on one Annual Report page are counted once per page. Citations in the motion and rubric to the scenario's own record (complaint paragraphs, affidavits, exhibits) are record references, not legal authority, and are not counted; the scenario case caption is recorded as fictional.
+- Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.
+- Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.
+- The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.
+- The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.
+- Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.
+- Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.
+- Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).
+- No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.
+
+[Full citation evidence](results/lrb-forum-non-conveniens-response.md)
 
 ## lrb-vicar-trial-jury-instructions
 
-Report unavailable; coverage and findings pending.
+Model: Claude Opus 5.5; reasoning effort: high.
+
+Worker counting unit: citation occurrence in each unique matter document, separate prompt and rubric occurrences
+
+Files read (worker reported):
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf
+
+Coverage limits:
+
+- Unique documents: 12 attachments plus 2 prompts and 2 rubrics. The assignment 2 packet reprints the assignment 1 prompt and all assignment 1 attachments; those were counted once, under assignment 1. Assignment 2's Facts.pdf is byte-identical in extracted text to assignment 1's Facts.pdf except for its source line, so it was read and counted once.
+- Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.
+- The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.
+- The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.
+- Facts.pdf contains no citations to legal authority. Its case-record references (about 97 trial-transcript 'TT' cites, about 32 'R. Doc.' cites, 'Id.' record short forms, and the M./P./G. Br. abbreviation key) are references to the scenario case record, not legal authority, and are excluded. Rubric source fields that cite only Facts.pdf or Patton State Plea.pdf page numbers are record citations and are excluded too. No fictional legal authority was identified in the matter, so the census contains no fictional_by_design entries. The underlying prosecution appears to be a real case, but this was not investigated.
+- Counting conventions: each explicit citation string counts once, including short forms and Id./id. (resolved to the antecedent in citation_as_written brackets). Statutory section mentions given by number count once each. Bare case names count when invoked as authority ('In Stover, we held', 'Under Aguilar', 'Strickland prejudice') but not when incidental or inside another case's parenthetical. Explicit references to constitutional provisions count. Excluded: bare 'subsection 1/2' references without a section number; citations appearing inside quoted language; case names embedded in law-review titles (Williams v. Taylor, Wiggins v. Smith, Rompilla v. Beard, Cronic); purely factual mentions ('received Miranda warnings', 'post-Miranda interview'); the book cited in Kehoe n.2; and the statute prints' editorial annotations (bracketed history lines, 'Referred to in' lists, and 'see §' notes: roughly 16 history blocks, 8 'Referred to in' lists, and 5 see-notes across the five prints).
+- Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.
+- Verification sources: CourtListener (read through its API connector) for case text; Cornell LII for current U.S. Code, federal rules, and the U.S. Constitution; the Iowa Legislature for the 2020 and 2026 Iowa Code and the codified Iowa Constitution. Federal statutes and rules were read in their current form; versions in force at each decision date were not separately retrieved, except Fed. R. Evid. 801(d)(2)(B), whose pre-2011 wording was confirmed as quoted in an 8th Cir. 1996 opinion. Kehoe's Arkansas Code citations and Ellison's Model Penal Code § 3.04 were checked against judicial quotations of those texts, because Justia returned HTTP 403 and the ALI text is not freely available.
+- Pin pages: where CourtListener text carried reporter page markers, pins were checked. Lorenzo Baltazar, Gibbs, and Macke exist on CourtListener only as slip opinions, so their N.W.2d pins could not be checked. Several other pins are marked 'not separately checked' in their explanations; in those cases the proposition and quotation were confirmed but the page was not.
+- UNABLE_TO_VERIFY (12 occurrences): ten law-review articles cited in Justice Appel's special concurrence in Kuhse, and Iowa Criminal Jury Instruction 800.1 (2018). For the law reviews, repository PDFs were blocked by bot challenges or 404s, or could not be located; for five of the articles, existence was confirmed only from repository bibliographic records. No law-review quotation was checked. None is marked not-found.
+- No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.
+
+[Full citation evidence](results/lrb-vicar-trial-jury-instructions.md)
