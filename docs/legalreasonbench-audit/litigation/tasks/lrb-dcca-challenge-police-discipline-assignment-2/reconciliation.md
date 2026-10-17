@@ -43,7 +43,7 @@ Authorities (verification is asserted by the auditor):
 
 ## R3: The -18 'initial showing' penalty may misfire on MPD's Douglas-based forfeiture argument
 
-Status: **arguable**; category: `source_conflict`; criteria: criterion_5.
+Status: **arguable**; category: `ambiguous_or_unjudgeable`; criteria: criterion_5.
 
 This is Opus O3; Sol did not flag the issue. The penalty may misfire. Criterion 5 deducts 18 points from a response that 'States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden.' Its justification treats that rule as authority outside the uploads. The uploaded Douglas, however, says that a prima facie case 'will normally suffice' when 'no issue has been raised concerning the penalty' and that the agency must present further evidence only when the employee challenges it. Stipulation (b) says Braddock never alleged disparate treatment before the hearing. The prompt asks for the legal consequence of that failure and for 'the strongest position MPD can take.' A response that argues for MPD, citing Douglas, that MPD's comparator showing sufficed because Braddock never raised disparate treatment uses wording close to the penalty. The native penalty judge is told to 'Answer Pass only if the response DOES commit this failure,' and the criterion text lacks the justification's 'as settled law' qualifier. Because Douglas speaks of challenging the penalty generally rather than making a disparate-treatment showing, a careful response can avoid the wording. The risk is therefore arguable, not problematic.
 

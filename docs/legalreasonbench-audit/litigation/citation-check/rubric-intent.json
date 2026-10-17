@@ -1,11 +1,24 @@
 {
   "complete": false,
   "missing_matters": [],
-  "first_check_problems_without_intent": [],
-  "records_available": 65,
+  "first_check_problems_without_intent": [
+    {
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "ref": 78
+    },
+    {
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "ref": 89
+    },
+    {
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "ref": 136
+    }
+  ],
+  "records_available": 69,
   "targeted_by_instructions": 3,
-  "targeted_by_criteria": 1,
-  "rewards_reliance": 37,
+  "targeted_by_criteria": 3,
+  "rewards_reliance": 40,
   "records": [
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -18,7 +31,7 @@
       ],
       "explanation": "The rubric itself relies on AC-2-6 s. 4.1.B; no instruction or criterion asks the model to test it. Criterion #6 awards points for stating that DCI2018-10023 was deemed withdrawn on February 13, 2020 under that provision, and penalty #7 deducts 15 points for stating that the case remained active until September 13, 2023. That is what the Order (p.4: 'all while DCI2018-10023 remained an active case') and the Petition report. A model that accurately reads s. 4.1 (Board remands to the Hearing Examiner, deemed withdrawn only for applicant inaction) or follows the record loses credit on both.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -31,7 +44,7 @@
       ],
       "explanation": "The rubric itself relies on AC-2-6 s. 4.1.B; no instruction or criterion asks the model to test it. Criterion #6 awards points for stating that DCI2018-10023 was deemed withdrawn on February 13, 2020 under that provision, and penalty #7 deducts 15 points for stating that the case remained active until September 13, 2023. That is what the Order (p.4: 'all while DCI2018-10023 remained an active case') and the Petition report. A model that accurately reads s. 4.1 (Board remands to the Hearing Examiner, deemed withdrawn only for applicant inaction) or follows the record loses credit on both.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -44,17 +57,28 @@
       ],
       "explanation": "The rubric itself relies on AC-2-6 s. 4.1.B; no instruction or criterion asks the model to test it. Criterion #6 awards points for stating that DCI2018-10023 was deemed withdrawn on February 13, 2020 under that provision, and penalty #7 deducts 15 points for stating that the case remained active until September 13, 2023. That is what the Order (p.4: 'all while DCI2018-10023 remained an active case') and the Petition report. A model that accurately reads s. 4.1 (Board remands to the Hearing Examiner, deemed withdrawn only for applicant inaction) or follows the record loses credit on both.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
       "ref": 14,
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
-      "rewards_reliance": [],
-      "explanation": "No criterion asks the model to check the quotation. The proposition it is cited for (certiorari relief quashes and leaves the matter pending below) is correct law at G.B.V. *844, so the criterion's substance does not reward a wrong rule. The defect is the fabricated quotation and pin cite in grader-facing source text; a model quoting it verbatim would repeat a misquotation.",
+      "rewards_reliance": [
+        "assignment-1 #9 penalty"
+      ],
+      "explanation": "The penalty's categorical rejection of saying the Board decision was 'overturned' is too literal. The Order itself both quashes the resolution and says the decision is reversed. Plain-English 'overturned' can accurately describe that effect if the answer does not claim the court made the rezoning merits decision. The exact G.B.V. quotation remains misquoted.",
+      "first_intent": {
+        "ref": 14,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "No criterion asks the model to check the quotation. The proposition it is cited for (certiorari relief quashes and leaves the matter pending below) is correct law at G.B.V. *844, so the criterion's substance does not reward a wrong rule. The defect is the fabricated quotation and pin cite in grader-facing source text; a model quoting it verbatim would repeat a misquotation."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "MISQUOTED",
-      "final_status": null
+      "final_status": "MISQUOTED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -62,12 +86,24 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [
-        "assignment-1 #12 states_in_the_first_assignment_that_the_exclusive_method_of_chal",
-        "assignment-1 #14 states_in_the_first_assignment_that_the_petitioners_may_file_a_s (penalty)"
+        "assignment-1 #12",
+        "assignment-1 #14 penalty"
       ],
-      "explanation": "Criterion #12 (10 points) requires stating that certiorari under s. 163.3215(4) is the exclusive method of challenging a development order. The statute makes certiorari exclusive only where the local government has opted in by ordinance, and otherwise s. 163.3215(3) gives a de novo action that can carry injunctive relief. A model stating the statute accurately may lose the criterion. Penalty #14 (minus 15) penalizes saying petitioners may bring a separate injunction action, a statement s. 163.3215(3) can support for development-order consistency challenges. No instruction or criterion asks the model to identify or correct this citation.",
+      "explanation": "The statutory de novo action with joined injunction is limited to comprehensive-plan consistency challenges, absent a qualifying local opt-in. It does not establish that every separate construction injunction is proper. The rubric's categorical certiorari-only rule is wrong; its injunction penalty should be assessed against the claim's actual statutory or equitable basis.",
+      "first_intent": {
+        "ref": 19,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-1 #12 states_in_the_first_assignment_that_the_exclusive_method_of_chal",
+          "assignment-1 #14 states_in_the_first_assignment_that_the_petitioners_may_file_a_s (penalty)"
+        ],
+        "explanation": "Criterion #12 (10 points) requires stating that certiorari under s. 163.3215(4) is the exclusive method of challenging a development order. The statute makes certiorari exclusive only where the local government has opted in by ordinance, and otherwise s. 163.3215(3) gives a de novo action that can carry injunctive relief. A model stating the statute accurately may lose the criterion. Penalty #14 (minus 15) penalizes saying petitioners may bring a separate injunction action, a statement s. 163.3215(3) can support for development-order consistency challenges. No instruction or criterion asks the model to identify or correct this citation."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -80,7 +116,7 @@
       ],
       "explanation": "Criterion #12 (10 points) requires stating that certiorari under s. 163.3215(4) is the exclusive method of challenging a development order. The statute makes certiorari exclusive only where the local government has opted in by ordinance, and otherwise s. 163.3215(3) gives a de novo action that can carry injunctive relief. A model stating the statute accurately may lose the criterion. Penalty #14 (minus 15) penalizes saying petitioners may bring a separate injunction action, a statement s. 163.3215(3) can support for development-order consistency challenges. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -93,7 +129,7 @@
       ],
       "explanation": "Criterion #12 (10 points) requires stating that certiorari under s. 163.3215(4) is the exclusive method of challenging a development order. The statute makes certiorari exclusive only where the local government has opted in by ordinance, and otherwise s. 163.3215(3) gives a de novo action that can carry injunctive relief. A model stating the statute accurately may lose the criterion. Penalty #14 (minus 15) penalizes saying petitioners may bring a separate injunction action, a statement s. 163.3215(3) can support for development-order consistency challenges. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -105,7 +141,7 @@
       ],
       "explanation": "Criterion #13 (10 points) requires stating that s. 163.3167(10) bars invalidation of the project's development order. The subsection reaches only later rulings that land development regulations are invalid for deficient approval standards, and (10)(b) preserves common-law certiorari, so an accurate model would not make the required statement. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -117,7 +153,7 @@
       ],
       "explanation": "Criterion #13 (10 points) requires stating that s. 163.3167(10) bars invalidation of the project's development order. The subsection reaches only later rulings that land development regulations are invalid for deficient approval standards, and (10)(b) preserves common-law certiorari, so an accurate model would not make the required statement. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -130,7 +166,7 @@
       ],
       "explanation": "Criteria #16 and #23 name LDC s. 34-83(a)(6) as the Board's remand authority; the quoted language is s. 34-83(a)(4)a.1.b), while (a)(6) is the six-month deemed-withdrawn rule. A grader reading literally may expect the wrong pin cite; the substance (Board may remand to the Hearing Examiner) is supported. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -143,7 +179,7 @@
       ],
       "explanation": "Criteria #16 and #23 name LDC s. 34-83(a)(6) as the Board's remand authority; the quoted language is s. 34-83(a)(4)a.1.b), while (a)(6) is the six-month deemed-withdrawn rule. A grader reading literally may expect the wrong pin cite; the substance (Board may remand to the Hearing Examiner) is supported. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -156,7 +192,7 @@
       ],
       "explanation": "Criteria #16 and #23 name LDC s. 34-83(a)(6) as the Board's remand authority; the quoted language is s. 34-83(a)(4)a.1.b), while (a)(6) is the six-month deemed-withdrawn rule. A grader reading literally may expect the wrong pin cite; the substance (Board may remand to the Hearing Examiner) is supported. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -168,7 +204,7 @@
       ],
       "explanation": "Criterion #4 (5 points) rewards stating that the Hearing Examiner's recommendation is competent substantial evidence and cites only Hialeah Gardens, which addresses staff testimony and record materials, not hearing examiner recommendations. The criterion rewards relying on the case for a proposition it does not state. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -180,7 +216,7 @@
       ],
       "explanation": "Criterion #8 (20 points) requires stating that the circuit court erred by finding AC 150/5190-7 (Minimum Standards for Commercial Aeronautical Activities) incorporated into LDC s. 34-1102. The Order never mentions that AC; it relies on land use compatibility and wildlife hazard advisories (AC 150/5190-4B and AC 150/5200-33C as cited in the Petition). The citation is also garbled (5190-7 is dated 2006; Dec. 7, 2023 is AC 150/5190-8). A model that accurately describes the Order cannot make the required statement without misreporting it. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -192,7 +228,7 @@
       ],
       "explanation": "Criterion #8 (20 points) requires stating that the circuit court erred by finding AC 150/5190-7 (Minimum Standards for Commercial Aeronautical Activities) incorporated into LDC s. 34-1102. The Order never mentions that AC; it relies on land use compatibility and wildlife hazard advisories (AC 150/5190-4B and AC 150/5200-33C as cited in the Petition). The citation is also garbled (5190-7 is dated 2006; Dec. 7, 2023 is AC 150/5190-8). A model that accurately describes the Order cannot make the required statement without misreporting it. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -202,7 +238,7 @@
       "rewards_reliance": [],
       "explanation": "This appears in criterion #8's source justification: s. 34-1102 is said to incorporate only ACs 150/5300-13B and 150/5200-30D, but it names 150/5200-33B (wildlife attractants), not 30D. The criterion text does not require naming 30D, so the defect reaches grading only through the grader-facing rationale. It understates the section's reference to the wildlife-attractant AC, the AC series the Order relies on. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -212,7 +248,7 @@
       "rewards_reliance": [],
       "explanation": "This appears in criterion #8's source justification: s. 34-1102 is said to incorporate only ACs 150/5300-13B and 150/5200-30D, but it names 150/5200-33B (wildlife attractants), not 30D. The criterion text does not require naming 30D, so the defect reaches grading only through the grader-facing rationale. It understates the section's reference to the wildlife-attractant AC, the AC series the Order relies on. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -224,7 +260,7 @@
       ],
       "explanation": "Criterion #8 (20 points) requires stating that the circuit court erred by finding AC 150/5190-7 (Minimum Standards for Commercial Aeronautical Activities) incorporated into LDC s. 34-1102. The Order never mentions that AC; it relies on land use compatibility and wildlife hazard advisories (AC 150/5190-4B and AC 150/5200-33C as cited in the Petition). The citation is also garbled (5190-7 is dated 2006; Dec. 7, 2023 is AC 150/5190-8). A model that accurately describes the Order cannot make the required statement without misreporting it. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -234,7 +270,7 @@
       "rewards_reliance": [],
       "explanation": "No criterion asks the model to check the quotation. The proposition it is cited for (certiorari relief quashes and leaves the matter pending below) is correct law at G.B.V. *844, so the criterion's substance does not reward a wrong rule. The defect is the fabricated quotation and pin cite in grader-facing source text; a model quoting it verbatim would repeat a misquotation.",
       "first_check_status": "MISQUOTED",
-      "final_status": null
+      "final_status": "MISQUOTED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -242,11 +278,22 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [
-        "assignment-2 #11 states_in_the_second_assignment_that_the_circuit_court_s_erred_b"
+        "assignment-2 #11"
       ],
-      "explanation": "Criterion #11 (30 points) requires stating that the circuit court violated separation of powers 'under Fla. Const. art. III, s. 3'. The separation-of-powers clause is art. II, s. 3; art. III, s. 3 governs legislative sessions. A literal grader could withhold credit from a model that cites the correct article. No instruction or criterion asks the model to identify or correct this citation.",
+      "explanation": "Beyond the article-number error, criterion #11 calls this site-specific rezoning a legislative function. Snyder and the supplied Order identify such rezoning adjudication as quasi-judicial. An answer should be able to challenge judicial overreach without misclassifying the Board action or citing article III section 3.",
+      "first_intent": {
+        "ref": 71,
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-2 #11 states_in_the_second_assignment_that_the_circuit_court_s_erred_b"
+        ],
+        "explanation": "Criterion #11 (30 points) requires stating that the circuit court violated separation of powers 'under Fla. Const. art. III, s. 3'. The separation-of-powers clause is art. II, s. 3; art. III, s. 3 governs legislative sessions. A literal grader could withhold credit from a model that cites the correct article. No instruction or criterion asks the model to identify or correct this citation."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -258,7 +305,7 @@
       ],
       "explanation": "Criterion #11 (30 points) requires stating that the circuit court violated separation of powers 'under Fla. Const. art. III, s. 3'. The separation-of-powers clause is art. II, s. 3; art. III, s. 3 governs legislative sessions. A literal grader could withhold credit from a model that cites the correct article. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -268,7 +315,7 @@
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISQUOTED",
-      "final_status": null
+      "final_status": "MISQUOTED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -278,7 +325,7 @@
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -288,7 +335,7 @@
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -298,7 +345,7 @@
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -308,7 +355,7 @@
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -318,6 +365,34 @@
       "rewards_reliance": [],
       "explanation": "Petition-only citation defect. Criteria #20-#21 refer to the Petition only for petitioners' wildlife and water-quality concerns, and no criterion rewards relying on this citation or its proposition. No instruction or criterion asks the model to identify or correct this citation.",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "ref": 29,
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-1 #19"
+      ],
+      "explanation": "The full Smith article directly rejects unqualified county self-zoning immunity in its conclusion; its quoted A1A/Parkway account describes earlier doctrine. Criterion #19 rewards reliance on a historical passage against the source's own legal synthesis. Its PDF/repository year conflict is a separate bibliographic defect.",
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": null
+    },
+    {
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "ref": 87,
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-1 #0"
+      ],
+      "rewards_reliance": [],
+      "explanation": "The prompt and supplied record contain inconsistent resolution identifiers. Criterion #0 expects Z-23-035, which is supported by the actual resolution; the Order/Petition captions' Z-23-022 belongs to a different county project. The grader should not treat repetition of the caption as proof of the wastewater action's identity.",
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high",
+      "first_check_status": "CITATION_POINTS_TO_DIFFERENT_CASE",
       "final_status": null
     },
     {
@@ -700,9 +775,18 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "The miscited subsection appears in the source field of assignment 1 criterion_27, a -20 penalty criterion ('Mentions that Patton lacked a reasonable belief that he was subject to an imminent unlawful threat'). Neither prompt nor any criterion asks the model to catch it. Because the criterion penalizes rather than rewards the statement, no criterion rewards relying on § 704.6(1) for an imminent-threat element. The defect is in grader-facing support: a grader checking the source would find no imminent-threat language in § 704.6(1); the relevant text is § 704.3, which criterion_25 cites. Read all 25 assignment 1 criteria and 10 assignment 2 criteria.",
+      "explanation": "The miscitation is grader-facing in assignment-1 criterion_27, a -20 penalty. Criterion_25 uses the pertinent §704.3. The prompt and criteria do not ask the model to detect or rely on the §704.6(1) mistake, and no positive point rewards repeating that attribution.",
+      "first_intent": {
+        "ref": "A1-RUBRIC-019",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "The miscited subsection appears in the source field of assignment 1 criterion_27, a -20 penalty criterion ('Mentions that Patton lacked a reasonable belief that he was subject to an imminent unlawful threat'). Neither prompt nor any criterion asks the model to catch it. Because the criterion penalizes rather than rewards the statement, no criterion rewards relying on § 704.6(1) for an imminent-threat element. The defect is in grader-facing support: a grader checking the source would find no imminent-threat language in § 704.6(1); the relevant text is § 704.3, which criterion_25 cites. Read all 25 assignment 1 criteria and 10 assignment 2 criteria."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "MISCHARACTERIZED",
-      "final_status": null
+      "final_status": "MISCHARACTERIZED"
     },
     {
       "matter": "lrb-vicar-trial-jury-instructions",
@@ -710,9 +794,18 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect.",
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-072",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-vicar-trial-jury-instructions",
@@ -720,9 +813,18 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect.",
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-087",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-vicar-trial-jury-instructions",
@@ -730,9 +832,18 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect.",
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-117",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-vicar-trial-jury-instructions",
@@ -740,9 +851,18 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect.",
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-118",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
-      "final_status": null
+      "final_status": "WRONG_CITATION_REAL_CASE"
     },
     {
       "matter": "lrb-vicar-trial-jury-instructions",
@@ -750,8 +870,45 @@
       "targeted_by_instructions": false,
       "targeted_by_criteria": [],
       "rewards_reliance": [],
-      "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect.",
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "ELLISON-039",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high",
       "first_check_status": "WRONG_CITATION_REAL_CASE",
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "ref": "A1-RUBRIC-016",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-1 criterion_21"
+      ],
+      "rewards_reliance": [
+        "assignment-1 criterion_21"
+      ],
+      "explanation": "Criterion_21 awards 15 points for stating the categorical conspiracy-to-forcible-felony bar. Its source field cites §704.6(1), which concerns participation in a forcible felony, not conspiracy as such. The rubric therefore rewards a legal conclusion the cited text does not establish.",
+      "model": "GPT-6 Sol",
+      "reasoning_effort": "high",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": null
+    },
+    {
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "ref": "KEHOE-050",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The altered spelling appears only in the attached Kehoe court opinion. No prompt asks for an audit of its internal quotes, and no rubric criterion rewards repeating this Felix quotation.",
+      "model": "GPT-6 Sol",
+      "reasoning_effort": "high",
+      "first_check_status": "MISQUOTED",
       "final_status": null
     }
   ]

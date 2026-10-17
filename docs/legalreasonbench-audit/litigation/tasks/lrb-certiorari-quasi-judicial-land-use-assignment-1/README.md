@@ -10,19 +10,19 @@ Agreement buckets use the two saved blind reports only. Reconciliation is counte
 |---|---|---|---|---|---|---|
 | GPT-6 Sol (blind) | 1 / 1 | 25 | 8 | 10 / 25 (40.0%) | 7 / 25 (28.0%) | 3 / 25 (12.0%) |
 | Claude Opus 5.5 (blind) | 1 / 1 | 25 | 8 | 9 / 25 (36.0%) | 3 / 25 (12.0%) | 6 / 25 (24.0%) |
-| Final reconciliation | 0 / 1 | 0 | unavailable | unavailable | unavailable | unavailable |
+| Final reconciliation | 1 / 1 | 25 | 8 | 10 / 25 (40.0%) | 4 / 25 (16.0%) | 6 / 25 (24.0%) |
 
 Category totals count distinct task-criterion pairs within each category. They may sum above the overall flagged-criterion count.
 
 | Category | Sol blind flagged criteria | Opus blind flagged criteria | Final flagged criteria |
 |---|---|---|---|
-| legal_error | 5 / 25 (20.0%) | 7 / 25 (28.0%) | unavailable |
-| unsupported_fact | 0 / 25 (0.0%) | 1 / 25 (4.0%) | unavailable |
-| source_conflict | 0 / 25 (0.0%) | 0 / 25 (0.0%) | unavailable |
-| internal_inconsistency | 2 / 25 (8.0%) | 0 / 25 (0.0%) | unavailable |
-| ambiguous_or_unjudgeable | 0 / 25 (0.0%) | 1 / 25 (4.0%) | unavailable |
-| unrequested_requirement | 2 / 25 (8.0%) | 0 / 25 (0.0%) | unavailable |
-| document_defect | 1 / 25 (4.0%) | 0 / 25 (0.0%) | unavailable |
+| legal_error | 5 / 25 (20.0%) | 7 / 25 (28.0%) | 6 / 25 (24.0%) |
+| unsupported_fact | 0 / 25 (0.0%) | 1 / 25 (4.0%) | 1 / 25 (4.0%) |
+| source_conflict | 0 / 25 (0.0%) | 0 / 25 (0.0%) | 0 / 25 (0.0%) |
+| internal_inconsistency | 2 / 25 (8.0%) | 0 / 25 (0.0%) | 0 / 25 (0.0%) |
+| ambiguous_or_unjudgeable | 0 / 25 (0.0%) | 1 / 25 (4.0%) | 1 / 25 (4.0%) |
+| unrequested_requirement | 2 / 25 (8.0%) | 0 / 25 (0.0%) | 2 / 25 (8.0%) |
+| document_defect | 1 / 25 (4.0%) | 0 / 25 (0.0%) | 0 / 25 (0.0%) |
 
 Reports:
 
@@ -34,28 +34,28 @@ Reports:
 
 | Task / criterion | GPT-6 Sol blind | Opus blind | Blind bucket | Final reconciliation |
 |---|---|---|---|---|
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_order_granting_petition | problematic | unflagged | sol_only | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_that | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_th_2 | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_th_3 | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_th_4 | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / mentions_in_the_first_assignment_that_the_county_s_prior_rezonin | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_under_lee_county_fla_admin_c | problematic | problematic | both_problematic | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_dci2018_10023_remained_activ | problematic | problematic | both_problematic | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / mentions_in_the_first_assignment_that_the_subject_property_was_p | unflagged | arguable | opus_only | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_effect_of_the_order_gran | problematic | arguable | split | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_must_stop_constru | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_exclusive_method_of_revi | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_exclusive_method_of_chal | problematic | arguable | split | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2 | problematic | problematic | both_problematic | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_petitioners_may_file_a_s | arguable | arguable | both_arguable | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_appeal_the | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_remand_the | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_file_a_new | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_voluntarily | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_take_the_po | unflagged | arguable | opus_only | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_negotiate_f | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_negotiate_2 | unflagged | unflagged | — | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_should_file_a_tim | arguable | unflagged | sol_only | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_should_remand_the | arguable | unflagged | sol_only | unavailable |
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_should_cease_cons | problematic | arguable | split | unavailable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_order_granting_petition | problematic | unflagged | sol_only | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_that | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_th_2 | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_th_3 | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_circuit_court_found_th_4 | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / mentions_in_the_first_assignment_that_the_county_s_prior_rezonin | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_under_lee_county_fla_admin_c | problematic | problematic | both_problematic | problematic |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_dci2018_10023_remained_activ | problematic | problematic | both_problematic | problematic |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / mentions_in_the_first_assignment_that_the_subject_property_was_p | unflagged | arguable | opus_only | arguable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_effect_of_the_order_gran | problematic | arguable | split | arguable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_must_stop_constru | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_exclusive_method_of_revi | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_exclusive_method_of_chal | problematic | arguable | split | arguable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2 | problematic | problematic | both_problematic | problematic |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_petitioners_may_file_a_s | arguable | arguable | both_arguable | arguable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_appeal_the | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_remand_the | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_file_a_new | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_voluntarily | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_take_the_po | unflagged | arguable | opus_only | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_negotiate_f | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_could_negotiate_2 | unflagged | unflagged | — | unflagged |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_should_file_a_tim | arguable | unflagged | sol_only | arguable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_should_remand_the | arguable | unflagged | sol_only | arguable |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 / states_in_the_first_assignment_that_the_county_should_cease_cons | problematic | arguable | split | problematic |

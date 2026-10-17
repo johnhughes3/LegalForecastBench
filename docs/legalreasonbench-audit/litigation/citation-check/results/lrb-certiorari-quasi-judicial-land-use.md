@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf'], 'limits': ["Both assignments carry the same four attachments (byte-identical conversions), so each attachment is counted once. Assignment 2's input repeats the assignment-1 prompt; only each assignment's own current prompt is counted.", 'The Order (orderpdf.docx) is six scanned page images with no text layer; the packet conversion contains only image tags. All six pages were read visually from the images embedded in the pinned original DOCX (no OCR). The service list on page 6 (email addresses) is not reproduced.', 'The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.', "The Petition's 28 embedded images (maps, charts, photos, a deed cover page, FAA figure, tax-roll screenshots) were reviewed at contact-sheet scale; the fine-print notes on images 14, 16, 25 and 26 were not legible and were not read. Images 11-12 reproduce FAA AC Figure 1 and were checked.", "The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.", "Lee Plan goal/objective/policy/map citations in the Resolution's findings were not checked against the Lee Plan; they are UNABLE_TO_VERIFY.", "Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.", "Lee County LDC chapters 2, 10 and 34 and Code of Ordinances chapter 11 were read from Municode's current versions (as of 2026); each section's amendment history was checked. Where a cited section was amended after the document it appears in (LDC ss. 10-261, 10-291, 10-321, 10-329, 10-416, 10-418: Ord. 24-14, Oct. 2024, or Ord. 25-09, Apr. 2025), the pre-amendment text was not retrieved; those entries are VERIFIED only because the cited requirement appears in the current text, and say so. LDC s. 34-145 visibly changed (Oct. 2024, Apr. 2025) and is UNABLE_TO_VERIFY. Admin. Code AC-2-6 was read in its 8/2/22 version; the version in force in 2019-20 was not read.", 'Florida Statutes were read in the 2024 edition (with 2023 for s. 333.03). Appellate rules were read from rules.floridaappellate.com; the Florida Bar rules PDFs and Fla. R. Gen. Prac. & Jud. Admin. 2.520 could not be downloaded.', 'The Smith Florida Law Review article PDF was blocked (HTTP 403); only its repository landing page was read. Babcock (1966) and Mandelker & Tarlock (1992) were not read; they appear only inside a Snyder quotation that was verified.', "AC 150/5200-33B and AC 150/5300-13A (cancelled) and AC 150/5300-13B and 150/5200-30D were identified from FAA's current and cancelled AC lists; their texts were not read. AC 150/5190-4B, 150/5200-33C and 150/5190-7 were read in full text.", "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.", 'Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences'}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf'], 'limits': ["Both assignments carry the same four attachments (byte-identical conversions), so each attachment is counted once. Assignment 2's input repeats the assignment-1 prompt; only each assignment's own current prompt is counted.", 'The Order (orderpdf.docx) is six scanned page images with no text layer; the packet conversion contains only image tags. All six pages were read visually from the images embedded in the pinned original DOCX (no OCR). The service list on page 6 (email addresses) is not reproduced.', 'The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.', "The Petition's 28 embedded images (maps, charts, photos, a deed cover page, FAA figure, tax-roll screenshots) were reviewed at contact-sheet scale; the fine-print notes on images 14, 16, 25 and 26 were not legible and were not read. Images 11-12 reproduce FAA AC Figure 1 and were checked.", "The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.", "Lee Plan goal/objective/policy/map citations in the Resolution's findings were not checked against the Lee Plan; they are UNABLE_TO_VERIFY.", "Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.", "Lee County LDC chapters 2, 10 and 34 and Code of Ordinances chapter 11 were read from Municode's current versions (as of 2026); each section's amendment history was checked. Where a cited section was amended after the document it appears in (LDC ss. 10-261, 10-291, 10-321, 10-329, 10-416, 10-418: Ord. 24-14, Oct. 2024, or Ord. 25-09, Apr. 2025), the pre-amendment text was not retrieved; those entries are VERIFIED only because the cited requirement appears in the current text, and say so. LDC s. 34-145 visibly changed (Oct. 2024, Apr. 2025) and is UNABLE_TO_VERIFY. Admin. Code AC-2-6 was read in its 8/2/22 version; the version in force in 2019-20 was not read.", 'Florida Statutes were read in the 2024 edition (with 2023 for s. 333.03). Appellate rules were read from rules.floridaappellate.com; the Florida Bar rules PDFs and Fla. R. Gen. Prac. & Jud. Admin. 2.520 could not be downloaded.', 'The Smith Florida Law Review article PDF was blocked (HTTP 403); only its repository landing page was read. Babcock (1966) and Mandelker & Tarlock (1992) were not read; they appear only inside a Snyder quotation that was verified.', "AC 150/5200-33B and AC 150/5300-13A (cancelled) and AC 150/5300-13B and 150/5200-30D were identified from FAA's current and cancelled AC lists; their texts were not read. AC 150/5190-4B, 150/5200-33C and 150/5190-7 were read in full text.", "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.", 'Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.', 'The Sol second pass rechecked all 27 initial problem rows and added a Part 150 citation. It raised five new problems (refs29,78,87,89,136), promoted here to new first-stage findings with initial judgments preserved. Independent review of those five is pending. The two nonproblem supplemental checks remain separately saved pending further primary-source reading.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'census_complete': False}
 
 ## 0: Spahn v. Lee County (Fla. 20th Cir. Ct.)
 
@@ -253,8 +253,15 @@ Excerpt read: "4.1 Applications or Appeals Remanded by the Board to the Hearing 
 
 - https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The cited AC-2-6 section is expressly limited to Board remands to the Hearing Examiner and conditions deemed withdrawal on applicant-caused delay. The Petition describes a Hearing Examiner remand to staff by joint applicant-staff request. The rubric cannot derive automatic February 2020 withdrawal from this provision. The 2019 version remains unlocated.
+
+Excerpt read: Section 4.1 heading specifies Board-to-Hearing-Examiner remands; subsection B(1) requires delay because of applicant action or inaction.
+
+- https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 10: Lee County Administrative Code AC-2-6, s. 4.1.B
 
@@ -278,8 +285,15 @@ Excerpt read: "4.1 Applications or Appeals Remanded by the Board to the Hearing 
 
 - https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Same AC-2-6 mismatch as ref 9: the supplied 2019 case history is a remand to staff at the Hearing Examiner stage, not the Board-to-Hearing-Examiner remand regulated by section 4.1. The historical 2019 code text was not retrieved.
+
+Excerpt read: Section 4.1 concerns applications or appeals remanded by the Board to the Hearing Examiner.
+
+- https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 11: Lee County Administrative Code AC-2-6, s. 4.1.B
 
@@ -303,8 +317,15 @@ Excerpt read: "4.1 Applications or Appeals Remanded by the Board to the Hearing 
 
 - https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The negative criterion penalizes the record's active-case description using an automatic-withdrawal rule whose triggering remand and applicant-causation elements were not established. This does not independently prove the case was active through September 2023.
+
+Excerpt read: Subsection 4.1.B(1) ties deemed withdrawal to applicant-caused failure to meet the remand deadline.
+
+- https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 12: Lee County Ordinance No. 23-28 (CPA2023-00003)
 
@@ -379,8 +400,15 @@ Excerpt read: *844 (quoting Tamiami Trail Tours, 174 So. 451, 454): "When the or
 
 - https://www.courtlistener.com/opinion/1882290/broward-county-v-gbv-intern-ltd/
 
-### Second check: pending
+### Second check: MISQUOTED
 
+G.B.V. discusses quashing by quoting Tamiami Trail Tours at reporter page 844. The rubric's purported verbatim sentence is not in that opinion and its page 845 pin is wrong. The underlying quash-and-return proposition is substantially supported.
+
+Excerpt read: At page 844 the court quotes Tamiami on a quashed order leaving the subject matter as if no order had been entered.
+
+- https://app.midpage.ai/document/broward-county-v-gbv-intern-1882290
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 15: City of Fort Pierce v. Dickerson
 
@@ -507,8 +535,15 @@ Excerpt read: "(4) If a local government elects to adopt or has adopted an ordin
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3215.html
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The quoted certiorari-only clause in section 163.3215(4) is conditional on a local ordinance meeting that subsection's requirements. Subsections (1) and (3) otherwise allow a de novo comprehensive-plan consistency action, with injunctive relief available to be joined. A general rule for every development-order challenge is unsupported.
+
+Excerpt read: Subsection (4) begins with the local-government election condition; subsection (3) authorizes de novo action and joined injunctive relief.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/0163.3215
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 20: Fla. Stat. s. 163.3215(4)
 
@@ -533,8 +568,15 @@ Excerpt read: "(4) If a local government elects to adopt or has adopted an ordin
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3215.html
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The statute itself does not make certiorari universally exclusive. Its subsection (4) opt-in condition is omitted from the rubric's proposition; the County's adoption of a qualifying ordinance was not established.
+
+Excerpt read: Subsection (4) limits its certiorari path to a local government that elects a qualifying ordinance.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/0163.3215
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 21: Fla. Stat. s. 163.3215(4)
 
@@ -559,8 +601,15 @@ Excerpt read: "(4) If a local government elects to adopt or has adopted an ordin
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3215.html
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The statute permits injunctive relief in a de novo action under subsection (3) unless the subsection (4) local opt-in procedure applies. It does not establish that certiorari is the sole route to any injunction. This is confined to statutory comprehensive-plan consistency claims, not all collateral injunction theories.
+
+Excerpt read: Subsection (3) allows a de novo action and permits a request for injunctive relief to be joined.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/0163.3215
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 22: Fla. Stat. s. 163.3167(10)
 
@@ -584,8 +633,15 @@ Excerpt read: "(10)(a) If a local government grants a development order ... the 
 
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3167.html
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Section 163.3167(10)(a) protects an order against later invalidation of land-development regulations for deficient approval standards; it does not immunize this order against direct certiorari review. Subsection (10)(b) expressly preserves common-law certiorari.
+
+Excerpt read: Subsection (10)(a) addresses a subsequent judicial determination about deficient land-development regulations; (10)(b) preserves certiorari.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/163.3167
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 23: Fla. Stat. s. 163.3167(10)
 
@@ -609,8 +665,15 @@ Excerpt read: "(10)(a) If a local government grants a development order ... the 
 
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3167.html
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The criterion takes the protection in section 163.3167(10)(a) outside its narrow predicate and ignores (10)(b)'s certiorari savings clause. The quotation of (10)(a) is accurate but the use made of it is not.
+
+Excerpt read: The statute expressly says subsection (10) does not preclude a common-law certiorari proceeding.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/163.3167
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 24: City of Fort Pierce v. Dickerson
 
@@ -709,8 +772,15 @@ Excerpt read: s.34-83(a)(4)a.1.b): "The Board may remand a case back to the Hear
 
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The quoted Board remand authority appears in LDC 34-83(a)(4)a.1.b, whereas the cited (a)(6) concerns deemed withdrawal after a remand hearing does not occur within six months. The remand proposition itself exists.
+
+Excerpt read: Section (a)(4)a.1.b permits Board remand; (a)(6) gives the six-month withdrawal consequence.
+
+- https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 28: Lee County LDC s. 34-83
 
@@ -734,8 +804,15 @@ Excerpt read: s.34-83(a)(4)a.1.b): "The Board may remand a case back to the Hear
 
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The Board's specific-issues remand sentence is in LDC 34-83(a)(4)a.1.b, not the cited (a)(6).
+
+Excerpt read: The two subsections separately address Board remand authority and a six-month remand deadline.
+
+- https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 29: Sandra G. Smith, Immunity of State and State Related Activities from Local Municipal Zoning Regulations: Florida Focus
 
@@ -751,15 +828,15 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-The UF repository landing page lists Sandra G. Smith, Immunity of State and State Related Activities from Local Municipal Zoning Regulations: Florida Focus, 28 Fla. L. Rev. 800, and itself gives the year as 1967. Volume 28 of the Florida Law Review falls in the mid-1970s, and the quoted text discusses a 1973 decision and a "1978 decision", which a 1967 article could not. The PDF was blocked (HTTP 403) so the article text, its date and the quotation could not be read.
+The article PDF is accessible and its quoted historical account is real. Its cover and repository metadata say 1967, but the printed journal header says 1976 and the article cites 1976 decisions; the opening reference to a '1978' decision also conflicts with its 1973 footnote. More materially, its conclusion says Florida had moved away from categorical immunity and that, absent express exemption, a county is subject to its zoning. The rubric's unqualified current-law inference reverses the article's conclusion.
 
-Excerpt read: Landing page: "Sandra G. Smith, Immunity of State and State Related Activities from Local Municipal Zoning Regulations: Florida Focus, 28 Fla. L. Rev. 800 (1967)." (article text not read)
+Excerpt read: PDF pages 3-4 contain the quoted Nichols/A1A/Parkway discussion; page 16 concludes that Florida had shifted toward regulation and balancing.
 
-- https://scholarship.law.ufl.edu/flr/vol28/iss3/9
+- https://www.floridalawreview.com/article/79428-immunity-of-state-and-state-related-activities-from-local-municipal-zoning-regulations-florida-focus/attachment/165381.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## 30: "Nichols" (unidentified; possibly Nichols Engineering & Research Corp. v. State ex rel. Knight, 59 So. 2d 874 (Fla. 1952))
@@ -884,8 +961,15 @@ Excerpt read: s.34-83(a)(4)a.1.b): "The Board may remand a case back to the Hear
 
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+LDC 34-83(a)(4)a.1.b supports Board remand to the Hearing Examiner; (a)(6) is the six-month hearing/withdrawal provision. The source pin is wrong even though the basic remand power exists.
+
+Excerpt read: The Board-remand language and deadline language are in different numbered subsections.
+
+- https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 35: Parkway Towers Condominium Ass'n v. Metropolitan Dade County
 
@@ -1135,8 +1219,15 @@ Excerpt read: *205: "Here, the testifying staff members utilized their professio
 
 - https://www.courtlistener.com/opinion/1931203/city-of-hialeah-gardens-v-miami-dade-charter-foundation-inc/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Hialeah Gardens recognizes competent substantial evidence in staff testimony and the record before the council. It does not hold that a Hearing Examiner's recommendation is itself competent substantial evidence, as the criterion asserts.
+
+Excerpt read: The opinion discusses staff testimony, expert material, and the city council's record; no Hearing Examiner recommendation rule appears.
+
+- https://openjurist.org/857/so2d/202/city-of-hialeah-gardens-v-miami-dade-foundation-inc-1931203
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 45: Dusseau v. Metropolitan Dade County Board of County Commissioners
 
@@ -1388,8 +1479,15 @@ Excerpt read: AC 150/5190-7 p.1: "Subject: MINIMUM STANDARDS FOR COMMERCIAL AERO
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The supplied Order does not cite AC 150/5190-7. The FAA's primary circular identifies 5190-7 as its cancelled 2006 predecessor and 5190-8 as the December 2023 replacement. The criterion conflates number, date, and what the court addressed.
+
+Excerpt read: The FAA circular's cover gives 5190-8's December 7, 2023 date and cancellation of 5190-7; Order pages 5-6 discuss land-use and wildlife-hazard advisories.
+
+- https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC-150-5190-8-minimum-standards.pdf
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 55: Lee County LDC s. 34-1102
 
@@ -1441,8 +1539,15 @@ Excerpt read: AC 150/5190-7 p.1: "Subject: MINIMUM STANDARDS FOR COMMERCIAL AERO
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The Order's compatibility/wildlife discussion contains no finding that the County violated AC 150/5190-7 minimum standards; the cited date belongs to replacement 5190-8.
+
+Excerpt read: FAA 5190-8 cover identifies 5190-7 as cancelled; Order pages 5-6 do not name either circular.
+
+- https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC-150-5190-8-minimum-standards.pdf
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 57: Lee County LDC s. 34-1102
 
@@ -1468,8 +1573,15 @@ Excerpt read: "...FAA Advisory Circulars 150/5300-13A, as amended, renumbered or
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+LDC 34-1102 names AC 150/5300-13A and AC 150/5200-33B, with replacement language. It does not name 150/5200-30D. The rubric's own quoted section shows the wildlife-attractant 33B citation, making its contrary explanation demonstrably wrong.
+
+Excerpt read: Section 34-1102 lists 150/5300-13A and 150/5200-33B, as amended or replaced.
+
+- https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 58: FAA Advisory Circular 150/5300-13B, Airport Design
 
@@ -1528,8 +1640,16 @@ Excerpt read: Current list: "150/5200-30D ... Airport Field Condition Assessment
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTVIDIRE_DIV12AICODI_S34-1102PUIN
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+FAA AC 150/5200-30D is a real winter-operations circular, but LDC 34-1102 incorporates the wildlife-attractant 150/5200-33B series instead. The rubric's incorporation claim is false.
+
+Excerpt read: FAA 30D title concerns airport field condition and winter operations; LDC 34-1102 names 33B.
+
+- https://www.faa.gov/documentlibrary/media/advisory_circular/150-5200-30d.pdf
+- https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 60: FAA Advisory Circular 150/5190-7
 
@@ -1556,8 +1676,15 @@ Excerpt read: AC 150/5190-7 p.1: "Subject: MINIMUM STANDARDS FOR COMMERCIAL AERO
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2
 - https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The Order neither names nor treats AC 150/5190-7 as controlling; its airport analysis concerns compatibility and wildlife hazards. The FAA 5190-8 document confirms that the rubric also attached the replacement's 2023 date to the old circular.
+
+Excerpt read: Order pages 5-6 use land-use and wildlife-hazard descriptions; the FAA circular identifies the replacement and cancellation dates.
+
+- https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC-150-5190-8-minimum-standards.pdf
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 61: Lee County LDC s. 34-1102
 
@@ -1827,8 +1954,15 @@ Excerpt read: *844 (quoting Tamiami Trail Tours, 174 So. 451, 454): "When the or
 
 - https://www.courtlistener.com/opinion/1882290/broward-county-v-gbv-intern-ltd/
 
-### Second check: pending
+### Second check: MISQUOTED
 
+The purported G.B.V. quotation is a paraphrase of the court's quoted Tamiami Trail Tours rule, not judicial text from page 845. Actual support is at page 844; the rule that certiorari quashes without substituting a merits decision is sound.
+
+Excerpt read: At page 844 G.B.V. quotes Tamiami on effect of quashing; the rubric's sentence is absent.
+
+- https://app.midpage.ai/document/broward-county-v-gbv-intern-1882290
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 71: Fla. Const. art. II, s. 3 (cited as art. III, s. 3)
 
@@ -1852,8 +1986,16 @@ Excerpt read: Art. II s.3: "The powers of the state government shall be divided 
 
 - https://www.flsenate.gov/Laws/Constitution
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+Florida Constitution article II, section 3 contains the quoted separation-of-powers clause. Article III, section 3 concerns legislative sessions. The criterion also inaccurately calls this site-specific rezoning a legislative function; Snyder classifies that kind of rezoning as quasi-judicial.
+
+Excerpt read: Article II section 3 says no branch may exercise another's powers; article III section 3 covers sessions; Snyder addresses quasi-judicial rezoning.
+
+- https://www.flsenate.gov/Laws/Constitution
+- https://syfert.com/florida/cases/627-so-2d-469/bd-of-cty-comrs-of-brevard-v-snyder
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 72: Fla. Const. art. II, s. 3 (cited as art. III, s. 3)
 
@@ -1877,8 +2019,15 @@ Excerpt read: Art. II s.3: "The powers of the state government shall be divided 
 
 - https://www.flsenate.gov/Laws/Constitution
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The quoted separation-of-powers language is article II, section 3, not article III, section 3, which regulates sessions of the legislature.
+
+Excerpt read: Florida Constitution article II section 3 is headed Branches of Government; article III section 3 is headed Sessions of the Legislature.
+
+- https://www.flsenate.gov/Laws/Constitution
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 73: Modlin v. City of Miami Beach
 
@@ -2020,15 +2169,15 @@ Context: The Commission's motion and vote came after public comment and only as 
 
 Fictional by design: False; 
 
-### First check: VERIFIED_MINOR_DEFECT
+### First check: MISCHARACTERIZED
 
-Jennings concerns ex parte contacts. It requires that parties be informed of all the facts on which the commission acts, and its adopted PATCO factors ask whether the contents of improper communications were unknown to opposing parties, who therefore had no opportunity to respond. The Order's point, that the basis for the vote ("four years of board direction") surfaced only in the motion after public comment closed, fits that principle loosely. Jennings does not address motion timing, so "direct contradiction to Jennings" overstates it.
+Jennings addresses prejudicial ex parte information in a quasi-judicial zoning proceeding. Its opinion does not prescribe when a motion may be made after public comment or directly contradict the Order's concern that a new rationale surfaced at the vote.
 
-Excerpt read: *1340-41: "the parties must be able to present evidence, cross-examine witnesses, and be informed of all the facts upon which the commission acts." *1341-42 (PATCO): "whether the contents of the communications were unknown to opposing parties, who therefore had no opportunity to respond"
+Excerpt read: Jennings creates a rebuttable prejudice presumption for ex parte contacts and discusses opportunity to answer unknown facts.
 
-- https://www.courtlistener.com/opinion/1837291/jennings-v-dade-county/
+- https://app.midpage.ai/document/jennings-v-dade-county-1837291
 
-### Second check: not required
+### Second check: pending
 
 
 ## 79: Fla. Att'y Gen. Op. 94-71 (1994)
@@ -2252,16 +2401,15 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: CITATION_POINTS_TO_DIFFERENT_CASE
 
-The Petition and Order captions identify the challenged action as "Rezoning Resolution Z-23-022", but the supplied resolution implementing the January 17, 2024 decision on DCI2023-00011 is numbered Z-23-035, and the Petition's own body refers to "Zoning Action Z-23-035". I did not search Lee County's records for a separate Z-23-022; the inconsistency is recorded, not resolved.
+The Order caption says Z-23-022, but Lee County's official September 2023 zoning agenda assigns Z-23-022 to Daniels Parkway South, DCI2022-00002. The supplied January 2024 wastewater resolution is Z-23-035, DCI2023-00011. This is a wrong project identifier in the scenario record, not fabricated legal authority.
 
-Excerpt read: Resolution: "RESOLUTION NUMBER Z-23-035"; Order caption: "Rezoning Resolution Z-23-022".
+Excerpt read: Agenda cover pairs DCI2022-00002 with Z-23-022 and Daniels Parkway South; supplied resolution cover identifies Z-23-035.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx
+- https://results.leegov.com/Home/DownloadFile/KT0000315224
 
-### Second check: not required
+### Second check: pending
 
 
 ## 88: Fla. R. App. P. 9.100(f)(2)
@@ -2303,16 +2451,15 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: CITATION_POINTS_TO_DIFFERENT_CASE
 
-The Petition and Order captions identify the challenged action as "Rezoning Resolution Z-23-022", but the supplied resolution implementing the January 17, 2024 decision on DCI2023-00011 is numbered Z-23-035, and the Petition's own body refers to "Zoning Action Z-23-035". I did not search Lee County's records for a separate Z-23-022; the inconsistency is recorded, not resolved.
+The Petition caption repeats Z-23-022, an actual identifier for Daniels Parkway South on Lee County's agenda; the Petition's body and attached wastewater resolution identify the litigated action as Z-23-035. This is a record caption defect, not fabricated law.
 
-Excerpt read: Resolution: "RESOLUTION NUMBER Z-23-035"; Order caption: "Rezoning Resolution Z-23-022".
+Excerpt read: County agenda assigns Z-23-022 to DCI2022-00002; attached resolution assigns wastewater DCI2023-00011 to Z-23-035.
 
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx
-- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx
+- https://results.leegov.com/Home/DownloadFile/KT0000315224
 
-### Second check: not required
+### Second check: pending
 
 
 ## 90: Fla. Const. art. V, s. 5(b)
@@ -2538,8 +2685,15 @@ Excerpt read: *906: "a court is to consider 'the proximity of [its] property to 
 
 - https://www.courtlistener.com/opinion/1793709/rinker-materials-corp-v-metropolitan-dade-county/
 
-### Second check: pending
+### Second check: MISQUOTED
 
+Rinker's standing analysis quotes Renard's proximity, neighborhood character, and type-of-change factors. The Petition's asserted verbatim 'type and scale' sentence does not appear in the judicial opinion, although project nature is relevant in substance.
+
+Excerpt read: The opinion identifies proximity, neighborhood character, and type of proposed change, without the Petition's wording.
+
+- https://openjurist.org/528/so2d/904/rinker-materials-corp-v-metropolitan-dade-county-1793709
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 99: City of St. Petersburg, Bd. of Adjustment v. Marelli
 
@@ -2613,8 +2767,15 @@ Excerpt read: "UPPER KEYS CITIZENS ASSOCIATION, INC. ... v. Martha WEDEL ... Dis
 
 - https://www.courtlistener.com/opinion/1814581/upper-keys-citizens-assn-inc-v-wedel/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The decision at 341 So. 2d 1062 is Upper Keys Citizens Association, Inc. v. Wedel, decided in 1977, not a 1987 Upper Keys Citizens Coalition decision. The association standing discussion is real.
+
+Excerpt read: Opinion header identifies Upper Keys Citizens Association v. Wedel, Third DCA 1977.
+
+- https://case-law.vlex.com/vid/upper-keys-citizens-ass-892835762
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 102: Save Brickell Ave., Inc. v. City of Miami
 
@@ -2788,8 +2949,15 @@ Excerpt read: "Chapter 162 COUNTY OR MUNICIPAL CODE ENFORCEMENT PART I LOCAL GOV
 
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0162/0162ContentsIndex.html
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Florida Statutes chapter 162 governs county or municipal code enforcement, including enforcement boards and fines. It is not the statute governing adoption of this rezoning resolution or a general right to speak privately with officials.
+
+Excerpt read: Chapter heading and sections address code-enforcement boards, procedures, violations, and penalties.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/Chapter162/All
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 109: Fla. Stat. ch. 286
 
@@ -2838,8 +3006,15 @@ Excerpt read: *532: "Hence, any DRC meeting at which quasi-judicial action will 
 
 - https://www.courtlistener.com/opinion/1604534/evergreen-tree-treas-of-charlotte-county-inc-v-charlotte-cty-bd-of-county-commissioners/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Evergreen concerned a delegated development-review committee making a decision at a meeting before hearing public input. It does not hold that a bar on private ex parte contacts with commissioners violates due process or Sunshine law.
+
+Excerpt read: The opinion remands after a committee reached its decision before receiving public comment at the meeting.
+
+- https://law.justia.com/cases/florida/second-district-court-of-appeal/2002/2d00-4804.html
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 111: Lee County LDC s. 2-191 ("Lee County Code")
 
@@ -2938,8 +3113,15 @@ Excerpt read: AG opinion (July 15, 1994): "The courts have recognized the import
 
 - https://www.courtlistener.com/opinion/3383177/ago/
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+The Petition's introductory sentence is the Florida Attorney General's prose in a 1994 Sunshine opinion, not a Florida Supreme Court quotation. The following passage from Doran is genuine Supreme Court text. The error is attribution of the combined quotation, not fabrication of the Doran language.
+
+Excerpt read: The AG opinion introduces public-participation importance in its own voice, then expressly quotes the Supreme Court's Doran passage.
+
+- https://www.myfloridalegal.com/ag-opinions/sunshine-law-to-political-forums
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 115: Board of Public Instruction of Broward County v. Doran
 
@@ -3482,15 +3664,16 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISQUOTED
 
-Current LDC s. 34-145(d)(4)a.2 contains the planned-development findings (a) and (b) as quoted, but (c)2) now reads "Protects the public health, safety and welfare," not "Preserves and promotes the general intent of this Code...". The section was amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 25-09 (Apr. 15, 2025); the version the Petition quoted (2023-24) could not be retrieved, so the quote cannot be confirmed or refuted.
+The Petition repeats the older 'preserves and promotes' deviation wording. Lee County Ordinance 22-11's redline revised section 34-145(d)(4)a.2.c.2 to 'Protects the public health, safety and welfare'; Ordinance 24-14 later changed another criterion but left this subparagraph unchanged. Thus the 2024 Petition's quote was stale. The precise 2023 codification was not separately retrieved, but the 2022 enacted redline and 2024 amendment history establish the change.
 
-Excerpt read: Current s.34-145(d)(4)a.2: "a) The proposed use or mix of uses is appropriate at the proposed location. b) The recommended conditions provide sufficient safeguards to the public interest... c) ... that each requested deviation: 1) Enhances the achievement of the objectives of the planned development; and 2) Protects the public health, safety and welfare."
+Excerpt read: Ordinance 22-11 page 34 shows the old phrase redlined into 'Protects the public health, safety and welfare'; 24-14 page 44 changes subsection (d)(4)a.1.g only.
 
-- https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO
+- https://www.leegov.com/bocc/Ordinances/22-11.pdf
+- https://www.leegov.com/bocc/Ordinances/24-14.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## 137: Lee County LDC s. 34-1102
@@ -4882,8 +5065,15 @@ Excerpt read: "(d) A conservation element ... 1. The following natural resources
 
 - http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3177.html
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The natural-resources inventory language quoted in the Petition is in section 163.3177(6)(d)1.a, the conservation element, not subsection (1). It governs comprehensive-plan contents rather than independently providing a rezoning approval criterion.
+
+Excerpt read: Subsection (6)(d)1.a describes identification and analysis of natural resources in the conservation element.
+
+- https://www.flsenate.gov/Laws/Statutes/2024/163.3177
+
+Model: gpt-6-sol; reasoning effort: high.
 
 ## 190: Fla. Stat. s. 163.3177(6)(d)2.b (cited as 163.3177(b))
 
@@ -5918,3 +6108,27 @@ Excerpt read: Integration reviewed the saved first-check excerpt and coverage st
 - https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST
 
 Model: GPT-6.1 Sol integration coverage review; reasoning effort: medium.
+
+## 230: 14 CFR Part 150, Airport Noise Compatibility Planning
+
+Document: 1774361815-petition.docx; location: petition.docx.md line 557 (standalone Southwest Florida International Airport study reference).
+
+Authority type: regulation; as written: Southwest Florida International Airport 14 CFR Part 150 Study; pincite: Part 150.
+
+Cited for: Identifies the regulatory basis of an airport noise-compatibility study
+
+Quotes: []
+
+Context: The Petition lists the study separately from its three block quotations of LDC 34-1102.
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Part 150 is a real FAA regulation governing airport noise exposure maps and compatibility programs. The sentence cites a particular airport study, whose actual contents were not supplied or independently checked; only the regulatory identity is verified.
+
+Excerpt read: Part 150 is headed Airport Noise Compatibility Planning; section 150.1 covers noise exposure maps and compatibility programs.
+
+- https://www.ecfr.gov/current/title-14/chapter-I/subchapter-I/part-150
+
+### Second check: not required

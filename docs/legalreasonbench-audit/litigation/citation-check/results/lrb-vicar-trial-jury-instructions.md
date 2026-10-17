@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf'], 'limits': ["Unique documents: 12 attachments plus 2 prompts and 2 rubrics. The assignment 2 packet reprints the assignment 1 prompt and all assignment 1 attachments; those were counted once, under assignment 1. Assignment 2's Facts.pdf is byte-identical in extracted text to assignment 1's Facts.pdf except for its source line, so it was read and counted once.", 'Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.', "The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.", "The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.", "Facts.pdf contains no citations to legal authority. Its case-record references (about 97 trial-transcript 'TT' cites, about 32 'R. Doc.' cites, 'Id.' record short forms, and the M./P./G. Br. abbreviation key) are references to the scenario case record, not legal authority, and are excluded. Rubric source fields that cite only Facts.pdf or Patton State Plea.pdf page numbers are record citations and are excluded too. No fictional legal authority was identified in the matter, so the census contains no fictional_by_design entries. The underlying prosecution appears to be a real case, but this was not investigated.", "Counting conventions: each explicit citation string counts once, including short forms and Id./id. (resolved to the antecedent in citation_as_written brackets). Statutory section mentions given by number count once each. Bare case names count when invoked as authority ('In Stover, we held', 'Under Aguilar', 'Strickland prejudice') but not when incidental or inside another case's parenthetical. Explicit references to constitutional provisions count. Excluded: bare 'subsection 1/2' references without a section number; citations appearing inside quoted language; case names embedded in law-review titles (Williams v. Taylor, Wiggins v. Smith, Rompilla v. Beard, Cronic); purely factual mentions ('received Miranda warnings', 'post-Miranda interview'); the book cited in Kehoe n.2; and the statute prints' editorial annotations (bracketed history lines, 'Referred to in' lists, and 'see §' notes: roughly 16 history blocks, 8 'Referred to in' lists, and 5 see-notes across the five prints).", 'Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.', "Verification sources: CourtListener (read through its API connector) for case text; Cornell LII for current U.S. Code, federal rules, and the U.S. Constitution; the Iowa Legislature for the 2020 and 2026 Iowa Code and the codified Iowa Constitution. Federal statutes and rules were read in their current form; versions in force at each decision date were not separately retrieved, except Fed. R. Evid. 801(d)(2)(B), whose pre-2011 wording was confirmed as quoted in an 8th Cir. 1996 opinion. Kehoe's Arkansas Code citations and Ellison's Model Penal Code § 3.04 were checked against judicial quotations of those texts, because Justia returned HTTP 403 and the ALI text is not freely available.", "Pin pages: where CourtListener text carried reporter page markers, pins were checked. Lorenzo Baltazar, Gibbs, and Macke exist on CourtListener only as slip opinions, so their N.W.2d pins could not be checked. Several other pins are marked 'not separately checked' in their explanations; in those cases the proposition and quotation were confirmed but the page was not.", "UNABLE_TO_VERIFY (12 occurrences): ten law-review articles cited in Justice Appel's special concurrence in Kuhse, and Iowa Criminal Jury Instruction 800.1 (2018). For the law reviews, repository PDFs were blocked by bot challenges or 404s, or could not be located; for five of the articles, existence was confirmed only from repository bibliographic records. No law-review quotation was checked. None is marked not-found.", "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed."], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences'}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf'], 'limits': ["Unique documents: 12 attachments plus 2 prompts and 2 rubrics. The assignment 2 packet reprints the assignment 1 prompt and all assignment 1 attachments; those were counted once, under assignment 1. Assignment 2's Facts.pdf is byte-identical in extracted text to assignment 1's Facts.pdf except for its source line, so it was read and counted once.", 'Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.', "The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.", "The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.", "Facts.pdf contains no citations to legal authority. Its case-record references (about 97 trial-transcript 'TT' cites, about 32 'R. Doc.' cites, 'Id.' record short forms, and the M./P./G. Br. abbreviation key) are references to the scenario case record, not legal authority, and are excluded. Following the sibling matters' convention for scenario record documents, the 24 prompt and rubric references to Facts.pdf and Patton State Plea.pdf (document lists and rubric source fields) are included as fictional_by_design entries (authority_type 'other') and were not checked. The plea petitions look like real Polk County filings and Facts.pdf reads like a real government brief, so 'fictional_by_design' here means 'scenario record, not legal authority'. Whether the prosecution is real was not investigated. No fictional legal authority (an invented case, statute, or rule) was found.", "Authority types follow the sibling and Harvey vocabulary: U.S. and Iowa constitutional provisions are typed 'statute'; law-review articles and the Model Penal Code are typed 'restatement_or_treatise'; the Iowa model jury instruction is typed 'other'.", "Counting conventions: each explicit citation string counts once, including short forms and Id./id. (resolved to the antecedent in citation_as_written brackets). Statutory section mentions given by number count once each. Bare case names count when invoked as authority ('In Stover, we held', 'Under Aguilar', 'Strickland prejudice') but not when incidental or inside another case's parenthetical. Explicit references to constitutional provisions count. Excluded: bare 'subsection 1/2' references without a section number; citations appearing inside quoted language; case names embedded in law-review titles (Williams v. Taylor, Wiggins v. Smith, Rompilla v. Beard, Cronic); purely factual mentions ('received Miranda warnings', 'post-Miranda interview'); the book cited in Kehoe n.2; and the statute prints' editorial annotations (bracketed history lines, 'Referred to in' lists, and 'see §' notes: roughly 16 history blocks, 8 'Referred to in' lists, and 5 see-notes across the five prints).", 'Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.', "Verification sources: CourtListener (read through its API connector) for case text; Cornell LII for current U.S. Code, federal rules, and the U.S. Constitution; the Iowa Legislature for the 2020 and 2026 Iowa Code and the codified Iowa Constitution. Federal statutes and rules were read in their current form; versions in force at each decision date were not separately retrieved, except Fed. R. Evid. 801(d)(2)(B), whose pre-2011 wording was confirmed as quoted in an 8th Cir. 1996 opinion. Kehoe's Arkansas Code citations and Ellison's Model Penal Code § 3.04 were checked against judicial quotations of those texts, because Justia returned HTTP 403 and the ALI text is not freely available.", "Pin pages: where CourtListener text carried reporter page markers, pins were checked. Lorenzo Baltazar, Gibbs, and Macke exist on CourtListener only as slip opinions, so their N.W.2d pins could not be checked. Several other pins are marked 'not separately checked' in their explanations; in those cases the proposition and quotation were confirmed but the page was not.", "UNABLE_TO_VERIFY (12 occurrences): ten law-review articles cited in Justice Appel's special concurrence in Kuhse, and Iowa Criminal Jury Instruction 800.1 (2018). For the law reviews, repository PDFs were blocked by bot challenges or 404s, or could not be located; for five of the articles, existence was confirmed only from repository bibliographic records. No law-review quotation was checked. None is marked not-found.", "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.", 'Integration counting correction: 24 prompt/rubric references to Facts.pdf and Patton State Plea.pdf were moved to excluded_record_references. The first worker had labelled them fictional_by_design solely because they are scenario records; no finding established that these court records were fictional. They are excluded as non-authority record references, leaving 470 real-law citation occurrences and no fictional legal-authority rows in this matter.', 'Second-pass census supplement adds 139 omitted references and separately records 33 verification-coverage downgrades. Two new alleged problems are promoted to first-stage findings with original judgments retained; fresh independent checks are pending. Initial exclusions of quoted and editorial-note citations are superseded by the supplement.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'census_complete': True}
 
 ## A1-PROMPT-001: 18 U.S.C. § 1959
 
@@ -54,8 +54,16 @@ Excerpt read: 2020 and 2026: '1. A "forcible felony" is any felonious child enda
 - https://www.legis.iowa.gov/docs/code/2020/702.11.pdf
 - https://www.legis.iowa.gov/docs/code/2026/702.11.pdf
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+The official 2020 §702.11 and supplied 2026 print have the same forcible-felony definition in subsection 1, but the supplied print is a later edition with altered exclusions in subsection 2. The prompt accurately cites 2020 law; attachment edition labeling is misleading.
+
+Excerpt read: 2020: §702.11(2)(c) ends with subparagraph (3); 2026: (2). Both subsection 1 texts list felonious assault and murder.
+
+- https://www.legis.iowa.gov/docs/code/2020/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/702.11.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## A1-PROMPT-003: Iowa Code ch. 704 (2020)
 
@@ -650,15 +658,17 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED_MINOR_DEFECT
+### First check: MISCHARACTERIZED
 
-Read official 2020 §§ 704.6(1), 706.1(1), 706.3 and 702.11. § 704.6(1) denies justification to 'one who is participating in a forcible felony'; conspiracy is not among the offenses listed in § 702.11(1), and § 706.3 treats conspiracy to commit a forcible felony as its own class C offense. The cited text therefore does not itself say that committing conspiracy precludes justification; the proposition holds only on the reading that the planned shooting (a felonious assault) is the forcible felony in which Patton participated. No case applying § 704.6(1) to conspiracy was found in a short CourtListener search. Loose fit between authority and the rubric's stated proposition.
+Criterion_21 awards +15 for the categorical assertion that commission of conspiracy to commit a forcible felony precludes justification. Section 704.6(1) instead disallows justification for a person participating in a forcible felony. Section 702.11 does not list conspiracy as a forcible felony, and §706.3 separately classifies conspiracy to commit one. The plea admits planning a shooting; it does not by itself establish the participant-in-forcible-felony premise at the moment of force. This is a substantive rubric-support error, beyond a loose pin.
 
-Excerpt read: 1. One who is participating in a forcible felony, or riot, or a duel.
+Excerpt read: §704.6(1): One who is participating in a forcible felony, or riot, or a duel. §702.11(1) lists forcible felonies without conspiracy. §706.3(1): a person who commits a conspiracy to commit a forcible felony is guilty of a class C felony.
 
-- https://www.legis.iowa.gov/docs/code/2020/704.pdf
+- https://www.legis.iowa.gov/docs/code/2020/704.6.pdf
+- https://www.legis.iowa.gov/docs/code/2020/702.11.pdf
+- https://www.legis.iowa.gov/docs/code/2020/706.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## A1-RUBRIC-017: Iowa Code § 706.1(1) (2020)
@@ -733,8 +743,16 @@ Excerpt read: 1. One who is participating in a forcible felony, or riot, or a du
 
 - https://www.legis.iowa.gov/docs/code/2020/704.pdf
 
-### Second check: pending
+### Second check: MISCHARACTERIZED
 
+Criterion_27 cites §704.6(1) for reasonable belief in an imminent unlawful threat, but that subsection concerns participation in a forcible felony, riot, or duel. The actual reasonable-belief and actual-or-imminent-force language is in §704.3. The criterion is a -20 penalty, so it does not reward copying the bad citation; the grader-facing source attribution is still wrong.
+
+Excerpt read: §704.6(1): One who is participating in a forcible felony, or riot, or a duel. §704.3: reasonably believes that such force is necessary to defend oneself or another from any actual or imminent use of unlawful force.
+
+- https://www.legis.iowa.gov/docs/code/2020/704.6.pdf
+- https://www.legis.iowa.gov/docs/code/2020/704.3.pdf
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## A1-RUBRIC-020: United States v. White Horse, No. 21-2871, slip op. at 2-3 (8th Cir. June 3, 2022)
 
@@ -2695,7 +2713,7 @@ Excerpt read: (a) Notice by the Government.-- If, in a case involving an offense
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 2 (slip op. at 2).
 
-Authority type: constitution; as written: Fifth [Amendment]; pincite: .
+Authority type: statute; as written: Fifth [Amendment]; pincite: .
 
 Cited for: Constitutional claims raised on appeal
 
@@ -2720,7 +2738,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 2 (slip op. at 2).
 
-Authority type: constitution; as written: Sixth [Amendment]; pincite: .
+Authority type: statute; as written: Sixth [Amendment]; pincite: .
 
 Cited for: Constitutional claims raised on appeal
 
@@ -2745,7 +2763,7 @@ Excerpt read: to be confronted with the witnesses against him; ... and to have t
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 2 (slip op. at 2).
 
-Authority type: constitution; as written: Tenth Amendments; pincite: .
+Authority type: statute; as written: Tenth Amendments; pincite: .
 
 Cited for: Constitutional claims raised on appeal
 
@@ -2995,7 +3013,7 @@ Excerpt read: "racketeering activity" means (A) any act or threat involving murd
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 6 (slip op. at 6).
 
-Authority type: constitution; as written: Double Jeopardy Clause of the Fifth Amendment; pincite: .
+Authority type: statute; as written: Double Jeopardy Clause of the Fifth Amendment; pincite: .
 
 Cited for: Kehoe's double jeopardy argument
 
@@ -3038,8 +3056,14 @@ Excerpt read: we look at the evidence in the light most favorable to the verdict
 
 - https://www.courtlistener.com/opinion/766527/united-states-v-daniel-harmon-jr-and-roger-c-walls/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-020: United States v. Frayer, 9 F.3d 1367 (8th Cir. 1993)
 
@@ -3288,8 +3312,14 @@ Excerpt read: Finally, an enterprise must have an "ascertainable structure" dist
 
 - https://www.courtlistener.com/opinion/8925413/united-states-v-bledsoe/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-030: 18 U.S.C. § 1962(c)
 
@@ -3345,7 +3375,7 @@ Excerpt read: (d) It shall be unlawful for any person to conspire to violate any
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 8 (slip op. at 8).
 
-Authority type: constitution; as written: Double Jeopardy Clause of the Fifth Amendment; pincite: .
+Authority type: statute; as written: Double Jeopardy Clause of the Fifth Amendment; pincite: .
 
 Cited for: Kehoe's argument
 
@@ -3370,7 +3400,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 8 (slip op. at 8).
 
-Authority type: constitution; as written: The Double Jeopardy Clause; pincite: .
+Authority type: statute; as written: The Double Jeopardy Clause; pincite: .
 
 Cited for: Protects against successive prosecutions and multiple punishments
 
@@ -3413,8 +3443,14 @@ Excerpt read: Under this clause, a defendant is protected from both successive p
 
 - https://www.courtlistener.com/opinion/7031268/united-states-v-bennett/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-035: North Carolina v. Pearce, 395 U.S. 711 (1969)
 
@@ -3445,7 +3481,7 @@ Excerpt read: It protects against a second prosecution for the same offense afte
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 8 (slip op. at 8).
 
-Authority type: constitution; as written: a violation of the Double Jeopardy Clause; pincite: .
+Authority type: statute; as written: a violation of the Double Jeopardy Clause; pincite: .
 
 Cited for: Same-offense requirement
 
@@ -3488,8 +3524,14 @@ Excerpt read: Under this clause, a defendant is protected from both successive p
 
 - https://www.courtlistener.com/opinion/7031268/united-states-v-bennett/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-038: Blockburger v. United States, 284 U.S. 299 (1932)
 
@@ -3505,9 +3547,9 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: VERIFIED_MINOR_DEFECT
 
-Read CourtListener text; the quoted 'requires proof of a different element' language and the same-elements test appear at 304. Kehoe's '(1931)' reflects the December 1931 decision date that the reporter citation dates to 1932; consistent with common citation practice.
+Read CourtListener text; the quoted 'requires proof of a different element' language and the same-elements test appear at 304. Year: Kehoe dates the case 1931; CourtListener lists a 1931-12-11 date but its parallel citation is 1932 U.S. LEXIS 875, indicating a 1932 decision. Possible wrong year in the court's slip opinion.
 
 Excerpt read: ... each of the offenses created requires proof of a different element. The applicable rule is that ... the test ... is whether each provision requires proof of a fact which the other does not.
 
@@ -3805,15 +3847,15 @@ Context:
 
 Fictional by design: False; 
 
-### First check: VERIFIED
+### First check: MISQUOTED
 
-Read CourtListener majority text; the Court states the long-standing rule that a substantive crime and a conspiracy to commit it are not the 'same offence' for double jeopardy purposes. Kehoe's quotation modernizes 'offence' to 'offense'; pin page not separately checked.
+The official U.S. Reports text at 503 U.S. 389 says “same offence”; Kehoe’s quotation says “same offense” without indicating an alteration. The legal proposition is identical, so this is an exact-quotation defect inside the attached court opinion, not a task-rubric issue. The first pass noticed the spelling change but incorrectly left VERIFIED and said the pin was unchecked; the official page verifies the pin.
 
-Excerpt read: is the rule that a substantive crime and a conspiracy to commit that crime are not the "same offence" for double jeopardy purposes.
+Excerpt read: 503 U.S. 389: But long antedating any of these cases, and not questioned in any of them, is the rule that a substantive crime and a conspiracy to commit that crime are not the “same offence” for double jeopardy purposes.
 
-- https://www.courtlistener.com/opinion/112713/united-states-v-felix/
+- https://supreme.justia.com/cases/federal/us/503/378/case.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## KEHOE-051: United States v. Miller, 995 F.2d 865 (8th Cir. 1993)
@@ -3863,8 +3905,14 @@ Excerpt read: Under this clause, a defendant is protected from both successive p
 
 - https://www.courtlistener.com/opinion/7031268/united-states-v-bennett/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-053: 18 U.S.C. § 1959
 
@@ -3895,7 +3943,7 @@ Excerpt read: ... for the purpose of gaining entrance to or maintaining or incre
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 9 (slip op. at 9).
 
-Authority type: constitution; as written: the Tenth Amendment; pincite: .
+Authority type: statute; as written: the Tenth Amendment; pincite: .
 
 Cited for: Kehoe's argument that prosecution encroached on state sovereignty
 
@@ -4120,7 +4168,7 @@ Excerpt read: (d) It shall be unlawful for any person to conspire to violate any
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 10 (slip op. at 10).
 
-Authority type: constitution; as written: Double Jeopardy Clause of the Fifth Amendment; pincite: .
+Authority type: statute; as written: Double Jeopardy Clause of the Fifth Amendment; pincite: .
 
 Cited for: Crosby parenthetical
 
@@ -4163,8 +4211,14 @@ Excerpt read: "RICO's allusion to state crimes was not intended to incorporate e
 
 - https://www.courtlistener.com/opinion/7082643/united-states-v-carrillo/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-065: United States v. Carrillo, 229 F.3d 177 (2d Cir. 2000)
 
@@ -4188,8 +4242,14 @@ Excerpt read: "RICO's allusion to state crimes was not intended to incorporate e
 
 - https://www.courtlistener.com/opinion/7082643/united-states-v-carrillo/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-066: United States v. Coonan, 938 F.2d 1553 (2d Cir. 1991)
 
@@ -4263,8 +4323,14 @@ Excerpt read: "RICO's allusion to state crimes was not intended to incorporate e
 
 - https://www.courtlistener.com/opinion/7082643/united-states-v-carrillo/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-069: United States v. Carrillo, 229 F.3d 177 (2d Cir. 2000)
 
@@ -4288,8 +4354,14 @@ Excerpt read: "RICO's allusion to state crimes was not intended to incorporate e
 
 - https://www.courtlistener.com/opinion/7082643/united-states-v-carrillo/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-070: 18 U.S.C. § 1959
 
@@ -4320,7 +4392,7 @@ Excerpt read: ... for the purpose of gaining entrance to or maintaining or incre
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 11 (slip op. at 11).
 
-Authority type: constitution; as written: do not violate the Tenth Amendment; pincite: .
+Authority type: statute; as written: do not violate the Tenth Amendment; pincite: .
 
 Cited for: Holding
 
@@ -4363,14 +4435,21 @@ Excerpt read: This argument ignores the essence of RICO which proscribes the fur
 
 - https://www.courtlistener.com/opinion/8923999/united-states-v-martino/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The attached Kehoe slip says 648 F.3d at 381. The antecedent and the read Martino opinion are 648 F.2d 367 (5th Cir. 1981). At the relevant part Martino rejects the Ninth and Tenth Amendment attack on RICO, so the authority supports the proposition; only the reporter series in this short form is wrong. It is in the attached court opinion, not a rubric source.
+
+Excerpt read: Martino: We likewise reject the proposition that RICO violates the Ninth and Tenth Amendments. Reporter header: 648 F.2d 367.
+
+- https://openjurist.org/648/f2d/367/united-states-v-c-martino-c
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-073: U.S. Const. amend. IX
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 11 (slip op. at 11).
 
-Authority type: constitution; as written: Ninth [Amendment] (in Martino parenthetical); pincite: .
+Authority type: statute; as written: Ninth [Amendment] (in Martino parenthetical); pincite: .
 
 Cited for: Challenge rejected in Martino
 
@@ -4395,7 +4474,7 @@ Excerpt read: The enumeration in the Constitution, of certain rights, shall not 
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 11 (slip op. at 11).
 
-Authority type: constitution; as written: [Ninth and] Tenth Amendments (in Martino parenthetical); pincite: .
+Authority type: statute; as written: [Ninth and] Tenth Amendments (in Martino parenthetical); pincite: .
 
 Cited for: Challenge rejected in Martino
 
@@ -4438,8 +4517,14 @@ Excerpt read: "A person commits Murder in the First Degree if, with a purpose of
 
 - https://www.courtlistener.com/opinion/2417480/walker-v-state/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-076: United States v. Finch, 16 F.3d 228 (8th Cir. 1994)
 
@@ -4638,8 +4723,14 @@ Excerpt read: a criminal defendant already is afforded protection against jury i
 
 - https://www.courtlistener.com/opinion/111286/united-states-v-powell/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-084: Blair v. Armontrout, 916 F.2d 1310 (8th Cir. 1990)
 
@@ -4663,8 +4754,14 @@ Excerpt read: we believe that a screening mechanism or Chinese Wall could be imp
 
 - https://www.courtlistener.com/opinion/550152/walter-j-blair-v-bill-armontrout-walter-j-blair-v-bill-armontrout/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-085: Fred Weber, Inc. v. Shell Oil Co., 566 F.2d 602 (8th Cir. 1977)
 
@@ -4688,8 +4785,14 @@ Excerpt read: The dispatch of this duty is discretionary in nature and the findi
 
 - https://www.courtlistener.com/opinion/350940/fred-weber-inc-v-shell-oil-company-shell-pipe-line-corporation-amoco/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-086: Fed. R. Crim. P. 14
 
@@ -4740,8 +4843,16 @@ Excerpt read: Fed. R. Civ. P. 14: 'Rule 14. Third-Party Practice'. Fed. R. Crim.
 - https://www.law.cornell.edu/rules/frcrmp/rule_14
 - https://www.courtlistener.com/opinion/779816/united-states-v-chevie-obrien-kehoe-also-known-as-jonathan-collins-also/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+Kehoe labels severance authority Fed. R. Civ. P. 14. The read Criminal Rule 14 authorizes separate trials of defendants on prejudice; Civil Rule 14 governs third-party practice. The cited procedural rule family is wrong, though the severance proposition is sound. The mistake occurs in the court opinion itself.
+
+Excerpt read: Criminal Rule 14(a): the court may order separate trials of counts, sever the defendants trials, or provide any other relief. Civil Rule 14: Third-Party Practice.
+
+- https://www.uscourts.gov/sites/default/files/federal_rules_of_criminal_procedure_december_1_2022_0.pdf
+- https://www.law.cornell.edu/rules/frcp/Rule_14
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-088: Zafiro v. United States, 506 U.S. 534 (1993)
 
@@ -4872,7 +4983,7 @@ Excerpt read: We have said many times that it will be the rare case, if ever, wh
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 14 (slip op. at 14).
 
-Authority type: constitution; as written: Confrontation Clause of the Sixth Amendment; pincite: .
+Authority type: statute; as written: Confrontation Clause of the Sixth Amendment; pincite: .
 
 Cited for: Kehoe's confrontation argument
 
@@ -4916,8 +5027,14 @@ Excerpt read: Pre-2011 (as quoted in Williams): a statement is not hearsay if it
 - https://www.law.cornell.edu/rules/fre/rule_801
 - https://www.courtlistener.com/opinion/720593/united-states-v-louis-williams/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-095: Maddox v. Patterson, 905 F.2d 1178 (8th Cir. 1990)
 
@@ -4948,7 +5065,7 @@ Excerpt read: judge has wide discretion in ruling on the admissibility of eviden
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 15 (slip op. at 15).
 
-Authority type: constitution; as written: Confrontation Clause of the Sixth Amendment; pincite: .
+Authority type: statute; as written: Confrontation Clause of the Sixth Amendment; pincite: .
 
 Cited for: Violations reviewed for harmless error
 
@@ -5042,8 +5159,14 @@ Excerpt read: Pre-2011 (as quoted in Williams): a statement is not hearsay if it
 - https://www.law.cornell.edu/rules/fre/rule_801
 - https://www.courtlistener.com/opinion/720593/united-states-v-louis-williams/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-100: United States v. Disbrow, 768 F.2d 976 (8th Cir. 1985)
 
@@ -5092,14 +5215,20 @@ Excerpt read: as a general rule, when an accusatory statement is made in the def
 
 - https://www.courtlistener.com/opinion/358620/united-states-v-camille-t-lilley/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-102: U.S. Const. amend. VI
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 15 (slip op. at 15).
 
-Authority type: constitution; as written: no Confrontation Clause problem; pincite: .
+Authority type: statute; as written: no Confrontation Clause problem; pincite: .
 
 Cited for: Nonhearsay raises no confrontation issue
 
@@ -5199,7 +5328,7 @@ Excerpt read: "a major reason underlying the constitutional confrontation rule i
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 15 (slip op. at 15).
 
-Authority type: constitution; as written: rights under the Confrontation Clause; pincite: .
+Authority type: statute; as written: rights under the Confrontation Clause; pincite: .
 
 Cited for: No violation
 
@@ -5249,7 +5378,7 @@ Excerpt read: If the statements are Woods' own -- either by virtue of the fact h
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 15 (slip op. at 15).
 
-Authority type: constitution; as written: Fifth Amendment privilege; pincite: .
+Authority type: statute; as written: Fifth Amendment privilege; pincite: .
 
 Cited for: Lee's invocation
 
@@ -5274,7 +5403,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: PDF page 16 (slip op. at 16).
 
-Authority type: constitution; as written: the Fifth Amendment privilege; pincite: .
+Authority type: statute; as written: the Fifth Amendment privilege; pincite: .
 
 Cited for: Defense witness immunity after invocation
 
@@ -5392,8 +5521,14 @@ Excerpt read: A conviction cannot be had in any case of felony upon the testimon
 
 - https://www.courtlistener.com/opinion/2429039/munhall-v-state/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-114: Martin v. Norris, 82 F.3d 211 (8th Cir. 1996)
 
@@ -5492,8 +5627,15 @@ Excerpt read: The test for corroborating evidence is whether, if the testimony o
 
 - https://www.courtlistener.com/opinion/1678272/marta-v-state/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The attached Kehoe slip cites Marta as 93 S.W.2d at 927. The same opinion previously identifies Marta as 983 S.W.2d 924; the read Arkansas Supreme Court opinion states the corroboration test that Kehoe quotes. The dropped 8 in the short-form volume is the defect. It is in an attached opinion, with no related rubric criterion.
+
+Excerpt read: Marta: if the testimony of the accomplice were totally eliminated from the case, the other evidence independently establishes the crime and tends to connect the accused with its commission.
+
+- https://law.justia.com/cases/arkansas/supreme-court/1999/cr98-105.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-118: Marta v. State, 983 S.W.2d 924 (Ark. 1999)
 
@@ -5517,8 +5659,15 @@ Excerpt read: The test for corroborating evidence is whether, if the testimony o
 
 - https://www.courtlistener.com/opinion/1678272/marta-v-state/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The attached Kehoe slip cites Marta as 93 S.W.2d at 927. The same opinion previously identifies Marta as 983 S.W.2d 924; the read Arkansas Supreme Court opinion states the corroboration test that Kehoe quotes. The dropped 8 in the short-form volume is the defect. It is in an attached opinion, with no related rubric criterion.
+
+Excerpt read: Marta: if the testimony of the accomplice were totally eliminated from the case, the other evidence independently establishes the crime and tends to connect the accused with its commission.
+
+- https://law.justia.com/cases/arkansas/supreme-court/1999/cr98-105.html
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-119: Martin v. Norris, 82 F.3d 211 (8th Cir. 1996)
 
@@ -5667,8 +5816,14 @@ Excerpt read: It pointed out that such testimony is admissible only if it is bot
 
 - https://www.courtlistener.com/opinion/118271/kumho-tire-co-v-carmichael/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-125: Daubert v. Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579 (1993)
 
@@ -5742,8 +5897,14 @@ Excerpt read: It pointed out that such testimony is admissible only if it is bot
 
 - https://www.courtlistener.com/opinion/118271/kumho-tire-co-v-carmichael/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-128: Kumho Tire Co. v. Carmichael, 526 U.S. 137 (1999)
 
@@ -5767,8 +5928,14 @@ Excerpt read: It pointed out that such testimony is admissible only if it is bot
 
 - https://www.courtlistener.com/opinion/118271/kumho-tire-co-v-carmichael/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-129: United States v. Jolivet, 224 F.3d 902 (8th Cir. 2000)
 
@@ -6067,8 +6234,14 @@ Excerpt read: While the prosecutor's comments are questionable, they do not rise
 
 - https://www.courtlistener.com/opinion/772280/united-states-v-mark-white/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KEHOE-141: Fed. R. Crim. P. 52(b)
 
@@ -6392,8 +6565,14 @@ Excerpt read: Most notable is subsection 3, a new stand your ground provision, w
 
 - https://www.courtlistener.com/opinion/4623040/state-of-iowa-v-antoine-tyree-williams/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-011: Iowa Code § 704.1(3)
 
@@ -6592,8 +6771,14 @@ Excerpt read: Although an instruction need not contain or mirror the precise lan
 
 - https://www.courtlistener.com/opinion/1666722/state-v-schuler/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-019: Iowa Code § 704.1(3)
 
@@ -6874,7 +7059,7 @@ Excerpt read: We agree the 2017 amendment changed--but did not eliminate--the im
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 11 (slip op. at 11).
 
-Authority type: other; as written: See, e.g., Model Penal Code § 3.04 (Am. L. Inst. 1985); pincite: .
+Authority type: restatement_or_treatise; as written: See, e.g., Model Penal Code § 3.04 (Am. L. Inst. 1985); pincite: .
 
 Cited for: Duty to retreat as exception to justification
 
@@ -6892,8 +7077,14 @@ Excerpt read: The Model Penal Code § 3.04 (2) (b) (ii) states that the use of d
 
 - https://www.courtlistener.com/opinion/7895478/state-v-anderson/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+The first pass used a judicial quotation or a current restyled rule, not the cited historical primary text. This pass did not obtain that exact Arkansas Code, ALI Model Penal Code, or pre-2011 Evidence Rule edition. The quoted judicial material may corroborate the proposition but cannot justify VERIFIED for the cited text.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-031: Iowa Code § 704.1(3)
 
@@ -6949,7 +7140,7 @@ Excerpt read: 3. A person who is not engaged in illegal activity has no duty to 
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 11 (slip op. at 11).
 
-Authority type: constitution; as written: the Fourteenth Amendment to the United States Constitution; pincite: .
+Authority type: statute; as written: the Fourteenth Amendment to the United States Constitution; pincite: .
 
 Cited for: Due process guarantee
 
@@ -6974,7 +7165,7 @@ Excerpt read: nor shall any State deprive any person of life, liberty, or proper
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 11 (slip op. at 11).
 
-Authority type: constitution; as written: article I, section 9 of the Iowa Constitution; pincite: .
+Authority type: statute; as written: article I, section 9 of the Iowa Constitution; pincite: .
 
 Cited for: Due process guarantee
 
@@ -7067,8 +7258,14 @@ Excerpt read: "Even in these cases in which no substantive distinction had been 
 
 - https://www.courtlistener.com/opinion/3184687/phuoc-nguyen-v-state-of-iowa/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-038: Bonilla v. Iowa Board of Parole, 930 N.W.2d 751 (Iowa 2019)
 
@@ -7117,8 +7314,16 @@ Excerpt read: We agree the 2017 amendment changed--but did not eliminate--the im
 
 - https://www.courtlistener.com/opinion/4680966/state-of-iowa-v-miguel-angel-lorenzo-baltazar/
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+The official Ellison opinion itself prints Lorenzo Baltazar, 936 N.W.2d 862 at this one occurrence, while earlier Ellison passages cite 935 N.W.2d 862. The read official Lorenzo Baltazar opinion, docket 18-0677 (Nov. 22, 2019), addresses the claimed germaneness of firearm possession. Thus this is a one-digit volume error within the court opinion, not a rubric defect.
+
+Excerpt read: Ellison slip p.13: Lorenzo Baltazar, 936 N.W.2d 862. Its p.6: State v. Lorenzo Baltazar, 935 N.W.2d 862, 870 (Iowa 2019).
+
+- https://www.iowacourts.gov/courtcases/15974/embed/SupremeCourtOpinion
+- https://www.iowacourts.gov/courtcases/6046/embed/SupremeCourtOpinion
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-040: State v. Lorenzo Baltazar, 935 N.W.2d 862 (Iowa 2019)
 
@@ -7317,14 +7522,20 @@ Excerpt read: We reverse the district court's conviction of Pearson for going ar
 
 - https://www.courtlistener.com/opinion/4472400/state-of-iowa-v-jesse-john-pearson/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-048: U.S. Const. amend. V
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 14 (slip op. at 14).
 
-Authority type: constitution; as written: The Fifth Amendment to the United States Constitution; pincite: .
+Authority type: statute; as written: The Fifth Amendment to the United States Constitution; pincite: .
 
 Cited for: Privilege against self-incrimination
 
@@ -7349,7 +7560,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 14 (slip op. at 14).
 
-Authority type: constitution; as written: the Fourteenth Amendment; pincite: .
+Authority type: statute; as written: the Fourteenth Amendment; pincite: .
 
 Cited for: Incorporation against the states
 
@@ -7424,7 +7635,7 @@ Excerpt read: A jury instruction authorizing an inference of guilt in a murder c
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 14 (slip op. at 14).
 
-Authority type: constitution; as written: the Fifth Amendment's language; pincite: .
+Authority type: statute; as written: the Fifth Amendment's language; pincite: .
 
 Cited for: Comparison with Iowa Constitution
 
@@ -7474,7 +7685,7 @@ Excerpt read: A jury instruction authorizing an inference of guilt in a murder c
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 14 (slip op. at 14).
 
-Authority type: constitution; as written: article I, section 9 of the Iowa Constitution; pincite: .
+Authority type: statute; as written: article I, section 9 of the Iowa Constitution; pincite: .
 
 Cited for: Same
 
@@ -7524,7 +7735,7 @@ Excerpt read: Although the Iowa Constitution does not contain an equivalent prov
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 15 (slip op. at 15).
 
-Authority type: constitution; as written: under the Fifth Amendment; pincite: .
+Authority type: statute; as written: under the Fifth Amendment; pincite: .
 
 Cited for: Analysis framework
 
@@ -7567,8 +7778,14 @@ Excerpt read: "Even in these cases in which no substantive distinction had been 
 
 - https://www.courtlistener.com/opinion/3184687/phuoc-nguyen-v-state-of-iowa/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-058: Iowa Code § 704.2B(2)
 
@@ -7874,7 +8091,7 @@ Excerpt read: A jury instruction authorizing an inference of guilt in a murder c
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 16 (slip op. at 16).
 
-Authority type: constitution; as written: no Fifth Amendment problem; pincite: .
+Authority type: statute; as written: no Fifth Amendment problem; pincite: .
 
 Cited for: State's argument
 
@@ -7924,7 +8141,7 @@ Excerpt read: Words in an instruction need not be defined if they are of ordinar
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 17 (slip op. at 17).
 
-Authority type: constitution; as written: Fifth Amendment concerns; pincite: .
+Authority type: statute; as written: Fifth Amendment concerns; pincite: .
 
 Cited for: Dilemma raised by duty
 
@@ -7992,14 +8209,20 @@ Excerpt read: It is axiomatic that only evidence that is testimonial in nature i
 
 - https://www.courtlistener.com/opinion/2034889/state-v-decker/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-075: U.S. Const. amend. V
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 17 (slip op. at 17).
 
-Authority type: constitution; as written: The Fifth Amendment's protections; pincite: .
+Authority type: statute; as written: The Fifth Amendment's protections; pincite: .
 
 Cited for: Extend to penalties on silence
 
@@ -8167,8 +8390,14 @@ Excerpt read: It is axiomatic that only evidence that is testimonial in nature i
 
 - https://www.courtlistener.com/opinion/2034889/state-v-decker/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## ELLISON-082: Doe v. United States, 487 U.S. 201 (1988)
 
@@ -8224,7 +8453,7 @@ Excerpt read: The Court concluded that the act of production could constitute pr
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 18 (slip op. at 18).
 
-Authority type: constitution; as written: Fifth Amendment concerns; pincite: .
+Authority type: statute; as written: Fifth Amendment concerns; pincite: .
 
 Cited for: No assertion of fact implied
 
@@ -8249,7 +8478,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 18 (slip op. at 18).
 
-Authority type: constitution; as written: Ellison's Fifth Amendment privilege; pincite: .
+Authority type: statute; as written: Ellison's Fifth Amendment privilege; pincite: .
 
 Cited for: No violation
 
@@ -8274,7 +8503,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF pages 18-19 (slip op. at 18-19).
 
-Authority type: constitution; as written: Fifth Amendment rights; pincite: .
+Authority type: statute; as written: Fifth Amendment rights; pincite: .
 
 Cited for: No violation
 
@@ -8299,7 +8528,7 @@ Excerpt read: nor shall any person be subject for the same offence to be twice p
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 19 (slip op. at 19).
 
-Authority type: constitution; as written: the Fourteenth Amendment; pincite: .
+Authority type: statute; as written: the Fourteenth Amendment; pincite: .
 
 Cited for: Incorporation
 
@@ -8449,7 +8678,7 @@ Excerpt read: 704.2B Use of deadly force -- duties -- evidence.
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf; location: PDF page 19, footnote 2 (slip op. at 19 n.2).
 
-Authority type: constitution; as written: Fifth Amendment grounds; pincite: .
+Authority type: statute; as written: Fifth Amendment grounds; pincite: .
 
 Cited for: Only ground raised
 
@@ -8873,7 +9102,7 @@ Excerpt read: We believe, however, that justification is an affirmative defense 
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 9 (slip op. at 9).
 
-Authority type: constitution; as written: U.S. Const. amend. VI; pincite: .
+Authority type: statute; as written: U.S. Const. amend. VI; pincite: .
 
 Cited for: Right to effective assistance of counsel
 
@@ -8898,7 +9127,7 @@ Excerpt read: to be confronted with the witnesses against him; ... and to have t
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 9 (slip op. at 9).
 
-Authority type: constitution; as written: Iowa Const. art. I, § 10; pincite: .
+Authority type: statute; as written: Iowa Const. art. I, § 10; pincite: .
 
 Cited for: Same
 
@@ -9041,8 +9270,14 @@ Excerpt read: "Even in these cases in which no substantive distinction had been 
 
 - https://www.courtlistener.com/opinion/3184687/phuoc-nguyen-v-state-of-iowa/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KUHSE-023: Strickland v. Washington, 466 U.S. 668 (1984)
 
@@ -10023,7 +10258,7 @@ Excerpt read: This requires showing that counsel made errors so serious that cou
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 16, footnote 3 (Appel, J., concurring specially).
 
-Authority type: constitution; as written: the Sixth Amendment to the United States Constitution; pincite: .
+Authority type: statute; as written: the Sixth Amendment to the United States Constitution; pincite: .
 
 Cited for: Not cited by Kuhse
 
@@ -10048,7 +10283,7 @@ Excerpt read: to be confronted with the witnesses against him; ... and to have t
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 16, footnote 3 (Appel, J., concurring specially).
 
-Authority type: constitution; as written: article I, section 10 of the Iowa Constitution; pincite: .
+Authority type: statute; as written: article I, section 10 of the Iowa Constitution; pincite: .
 
 Cited for: Not cited by Kuhse
 
@@ -10091,8 +10326,14 @@ Excerpt read: When there are parallel constitutional provisions in the federal a
 
 - https://www.courtlistener.com/opinion/4472446/daniel-king-v-state-of-iowa/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KUHSE-065: Strickland v. Washington, 466 U.S. 668 (1984)
 
@@ -10191,8 +10432,14 @@ Excerpt read: Because Lindsey has not suggested an independent standard under th
 
 - https://www.courtlistener.com/opinion/3216871/state-of-iowa-v-maryo-d-lindsey-jr/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KUHSE-069: State v. Pals, 805 N.W.2d 767 (Iowa 2011)
 
@@ -10248,7 +10495,7 @@ Excerpt read: This requires showing that counsel made errors so serious that cou
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 16, footnote 4 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: John H. Blume & Stacey D. Neumann, ... 34 Am. J. Crim. L. 127, 142 (2007); pincite: 142.
+Authority type: restatement_or_treatise; as written: John H. Blume & Stacey D. Neumann, ... 34 Am. J. Crim. L. 127, 142 (2007); pincite: 142.
 
 Cited for: Almost all representation found within Strickland's wide range
 
@@ -10298,7 +10545,7 @@ Excerpt read: This requires showing that counsel made errors so serious that cou
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 16, footnote 4 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Martin C. Calhoun, How to Thread the Needle ..., 77 Geo. L.J. 413, 455 (1988); pincite: 455.
+Authority type: restatement_or_treatise; as written: Martin C. Calhoun, How to Thread the Needle ..., 77 Geo. L.J. 413, 455 (1988); pincite: 455.
 
 Cited for: Critiquing Strickland as virtually insurmountable
 
@@ -10322,7 +10569,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF pages 16-17, footnote 4 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Meredith J. Duncan, The (So-Called) Liability of Criminal Defense Attorneys ..., 2002 BYU L. Rev. 1, 27–28 (2002); pincite: 27-28.
+Authority type: restatement_or_treatise; as written: Meredith J. Duncan, The (So-Called) Liability of Criminal Defense Attorneys ..., 2002 BYU L. Rev. 1, 27–28 (2002); pincite: 27-28.
 
 Cited for: Strickland unworkable
 
@@ -10346,7 +10593,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 17, footnote 4 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Gary Feldon & Tara Beech, Unpacking the First Prong of the Strickland Standard ..., 23 U. Fla. J.L. & Pub. Pol'y 1, 9–15 (2012); pincite: 9-15.
+Authority type: restatement_or_treatise; as written: Gary Feldon & Tara Beech, Unpacking the First Prong of the Strickland Standard ..., 23 U. Fla. J.L. & Pub. Pol'y 1, 9–15 (2012); pincite: 9-15.
 
 Cited for: Post-Strickland confusion
 
@@ -10371,7 +10618,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 17, footnote 4 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Elizabeth Gable & Tyler Green, Wiggins v. Smith ..., 17 Geo. J. Legal Ethics 755, 764–65 (2004); pincite: 764-65.
+Authority type: restatement_or_treatise; as written: Elizabeth Gable & Tyler Green, Wiggins v. Smith ..., 17 Geo. J. Legal Ethics 755, 764–65 (2004); pincite: 764-65.
 
 Cited for: Difficulty of Strickland
 
@@ -10413,8 +10660,14 @@ Excerpt read: A trial court has a duty to give the jury a clear understanding of
 
 - https://www.courtlistener.com/opinion/1987778/lovick-v-wil-rich/
 
-### Second check: not required
+### Second check: UNABLE_TO_VERIFY
 
+First pass read the opinion and checked the proposition, but explicitly did not verify this reporter pinpoint. The full citation, including pin, therefore remains unverified pending a paginated primary reporter copy. This is a verification-coverage correction, not a finding that the proposition is false.
+
+Excerpt read: 
+
+
+Model: GPT-6 Sol; reasoning effort: high.
 
 ## KUHSE-078: Strickland v. Washington, 466 U.S. 668 (1984)
 
@@ -10570,7 +10823,7 @@ Excerpt read: This requires showing that counsel made errors so serious that cou
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 18, footnote 5 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: See, e.g., Calhoun, Threading the Needle, 77 Geo. L.J. at 458; pincite: 458.
+Authority type: restatement_or_treatise; as written: See, e.g., Calhoun, Threading the Needle, 77 Geo. L.J. at 458; pincite: 458.
 
 Cited for: Statistics on Strickland outcomes
 
@@ -10594,7 +10847,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 18, footnote 5 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Marcus Procter Henderson, Note, Truly Ineffective Assistance ..., 13 Ind. Int'l & Comp. L. Rev. 317, 331 (2002); pincite: 331.
+Authority type: restatement_or_treatise; as written: Marcus Procter Henderson, Note, Truly Ineffective Assistance ..., 13 Ind. Int'l & Comp. L. Rev. 317, 331 (2002); pincite: 331.
 
 Cited for: Inconsistent application
 
@@ -10618,7 +10871,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 18, footnote 5 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Amy R. Murphy, Note, The Constitutional Failure of the Strickland Standard in Capital Cases Under the Eighth Amendment, 63-SUM Law & Contemp. Probs. 179, 199 (2000); pincite: 199.
+Authority type: restatement_or_treatise; as written: Amy R. Murphy, Note, The Constitutional Failure of the Strickland Standard in Capital Cases Under the Eighth Amendment, 63-SUM Law & Contemp. Probs. 179, 199 (2000); pincite: 199.
 
 Cited for: No pattern in outcomes
 
@@ -10643,7 +10896,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 18, footnote 6 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Keith Cunningham-Parmeter, Dreaming of Effective Assistance ..., 76 Temp. L. Rev. 827, 838–40 (2003); pincite: 838-40.
+Authority type: restatement_or_treatise; as written: Keith Cunningham-Parmeter, Dreaming of Effective Assistance ..., 76 Temp. L. Rev. 827, 838–40 (2003); pincite: 838-40.
 
 Cited for: Criticizing prejudice prong
 
@@ -10668,7 +10921,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 18, footnote 6 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Richard L. Gabriel, The Strickland Standard for Claims of Ineffective Assistance of Counsel ..., 134 U. Pa. L. Rev. 1259, 1279–81 (1986); pincite: 1279-81.
+Authority type: restatement_or_treatise; as written: Richard L. Gabriel, The Strickland Standard for Claims of Ineffective Assistance of Counsel ..., 134 U. Pa. L. Rev. 1259, 1279–81 (1986); pincite: 1279-81.
 
 Cited for: Impossibility of proving prejudice
 
@@ -10693,7 +10946,7 @@ Excerpt read:
 
 Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf; location: PDF page 18, footnote 6 (Appel, J., concurring specially).
 
-Authority type: secondary; as written: Paul Marcus, The United States Supreme Court (Mostly) Gives Up Its Review Role with Ineffective Assistance of Counsel Cases, 100 Minn. L. Rev. 1745, 1752 (2016); pincite: 1752.
+Authority type: restatement_or_treatise; as written: Paul Marcus, The United States Supreme Court (Mostly) Gives Up Its Review Role with Ineffective Assistance of Counsel Cases, 100 Minn. L. Rev. 1745, 1752 (2016); pincite: 1752.
 
 Cited for: Difficulty of proving the negative
 
@@ -11774,5 +12027,3484 @@ Cross-reference in the operative text of the supplied 2026 print; read the refer
 Excerpt read: 903A.2 Earned time. 1. Each inmate committed to the custody of the director of the department of corrections ...
 
 - https://www.legis.iowa.gov/docs/code/2026/903A.2.pdf
+
+### Second check: not required
+
+
+## ADD-QUOTE-001: 18 U.S.C. §1962(c)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: Kehoe.pdf slip p.9, inside quotation from Handeen.
+
+Authority type: statute; as written: § 1962(c); pincite: .
+
+Cited for: Quoted Handeen text refers to the substantive RICO claim
+
+Quotes: []
+
+Context: Quoted Handeen text refers to the substantive RICO claim
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Read the codified subsection in this pass; it prohibits conduct of an enterprise through racketeering activity. The quoted reference accurately identifies the RICO subsection.
+
+Excerpt read: (c) It shall be unlawful for any person employed by or associated with any enterprise ... to conduct or participate ... in the conduct of such enterprise affairs through a pattern of racketeering activity.
+
+- https://www.law.cornell.edu/uscode/text/18/1962
+
+### Second check: not required
+
+
+## ADD-QUOTE-002: Fed. R. Crim. P. 52(b)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: Kehoe.pdf slip p.21, inside quotation from Olano.
+
+Authority type: rule; as written: Rule 52(b); pincite: .
+
+Cited for: Olano quotation names the plain-error rule
+
+Quotes: []
+
+Context: Olano quotation names the plain-error rule
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Read the rule in the U.S. Courts published Federal Rules of Criminal Procedure. It permits review of a plain error affecting substantial rights despite failure to raise it below.
+
+Excerpt read: (b) Plain Error. A plain error that affects substantial rights may be considered even though it was not brought to the court attention.
+
+- https://www.uscourts.gov/sites/default/files/federal_rules_of_criminal_procedure_december_1_2022_0.pdf
+
+### Second check: not required
+
+
+## ADD-QUOTE-003: 18 U.S.C. §1512(c)(2)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White Horse.pdf; location: White Horse.pdf slip p.5, within quoted Petruk language.
+
+Authority type: statute; as written: § 1512(c)(2); pincite: .
+
+Cited for: Quoted Petruk language compares obstruction provisions
+
+Quotes: []
+
+Context: Quoted Petruk language compares obstruction provisions
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Read subsection (c)(2) in the U.S. Code and the White Horse quotation. The embedded citation names the residual obstruction clause.
+
+Excerpt read: (c)(2) otherwise obstructs, influences, or impedes any official proceeding, or attempts to do so
+
+- https://www.law.cornell.edu/uscode/text/18/1512
+
+### Second check: not required
+
+
+## ADD-BOOK-001: Kevin Flynn & Gary Gerhardt, The Silent Brotherhood: Inside America’s Racist Underground
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf; location: Kehoe.pdf slip p.2 n.2.
+
+Authority type: book; as written: The Silent Brotherhood: Inside America’s Racist Underground, by Kevin Flynn and Gary Gerhardt; pincite: .
+
+Cited for: Factual support for description of The Order; not legal precedent
+
+Quotes: []
+
+Context: Factual support for description of The Order; not legal precedent
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Publisher and catalog records confirm the book exists, but its text was not read. It is factual source material cited by the court, not a legal rule or rubric authority.
+
+Excerpt read: Kehoe n.2: The Order is described in the book The Silent Brotherhood: Inside America’s Racist Underground, by Kevin Flynn and Gary Gerhardt.
+
+- https://www.simonandschuster.net/books/The-Order/Kevin-Flynn/9781668092132
+- https://search.worldcat.org/title/The-Silent-Brotherhood-%3A-inside-America%27s-racist-underground/oclc/19554887
+
+### Second check: not required
+
+
+## ADD-STAT-001: C79, 81, §702.11
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §702.11; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §702.11
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-002: 85 Acts, ch 180, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 85 Acts, ch 180, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 85 Acts, ch 180, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-003: 89 Acts, ch 138, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 89 Acts, ch 138, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 89 Acts, ch 138, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-004: 91 Acts, ch 130, §1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 91 Acts, ch 130, §1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 91 Acts, ch 130, §1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-005: 92 Acts, ch 1163, §117
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 92 Acts, ch 1163, §117; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 92 Acts, ch 1163, §117
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-006: 94 Acts, ch 1023, §69
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 94 Acts, ch 1023, §69; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 94 Acts, ch 1023, §69
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-007: 99 Acts, ch 65, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 99 Acts, ch 65, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 99 Acts, ch 65, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-008: 2001 Acts, ch 3, §1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2001 Acts, ch 3, §1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2001 Acts, ch 3, §1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-009: 2001 Acts, ch 176, §79
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2001 Acts, ch 176, §79; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2001 Acts, ch 176, §79
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-010: 2003 Acts, ch 180, §64
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2003 Acts, ch 180, §64; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2003 Acts, ch 180, §64
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-011: 2004 Acts, ch 1151, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2004 Acts, ch 1151, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2004 Acts, ch 1151, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-012: 2010 Acts, ch 1072, §1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2010 Acts, ch 1072, §1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2010 Acts, ch 1072, §1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-013: 2012 Acts, ch 1002, §3
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2012 Acts, ch 1002, §3; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2012 Acts, ch 1002, §3
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-014: 2013 Acts, ch 30, §248
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2013 Acts, ch 30, §248; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2013 Acts, ch 30, §248
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-015: 2013 Acts, ch 52, §1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2013 Acts, ch 52, §1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2013 Acts, ch 52, §1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-016: 2015 Acts, ch 138, §137, 161, 162
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2015 Acts, ch 138, §137, 161, 162; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2015 Acts, ch 138, §137, 161, 162
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-017: 2021 Acts, ch 102, §4
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2021 Acts, ch 102, §4; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2021 Acts, ch 102, §4
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-018: Iowa Code §232.52 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: §232.52; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-019: Iowa Code §256.146 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 256.146; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-020: Iowa Code §272C.15 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 272C.15; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-021: Iowa Code §670A.1 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 670A.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-022: Iowa Code §718.6 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 718.6; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-023: Iowa Code §723A.1 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 723A.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-024: Iowa Code §808B.3 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 808B.3; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-025: Iowa Code §811.1 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 811.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-026: Iowa Code §915.10 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf Referred to in list.
+
+Authority type: statute; as written: 915.10; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 232.52 , 256.146 , 272C.15 , 670A .1 , 718.6 , 723A .1 , 808B.3 , 811.1 , 915.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-027: Iowa Code §907.3 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf; location: 702.11.pdf editorial see note.
+
+Authority type: statute; as written: §907.3; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read:  811.1 , 915.10 Sentencing options excluded, see §907.3 Sa
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-028: C51, §2773
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2773; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2773
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-029: R60, §4442
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4442; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4442
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-030: C73, §4112
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §4112; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §4112
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-031: C97, §5102
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §5102; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §5102
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-032: C24, 27, 31, 35, 39, § 12921
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 12921; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 12921
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-033: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-034: C79, 81, §704.1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-035: 81 Acts, ch 204, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: 81 Acts, ch 204, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 81 Acts, ch 204, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-036: C79, 81, §704.2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-037: C51, §2773 – 2775
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2773 – 2775; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2773 – 2775
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-038: R60, §4442 – 4444
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4442 – 4444; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4442 – 4444
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-039: C73, §4112 – 4114
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §4112 – 4114; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §4112 – 4114
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-040: C97, §5102 – 5104
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §5102 – 5104; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §5102 – 5104
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-041: C24, 27, 31, 35, 39, § 12921 – 12923
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 12921 – 12923; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 12921 – 12923
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-042: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1, 691.2(1), 691.3
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1, 691.2(1), 691.3; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.1, 691.2(1), 691.3
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-043: C79, 81, §704.3
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.3; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.3
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-044: C51, §2774
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2774; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2774
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-045: R60, §4443
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4443; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4443
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-046: C73, §4113
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §4113; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §4113
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-047: C97, §5103
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §5103; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §5103
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-048: C24, 27, 31, 35, 39, § 12922
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 12922; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 12922
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-049: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.2(2)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.2(2); pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.2(2)
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-050: C79, 81, §704.4
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.4; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.4
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-051: C51, §2775
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2775; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2775
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-052: R60, §4444
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4444; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4444
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-053: C73, §4114
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §4114; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §4114
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-054: C97, §5104
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §5104; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §5104
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-055: C24, 27, 31, 35, 39, § 12923
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 12923; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 12923
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-056: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.3
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.3; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §691.3
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-057: C79, 81, §704.5
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.5; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.5
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-058: C79, 81, §704.6
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.6; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.6
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-059: C79, 81, §704.7
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.7; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.7
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-060: C79, 81, §704.8
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.8; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.8
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-061: C79, 81, §704.9
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.9; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.9
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-062: C79, 81, §704.10
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.10; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.10
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-063: C79, 81, §704.11
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.11; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.11
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-064: C51, §2844
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2844; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2844
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-065: R60, §4553
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4553; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4553
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-066: C73, §4205
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §4205; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §4205
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-067: C97, §5200
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §5200; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §5200
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-068: C24, 27, 31, 35, 39, § 13472
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 13472; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 13472
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-069: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §755.8
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §755.8; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §755.8
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-070: C79, 81, §704.12
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §704.12; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §704.12
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-071: 2017 Acts, ch 69, §37
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §37; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §37
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-072: 97 Acts, ch 166, §1, 2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 97 Acts, ch 166, §1, 2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 97 Acts, ch 166, §1, 2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-073: 2013 Acts, ch 30, §197
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2013 Acts, ch 30, §197; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2013 Acts, ch 30, §197
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-074: 2017 Acts, ch 69, §38
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §38; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §38
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-075: 2017 Acts, ch 69, §39
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §39; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §39
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-076: 2018 Acts, ch 1026, §170
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2018 Acts, ch 1026, §170; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2018 Acts, ch 1026, §170
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-077: 2017 Acts, ch 69, §40
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §40; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §40
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-078: 2017 Acts, ch 69, §41
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §41; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §41
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-079: 2017 Acts, ch 69, §42
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §42; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §42
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-080: 2001 Acts, ch 131, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2001 Acts, ch 131, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2001 Acts, ch 131, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-081: 2013 Acts, ch 30, §261
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2013 Acts, ch 30, §261; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2013 Acts, ch 30, §261
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-082: 2017 Acts, ch 69, §43
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 69, §43; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 69, §43
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-083: Iowa Code §331.307 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: §331.307; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 331.307 , 364.22 , 701.1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-084: Iowa Code §364.22 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: 364.22; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 331.307 , 364.22 , 701.1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-085: Iowa Code §701.1 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: 701.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 331.307 , 364.22 , 701.1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-086: Iowa Code §234.40 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: §234.40; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 234.40 , 280.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-087: Iowa Code §280.21 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: 280.21; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 234.40 , 280.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-088: Iowa Code §236.12 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: §236.12; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 236.12
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-089: Iowa Code §704.13 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf Referred to in list.
+
+Authority type: statute; as written: §704.13; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Read the target primary text in this pass; the printed editorial cross-reference is accurate.
+
+Excerpt read: Referred to in 704.13
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/704.13.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-090: Iowa Code §708.9 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial see note.
+
+Authority type: statute; as written: §708.9; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: eferred to in §704.13 Spring guns and traps, see §708.9 70
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-091: Iowa Code §702.11 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial see note.
+
+Authority type: statute; as written: §702.11; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Read the target primary text in this pass; the printed editorial cross-reference is accurate.
+
+Excerpt read: [C79, 81, §704.6 ] F orcible felony defined, see §702.11 70
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-092: Iowa Code §702.11 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial see note.
+
+Authority type: statute; as written: §702.11; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: VERIFIED
+
+Read the target primary text in this pass; the printed editorial cross-reference is accurate.
+
+Excerpt read: 7 Acts, ch 69, §42 F orcible felony defined, see §702.11 Li
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+- https://www.legis.iowa.gov/docs/code/702.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-093: Iowa Code chapter 670A (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf; location: 704.pdf editorial see note.
+
+Authority type: statute; as written: chapter 670A; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: iability of perpetrator of forcible felony , see chapter 670A 70
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-094: C51, §2758, 2996
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2758, 2996; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2758, 2996
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-095: R60, §4408, 4790
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4408, 4790; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4408, 4790
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-096: C73, §4087, 4425
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §4087, 4425; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §4087, 4425
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-097: C97, §5059, 5490
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §5059, 5490; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §5059, 5490
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-098: C24, 27, 31, 35, 39, § 13162, 13902
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 13162, 13902; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 13162, 13902
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-099: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §719.1, 782.6
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §719.1, 782.6; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §719.1, 782.6
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-100: C79, 81, §706.1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §706.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §706.1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-101: 87 Acts, ch 129, §1
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 87 Acts, ch 129, §1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 87 Acts, ch 129, §1
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-102: Iowa Code §717A.3B (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf; location: 706.1.pdf Referred to in list.
+
+Authority type: statute; as written: 717A.3B; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 717A .3B
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-103: C51, §2591, 2596
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C51, §2591, 2596; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C51, §2591, 2596
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-104: R60, §4214, 4219
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: R60, §4214, 4219; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: R60, §4214, 4219
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-105: C73, §3872, 3877
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C73, §3872, 3877; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C73, §3872, 3877
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-106: C97, §4768, 4773, 4797
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §4768, 4773, 4797; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §4768, 4773, 4797
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-107: S13, §4768
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: S13, §4768; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: S13, §4768
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-108: C24, 27, 31, 35, 39, § 12915, 12918, 12962
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 12915, 12918, 12962; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 12915, 12918, 12962
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-109: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §690.6, 690.9, 697.2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §690.6, 690.9, 697.2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §690.6, 690.9, 697.2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-110: C79, 81, §707.11
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §707.11; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §707.11
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-111: 82 Acts, ch 1239, §2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: 82 Acts, ch 1239, §2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 82 Acts, ch 1239, §2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-112: 2009 Acts, ch 119, §52
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2009 Acts, ch 119, §52; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2009 Acts, ch 119, §52
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-113: 2013 Acts, ch 90, §226
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2013 Acts, ch 90, §226; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2013 Acts, ch 90, §226
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-114: 2014 Acts, ch 1026, §134
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2014 Acts, ch 1026, §134; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2014 Acts, ch 1026, §134
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-115: 2017 Acts, ch 122, §12
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2017 Acts, ch 122, §12; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2017 Acts, ch 122, §12
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-116: 2018 Acts, ch 1026, §171
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2018 Acts, ch 1026, §171; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2018 Acts, ch 1026, §171
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-117: Iowa Code §692A.102 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf Referred to in list.
+
+Authority type: statute; as written: 692A.102; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 692A .102 , 692A .126 , 902.12 , 903A .2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-118: Iowa Code §692A.126 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf Referred to in list.
+
+Authority type: statute; as written: 692A.126; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 692A .102 , 692A .126 , 902.12 , 903A .2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-119: Iowa Code §902.12 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf Referred to in list.
+
+Authority type: statute; as written: 902.12; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 692A .102 , 692A .126 , 902.12 , 903A .2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-120: Iowa Code §903A.2 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf; location: 707.11.pdf Referred to in list.
+
+Authority type: statute; as written: 903A.2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 692A .102 , 692A .126 , 902.12 , 903A .2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-121: C97, §4799, 4810
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C97, §4799, 4810; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C97, §4799, 4810
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-122: C24, 27, 31, 35, 39, § 13081, 13123
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C24, 27, 31, 35, 39, § 13081, 13123; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C24, 27, 31, 35, 39, § 13081, 13123
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-123: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §714.2, 716.11
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §714.2, 716.11; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C46, 50, 54, 58, 62, 66, 71, 73, 75, 77, §714.2, 716.11
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-124: C79, 81, §708.6
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: C79, 81, §708.6; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: C79, 81, §708.6
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-125: 81 Acts, ch 204, §5
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial historical Code note.
+
+Authority type: statute_history; as written: 81 Acts, ch 204, §5; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 81 Acts, ch 204, §5
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-126: 93 Acts, ch 112, §1, 2
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 93 Acts, ch 112, §1, 2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 93 Acts, ch 112, §1, 2
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-127: 2002 Acts, ch 1075, §8
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2002 Acts, ch 1075, §8; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2002 Acts, ch 1075, §8
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-128: 2018 Acts, ch 1041, §127
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf editorial Acts history.
+
+Authority type: statute_history; as written: 2018 Acts, ch 1041, §127; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: 2018 Acts, ch 1041, §127
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-129: Iowa Code §80A.4 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 80A.4; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-130: Iowa Code §708.2 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 708.2; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-131: Iowa Code §708.2A (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 708.2A; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-132: Iowa Code §708.2D (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 708.2D; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-133: Iowa Code §718.6 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 718.6; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-134: Iowa Code §723A.1 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 723A.1; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
+
+### Second check: not required
+
+
+## ADD-STAT-135: Iowa Code §804.21 (2026)
+
+Document: tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf; location: 708.6.pdf Referred to in list.
+
+Authority type: statute; as written: 804.21; pincite: .
+
+Cited for: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Quotes: []
+
+Context: Editorial history or cross-reference in the supplied 2026 Iowa Code print
+
+Fictional by design: False; 
+
+### First check: UNABLE_TO_VERIFY
+
+Read this citation occurrence in the supplied 2026 Iowa Code print, but did not read the underlying historical enactment/code edition or referenced target section. The printed editorial citation alone does not verify its target.
+
+Excerpt read: Referred to in 80A .4 , 708.2 , 708.2A , 708.2D , 718.6 , 723A .1 , 804.21
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf
 
 ### Second check: not required

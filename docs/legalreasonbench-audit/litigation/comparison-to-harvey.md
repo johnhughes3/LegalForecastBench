@@ -11,13 +11,13 @@ LegalReasonBench agreement uses two blind reports. Harvey agreement uses Sol's o
 
 | Category | Harvey final Opus flagged criteria | LegalReasonBench final flagged criteria |
 |---|---|---|
-| legal_error | 159 / 2858 (5.6%) | 1 / 142 (0.7%) |
-| unsupported_fact | 34 / 2858 (1.2%) | 2 / 142 (1.4%) |
-| source_conflict | 72 / 2858 (2.5%) | 4 / 142 (2.8%) |
-| internal_inconsistency | 38 / 2858 (1.3%) | 2 / 142 (1.4%) |
-| ambiguous_or_unjudgeable | 92 / 2858 (3.2%) | 7 / 142 (4.9%) |
-| unrequested_requirement | 106 / 2858 (3.7%) | 5 / 142 (3.5%) |
-| document_defect | 78 / 2858 (2.7%) | 0 / 142 (0.0%) |
+| legal_error | 159 / 2858 (5.6%) | 10 / 179 (5.6%) |
+| unsupported_fact | 34 / 2858 (1.2%) | 5 / 179 (2.8%) |
+| source_conflict | 72 / 2858 (2.5%) | 3 / 179 (1.7%) |
+| internal_inconsistency | 38 / 2858 (1.3%) | 2 / 179 (1.1%) |
+| ambiguous_or_unjudgeable | 92 / 2858 (3.2%) | 9 / 179 (5.0%) |
+| unrequested_requirement | 106 / 2858 (3.7%) | 7 / 179 (3.9%) |
+| document_defect | 78 / 2858 (2.7%) | 0 / 179 (0.0%) |
 
 Category denominators are criteria covered by each final report; categories overlap and do not sum to an error rate.
 

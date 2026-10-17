@@ -18,9 +18,9 @@ Category totals count distinct task-criterion pairs within each category. They m
 |---|---|---|---|
 | legal_error | 0 / 12 (0.0%) | 0 / 12 (0.0%) | 0 / 12 (0.0%) |
 | unsupported_fact | 0 / 12 (0.0%) | 0 / 12 (0.0%) | 0 / 12 (0.0%) |
-| source_conflict | 0 / 12 (0.0%) | 2 / 12 (16.7%) | 2 / 12 (16.7%) |
+| source_conflict | 0 / 12 (0.0%) | 2 / 12 (16.7%) | 1 / 12 (8.3%) |
 | internal_inconsistency | 0 / 12 (0.0%) | 1 / 12 (8.3%) | 0 / 12 (0.0%) |
-| ambiguous_or_unjudgeable | 1 / 12 (8.3%) | 0 / 12 (0.0%) | 0 / 12 (0.0%) |
+| ambiguous_or_unjudgeable | 1 / 12 (8.3%) | 0 / 12 (0.0%) | 1 / 12 (8.3%) |
 | unrequested_requirement | 1 / 12 (8.3%) | 0 / 12 (0.0%) | 1 / 12 (8.3%) |
 | document_defect | 0 / 12 (0.0%) | 0 / 12 (0.0%) | 0 / 12 (0.0%) |
 
