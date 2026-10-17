@@ -6,9 +6,9 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 2.
+Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 0.
 
-Problem rate: unavailable; coverage or checks pending.
+Problem rate: 3.1% (71 / 2296) among recorded citations; coverage incomplete.
 
 Final statuses for completed real-citation checks only:
 
@@ -18,8 +18,8 @@ Final statuses for completed real-citation checks only:
 | VERIFIED_MINOR_DEFECT | 105 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
-| MISCHARACTERIZED | 45 |
-| MISQUOTED | 4 |
+| MISCHARACTERIZED | 46 |
+| MISQUOTED | 5 |
 | WRONG_CITATION_REAL_CASE | 20 |
 | UNABLE_TO_VERIFY | 573 |
 

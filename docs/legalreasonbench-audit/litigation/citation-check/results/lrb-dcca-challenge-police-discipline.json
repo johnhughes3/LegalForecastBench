@@ -1787,6 +1787,20 @@
           "https://www.courtlistener.com/opinion/516104/w-lloyd-grafton-v-department-of-the-treasury/"
         ],
         "excerpt_read": "Grafton, 864 F.2d 140: \"a suspension of not more than 30 days would fall within the tolerable limits of reasonableness ... Douglas v. Veterans Admin., 5 MSPB 313, 332, 5 M.S.P.R. 280, 306 (1981).\""
+      },
+      "second_check": {
+        "revised_status": "MISCHARACTERIZED",
+        "explanation": "I tried to overturn Sol's MISCHARACTERIZED and could not, although I correct one detail. The case at the citation is right: the uploaded Douglas opinion carries MSPB-reporter pagination, 5 MSPB 313-346 (printed footers 313 through 346), and the Award pins 'Cf. Douglas, 5 M.S.P.R. at 306' for the 'tolerable limits of reasonableness' standard. In the upload, that standard sentence starts at the foot of printed p. 332 ('the Board's review of an agency-imposed penalty is essentially to assure that the agency did conscien-') and finishes at the top of p. 333 ('tiously consider the relevant factors and did strike a responsible balance within tolerable limits of reasonableness'). Four courts pin the same passage to 5 M.S.P.R. 306. Grafton (Fed. Cir.) gives '5 MSPB 313, 332, 5 M.S.P.R. 280, 306' for tolerable limits. Love v. D.C. OEA, 90 A.3d 412 (D.C. 2014), quotes the full sentence and cites 'Douglas, 5 M.S.P.R. at 306' (n.22). Kemp (Fed. Cir. 2006) uses 306 for 'not all factors pertinent', which is on upload p. 332. McNab (MSPB 2014) uses 306 for 'not to be evaluated mechanistically', which is on upload p. 333. So 5 M.S.P.R. 306 corresponds to upload pp. 332-333, not to p. 332 alone as Sol and the first check say. The Award's pin is the canonical pin for exactly the proposition it cites. Criterion 9 (+30) rewards saying the citation 'does not correspond to any page of the uploaded Douglas opinion', and its source field adds 'paginated 313 to 346'. That exposes the author's premise: 306 falls outside the upload's range, so the pin is defective. The premise is false, and in its ordinary cite-check sense 'correspond' is false too, because the M.S.P.R. page does correspond to upload pp. 332-333. The strongest counter-reading is the one the reconciliation took: at the page-label level no upload page reads '306', so the statement is 'literally true', and a closed-universe solver cannot prove the mapping without outside sources. I considered VERIFIED_MINOR_DEFECT on that basis and rejected it. The closed universe itself signals the parallel pagination: the prompt labels the upload 'Douglas v. Veterans Administration, 5 M.S.P.R. 280 (1981)' even though its first printed page is 313, and other criteria in this dataset cite '5 M.S.P.R. 280, 305-06' to this same upload. The dataset therefore treats M.S.P.R. pins as mapping onto this document. A response that correctly reports the 306-to-332/333 correspondence contradicts the criterion's wording, so it is unlikely to earn the 30 points, while a response that calls a correct pin an error does earn them. Residual uncertainty: I read no M.S.P.R.-paginated copy of Douglas. The 306 mapping rests on four courts' pins plus the content match in the MSPB-paginated primary text, not on reading the M.S.P.R. page itself.",
+        "source_urls": [
+          "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf",
+          "https://www.courtlistener.com/opinion/516104/w-lloyd-grafton-v-department-of-the-treasury/",
+          "https://www.courtlistener.com/opinion/2672919/darryl-love-and-alphonso-bryant-v-district-of-columbia-office-of-employee-appeals-and-district-of-columbia-department-of-corrections/",
+          "https://www.courtlistener.com/opinion/8438912/kemp-v-department-of-veterans-affairs/",
+          "https://www.courtlistener.com/opinion/2740282/sean-mcnab-v-department-of-the-army/"
+        ],
+        "excerpt_read": "Upload p. 332 (foot) to p. 333 (top): 'Rather, the Board's review of an agency-imposed penalty is essentially to assure that the agency did conscien-' / 'tiously consider the relevant factors and did strike a responsible balance within tolerable limits of reasonableness.' Award ¶5: 'I ask whether the Department's conclusions on those factors fall within tolerable limits of reasonableness. Cf. Douglas, 5 M.S.P.R. at 306.' Grafton: 'Douglas v. Veterans Admin., 5 MSPB 313, 332, 5 M.S.P.R. 280, 306 (1981).' Love, 90 A.3d at 445 & n.22: 'review of an agency-imposed penalty is essentially to assure that the agency did conscientiously consider the relevant factors and did strike a responsible balance within tolerable limits of reasonableness' — 'Douglas, 5 M.S.P.R. at 306.'",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (orchestration-configured)"
       }
     },
     {
@@ -16868,6 +16882,19 @@
           "https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/"
         ],
         "excerpt_read": "\"Manifest disregard requires something more than a mere error of law.\""
+      },
+      "second_check": {
+        "revised_status": "MISQUOTED",
+        "explanation": "I tried to overturn Sol's MISQUOTED in favor of the first check's VERIFIED_MINOR_DEFECT and could not. The Eighth Circuit sentence at 374 F.3d 672, 675 reads 'Manifest disregard requires something more than a mere error of law.' I confirmed it in three readings: the CourtListener reporter text with *675 star pagination immediately before the paragraph containing the sentence, a second CourtListener copy, and the court's own slip opinion (govinfo PDF, 4 pages, text extracted this session), which has the same sentence verbatim. No official version supports FOP's wording. The variant is the DCCA's own and not an extraction artifact: the published FOP text on CourtListener and the uploaded FindLaw copy both read '(“Manifest disregard of the law requires something more than a mere error”)'. The difference goes beyond spelling or punctuation. Inside quotation marks, without brackets or ellipses, FOP inserts 'of the law' after 'disregard' and deletes 'of law' from the end. The deletion has some effect: the original says manifest disregard requires more than a mere error of law, while FOP's version says it requires more than a mere error of any kind. The brief's carve-out for harmless spelling and punctuation therefore does not apply, and exact-quotation fidelity fails. Materiality is low. The proposition is substantively the same, it sits in a 'Cf., e.g.' parenthetical supporting a point FOP does not rest on Lincoln National, the pin and citation are correct, and no prompt or criterion targets the quotation.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/786851/lincoln-national-life-insurance-company-lincoln-financial-advisors/",
+          "https://www.courtlistener.com/opinion/3035377/lincoln-national-life-insurance-v-payne/",
+          "https://www.govinfo.gov/content/pkg/USCOURTS-ca8-03-02998/pdf/USCOURTS-ca8-03-02998-0.pdf",
+          "https://www.courtlistener.com/opinion/2085311/fraternal-order-of-policedepartment-of-corrections-labor-committee-v/"
+        ],
+        "excerpt_read": "Lincoln Nat'l, 374 F.3d at *675 (reporter and slip opinion): 'Manifest disregard requires something more than a mere error of law. If an arbitrator, for example, stated the law, acknowledged that he was rendering a decision contrary to law, and said that he was doing so because he thought the law unfair, that would be an instance of \"manifest disregard.\"' FOP, 973 A.2d 174, n.9 (published text and upload PDF p. 7): 'Cf., e.g., Lincoln Nat'l Life Ins. Co. v. Payne, 374 F.3d 672, 675 (8th Cir.2004) (“Manifest disregard of the law requires something more than a mere error”).'",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (orchestration-configured)"
       }
     },
     {
@@ -22211,5 +22238,34 @@
         "files_read_note": "Primary-source URLs associated with the completed reads; private download filenames are omitted."
       }
     }
-  ]
+  ],
+  "new_problem_second_review_coverage": {
+    "files_read": [
+      "AGENTS.md",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-2/input.json (full prompt; all 12 criteria; criterion_9 in full with source and justification)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-2/claude-opus-5-5-audit.md, gpt-6-sol-audit.md, reconciliation.md (criterion_9 passages only, via search)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-1..5/input.json (searched prompts and criteria for DCCA/Superior Court/§ 1-617/timeliness, Lincoln, and manifest disregard)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-5/attachments/assignment-2/douglas_v_veterans_admin.pdf.md (PDF pp. 1-2 and printed pp. 331-333 read; page-footer census 313-346)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-5/attachments/assignment-1/braddock_arbitration_award.pdf.md (¶¶ 5-7)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-5/attachments/assignment-3/fop_doc_labor_comm_v_perb_2009.pdf.md (note 9 at PDF p. 7; posture passages around lines 27 and 72-74; note 8)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-5/attachments/assignment-3/perb_decision_braddock.pdf.md (issue date; searched for review language)",
+      "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-5/attachments/assignment-3/dc_code_1-605.02.pdf.md (searched for review provisions)",
+      "https://www.courtlistener.com/opinion/786851/ (Lincoln Nat'l, full text)",
+      "https://www.courtlistener.com/opinion/3035377/ (Lincoln Nat'l, reporter text with *675 star pagination, first chunk and sentence search)",
+      "https://www.govinfo.gov/content/pkg/USCOURTS-ca8-03-02998/pdf/USCOURTS-ca8-03-02998-0.pdf (slip opinion; text extracted in an isolated directory; sentence located)",
+      "https://www.courtlistener.com/opinion/2085311/ (FOP published text; Lincoln Nat'l parenthetical)",
+      "https://www.courtlistener.com/opinion/516104/ (Grafton; Douglas citation passage)",
+      "https://www.courtlistener.com/opinion/2672919/ (Love; text and n.22)",
+      "https://www.courtlistener.com/opinion/8438912/ and https://www.courtlistener.com/opinion/2740282/ (Kemp and McNab; '5 M.S.P.R. at 306' passages)",
+      "https://code.dccouncil.gov/us/dc/council/code/sections/1-617.13 (full section text, (a)-(d))"
+    ],
+    "limits": [
+      "I read no M.S.P.R.-paginated copy of Douglas; three CourtListener searches for a 1981 MSPB Douglas record returned nothing. The 5 M.S.P.R. 306 to upload pp. 332-333 mapping rests on pins in Grafton, Love, Kemp, and McNab plus content matching in the MSPB-paginated primary text.",
+      "I read the Love, Kemp, and McNab passages by targeted search, not in full.",
+      "I did not read the official A.2d page image of FOP. The FOP variant wording is confirmed in the CourtListener published text and in the uploaded FindLaw copy.",
+      "No solver or judge was run. No score corrections or human-verification claims are made.",
+      "Census: exactly 2 refs (pd-0080 and pd-0696) were checked. Both Sol proposals survived the attempt to overturn them; neither prior judgment was overturned here. For pd-0080, the first check's VERIFIED is superseded by MISCHARACTERIZED, with the page mapping corrected from 332 to 332-333."
+    ],
+    "direct_dcca_premise": "D.C. Code § 1-617.13(c), read verbatim this session, provides that a person aggrieved by a final PERB order 'may obtain review of such order in the Superior Court of the District of Columbia by filing a request within 30 days after the final order has been issued.' The uploaded FOP opinion shows that posture: PERB, then Superior Court, then a DCCA appeal ('After the Superior Court affirmed the PERB's decision, FOP timely appealed to this court'). The DCCA then reviews the PERB decision as if heard initially there, and FOP n.8 cites § 1-617.13(c). The PERB Braddock decision is dated November 6, 2025, and the scenario date is March 2, 2026. The record shows no Superior Court filing or service date. On the face of the record, then, a direct DCCA petition is not the statutory first-instance route, and the 30-day window counted from issuance appears to have run unless a filing exists outside the record. I did not check how Superior Court agency-review rules compute the period or whether any tolling applies. These points concern the scenario premise, not a finding that assignment-5 criterion_1 (+4, 'should petition the DCCA for review') is a rubric error. The prompts instruct the solver to assume a DCCA challenge, and whether that assumption should be honored or flagged is left to reconciliation."
+  }
 }
