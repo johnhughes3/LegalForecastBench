@@ -40,7 +40,8 @@
       "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
       "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.",
       "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.",
-      "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history."
+      "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.",
+      "A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect."
     ],
     "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
     "counts": {
@@ -3562,12 +3563,24 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The parties' collective bargaining agreement Article 12 was not retrieved. Judicial references to Article 12 establish that it exists but do not verify the grievance-route wording in the agreement.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The MPD-FOP collective bargaining agreement exists, and MPD v. PERB, 901 A.2d 784 (D.C. 2006), discusses its Article 12 (Section 6) in a discipline dispute, but the agreement's text was not retrieved, so the grievance-route reference was not checked.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1998358/district-of-columbia-metropolitan-police-department-v-district-of-columbia/"
         ],
         "excerpt_read": "MPD v. PERB, 901 A.2d at 789: \"Here the parties bargained for the arbitrator's interpretation of Article 12, Section 6\"."
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Article 12 of the parties' collective bargaining agreement.",
+        "Searched the MPD-FOP agreement and official labor-contract sources; only judicial references, not the signed agreement text, were readable."
+      ]
     },
     {
       "ref": "pd-0162",
@@ -4997,11 +5010,25 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://edpm.dc.gov/chapter/16/"
+        ],
+        "excerpt_read": "Amended section 1601.5 ... to add the provisions of Title V",
+        "explanation": "The D.C. personnel department's official Chapter 16 addendum records the 53 DCR 3974 amendment and identifies Title V. The enacted Title V is also readable at https://code.dccouncil.gov/us/dc/council/laws/15-194. This is a historical amendment claim, not a claim about today's §1601.5.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Title V of the Omnibus Public Safety Agency Reform Amendment Act of 2004.",
+        "Read primary legal text at https://edpm.dc.gov/chapter/16/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0226",
@@ -5092,11 +5119,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "any decision under subsection (b) of this section shall be final unless",
+        "explanation": "Original 1978 Act, 92 Stat. 1139, §7701(e)(1), allows timely petition for Board review or Board reopening on its own motion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 U.S.C. 7701(e)(l).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2019-title5/html/USCODE-2019-title5-partIII-subpartF-chap77-sec7701.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0230",
@@ -5165,11 +5207,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "The final MSPB rule at 44 Fed. Reg. 38352 (June 29, 1979), §1201.36(a)(1), expressly defines consolidation of appeals; it predates the 1980 cited edition and matches the pin.",
+        "source_urls": [
+          "https://archives.federalregister.gov/issue_slice/1979/6/29/38295-38351.pdf"
+        ],
+        "excerpt_read": "Consolidation may occur where two or more parties have cases united because they contain identical or similar issues.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 5 C.F.R. 1201.36(a)(l).",
+        "Searched official historical CFR/Federal Register or Army regulation sources; no readable version matching the cited effective date and pin was obtained.",
+        "Read the cited historical primary text at https://archives.federalregister.gov/issue_slice/1979/6/29/38295-38351.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0233",
@@ -5241,10 +5298,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical agency manual, table, or annual report page was not retrieved as readable primary text; references in later opinions do not verify its exact provision.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Civil Service Commission Personnel Manual, Delegations of Authority, sees. 106.01(G), 109.01(C) (May 1975).",
+        "Searched official agency archives and public scans by title, date, section, and page; no readable matching primary page was obtained."
+      ]
     },
     {
       "ref": "pd-0236",
@@ -5314,11 +5383,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "an arbitrator shall be governed by section 7701(c)(1) of this title",
+        "explanation": "Original 1978 Act, 92 Stat. 1212, §7121(e)(2), applies the Board evidentiary standard to covered arbitration.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 U.S.C. 7121(e)(2).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2010-title5/html/USCODE-2010-title5-partIII-subpartF-chap71-subchapIII-sec7121.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0239",
@@ -5386,11 +5470,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "House Report 95-1403, printed pp. 4, 6-7, 18-20, 22-23, read in the official FLRA legislative-history reproduction, describes transfer of appellate authority, Board structure, and appellate process. These pages support the Board's quasi-judicial/appellate role; the legislative proposal details are historical, not necessarily the final enacted wording.",
+        "source_urls": [
+          "https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%201.pdf"
+        ],
+        "excerpt_read": "The Merit Systems Protection Board will take over the appellate authority now vested in the Civil Service Commission.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: H.Rep. No. 95-1403, 95th Cong., 2d Sess. 4, 6-7, 18-20, 22-23 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read the cited historical primary text at https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%201.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0242",
@@ -5459,10 +5558,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited edition and pages of this article or treatise were not retrieved as readable text. A court's quotation or a catalog result cannot verify the original work's wording.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Guttman, The Development and Exercise of Appellate Powers in Adverse Action Appeals, 19 Am. U. L. Rev. 323, 333-51, 365-66 (1970).",
+        "Searched journal/book repositories and public previews for the exact edition and pages; no full matching primary passage was read."
+      ]
     },
     {
       "ref": "pd-0245",
@@ -5531,13 +5642,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/mctiernan-v-gronouski-ca2-1964"
+        ],
+        "excerpt_read": "de novo hearing",
+        "explanation": "The opinion at 337 F.2d 35 describes the Commission hearing as de novo.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to McTiernan v. Gronouski (337 F.2d 31; cluster 8883322). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8883322/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: McTiernan v. Gronouski, 337 F.2d 31, 35-36 <2d Cir. 1964).",
+        "Read primary legal text at https://law.counselstack.com/opinion/mctiernan-v-gronouski-ca2-1964 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0248",
@@ -5607,13 +5732,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://app.midpage.ai/document/elsie-inez-goodman-owner-goodman-328559"
+        ],
+        "excerpt_read": "review of the sanction",
+        "explanation": "The Fifth Circuit opinion discusses de novo judicial review of food-stamp sanctions, including sanction validity. This is an analogy outside federal personnel law.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Goodman v. United States (518 F.2d 505; cluster 328559). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/328559/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Goodman v. United States, 518 F.2d 505 (5th Cir. 1975).",
+        "Read primary legal text at https://app.midpage.ai/document/elsie-inez-goodman-owner-goodman-328559 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0251",
@@ -5687,12 +5826,24 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited opinion's full text at the specified pin was not read after targeted search. A citation index or a related opinion cannot verify this row's proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to United States v. Daniels (418 F.Supp. 1074; cluster 1602940). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1602940/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: United States v. Daniels, 418 F.Supp. 1074, 1080-81 (D. S.Dak. 1976).",
+        "Searched public judicial-opinion reproductions and CourtListener; CourtListener pages returned an access challenge in this session, and no alternate cited pin was read."
+      ]
     },
     {
       "ref": "pd-0254",
@@ -5765,11 +5916,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Original Civil Service Reform Act, Pub. L. 95-454 §202(a), 92 Stat. 1122, enacted 5 U.S.C. §1205(a)(1). It directs the Board to hear and adjudicate matters within its jurisdiction under title 5, title 38 §2023, or any other law, rule, or regulation, and to take final action subject to law. The printed original text resolves the historical pin; the citation renders numeral 1 as OCR letter l.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "hear, adjudicate, or provide for the hearing or adjudication",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 5 U.S.C. 1205(a)(l).",
+        "Searched GovInfo Statutes at Large and historical Code; the relevant historical full-text page was unavailable or exceeded web retrieval limits.",
+        "Read the cited historical primary text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0257",
@@ -5863,13 +6029,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/543/f2d/1284/pascal-v-united-states"
+        ],
+        "excerpt_read": "neither the agency nor the Civil Service Commission",
+        "explanation": "The cited footnote discusses the agency and Commission's penalty discretion and finds no abuse.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Pascal v. United States (543 F.2d 1284; cluster 8616672). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8616672/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Pascal v. United States, 543 F.2d 1284, 1287 n.3 (Ct. Cl. 1976).",
+        "Read primary legal text at https://openjurist.org/543/f2d/1284/pascal-v-united-states and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0261",
@@ -5942,13 +6122,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USREPORTS-411/pdf/USREPORTS-411-182.pdf"
+        ],
+        "excerpt_read": "choice of sanction was a matter of agency discretion",
+        "explanation": "The U.S. Reports opinion at 411 U.S. 185-86 limits judicial substitution of a penalty within an agency's statutory authority.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Butz v. Glover Livestock Commission Co. (411 U.S. 182; cluster 108756). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/108756/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Butz v. Glover Livestock Commission Co., 411 U.S. 182 (1973).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USREPORTS-411/pdf/USREPORTS-411-182.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0264",
@@ -6017,13 +6211,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/379/fsupp/1044/henley-v-united-states-1378226"
+        ],
+        "excerpt_read": "punishment selected is beyond our scope of review",
+        "explanation": "Henley at 1049 states this about penalty and then limits its own review to the Commission's factual findings.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Henley v. United States (379 F.Supp. 1044; cluster 1378226). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1378226/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Henley v. United States, 379 F.Supp. 1044, 1049 (M.D. Pa. 1974).",
+        "Read primary legal text at https://openjurist.org/379/fsupp/1044/henley-v-united-states-1378226 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0267",
@@ -6095,13 +6303,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/michael-g-heffron-v-the-united-states-cc-1969"
+        ],
+        "excerpt_read": "disproportionate to the offense",
+        "explanation": "The Court of Claims opinion discusses agency penalty discretion and its disproportionate-penalty limit.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Heffron v. United States (405 F.2d 1307; cluster 283157). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/283157/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Heffron v. United States, 405 F.2d 1307, 1310 (Ct. Cl. 1969).",
+        "Read primary legal text at https://law.counselstack.com/opinion/michael-g-heffron-v-the-united-states-cc-1969 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0270",
@@ -6172,13 +6394,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/379/fsupp/1044/henley-v-united-states-1378226"
+        ],
+        "excerpt_read": "punishment selected is beyond our scope of review",
+        "explanation": "Henley at 1049 states this about penalty and then limits its own review to the Commission's factual findings.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Henley v. United States (379 F.Supp. 1044; cluster 1378226). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1378226/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Henley v. United States, supra.",
+        "Read primary legal text at https://openjurist.org/379/fsupp/1044/henley-v-united-states-1378226 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0273",
@@ -6274,11 +6510,28 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "The original Veterans' Preference Act, 58 Stat. 390-91, §§11, 14, 19, assigns the Commission appeals and administration/enforcement functions. The 1947 amendment at 61 Stat. 723 makes its final corrective recommendation mandatory on the agency; the 1948 amendment at 62 Stat. 575 similarly requires compliance for §19 appeals. This verifies the cited Commission enforcement role in the opinion's historical context.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-58/pdf/STATUTE-58-Pg387.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-61/pdf/STATUTE-61-Pg723.pdf",
+          "https://www.govinfo.gov/content/pkg/STATUTE-62/pdf/STATUTE-62-Pg575.pdf"
+        ],
+        "excerpt_read": "the Civil Service Commission shall submit its findings and recommendations ... mandatory ... corrective action",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Veterans Preference Act.",
+        "Searched GovInfo Statutes at Large and historical Code; the relevant historical full-text page was unavailable or exceeded web retrieval limits.",
+        "Read primary text at https://www.govinfo.gov/content/pkg/STATUTE-58/pdf/STATUTE-58-Pg387.pdf and compared the cited authority with the surrounding proposition."
+      ]
     },
     {
       "ref": "pd-0277",
@@ -6351,13 +6604,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/586/f2d/1007/phillips-v-bergland"
+        ],
+        "excerpt_read": "abuse of discretion",
+        "explanation": "Phillips discusses judicial review of the removal and penalty, including agency discretion and a required nexus. The spelling 'E&rgianA' is extraction/OCR noise, not a different case.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Phillips v. Bergland (586 F.2d 1007; cluster 8919451). The cited page and the proposition were not read in this session. OCR renders the name 'Phillips v. Bergland' as 'Phillips v. E&rgianA'.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8919451/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Phillips v. E&rgianA, 586 F.2d 1007, 1012, 1015 (4th Cir. 1978).",
+        "Read primary legal text at https://openjurist.org/586/f2d/1007/phillips-v-bergland and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0280",
@@ -6430,13 +6697,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1244392/1976-elba-e-wroblaski-v-hampton-528-f-2d-852"
+        ],
+        "excerpt_read": "rational basis",
+        "explanation": "The Seventh Circuit opinion applies narrow judicial review to the personnel action.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Wroblaski v. Hampton (528 F.2d 852; cluster 332212). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/332212/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Wroblaski v. Hampton, 528 F.2d 852, 855-56 (7th Cir. 1976).",
+        "Read primary legal text at https://flexlaw.co/case/1244392/1976-elba-e-wroblaski-v-hampton-528-f-2d-852 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0283",
@@ -6508,13 +6789,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1193317/1965-monahan-v-the-united-states-354-f-2d-306"
+        ],
+        "excerpt_read": "Civil Service Commission",
+        "explanation": "The Court of Claims opinion at 310 treats discipline as within agency and Commission authority.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Monahan v. United States (354 F.2d 306; cluster 270097). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/270097/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Monahan v. United States, 354 F.2d 306,310 (Ct. Cl. 1965).",
+        "Read primary legal text at https://flexlaw.co/case/1193317/1965-monahan-v-the-united-states-354-f-2d-306 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0286",
@@ -6585,13 +6880,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/586/f2d/1070"
+        ],
+        "excerpt_read": "defer to the opinion of the Civil Service Commission",
+        "explanation": "Adkins at 1074 expressly defers to the agency charged with the statute's enforcement.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Adkins v. Hampton (586 F.2d 1070; cluster 360878). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/360878/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Adkins v. Hampton, 586 F.2d 1070, 1074 (5th Cir. 1978).",
+        "Read primary legal text at https://openjurist.org/586/f2d/1070 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0289",
@@ -6697,13 +7006,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1228237/1972-fitzgerald-v-hampton-467-f-2d-755"
+        ],
+        "excerpt_read": "takes affirmative action which affects an individual's legal rights",
+        "explanation": "The quotation is in the D.C. Circuit opinion at 766.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Fitzgerald v. Hampton (467 F.2d 755; cluster 305864). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/305864/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Fitzgerald v. Hampton, 467 F.2d 755, 766 (D.C. Cir. 1972).",
+        "Read primary legal text at https://flexlaw.co/case/1228237/1972-fitzgerald-v-hampton-467-f-2d-755 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0293",
@@ -6778,13 +7101,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1259246/1979-olen-l-byrd-v-campbell-591-f-2d-326"
+        ],
+        "excerpt_read": "severity of the penalty",
+        "explanation": "The Fifth Circuit remands for FEAA/Commission consideration of sanction severity at 331-32.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Byrd v. Campbell (591 F.2d 326; cluster 363022). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/363022/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Byrd v. Campbell, 591 F.2d 326,331-332 (5th Cir. 1979).",
+        "Read primary legal text at https://flexlaw.co/case/1259246/1979-olen-l-byrd-v-campbell-591-f-2d-326 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0296",
@@ -6856,13 +7193,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1244163/1975-wathen-v-the-united-states-527-f-2d-1191"
+        ],
+        "excerpt_read": "choice of penalty",
+        "explanation": "The Court of Claims at 1203 discusses agency and Commission penalty discretion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Wathen v. United States (527 F.2d 1191; cluster 8616475). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8616475/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Wathen v. United States, 527 F.2d 1191,1203 (Ct. Cl. 1975), cert, denied, 429 U.S. 821 (1976).",
+        "Read primary legal text at https://flexlaw.co/case/1244163/1975-wathen-v-the-united-states-527-f-2d-1191 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0299",
@@ -6933,10 +7284,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Clyde Hayes (TVA), No. RB752B50288 (ARE Sept. 19, 1974).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0302",
@@ -7005,10 +7368,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: James D. King, Jr. (Post Office), No. 752B-72- (BAR Sept. 19, 1972).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0305",
@@ -7076,13 +7451,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/425/f2d/472/meehan-v-w-macy"
+        ],
+        "excerpt_read": "reconsider the penalty",
+        "explanation": "Meehan remands for agency reconsideration of penalty. 'Meekan' and 'D.C. Dir.' in extracted text are OCR errors.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Meehan v. Macy (425 F.2d 472; cluster 289838). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/289838/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 425 F.2d at 473.",
+        "Read primary legal text at https://openjurist.org/425/f2d/472/meehan-v-w-macy and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0308",
@@ -7150,13 +7539,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/boyce-v-united-states-cc-1976"
+        ],
+        "excerpt_read": "penalty was excessive",
+        "explanation": "The Court of Claims opinion reverses the Commissioners' reinstatement of removal without adequate explanation of proportionality.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Boyce v. United States (543 F.2d 1290; cluster 8616666). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8616666/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Boyce v. United States, 543 F.2d 1290 (Ct. Cl. 1976).",
+        "Read primary legal text at https://law.counselstack.com/opinion/boyce-v-united-states-cc-1976 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0311",
@@ -7225,10 +7628,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: No. RB752B70253 (ARE Sept. 9, 1977).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0314",
@@ -7297,10 +7712,25 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The 1978 Reorganization Plan §202(a)-(b) directly cross-references former 5 U.S.C. §1104(a)(5) and (b)(4) as sources of CSC appellate and enforcement functions, but the exact 1977 Code text of §1104 itself was not read. The plan corroborates the proposition; it does not permit a VERIFIED status for this historical Code citation.",
+        "source_urls": [
+          "https://www.presidency.ucsb.edu/documents/federal-civil-service-reorganization-message-the-congress-transmitting-reorganization-plan"
+        ],
+        "excerpt_read": "functions ... pursuant to 5 U.S.C. 1104(a)(5) and (b)(4) to enforce decisions",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 5 U.S.C. 1104(a)(5) and (b)(4) (1977).",
+        "Searched GovInfo Statutes at Large and historical Code; the relevant historical full-text page was unavailable or exceeded web retrieval limits.",
+        "Read original Reorganization Plan §202 and its Presidential transmittal; former §1104 historical Code text remained inaccessible."
+      ]
     },
     {
       "ref": "pd-0317",
@@ -7373,13 +7803,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1259246/1979-olen-l-byrd-v-campbell-591-f-2d-326"
+        ],
+        "excerpt_read": "severity of the penalty",
+        "explanation": "The Fifth Circuit remands for FEAA/Commission consideration of sanction severity at 331-32.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Byrd v. Campbell (591 F.2d 326; cluster 363022). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/363022/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Byrd v. Campbell, 591 F.2d 326, 331-32 (5th Cir. 1979).",
+        "Read primary legal text at https://flexlaw.co/case/1259246/1979-olen-l-byrd-v-campbell-591-f-2d-326 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0320",
@@ -7455,10 +7899,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: No. 752B-73-666 (BAR April 17, 1973).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0323",
@@ -7529,13 +7985,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1266988/1980-francisco-v-campbell-625-f-2d-266"
+        ],
+        "excerpt_read": "penalty imposed",
+        "explanation": "The Ninth Circuit at 269-70 considers proportionality and penalty factors. 'rancisco' is OCR loss of the initial letter.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Francisco v. Campbell (625 F.2d 266; cluster 380094). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/380094/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Francisco v. Campbell, 625 F.2d 266 (9th Cir. 1980).",
+        "Read primary legal text at https://flexlaw.co/case/1266988/1980-francisco-v-campbell-625-f-2d-266 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0326",
@@ -7607,13 +8077,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/cuiffo-v-united-states-cc-1955"
+        ],
+        "excerpt_read": "320 days",
+        "explanation": "The Court of Claims at 950 rejects a suspension far beyond the proper ten-day period.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Cuiffo v. United States (137 F.Supp. 944; cluster 1480354). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1480354/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Cuiffo v. United States, 137 F.Supp. 944, 950 (Ct. Cl. 1955).",
+        "Read primary legal text at https://law.counselstack.com/opinion/cuiffo-v-united-states-cc-1955 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0329",
@@ -7686,11 +8170,25 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Merit Systems Protection Board",
+        "explanation": "The 1978 plan §201(a) redesignates the Commission as MSPB; §202 preserves hearing, appeal, and enforcement functions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Reorganization Plan No. 2 of 1978 ... Section 202.",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0332",
@@ -7761,11 +8259,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Original Civil Service Reform Act, Pub. L. 95-454 §202(a), 92 Stat. 1122, enacted 5 U.S.C. §1205(a)(1). It directs the Board to hear and adjudicate matters within its jurisdiction under title 5, title 38 §2023, or any other law, rule, or regulation, and to take final action subject to law. The printed original text resolves the historical pin; the citation renders numeral 1 as OCR letter l.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "hear, adjudicate, or provide for the hearing or adjudication",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Section 1205(a) of Title 5, as enacted by the Reform Act, sec. 202(a), 92 Stat. 1122.",
+        "Searched GovInfo Statutes at Large and historical Code; the relevant historical full-text page was unavailable or exceeded web retrieval limits.",
+        "Read the cited historical primary text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0335",
@@ -7836,13 +8349,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/feldman-v-united-states-cc-1960"
+        ],
+        "excerpt_read": "1947",
+        "explanation": "Feldman at 395-96 recounts the 1947 regulations and the effect on Commission review.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Feldman v. United States (181 F.Supp. 393; cluster 1496537). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1496537/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Feldman v. United States, 181 F.Supp. 393, 395-96 (Ct. CL 1960).",
+        "Read primary legal text at https://law.counselstack.com/opinion/feldman-v-united-states-cc-1960 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0338",
@@ -7914,13 +8441,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/168/825/1544799/"
+        ],
+        "excerpt_read": "vacated",
+        "explanation": "The First Circuit vacated and remanded the district judgment in Wettre on Veterans' Preference Act grounds; the procedural citation is accurate.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Wettre v. Hague (1st Cir.) (168 F.2d 825; cluster 1544799). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1544799/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: vacated and remanded on other grounds, 168 F.2d 825 (1st Cir. 1948).",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/168/825/1544799/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0341",
@@ -7993,11 +8534,25 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-63/pdf/STATUTE-63-Pg1067-2.pdf"
+        ],
+        "excerpt_read": "hearing of appeals ... disciplinary action",
+        "explanation": "Section 2(a)(6)(iv) of the 1949 plan expressly preserves appeal hearing and final action over disciplinary matters.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: section 2(a)(6) of Reorganization Plan No. 5 of 1949, 14 Fed. Reg. 5227, 63 Stat. 1067.",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/STATUTE-63/pdf/STATUTE-63-Pg1067-2.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0344",
@@ -8066,11 +8621,25 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf"
+        ],
+        "excerpt_read": "Merit Systems Protection Board",
+        "explanation": "The 1978 plan §201(a) redesignates the Commission as MSPB; §202 preserves hearing, appeal, and enforcement functions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Sec. 201(a), H.Doc. No. 95-341, 95th Cong., 2d Sess., 92 Stat. 3784, 5 U.S.C. 1101 note.",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0347",
@@ -8140,11 +8709,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Original §1205(a)(1), 92 Stat. 1122, includes sources of Board jurisdiction beyond its own title. This supports the narrow proposition that §1205(a) is not the sole source of authority, while not by itself proving the scope of every surviving pre-1978 function.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "under this title, section 2023 of title 38, or any other law, rule, or regulation",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Section 1205(a).",
+        "Searched GovInfo Statutes at Large and historical Code; the relevant historical full-text page was unavailable or exceeded web retrieval limits.",
+        "Read the cited historical primary text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0350",
@@ -8214,10 +8798,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited congressional report, hearing, message, or Comptroller General report at the stated page was not retrieved as readable primary text; bibliographic/index matches alone do not verify the proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: H.Rep. No. 95-13%, 95th Cong., 2d Sess. 1-2, 5-6, 9-11 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read."
+      ]
     },
     {
       "ref": "pd-0353",
@@ -8288,10 +8884,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited congressional report, hearing, message, or Comptroller General report at the stated page was not retrieved as readable primary text; bibliographic/index matches alone do not verify the proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: S.Rep. No. 95-1049, supra, at 2.",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read."
+      ]
     },
     {
       "ref": "pd-0356",
@@ -8359,11 +8967,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "House Report 95-1403, printed pp. 4 and 6, describes the Board taking over the Commission's appellate authority. It supports functional continuity at that level; it does not independently establish that every Board power was unchanged by the final Act.",
+        "source_urls": [
+          "https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%201.pdf"
+        ],
+        "excerpt_read": "The Merit Systems Protection Board will take over the appellate authority now vested in the Civil Service Commission.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: H.Rep. No. 95-1403, 95th Cong., 2d Sess. 4, 6 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read the cited historical primary text at https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%201.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0359",
@@ -8433,11 +9056,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Senate Report 80-568, printed pp. 1-3, was read in its official Serial Set facsimile. It explains why Commission recommendations under the Veterans' Preference Act should bind agencies and addresses management-prerogative objections. This supports the opinion's historical account of the 1947 amendment.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/SERIALSET-11116_00_00-199-0568-0000/pdf/SERIALSET-11116_00_00-199-0568-0000.pdf"
+        ],
+        "excerpt_read": "the enforcement of this act shall be just as affirmative as the letter of the law outlines",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: S.Rep. No. 568 on H.R. 966, 80th Cong., 1st Sess. 1-3 (1947).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read printed report page at https://www.govinfo.gov/content/pkg/SERIALSET-11116_00_00-199-0568-0000/pdf/SERIALSET-11116_00_00-199-0568-0000.pdf and checked the cited proposition in context."
+      ]
     },
     {
       "ref": "pd-0362",
@@ -8511,10 +9149,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited congressional report, hearing, message, or Comptroller General report at the stated page was not retrieved as readable primary text; bibliographic/index matches alone do not verify the proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Hearings Before Senate Comm. on Civil Service, on Veterans' Legislation, 80th Cong., 1st. Sess. 29 ... 35 ... (1947).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read."
+      ]
     },
     {
       "ref": "pd-0365",
@@ -8584,11 +9234,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "President Carter's May 23, 1978 transmittal message explicitly describes the reorganization plan and civil-service reform legislation as companions. The Presidential message is reproduced with its full text, including the plan, by the American Presidency Project.",
+        "source_urls": [
+          "https://www.presidency.ucsb.edu/documents/federal-civil-service-reorganization-message-the-congress-transmitting-reorganization-plan"
+        ],
+        "excerpt_read": "I am confident that this Plan and the companion civil service reform legislation will both lead to more effective protection",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Message from the President, supra, at 1.",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read primary text at https://www.presidency.ucsb.edu/documents/federal-civil-service-reorganization-message-the-congress-transmitting-reorganization-plan and compared the cited authority with the surrounding proposition."
+      ]
     },
     {
       "ref": "pd-0368",
@@ -8656,11 +9321,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Senate Report 95-969, printed p. 2 n.1, states that the committee also considered Reorganization Plan No. 2 while considering the reform bill. This supports the opinion's paired-enactments context; the report does not itself decide their legal interaction.",
+        "source_urls": [
+          "https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf"
+        ],
+        "excerpt_read": "During its consideration of S. 2640, the committee has also had under consideration Reorganization Plan No. 2 of 1978",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: S.Rep. No. 95-969 on S.2640, 95th Cong., 2d Sess. 2, note 1 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read the cited historical primary text at https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0371",
@@ -8730,13 +9410,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/419/102"
+        ],
+        "excerpt_read": "repeals by implication are disfavored",
+        "explanation": "At 419 U.S. 133-34 the Court applies the canon that compatible statutes should both be given effect. 'Rait' is OCR for Rail.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Regional Rail Reorganization Act Cases (419 U.S. 102; cluster 109117). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/109117/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Regional Rait Reorganization Act Cases, 419 U.S. 102,133-34 (1974).",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/419/102 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0374",
@@ -8831,11 +9525,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Senate Report 95-969, printed p. 9, discusses prolonged appeals and the burden on employees and managers. It is relevant to Douglas's concern about repeated appeals but is not a specific finding about penalty mitigation or serial appeals.",
+        "source_urls": [
+          "https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf"
+        ],
+        "excerpt_read": "The lengthy and complex appeals processes adversely affect employees and managers alike.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: S.Rep. No. 95-969 on S.2640, 95th Cong., 2d Sess. 9 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read the cited historical primary text at https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0378",
@@ -8906,10 +9615,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited edition and pages of this article or treatise were not retrieved as readable text. A court's quotation or a catalog result cannot verify the original work's wording.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Merrill, Procedures for Adverse Actions Against Federal Employees, 59 Va. L. Rev. 196, 258-60 (1973).",
+        "Searched journal/book repositories and public previews for the exact edition and pages; no full matching primary passage was read."
+      ]
     },
     {
       "ref": "pd-0381",
@@ -8977,11 +9698,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "GAO's original B-179810 report, printed p. 23, lists this as an objection raised against giving Commission appeals bodies mitigation authority, then responds that agencies can document operational effects. The cited proposition is verified as a reported objection, not a GAO endorsement of that objection.",
+        "source_urls": [
+          "https://www.gao.gov/assets/b-179810.pdf"
+        ],
+        "excerpt_read": "The Commission was not aware of how much employee misconduct adversely affected agency operations",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Report to Congress by the Comptroller General, id. at 23.",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read printed report page at https://www.gao.gov/assets/b-179810.pdf and checked the cited proposition in context."
+      ]
     },
     {
       "ref": "pd-0384",
@@ -9050,11 +9786,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "The final MSPB rule at 44 Fed. Reg. 38353 (June 29, 1979), §1201.41(a)-(b), delegates broad hearing powers to presiding officials. In Douglas this citation follows the Board's statement about presiding officials exercising Board authority; the row's generic Same label is contextual, not quoted text.",
+        "source_urls": [
+          "https://archives.federalregister.gov/issue_slice/1979/6/29/38295-38351.pdf"
+        ],
+        "excerpt_read": "Presiding officials shall conduct fair and impartial hearings and take all necessary action to avoid delay",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 5 C.F.R. 1201.41.",
+        "Searched official historical CFR/Federal Register or Army regulation sources; no readable version matching the cited effective date and pin was obtained.",
+        "Read the cited historical primary text at https://archives.federalregister.gov/issue_slice/1979/6/29/38295-38351.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0387",
@@ -9123,11 +9874,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "in any other case, is supported by a preponderance of the evidence",
+        "explanation": "Original 1978 Act, 92 Stat. 1138, §7701(c)(1)(B), states the preponderance standard for non-performance adverse actions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 U.S.C. 7701(c)(l)(B).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2019-title5/html/USCODE-2019-title5-partIII-subpartF-chap77-sec7701.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0390",
@@ -9198,13 +9964,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/626/181/158096/"
+        ],
+        "excerpt_read": "judgment and discretion",
+        "explanation": "Kulkin at 185 says sanction selection requires administrative judgment and discretion, although in a food-stamp setting.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Kulkin v. Bergland resolves on CourtListener (cluster 380426); the second quoted phrase ('involves not only an ascertainment of the factual circumstances ...') was not searched for in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/380426/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Kulkin v. Bergland, 626 F.2d 181, 185 (1st Cir. 1980).",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/626/181/158096/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0393",
@@ -9301,11 +10081,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "in any other case, is supported by a preponderance of the evidence",
+        "explanation": "Original 1978 Act, 92 Stat. 1138, §7701(c)(1)(B), states the preponderance standard for non-performance adverse actions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 U.S.C. 7701(c).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2019-title5/html/USCODE-2019-title5-partIII-subpartF-chap77-sec7701.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0397",
@@ -9400,13 +10195,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://calculators.law/caselaw/decisions/1zLRzmMZNgoQ/fuhrman-v-dow"
+        ],
+        "excerpt_read": "assessment of penalties is not a finding",
+        "explanation": "Fuhrman at 398 distinguishes fact finding from the discretionary assessment of a sanction.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Fuhrman v. Dow (540 F.2d 396; cluster 338471). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/338471/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Fuhrman v. Dow, 540 F.2d 396, 398 (8th Cir. 1976).",
+        "Read primary legal text at https://calculators.law/caselaw/decisions/1zLRzmMZNgoQ/fuhrman-v-dow and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0401",
@@ -9477,13 +10286,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/450/91"
+        ],
+        "excerpt_read": "standard of proof",
+        "explanation": "Steadman, 450 U.S. 91, explains that the evidentiary standard quantifies the weight of proof in agency adjudication; the citation's date in the extracted text is off by one day (decision Feb. 25, 1981), likely original/OCR uncertainty.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Steadman v. SEC (U.S.) (450 U.S. 91; cluster 110417). The cited page and the proposition were not read in this session. 49 U.S.L.W. 4174 is the advance-sheet report of 450 U.S. 91 (1981); the attachment gives Feb. 26 here and Feb. 25 at p. 329.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110417/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Steadman v. SEC, 49 U.S.L.W. 4174 (U.S.,Feb. 26, I98l).",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/450/91 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0404",
@@ -9554,10 +10377,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Losure v. ICC, 2 MSPB 361, 366 (1980).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0407",
@@ -9625,13 +10460,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1267340/1980-am-optometric-ass-n-v-fed-trade-comm-n-626-f-2d-896"
+        ],
+        "excerpt_read": "arbitrary-or-capricious standard is to be applied to all other determinations",
+        "explanation": "The D.C. Circuit at 626 F.2d 904 distinguishes review of factual determinations from other agency judgments. The distorted reporter page and party name are OCR artifacts.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to American Optometric Ass'n v. FTC (626 F.2d 896; cluster 7894073). The cited page and the proposition were not read in this session. OCR renders '896' as '8%'.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/7894073/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Amer. Optonuttric Ass'n v. FTC, 626 F.2d 8%, 904 (D.C. Cir. 1980).",
+        "Read primary legal text at https://flexlaw.co/case/1267340/1980-am-optometric-ass-n-v-fed-trade-comm-n-626-f-2d-896 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0410",
@@ -9704,13 +10553,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/power-v-united-states-cc-1976"
+        ],
+        "excerpt_read": "grossly disproportionate",
+        "explanation": "Power reviews the penalty against the agency table and recognizes that gross disproportion may invalidate agency action.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Power v. United States (531 F.2d 505; cluster 8616521). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8616521/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: quoting Power v. United States, 531 F.2d 505 (Ct. Cl. 1976), cert, denied, 444 U.S. 1044 (1980).",
+        "Read primary legal text at https://law.counselstack.com/opinion/power-v-united-states-cc-1976 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0413",
@@ -9781,11 +10644,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "arbitrary, capricious, an abuse of discretion, or otherwise not in accordance with law",
+        "explanation": "Original 1978 Act, 92 Stat. 1144, §7703(c), states the cited judicial-review standard. Original review-forum language differs from later Code editions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Section 7703(c).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2011-title5/html/USCODE-2011-title5-partIII-subpartF.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0416",
@@ -9854,11 +10732,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Senate Report 95-969, printed p. 54, expressly identifies the preexisting Commission preponderance standard. The Senate committee proposal on this page was different from the eventual conference substitute; the citation verifies the historical prior standard only.",
+        "source_urls": [
+          "https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf"
+        ],
+        "excerpt_read": "Currently, when an agency takes adverse action against one of its employees, it must prove by a preponderance of the evidence",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: S. Rep. No. 95-969, 95th Cong., 2d Sess. 54 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read the cited historical primary text at https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0419",
@@ -9926,11 +10819,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "Conference Report 95-1717, printed p. 139, expressly adopts the preponderance standard for misconduct; it supports continuation of the Commission standard in the final Act.",
+        "source_urls": [
+          "https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf"
+        ],
+        "excerpt_read": "The conference substitute in section 7701(c) provides that the standard of proof in misconduct cases will be preponderance of the evidence.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Conference Report No. 95-1717, 95th Cong., 2d Sess. 139 (1978).",
+        "Searched GovInfo, Congress/committee archives, and public scans by report number or title and pin; no matching full primary page was read.",
+        "Read the cited historical primary text at https://www.flra.gov/system/files/webfm/Authority/Archival%20Decisions%20%26%20Leg%20Hist/LEG%20HIST%20OF%20THE%20CSRA%20OF%201978%20Mar%2027%201979%20VOL%202.pdf; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0422",
@@ -10001,10 +10909,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: No. RB752B80194(ARB May 17, 1978.",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0425",
@@ -10073,10 +10993,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Richard R.Sivanson(National Security Agency), No. RB752B60094 (ARE Sept. 3, 1976).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0428",
@@ -10147,10 +11079,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: James F. Lillard (TVA), No. RB752B50289 (ARE Sept. 19, 1974).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0431",
@@ -10221,10 +11165,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: No. RB752B50387 (BAR Dec. 16, 1974).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0434",
@@ -10299,10 +11255,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Margaret E. Boyce (Internal Revenue Service), No. 752B-74-6 (BAR July 3, 1973).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0437",
@@ -10375,10 +11343,25 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "A bibliographic record identifies the cited Fourteenth Report as H. Doc. 314, 55th Cong., 2d Sess., Serial Set 3689, but its page 113 was not read. The linked 35.6 MB report download returned 403 in both web and direct retrieval. The later Douglas opinion quotes the supposed rule, but that opinion is the citing text being checked and cannot itself verify the report or its pin.",
+        "source_urls": [
+          "https://digitalcommons.law.ou.edu/indianserialset/8646/"
+        ],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Fourteenth Report of the Civil Service Commission 113 (1896-1897).",
+        "Searched official agency archives and public scans by title, date, section, and page; no readable matching primary page was obtained.",
+        "Identified the full Fourteenth Report through the University of Oklahoma Serial Set record and attempted its PDF download; both browser and direct requests returned 403, so page 113 could not be read."
+      ]
     },
     {
       "ref": "pd-0440",
@@ -10449,10 +11432,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical agency manual, table, or annual report page was not retrieved as readable primary text; references in later opinions do not verify its exact provision.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Federal Personnel Manual, ch. 751, subch. l-2c (Dec. 21,1976).",
+        "Searched official agency archives and public scans by title, date, section, and page; no readable matching primary page was obtained."
+      ]
     },
     {
       "ref": "pd-0443",
@@ -10523,13 +11518,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/586/f2d/1007/phillips-v-bergland"
+        ],
+        "excerpt_read": "abuse of discretion",
+        "explanation": "Phillips describes limited judicial review of agency sanction and nexus.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Phillips v. Bergland (586 F.2d 1007; cluster 8919451). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8919451/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Phillips v. Bergland, 586 F.2d 1007 (4th Cir. 1978).",
+        "Read primary legal text at https://openjurist.org/586/f2d/1007/phillips-v-bergland and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0446",
@@ -10602,13 +11611,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/boyce-v-united-states-cc-1976"
+        ],
+        "excerpt_read": "penalty was excessive",
+        "explanation": "The Court of Claims opinion reverses the Commissioners' reinstatement of removal without adequate explanation of proportionality.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Boyce v. United States (543 F.2d 1290; cluster 8616666). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8616666/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Boyce v. United States, 543 F.2d 1290 (Ct. Cl. 1976).",
+        "Read primary legal text at https://law.counselstack.com/opinion/boyce-v-united-states-cc-1976 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0449",
@@ -10680,13 +11703,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/200/ctcl/337/grover-v-united-states"
+        ],
+        "excerpt_read": "excessive penalty",
+        "explanation": "Grover at 353-54 states the disproportionate-penalty standard. 'Graver' is OCR for Grover.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Grover v. United States (200 Ct. Cl. 337; cluster 8615698). The cited page and the proposition were not read in this session. The same case is spelled 'Grover' at p. 317; 'Graver' is likely an OCR rendering.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8615698/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Graver v. United States, 200 Ct. CL 337 (1973).",
+        "Read primary legal text at https://openjurist.org/200/ctcl/337/grover-v-united-states and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0452",
@@ -10781,11 +11818,25 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.archives.gov/federal-register/codification/executive-order/09830.html"
+        ],
+        "excerpt_read": "remove, demote, or reassign",
+        "explanation": "The National Archives' codified EO 9830 §§01.1 and 01.3 concerns adverse action for service efficiency. This codification incorporates amendments through 1978; the exact original 1947 wording was not separately checked.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Legislative-history, Federal Register, or executive-branch document; no primary text was retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Exec. Order 9830 of Feb. 24, 1947, §§ 01.1, 01.3, 3 C.F.R. 608 (1943-1948 Comp.).",
+        "Read primary legal text at https://www.archives.gov/federal-register/codification/executive-order/09830.html and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0456",
@@ -10854,10 +11905,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Griffin v. Dept. of Agriculture, 2 MSPB 335,336-37 (1980).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0459",
@@ -10928,11 +11991,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "arbitrary, capricious, an abuse of discretion, or otherwise not in accordance with law",
+        "explanation": "Original 1978 Act, 92 Stat. 1144, §7703(c), states the cited judicial-review standard. Original review-forum language differs from later Code editions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Section 7703(c).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2011-title5/html/USCODE-2011-title5-partIII-subpartF.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0462",
@@ -11043,10 +12121,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited opinion's full text at the specified pin was not read after targeted search. A citation index or a related opinion cannot verify this row's proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unreported slip opinion or order cited by docket number; not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Howard v. United States, No. Civ. LV-77-219 RDF (D. Nev. July 3,1980) (Mem. Order at 9).",
+        "Searched public judicial-opinion reproductions and CourtListener; CourtListener pages returned an access challenge in this session, and no alternate cited pin was read."
+      ]
     },
     {
       "ref": "pd-0466",
@@ -11167,11 +12257,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "a removal; a suspension for more than 14 days",
+        "explanation": "Original 1978 Act, 92 Stat. 1136-37, §§7512-7513, defines covered actions and cause/procedure for adverse actions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Section 7513(a).",
+        "Read primary legal text at https://archives.federalregister.gov/issue_slice/1980/7/11/46769-46783.pdf and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0471",
@@ -11266,11 +12371,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "only for such cause as will promote the efficiency of the service",
+        "explanation": "Original 1978 Act, 92 Stat. 1136-37, §§7512-7513, states the efficiency-of-service cause requirement.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 U.S.C. 7512.",
+        "Read primary legal text at https://archives.federalregister.gov/issue_slice/1980/7/11/46769-46783.pdf and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0475",
@@ -11341,13 +12461,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/586/f2d/1007/phillips-v-bergland"
+        ],
+        "excerpt_read": "abuse of discretion",
+        "explanation": "Phillips discusses judicial review of the removal and penalty, including agency discretion and a required nexus. The spelling 'E&rgianA' is extraction/OCR noise, not a different case.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Phillips v. Bergland (586 F.2d 1007; cluster 8919451). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8919451/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Phillips v. Bergland, 586 F.2d 1007, 1010-11 (4th Cir. 1978).",
+        "Read primary legal text at https://openjurist.org/586/f2d/1007/phillips-v-bergland and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0478",
@@ -11444,11 +12578,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "A contemporaneous D.C. Circuit opinion reproduces §731.202(c): OPM must consider listed additional factors to the extent pertinent to the individual case. This verifies the cited individualized-judgment proposition; the original 1980 CFR page itself was not retrieved.",
+        "source_urls": [
+          "https://flexlaw.co/case/1271404/1981-yacovone-v-bolger-645-f-2d-1028"
+        ],
+        "excerpt_read": "OPM shall consider the following additional factors to the extent that these factors are deemed pertinent to the individual case",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 5 C.F.R. 731.202(c).",
+        "Searched official historical CFR/Federal Register or Army regulation sources; no readable version matching the cited effective date and pin was obtained.",
+        "Read the cited historical primary text at https://flexlaw.co/case/1271404/1981-yacovone-v-bolger-645-f-2d-1028; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0482",
@@ -11521,10 +12670,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical agency manual, table, or annual report page was not retrieved as readable primary text; references in later opinions do not verify its exact provision.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Federal Personnel Manual, ch. 751, subch. l-2a (Dec. 21, 1976).",
+        "Searched official agency archives and public scans by title, date, section, and page; no readable matching primary page was obtained."
+      ]
     },
     {
       "ref": "pd-0485",
@@ -11598,11 +12759,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "a written decision and the specific reasons therefor",
+        "explanation": "Original 1978 Act, 92 Stat. 1136, §7513(b)(4), requires a written decision with specific reasons.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Section 7513(b)(4) of Title 5.",
+        "Read primary legal text at https://archives.federalregister.gov/issue_slice/1980/7/11/46769-46783.pdf and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0488",
@@ -11729,11 +12905,25 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://archives.federalregister.gov/issue_slice/1980/7/11/46769-46783.pdf"
+        ],
+        "excerpt_read": "only the reasons specified in the notice",
+        "explanation": "The official 1980 Federal Register prints §752.404(f)'s notice-reasons restriction.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 C.F.R. 752.404(f).",
+        "Read primary legal text at https://archives.federalregister.gov/issue_slice/1980/7/11/46769-46783.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0493",
@@ -11804,13 +12994,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/iannarelli-v-morton-paed-1971"
+        ],
+        "excerpt_read": "outside the specific charges",
+        "explanation": "At 327 F. Supp. 882 the court rejects Commission reliance on matters outside the actual removal charges; OCR distorts the party name.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Iannarelli v. Morton (327 F.Supp. 873; cluster 8804582). The cited page and the proposition were not read in this session. OCR garbles the name as \"lannarelti '. Morton\".",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8804582/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: lannarelti '. Morton, 327 F.Supp. 873, 882 (E.D. Pa. 1971).",
+        "Read primary legal text at https://law.counselstack.com/opinion/iannarelli-v-morton-paed-1971 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0496",
@@ -11883,11 +13087,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "explanation": "A contemporaneous D.C. Circuit opinion reproduces §731.202(c), including position sensitivity, seriousness, surrounding circumstances, social conditions, and rehabilitation. Those are relevant discretionary factors; the original 1980 CFR page itself was not retrieved.",
+        "source_urls": [
+          "https://flexlaw.co/case/1271404/1981-yacovone-v-bolger-645-f-2d-1028"
+        ],
+        "excerpt_read": "OPM shall consider the following additional factors to the extent that these factors are deemed pertinent to the individual case",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 5 C.F.R. 731.202(c).",
+        "Searched official historical CFR/Federal Register or Army regulation sources; no readable version matching the cited effective date and pin was obtained.",
+        "Read the cited historical primary text at https://flexlaw.co/case/1271404/1981-yacovone-v-bolger-645-f-2d-1028; compared the cited section or printed page with the proposition."
+      ]
     },
     {
       "ref": "pd-0499",
@@ -11955,13 +13174,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://flexlaw.co/case/1266988/1980-francisco-v-campbell-625-f-2d-266"
+        ],
+        "excerpt_read": "penalty imposed",
+        "explanation": "The Ninth Circuit at 269-70 considers proportionality and penalty factors. 'rancisco' is OCR loss of the initial letter.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Francisco v. Campbell (625 F.2d 266; cluster 380094). The cited page and the proposition were not read in this session. The attachment's OCR clips the left margin of this footnote.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/380094/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: rancisco v. Campbell, 625 F.2d 266, 269-70 (9th Cir. 1980).",
+        "Read primary legal text at https://flexlaw.co/case/1266988/1980-francisco-v-campbell-625-f-2d-266 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0502",
@@ -12033,13 +13266,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/624/f2d/1029/tucker-v-united-states"
+        ],
+        "excerpt_read": "manifest abuse of discretion",
+        "explanation": "Tucker at 1034 considers nexus, seriousness, and proportionality and sustains a removal within the agency's discretion.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Tucker v. United States (624 F.2d 1029; cluster 8617889). The cited page and the proposition were not read in this session. The attachment's OCR clips the left margin of this footnote.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8617889/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Tucker v. United States, 624 F.2d 1029, 1034 (Ct. Cl. 1980).",
+        "Read primary legal text at https://openjurist.org/624/f2d/1029/tucker-v-united-states and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0505",
@@ -12113,10 +13360,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited opinion's full text at the specified pin was not read after targeted search. A citation index or a related opinion cannot verify this row's proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unreported slip opinion or order cited by docket number; not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: o. Civ. LV-77-219 RDF (D. Nev. July 3,1980) (Mem. Order at 9).",
+        "Searched public judicial-opinion reproductions and CourtListener; CourtListener pages returned an access challenge in this session, and no alternate cited pin was read."
+      ]
     },
     {
       "ref": "pd-0508",
@@ -12218,10 +13477,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical agency manual, table, or annual report page was not retrieved as readable primary text; references in later opinions do not verify its exact provision.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Federal Personnel Manual, ch. 751, subch. l-2c(l), (2) (Dec. 21, 1976).",
+        "Searched official agency archives and public scans by title, date, section, and page; no readable matching primary page was obtained."
+      ]
     },
     {
       "ref": "pd-0512",
@@ -12323,13 +13594,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/power-v-united-states-cc-1976"
+        ],
+        "excerpt_read": "grossly disproportionate",
+        "explanation": "Power reviews the penalty against the agency table and recognizes that gross disproportion may invalidate agency action.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Power v. United States (531 F.2d 505; cluster 8616521). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8616521/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Power, supra.",
+        "Read primary legal text at https://law.counselstack.com/opinion/power-v-united-states-cc-1976 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0516",
@@ -12401,13 +13686,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/cuiffo-v-united-states-cc-1955"
+        ],
+        "excerpt_read": "320 days",
+        "explanation": "The Court of Claims at 950 rejects a suspension far beyond the proper ten-day period.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Cuiffo v. United States (137 F.Supp. 944; cluster 1480354). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1480354/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Cuiffo v. United States, 137 F.Supp. 944, 950 (Ct. Cl. 1955).",
+        "Read primary legal text at https://law.counselstack.com/opinion/cuiffo-v-united-states-cc-1955 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0519",
@@ -12478,11 +13777,26 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf"
+        ],
+        "excerpt_read": "the decision was not in accordance with law",
+        "explanation": "Original 1978 Act, 92 Stat. 1138, §7701(c)(2)(C), states the not-in-accordance-with-law ground. Douglas's legal-versus-penalty distinction is its interpretation, not explicit statutory text.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Statutory or regulatory citation in a 1981 decision, referring to the 1980 U.S.C.A. or contemporaneous C.F.R. text; that historical version was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 5 U.S.C. 7701(c)(2)(C).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2019-title5/html/USCODE-2019-title5-partIII-subpartF-chap77-sec7701.htm and checked the cited proposition/pin.",
+        "Read original Civil Service Reform Act text at https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf and checked the cited provision against the historical wording."
+      ]
     },
     {
       "ref": "pd-0522",
@@ -12553,13 +13867,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/571/f2d/1063/albert-v-chafee-j-a-cec-usnr-n-n-g"
+        ],
+        "excerpt_read": "so harsh as to be simply illegal",
+        "explanation": "The Ninth Circuit uses this language at 1068 about an excessive sanction.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Albert v. Chafee (571 F.2d 1063; cluster 8916503). The cited page and the proposition were not read in this session. CourtListener dates the decision July 29, 1977; the attachment gives 1977 at p. 331 and 1978 here.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8916503/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Albert v. Chafee, 571 F.2d 1063, 1068 (9th Cir. 1978).",
+        "Read primary legal text at https://openjurist.org/571/f2d/1063/albert-v-chafee-j-a-cec-usnr-n-n-g and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0525",
@@ -12631,10 +13959,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Early MSPB decision reported in the MSPB reporter; its text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Losure v. ICC, 2 MSPB 361, 366 (1980).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0528",
@@ -12704,13 +14044,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://openjurist.org/425/f2d/472/meehan-v-w-macy"
+        ],
+        "excerpt_read": "reconsider the penalty",
+        "explanation": "Meehan remands for agency reconsideration of penalty. 'Meekan' and 'D.C. Dir.' in extracted text are OCR errors.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Meehan v. Macy (425 F.2d 472; cluster 289838). The cited page and the proposition were not read in this session. OCR renders 'Meehan' as 'Meekan'.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/289838/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Meekan v. Macy, 425 F,2d 472 (D.C. Dir. 1969) (en bane).",
+        "Read primary legal text at https://openjurist.org/425/f2d/472/meehan-v-w-macy and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0531",
@@ -12780,10 +14134,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The contemporaneous version of this regulation or internal Army rule at the cited subsection was not retrieved. Later versions or references cannot establish its historical wording.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Army Reg. 600-50.",
+        "Searched official historical CFR/Federal Register or Army regulation sources; no readable version matching the cited effective date and pin was obtained."
+      ]
     },
     {
       "ref": "pd-0534",
@@ -12852,10 +14218,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical agency manual, table, or annual report page was not retrieved as readable primary text; references in later opinions do not verify its exact provision.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Unpublished Civil Service Commission or agency decision, manual, or issuance; no accessible primary text was located or attempted in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Department of Army, Table of Penalty Guidelines.",
+        "Searched official agency archives and public scans by title, date, section, and page; no readable matching primary page was obtained."
+      ]
     },
     {
       "ref": "pd-0537",
@@ -12925,13 +14303,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/ct-cl/1980/617-f2d-233.html"
+        ],
+        "excerpt_read": "disparate treatment",
+        "explanation": "Jones discusses comparison with other cases and rejects the claimed disparate treatment.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Citation resolves on CourtListener citation lookup to Jones v. United States (617 F.2d 233; cluster 8617780). The cited page and the proposition were not read in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/8617780/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Jones v. United States, 617 F.2d 233 (Ct. Cl. 1980).",
+        "Read primary legal text at https://law.justia.com/cases/federal/ct-cl/1980/617-f2d-233.html and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0540",
@@ -13027,6 +14419,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/652/1248/56858/"
+        ],
+        "excerpt_read": "retroactive effect",
+        "explanation": "The Fifth Circuit decision at 652 F.2d 1255 discusses retroactive effect; it is the affirmed judgment in the later Supreme Court Grace case.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears in the Justia print's syllabus (Reporter's headnote), not in the opinion text compared on CourtListener; the same citation appears in the opinion at 461 U.S. 764, where CourtListener's citator links it to W. R. Grace and Company v. Local Union No. 759 (cluster 392036). The Fifth Circuit opinion was not read.",
         "source_urls": [
@@ -13034,7 +14436,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 652 F.2d 1248, affirmed.",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/652/1248/56858/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0544",
@@ -13107,13 +14513,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/461/757"
+        ],
+        "excerpt_read": "§ 301",
+        "explanation": "The Supreme Court opinion identifies both the employer's district-court action and the later challenge as §301 labor-contract litigation.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: § 301 of the Labor Management Relations Act of 1947, 61 Stat. 156, 29 U.S.C. § 185.",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/461/757 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0547",
@@ -13189,13 +14609,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/565/913/286000/"
+        ],
+        "excerpt_read": "section 301",
+        "explanation": "The Southbridge Fifth Circuit opinion is the referenced 565 F.2d 913 reversal and at 917 treats the proceeding under §301.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Southbridge Plastics Division, W. R. Grace & Co. v. Local 759, 565 F.2d 913.",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/565/913/286000/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0550",
@@ -13269,13 +14703,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/461/757"
+        ],
+        "excerpt_read": "§ 301",
+        "explanation": "The Supreme Court opinion identifies both the employer's district-court action and the later challenge as §301 labor-contract litigation.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: § 301 of the Labor Management Relations Act.",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/461/757 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0553",
@@ -13461,13 +14909,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.flexlaw.co/case/1251573/1977-int-l-bhd-of-teamsters-v-wash-emp-rs-inc-557-f-2d-1345"
+        ],
+        "excerpt_read": "a court must evaluate its asserted content",
+        "explanation": "At 557 F.2d 1350 the Ninth Circuit says a court evaluates asserted public policy when invoked against enforcement of an award.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: International Brotherhood of Teamsters v. Washington Employers, Inc., 557 F.2d 1345, 1350 (CA9 1977).",
+        "Read primary legal text at https://www.flexlaw.co/case/1251573/1977-int-l-bhd-of-teamsters-v-wash-emp-rs-inc-557-f-2d-1345 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0561",
@@ -13606,6 +15068,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USREPORTS-330/pdf/USREPORTS-330-258.pdf"
+        ],
+        "excerpt_read": "orders ... must be obeyed",
+        "explanation": "United Mine Workers at 293-94 states the collateral-bar principle for a court injunction until set aside.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to United States v. United Mine Workers of America (cluster 104385). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -13613,7 +15085,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: United States v. Mine Workers, 330 U. S. 258, 330 U. S. 293-294 (1947).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USREPORTS-330/pdf/USREPORTS-330-258.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0567",
@@ -13794,13 +15270,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/461/757"
+        ],
+        "excerpt_read": "28 U.S.C. §§ 2201 and 2202",
+        "explanation": "Grace's footnote mentions the Declaratory Judgment Act but says the employer did not expressly invoke it; the citation's presence and role are verified.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 28 U.S.C. §§ 2201 and 2202.",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/461/757 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0575",
@@ -13874,6 +15364,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/652/1248/56858/"
+        ],
+        "excerpt_read": "retroactive effect",
+        "explanation": "The Fifth Circuit decision at 652 F.2d 1255 discusses retroactive effect; it is the affirmed judgment in the later Supreme Court Grace case.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to W. R. Grace and Company v. Local Union No. 759 (5th Cir. 1981) (cluster 392036). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -13881,7 +15381,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 652 F.2d at 1255.",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/652/1248/56858/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0578",
@@ -13956,6 +15460,22 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "MISCHARACTERIZED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/461/757"
+        ],
+        "excerpt_read": "See Dennison ... 658 F.2d 694",
+        "explanation": "The Grace opinion cites Dennison in footnote 9 for potential judicial alteration of seniority provisions, not for the immediately preceding retroactivity point. The row's 'Same' proposition improperly carries over the prior footnote's topic; the underlying judicial citation itself is genuine.",
+        "proposedintent": {
+          "targeted_by_instructions": false,
+          "targeted_by_criteria": [],
+          "rewards_reliance": [],
+          "explanation": "This is a proposition-label error in extraction of an embedded citation from a real opinion, not evidence of a fabricated authority or strategic reliance by a benchmark respondent."
+        },
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Dennison v. City of Los Angeles Department of Water and Power (cluster 393918). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -13963,7 +15483,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Dennison v. City of Los Angeles Department of Water and Power, 658 F.2d 694, 695-696 (CA9 1981).",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/461/757 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0581",
@@ -14035,10 +15559,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited edition and pages of this article or treatise were not retrieved as readable text. A court's quotation or a catalog result cannot verify the original work's wording.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: id. § 1939, p. 50.",
+        "Searched journal/book repositories and public previews for the exact edition and pages; no full matching primary passage was read."
+      ]
     },
     {
       "ref": "pd-0584",
@@ -14110,6 +15646,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/district-courts/FSupp/403/1183/1560150/"
+        ],
+        "excerpt_read": "declaratory judgment",
+        "explanation": "The Southbridge district opinion at 1187 addresses declaratory relief.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Southbridge Plastics Division, W. R. Grace & Co. v. Local 759 (cluster 1560150). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -14117,7 +15663,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 403 F. Supp. at 1187.",
+        "Read primary legal text at https://law.justia.com/cases/federal/district-courts/FSupp/403/1183/1560150/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0587",
@@ -14190,13 +15740,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/565/913/286000/"
+        ],
+        "excerpt_read": "section 301",
+        "explanation": "The Southbridge Fifth Circuit opinion is the referenced 565 F.2d 913 reversal and at 917 treats the proceeding under §301.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, record, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: 565 F.2d at 917.",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/565/913/286000/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0590",
@@ -14270,6 +15834,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USREPORTS-431/pdf/USREPORTS-431-324.pdf"
+        ],
+        "excerpt_read": "individual relief",
+        "explanation": "Teamsters discusses the governing approach to individual relief following a pattern-or-practice finding.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to International Brotherhood of Teamsters v. United States (cluster 109665). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -14277,7 +15851,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Teamsters v. United States, 431 U. S. 324 (1977).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USREPORTS-431/pdf/USREPORTS-431-324.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0593",
@@ -14349,10 +15927,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited edition and pages of this article or treatise were not retrieved as readable text. A court's quotation or a catalog result cannot verify the original work's wording.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: 18 W. Jaeger, Williston on Contracts § 1931, pp. 7-8 (3d ed.1978).",
+        "Searched journal/book repositories and public previews for the exact edition and pages; no full matching primary passage was read."
+      ]
     },
     {
       "ref": "pd-0596",
@@ -14420,6 +16010,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USREPORTS-105/pdf/USREPORTS-105-433.pdf"
+        ],
+        "excerpt_read": "without a bond",
+        "explanation": "Russell at 437 addresses damages for a wrongfully issued injunction and the bond requirement.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Russell v. Farley (cluster 90597). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -14427,7 +16027,11 @@
           "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Russell v. Farley, 105 U. S. 433, 105 U. S. 437 (1882).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USREPORTS-105/pdf/USREPORTS-105-433.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0599",
@@ -14730,13 +16334,27 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USCODE-2024-title29/pdf/USCODE-2024-title29-chap7-subchapIII-sec173.pdf"
+        ],
+        "excerpt_read": "Final adjustment by a method agreed upon by the parties",
+        "explanation": "The official 2024 Code §173(d) states Congress's preference for agreed grievance adjustment. Amendment notes show subsection (d) has not been changed since 1947; later edition disclosed.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; statutory, arbitral, or secondary citation not separately retrieved in this session.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: The Labor Management Relations Act of 1947, 61 Stat. 154, 29 U.S.C. § 173(d).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USCODE-2024-title29/pdf/USCODE-2024-title29-chap7-subchapIII-sec173.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0611",
@@ -14856,6 +16474,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/USREPORTS-393/pdf/USREPORTS-393-145.pdf"
+        ],
+        "excerpt_read": "10(a)",
+        "explanation": "Commonwealth Coatings applies the FAA's statutory vacatur ground for evident partiality.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Commonwealth Coatings Corp. v. Continental Casualty Co. (cluster 107798). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -14863,7 +16491,11 @@
           "https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Commonwealth Coatings Corp. v. Continental Casualty Co., 393 U. S. 145 (1968).",
+        "Read primary legal text at https://www.govinfo.gov/content/pkg/USREPORTS-393/pdf/USREPORTS-393-145.pdf and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0616",
@@ -15208,6 +16840,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.counselstack.com/opinion/united-states-postal-service-v-american-postal-workers-union-afl-cio-ca1-1984"
+        ],
+        "excerpt_read": "public policy",
+        "explanation": "The First Circuit considers a broader public-policy challenge to an arbitral award.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to United States Postal Service v. American Postal Workers Union, AFL-CIO (cluster 437231). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -15215,7 +16857,11 @@
           "https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: United States Postal Service v. American Postal Workers Union, AFL-CIO, 736 F.2d 822 (CA1 1984).",
+        "Read primary legal text at https://law.counselstack.com/opinion/united-states-postal-service-v-american-postal-workers-union-afl-cio-ca1-1984 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0630",
@@ -15290,6 +16936,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/808/76/173901/"
+        ],
+        "excerpt_read": "public policy exception",
+        "explanation": "The D.C. Circuit construes the public-policy exception to arbitral award enforcement narrowly.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Northwest Airlines, Inc. v. Air Line Pilots Association (cluster 480957). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -15297,7 +16953,11 @@
           "https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Northwest Airlines, Inc. v. Air Line Pilots Assn. International, 257 U.S.App.D.C. 181, 808 F.2d 76 (1987).",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/808/76/173901/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0633",
@@ -15392,10 +17052,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited edition and pages of this article or treatise were not retrieved as readable text. A court's quotation or a catalog result cannot verify the original work's wording.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Treatise, law-review article, restatement, or uniform-law commentary; the cited text was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: F. Elkouri & E. Elkouri, How Arbitration Works 634-635 (3d ed.1973).",
+        "Searched journal/book repositories and public previews for the exact edition and pages; no full matching primary passage was read."
+      ]
     },
     {
       "ref": "pd-0637",
@@ -15472,6 +17144,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://www.law.cornell.edu/supremecourt/text/353/448"
+        ],
+        "excerpt_read": "federal law ... would be fashioned",
+        "explanation": "Lincoln Mills holds that §301 federal courts fashion federal common law to enforce labor contracts.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Textile Workers v. Lincoln Mills of Ala. (cluster 105511). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -15479,7 +17161,11 @@
           "https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Textile Workers v. Lincoln Mills, 353 U. S. 448 (1957).",
+        "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/353/448 and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0640",
@@ -15553,6 +17239,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "VERIFIED",
+        "source_urls": [
+          "https://law.justia.com/cases/federal/appellate-courts/F2/351/576/278522/"
+        ],
+        "excerpt_read": "federal common law",
+        "explanation": "Scalzitti describes federal common-law treatment of labor contracts under §301.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
         "status": "UNABLE_TO_VERIFY",
         "explanation": "Appears identically in the official opinion text on CourtListener; CourtListener's citator links it to Pietro Scalzitti Company v. International Union of Operating Engineers (cluster 269328). The cited page and the proposition were not read in this session.",
         "source_urls": [
@@ -15560,7 +17256,11 @@
           "https://www.courtlistener.com/opinion/111965/united-paperworkers-international-union-v-misco-inc/"
         ],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched exact citation and authority: Pietro Scalzitti Co. v. International Union of Operating Engineers, Local No. 150, 351 F.2d 576 (CA7 1965).",
+        "Read primary legal text at https://law.justia.com/cases/federal/appellate-courts/F2/351/576/278522/ and checked the cited proposition/pin."
+      ]
     },
     {
       "ref": "pd-0643",
@@ -16469,10 +18169,22 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The cited historical personnel-board or PERB decision's own text at the specified pin was not retrieved. Later opinions and citation records are insufficient to confirm its quoted language or proposition.",
+        "source_urls": [],
+        "excerpt_read": "",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "PERB slip opinion (Dexter Allen), PERB Op. No. 825, PERB Case No. 04-A-14 (2006); the PERB decision was not retrieved in this session.",
         "source_urls": [],
         "excerpt_read": ""
-      }
+      },
+      "source_reading_attempts": [
+        "Searched the exact citation and authority name with full-text terms: Slip Op. No. 825 at 11-12, PERB Case No. 04-A-14 (2006).",
+        "Searched official MSPB/PERB decision collections and public opinion reproductions; results were cross-citations or later decisions, not the cited decision text."
+      ]
     },
     {
       "ref": "pd-0681",
@@ -22236,6 +23948,154 @@
           "For named-act short-form rows, VERIFIED is limited to the statutory referent and statutory premise read here. It does not adopt the opinions’ contested legal conclusions or independently establish case-specific facts."
         ],
         "files_read_note": "Primary-source URLs associated with the completed reads; private download filenames are omitted."
+      }
+    },
+    {
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high",
+      "assigned_refs": [
+        "pd-0161",
+        "pd-0225",
+        "pd-0229",
+        "pd-0232",
+        "pd-0235",
+        "pd-0238",
+        "pd-0241",
+        "pd-0244",
+        "pd-0247",
+        "pd-0250",
+        "pd-0253",
+        "pd-0256",
+        "pd-0260",
+        "pd-0263",
+        "pd-0266",
+        "pd-0269",
+        "pd-0272",
+        "pd-0276",
+        "pd-0279",
+        "pd-0282",
+        "pd-0285",
+        "pd-0288",
+        "pd-0292",
+        "pd-0295",
+        "pd-0298",
+        "pd-0301",
+        "pd-0304",
+        "pd-0307",
+        "pd-0310",
+        "pd-0313",
+        "pd-0316",
+        "pd-0319",
+        "pd-0322",
+        "pd-0325",
+        "pd-0328",
+        "pd-0331",
+        "pd-0334",
+        "pd-0337",
+        "pd-0340",
+        "pd-0343",
+        "pd-0346",
+        "pd-0349",
+        "pd-0352",
+        "pd-0355",
+        "pd-0358",
+        "pd-0361",
+        "pd-0364",
+        "pd-0367",
+        "pd-0370",
+        "pd-0373",
+        "pd-0377",
+        "pd-0380",
+        "pd-0383",
+        "pd-0386",
+        "pd-0389",
+        "pd-0392",
+        "pd-0396",
+        "pd-0400",
+        "pd-0403",
+        "pd-0406",
+        "pd-0409",
+        "pd-0412",
+        "pd-0415",
+        "pd-0418",
+        "pd-0421",
+        "pd-0424",
+        "pd-0427",
+        "pd-0430",
+        "pd-0433",
+        "pd-0436",
+        "pd-0439",
+        "pd-0442",
+        "pd-0445",
+        "pd-0448",
+        "pd-0451",
+        "pd-0455",
+        "pd-0458",
+        "pd-0461",
+        "pd-0465",
+        "pd-0470",
+        "pd-0474",
+        "pd-0477",
+        "pd-0481",
+        "pd-0484",
+        "pd-0487",
+        "pd-0492",
+        "pd-0495",
+        "pd-0498",
+        "pd-0501",
+        "pd-0504",
+        "pd-0507",
+        "pd-0511",
+        "pd-0515",
+        "pd-0518",
+        "pd-0521",
+        "pd-0524",
+        "pd-0527",
+        "pd-0530",
+        "pd-0533",
+        "pd-0536",
+        "pd-0539",
+        "pd-0543",
+        "pd-0546",
+        "pd-0549",
+        "pd-0552",
+        "pd-0560",
+        "pd-0566",
+        "pd-0574",
+        "pd-0577",
+        "pd-0580",
+        "pd-0583",
+        "pd-0586",
+        "pd-0589",
+        "pd-0592",
+        "pd-0595",
+        "pd-0598",
+        "pd-0610",
+        "pd-0615",
+        "pd-0629",
+        "pd-0632",
+        "pd-0636",
+        "pd-0639",
+        "pd-0642",
+        "pd-0680"
+      ],
+      "by_status": {
+        "UNABLE_TO_VERIFY": 33,
+        "VERIFIED": 90,
+        "MISCHARACTERIZED": 1
+      },
+      "coverage": {
+        "files_read": [
+          "docs/legalreasonbench-audit/litigation/citation-check/results/lrb-dcca-challenge-police-discipline.json",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-2/input.json",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-2/attachments/assignment-2/douglas_v_veterans_admin.pdf.md",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-dcca-challenge-police-discipline-assignment-2/attachments/assignment-2/dcmr_title6b_1606.pdf.md"
+        ],
+        "limits": [
+          "124 assigned refs attempted; 91 primary-source reading outcomes, including 1 proposition-label problem; 33 remain unable to verify after access attempts.",
+          "CourtListener public opinion pages returned an access challenge and direct requests returned 403 in this session; some GovInfo historical volumes exceeded the web reader's size limit. Other inaccessible sources include pre-digital personnel-board decisions, internal manuals, legislative material, and specific treatise editions.",
+          "This is a first substantive source-reading check for these assigned refs, not independent second verification. No score correction or human verification is claimed. Later Code/regulation editions are identified in row explanations where used."
+        ]
       }
     }
   ],

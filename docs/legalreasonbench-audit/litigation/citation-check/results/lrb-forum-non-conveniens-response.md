@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf'], 'limits': ["Attachment counting: the six attachments are identical in assignment-1 and assignment-2 packets apart from the source-URL line (verified by diff); each is counted once. Prompts and rubric fields are counted per assignment; assignment-2's copy of the prior assignment-1 prompt contains no citations.", "All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).", 'The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.', "The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.", "Counting unit: each citation string (full cite, short form with reporter or pin cite, statute/rule/regulation section, or quoted/named authority in the prompt or rubric) in each unique matter document; parallel reporter cites in one string count once. Bare case-name references with no reporter or pin cite inside the three supplied opinions (e.g. 'In Dawdy, ...') are not separately counted. Repeated identical table-header rule labels on one Annual Report page are counted once per page. Citations in the motion and rubric to the scenario's own record (complaint paragraphs, affidavits, exhibits) are record references, not legal authority, and are not counted; the scenario case caption is recorded as fictional.", "Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.", 'Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.', "The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.", "The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.", 'Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.', 'Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.', "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).", "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.", "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated."], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'total_occurrences': 573, 'real_law': 566, 'fictional_by_design': 7, 'first_check_status': {'VERIFIED': 459, 'VERIFIED_MINOR_DEFECT': 27, 'MISCHARACTERIZED': 17, 'UNABLE_TO_VERIFY': 63}, 'problems': 17}, 'census_complete': True}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf'], 'limits': ["Attachment counting: the six attachments are identical in assignment-1 and assignment-2 packets apart from the source-URL line (verified by diff); each is counted once. Prompts and rubric fields are counted per assignment; assignment-2's copy of the prior assignment-1 prompt contains no citations.", "All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).", 'The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.', "The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.", "Counting unit: each citation string (full cite, short form with reporter or pin cite, statute/rule/regulation section, or quoted/named authority in the prompt or rubric) in each unique matter document; parallel reporter cites in one string count once. Bare case-name references with no reporter or pin cite inside the three supplied opinions (e.g. 'In Dawdy, ...') are not separately counted. Repeated identical table-header rule labels on one Annual Report page are counted once per page. Citations in the motion and rubric to the scenario's own record (complaint paragraphs, affidavits, exhibits) are record references, not legal authority, and are not counted; the scenario case caption is recorded as fictional.", "Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.", 'Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.', "The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.", "The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.", 'Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.', 'Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.', "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).", "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.", "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated.", 'The supplemental source pass attempted all 63 initially unverified references: 44 verified, three minor defects, six new problem proposals pending independent review, and ten still unverified after retrieval attempts. Original access descriptions are historical; current per-reference results control.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'total_occurrences': 573, 'real_law': 566, 'fictional_by_design': 7, 'first_check_status': {'VERIFIED': 459, 'VERIFIED_MINOR_DEFECT': 27, 'MISCHARACTERIZED': 17, 'UNABLE_TO_VERIFY': 63}, 'problems': 17}, 'census_complete': True}
 
 ## FNC-0001: Davis v. Smith (scenario case)
 
@@ -3027,11 +3027,11 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The Cook non-reporting note is verified (pp.160, 163). The DuPage-specific '17 cases / 51.4 months' row appears on p.159 ('17 51.4 6 50.9'), but the extracted table's circuit labels are scrambled, so the row cannot be confidently assigned to the 18th Circuit from the text read.
+Visually inspected the original 2023 report pages 159, 160, and 163. Page 159 aligns the 17 jury dispositions and 51.4-month average with the 18th Judicial Circuit (DuPage) Law > $50,000 row. Page 163 expressly says Cook County did not report the time-lapse figures. The text extraction had scrambled row labels, but the page image resolves them.
 
-Excerpt read: Report p.159 block: '17 51.4 6 50.9' (circuit label order garbled in extraction); p.163: 'Note: Cook County did not report time lapse of all cases closed by jury or bench trial in 2023.'
+Excerpt read: Page 159: 18th Circuit, Law > $50,000, jury: 17 cases; 51.4 months. Page 163 note: Cook County did not report time lapse of all cases closed by jury or bench trial in 2023.
 
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
@@ -3308,11 +3308,14 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-The 1990 text of Rule 306 was not read; the current rule is renumbered and no contemporaneous source confirming what subparagraph (a)(1)(iv) covered was read.
+The 134 Ill. 2d pre-1994 version of Rule 306(a)(1)(iv) was quoted in contemporaneous judicial text as covering residence-based venue appeals, and Bradbury says defendants invoked it after the February 1994 ruling. The official 2020 Rule 306 order records an amendment effective February 1, 1994, while later rule text uses Rule 306(a)(4). I could not read the signed 1993 amendment or an authenticated February 1994 rule compilation; the exact historical numbering operative at the Bradbury petition remains unresolved.
 
-Excerpt read: 
+Excerpt read: McLane (1989) judicial text: Rule 306(a)(1)(iv) permitted review of orders granting or denying residence-based transfer of venue. Bradbury (1995) reports petitions under both (a)(1)(iv) and (a)(4).
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/e1bf857c-ae6d-446c-b5d3-e01583b83878/093020.pdf
+- https://law.justia.com/cases/illinois/supreme-court/1989/66019-7.html
+- https://law.justia.com/cases/illinois/appellate-court/1993/252-ill-app-3d-632.html
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf
 
 ### Second check: not required
 
@@ -4509,10 +4512,13 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Restatement text not available in an accessible primary source in this session; quotation unverified.
+The attached opinion reproduces the asserted Restatement language, and another court opinion independently quotes part of comment c, but I did not obtain the ALI Restatement (Second) of Conflict of Laws §84 comment c itself. A quotation in a judicial opinion corroborates the wording but does not satisfy this audit’s direct-source reading requirement.
 
-Excerpt read: 
+Excerpt read: The judicial reproductions say plaintiff choice should not be disturbed except for weighty reasons and dismissal requires a suitable alternative forum; ALI source text not read.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://www.ali.org/publications/restatement-law-second/conflict-laws
+- https://cases.justia.com/montana/supreme-court/2015-da-14-0465.pdf
 
 ### Second check: not required
 
@@ -5033,10 +5039,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Law review article not accessed; quotation unverified.
+Guerine quotes Gordon E. Maag at page 510, but the actual 2001 Southern Illinois University Law Journal article was not accessible for direct reading. Repository searches located later volumes or secondary citations, not the cited page.
 
-Excerpt read: 
+Excerpt read: Guerine quotes: both sides seek a favorable judge, jury, and forum; Maag article page 510 not read.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://opensiuc.lib.siu.edu/siulj/vol25/iss1/
 
 ### Second check: not required
 
@@ -5057,10 +5065,13 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Law review article not accessed; quotation unverified.
+Indiana Law Journal repository identifies Edmund Kitch’s article and offers a PDF link, but its full-text endpoint returned HTTP 403; the article at page 139 was not read. Guerine’s quotation cannot substitute for direct article text.
 
-Excerpt read: 
+Excerpt read: Guerine quotes Kitch: behind talk of inconvenience and justice lies concern about juries; article page 139 not read.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://www.repository.law.indiana.edu/ilj/vol40/iss2/
+- https://www.repository.law.indiana.edu/cgi/viewcontent.cgi?article=3563&context=ilj
 
 ### Second check: not required
 
@@ -5504,15 +5515,16 @@ Context: court transferring this cause to Kane County and remand for further pro
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The October 3, 2001 order directs the Fifth District to vacate an affirmance of denial of a motion to dismiss on forum non conveniens grounds and reconsider. Guerine calls it denial of a motion to transfer venue. The procedural remedy is misstated.
 
-Excerpt read: 
+Excerpt read: The appellate court is ordered to reconsider the order affirming denial of defendant’s motion to dismiss on forum non conveniens grounds.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/20011748755ne2d99311712
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## FNC-0212: A.P . Green Industries, Inc. v. Houston, 195 Ill. 2d 547 (2001) (supervisory order)
@@ -5529,13 +5541,14 @@ Context: onsider is order affirming the trial court's denial of the defendant's 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The June 6 order directs the Fifth District to allow an interlocutory appeal from denial of a motion to dismiss or transfer on forum non conveniens grounds. The reporter caption is In re A.P. Green Industries, Inc., with Houston in the parenthetical party description, while the Guerine appendix calls it A.P. Green Industries v. Houston.
 
-Excerpt read: 
+Excerpt read: The Appellate Court, Fifth District, is directed to enter an order in Houston v. ACandS allowing an interlocutory appeal of denial of a motion to dismiss or transfer based on forum non conveniens.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/20012034754ne2d128031999
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5554,13 +5567,14 @@ Context: interlocutory appeal of the trial court's denial of the defendant's for
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The same June 6 supervisory order covers Geyer and directs an interlocutory appeal. The reporter caption is In re Armstrong World Industries, Inc., with Geyer in the party description, while the appendix uses Armstrong World Industries v. Geyer.
 
-Excerpt read: 
+Excerpt read: The Appellate Court, Fifth District, is directed to enter an order in Geyer v. ACandS allowing an interlocutory appeal of denial of a motion to dismiss or transfer based on forum non conveniens.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/20012035754ne2d128111999
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5579,13 +5593,14 @@ Context: nsfer venue); Armstrong World Industries, Inc. v. Geyer, 195 Ill.2d 547
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates Madison County’s denial of a forum non conveniens transfer motion and directs entry of an order granting it.
 
-Excerpt read: 
+Excerpt read: The order of the Circuit Court of Madison County denying defendants’ motion to transfer based on forum non conveniens is vacated; the court is directed to grant defendants’ motion.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/20001246738ne2d50821231
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5604,13 +5619,14 @@ Context: dering the Madison County circuit court to grant the defendant's forum 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates Madison County’s denial of venue transfer based on forum non conveniens and directs grant of defendants’ motions.
 
-Excerpt read: 
+Excerpt read: Petition for leave to appeal denied; in supervisory authority, the Madison County denial of motions to transfer venue based on forum non conveniens is vacated and the court is directed to grant the motions.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/2000787730ne2d573760
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5629,13 +5645,14 @@ Context: nue); Cerniglia v. Armstrong World Industries, Inc., 189 Ill.2d 656, 24
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order directs the Fifth District to vacate and the circuit court to transfer from Madison to McHenry County.
 
-Excerpt read: 
+Excerpt read: The Appellate Court, Fifth District, is directed to vacate; the circuit court is ordered to grant transfer from Madison County to McHenry County on forum non conveniens grounds.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/20001868722ne2d114621785
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5654,13 +5671,14 @@ Context: m non conveniens motion to transfer venue and ordering the Madison Coun
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates Cook County’s denial of forum non conveniens transfer and directs a transfer order.
 
-Excerpt read: 
+Excerpt read: The Circuit Court of Cook County denial of defendant’s forum non conveniens motion is vacated; the court is directed to enter an order transferring the case.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19991135717ne2d41821134
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5679,13 +5697,14 @@ Context: 999) (ordering the Cook County circuit court to grant the defendant's f
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and directs Madison County to vacate denial and transfer to Williamson County.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment is vacated; Madison County is directed to vacate denial and enter an order transferring venue to Williamson County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19991947710ne2d123731864
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5706,11 +5725,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+Two Lawson supervisory orders share the same reporter page. The visible primary text confirms Fifth District vacatur and St. Clair County vacatur of a denial of forum non conveniens transfer, but Leagle truncates before the ultimate disposition. I cannot confirm the appendix’s assertion of a directed transfer from the visible order text.
 
-Excerpt read: 
+Excerpt read: The Fifth District is directed to vacate its judgment; St. Clair County is directed to vacate denial of a motion to transfer on grounds of [text truncated].
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19991946710ne2d123611868
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5729,13 +5749,14 @@ Context: denying the defendant's forum non conveniens motion to transfer venue a
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order directs Cook County to vacate denial and enter a transfer order on forum non conveniens grounds.
 
-Excerpt read: 
+Excerpt read: Cook County is directed to vacate its denial of defendants’ motion to transfer venue on forum non conveniens grounds and to enter an order transferring venue.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19981554705ne2d84911530
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5754,15 +5775,16 @@ Context: 849 (1998) (ordering the Cook County circuit court to grant the defenda
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The primary order directs Cook County to allow a motion to dismiss for forum non conveniens, while the Guerine appendix says it granted a motion to transfer venue. Dismissal and intrastate transfer are different procedural dispositions.
 
-Excerpt read: 
+Excerpt read: Cook County is directed to vacate its denial of defendant’s motion to dismiss for forum non conveniens and enter an order allowing that motion to dismiss.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/1998998697ne2d3013995
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## FNC-0222: Allen v. Illinois Power Co., 173 Ill. 2d 521 (1997) (supervisory order)
@@ -5779,13 +5801,14 @@ Context: iens motion to transfer venue); Guest v. Detroit City Dairy, Inc., 177 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order directs St. Clair County to vacate denial and transfer venue under forum non conveniens.
 
-Excerpt read: 
+Excerpt read: St. Clair County is directed to vacate denial of defendant’s motion to transfer venue on forum non conveniens grounds and enter an order transferring venue.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19971577683ne2d89411528
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5804,13 +5827,14 @@ Context: d 894 (1997) (ordering the St. Clair County circuit court to grant the 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order directs St. Clair County to vacate denial and transfer venue on forum non conveniens grounds.
 
-Excerpt read: 
+Excerpt read: St. Clair County is directed to vacate denial of a forum non conveniens transfer motion and enter an order transferring venue.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19961908672ne2d123631836
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5829,13 +5853,14 @@ Context: er venue); Grose v. Illinois Power Co., 169 Ill.2d 566, 220 Ill.Dec. 22
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and Madison County denial, then directs transfer from Madison to Bureau County.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment and Madison County denial of transfer from Madison to Bureau County are vacated; Madison is directed to enter a transfer order.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19961909672ne2d123721834
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5854,13 +5879,14 @@ Context: m non conveniens motion to transfer venue and ordering the Madison Coun
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates St. Clair County denial and directs transfer to Marion County.
 
-Excerpt read: 
+Excerpt read: St. Clair County denial of transfer to Marion County is vacated; it is directed to enter a transfer order.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19961908672ne2d123621837
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5879,13 +5905,14 @@ Context: (ordering the St. Clair County circuit court to grant the defendant's f
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates Madison County denial and directs transfer to Jefferson County.
 
-Excerpt read: 
+Excerpt read: Madison County denial of transfer to Jefferson County is vacated; the court is directed to transfer to Jefferson County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19961770670ne2d110041726
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5904,13 +5931,14 @@ Context: 1996) (ordering the Madison County circuit court to grant the defendant
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District order and St. Clair County denial, and directs St. Clair County to transfer venue. The Leagle reproduction lacks the Ill. 2d and Illinois Decisions parallel cites but the N.E.2d citation and disposition match.
 
-Excerpt read: 
+Excerpt read: The Fifth District order and St. Clair County denial of forum non conveniens transfer are vacated; St. Clair County is directed to enter an order transferring venue.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19961508665ne2d84311451
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5929,13 +5957,14 @@ Context: fendant's forum non conveniens motion to transfer venue and ordering th
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates Madison County denial and directs transfer to Crawford County.
 
-Excerpt read: 
+Excerpt read: Madison County is directed to vacate denial of a forum non conveniens transfer and enter an order transferring venue to Crawford County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19962018662ne2d135611954
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -5956,11 +5985,13 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The Guerine appendix identifies Eby at 164 Ill. 2d 561 / 658 N.E.2d 48, but I could not obtain that supervisory order text. Leagle’s 658 N.E.2d and 164 Ill.2d volume indexes did not return Eby, and targeted public search returned only citations to Guerine. CourtListener non-location alone is not treated as proof of fabrication.
 
-Excerpt read: 
+Excerpt read: Only Guerine appendix wording was available; Eby order text not read.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://www.leagle.com/decisions/browse/series/volume/658%20n.e.2D
+- https://www.leagle.com/decisions/browse/series/volume/164%20Ill.2d
 
 ### Second check: not required
 
@@ -5979,15 +6010,16 @@ Context: ns motion to transfer venue); Eby v. Illinois Power Co., 164 Ill.2d 561
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The primary order says Madison County denied a motion to dismiss on forum non conveniens grounds and directs the court to allow that motion. Guerine’s appendix calls it a motion to transfer venue.
 
-Excerpt read: 
+Excerpt read: Madison County is directed to vacate denial of defendant’s motion to dismiss on the basis of forum non conveniens and enter an order allowing that motion.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951572655ne2d91711532
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## FNC-0231: Doe v. Terra Properties, Inc., 163 Ill. 2d 552 (1995) (supervisory order)
@@ -6004,13 +6036,14 @@ Context: N.E.2d 48 (1995) (same); Peters v. Burlington Northern R.R. Co., 163 Il
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order directs Madison County to vacate denial and transfer venue to Clinton County.
 
-Excerpt read: 
+Excerpt read: Madison County is directed to vacate denial of forum non conveniens transfer and enter an order transferring venue to Clinton County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951571655ne2d91621533
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6029,13 +6062,14 @@ Context: 211 Ill.Dec. 534, 655 N.E.2d 917 (1995) (same); Doe v. Terra Properties
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and directs Madison County to grant a venue transfer on forum non conveniens grounds.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment is vacated; Madison County is directed to vacate denial and enter an order transferring venue.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951570655ne2d91541534
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6054,13 +6088,14 @@ Context: the defendant's forum non conveniens motion to transfer venue and order
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and St. Clair County denial, and directs a venue transfer.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment and St. Clair County denial of forum non conveniens transfer are vacated; the circuit court is directed to enter a transfer order.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951688650ne2d103821623
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6079,15 +6114,16 @@ Context: the defendant's forum non conveniens motion to transfer venue and order
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The primary order vacates the First District judgment but directs the Cook County circuit court to reconsider its denial of a motion to dismiss in light of Peile. Guerine instead says the First District itself was ordered to reconsider its order affirming the trial court.
 
-Excerpt read: 
+Excerpt read: The First District judgment is vacated and the Circuit Court of Cook County is directed to reconsider its denial of defendants’ motions to dismiss under forum non conveniens.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/1995864650ne2d2142858
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## FNC-0235: Ferris v. Southern Pacific Transportation Co., 162 Ill. 2d 566 (1995) (supervisory order)
@@ -6104,15 +6140,16 @@ Context: r is order affirming the trial court's denial of the defendant's forum 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: WRONG_CITATION_REAL_CASE
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The real Ferris supervisory order and its Ill. 2d / Ill. Dec. parallels match, and its transfer disposition is supported, but Guerine gives 650 N.E.2d 542. The reproduced primary reporter entry is at 650 N.E.2d 544. This is an incorrect parallel reporter page, not evidence the case is fabricated.
 
-Excerpt read: 
+Excerpt read: Ferris v. Southern Pacific Transportation Co., 162 Ill. 2d 566, 208 Ill. Dec. 848, 650 N.E.2d 544: Madison County is directed to vacate denial and transfer venue to Macoupin County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951194650ne2d54411165
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## FNC-0236: Mayse v. Servicemaster Co. Ltd. Partnership, 159 Ill. 2d 569 (1995) (supervisory order)
@@ -6129,13 +6166,14 @@ Context: ordering the Madison County circuit court to grant the defendant's foru
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and directs St. Clair County to vacate denial of a forum non conveniens transfer motion and allow it. The reproduction truncates the final object after “allowing”; exact destination was not independently read.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment is vacated; St. Clair County is directed to vacate denial of defendant’s transfer motion and enter an order allowing [visible text ends].
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951605645ne2d96011519
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6154,13 +6192,14 @@ Context: venue and ordering the St. Clair County circuit court to transfer venue
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and directs Madison County to vacate denial of a forum non conveniens transfer motion and allow it. The reproduction truncates the final clause.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment is vacated; Madison County is directed to vacate denial of defendant’s transfer motion and enter an order allowing [visible text ends].
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/1995851645ne2d2061846
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6179,15 +6218,16 @@ Context: defendant's forum non conveniens motion to transfer venue and ordering 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: MISCHARACTERIZED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The primary order vacates the Fifth District and St. Clair denial, then remands for a hearing to determine the appropriate trial county. Guerine says it ordered St. Clair County to transfer venue outright.
 
-Excerpt read: 
+Excerpt read: The denial is vacated and the case is remanded to the circuit court for a hearing to determine the appropriate county in which to try the case.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/1995851645ne2d2062845
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: pending
 
 
 ## FNC-0239: Swartzlander v. Illinois Central R.R. Co., 159 Ill. 2d 581 (1995) (supervisory order)
@@ -6204,13 +6244,14 @@ Context: 's forum non conveniens motion to transfer venue and ordering the St. C
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District and Madison denial and transfers the case to Randolph County.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment and Madison denial are vacated; the case is transferred to Randolph County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951607645ne2d96231515
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6229,13 +6270,14 @@ Context: enying the defendant's forum non conveniens motion to transfer venue an
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the First District and Cook denial and transfers the case to Will County.
 
-Excerpt read: 
+Excerpt read: The First District judgment and Cook denial are vacated; the case is transferred to Will County.
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/19951608645ne2d96341511
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6254,13 +6296,14 @@ Context: the defendant's forum non conveniens motion to transfer venue and order
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Table/supervisory order listed in Guerine's appendix. CourtListener citation lookup does not hold this order (its parallel cites either do not resolve or land on unrelated opinions printed on the same reporter pages, as expected for table dispositions); the order text was not read. The appendix is part of an authentic Illinois Supreme Court opinion, so non-location is not evidence of fabrication.
+The order vacates the Fifth District judgment and directs Madison County to vacate denial of a forum non conveniens transfer motion and allow it. The reproduction truncates the final clause.
 
-Excerpt read: 
+Excerpt read: The Fifth District judgment is vacated; Madison County is directed to vacate denial of defendant’s transfer motion and enter an order allowing [visible text ends].
 
-- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://www.leagle.com/decision/1995852645ne2d2071844
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
 ### Second check: not required
 
@@ -6960,10 +7003,12 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Article not accessed; Mosele's own text attributes the proposition to Sunderland, but the article itself was not read.
+The 1934 Sunderland article is cited in Langenhorst and other opinions, but the actual 28 Illinois Law Review 861 text was not accessible for direct reading. The journal citation is plausible; secondary quotations are insufficient for source verification.
 
-Excerpt read: 
+Excerpt read: Langenhorst cites Edson R. Sunderland, Observations on the Illinois Civil Practice Act, 28 Ill. L. Rev. 861 (1934); article text not read.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+- https://www.illinoiscourts.gov/files/99924.pdf/opinion
 
 ### Second check: not required
 
@@ -7438,10 +7483,13 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Restatement text not available in an accessible primary source in this session; quotation unverified.
+The attached opinion reproduces the asserted Restatement language, and another court opinion independently quotes part of comment c, but I did not obtain the ALI Restatement (Second) of Conflict of Laws §84 comment c itself. A quotation in a judicial opinion corroborates the wording but does not satisfy this audit’s direct-source reading requirement.
 
-Excerpt read: 
+Excerpt read: The judicial reproductions say plaintiff choice should not be disturbed except for weighty reasons and dismissal requires a suitable alternative forum; ALI source text not read.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+- https://www.ali.org/publications/restatement-law-second/conflict-laws
+- https://cases.justia.com/montana/supreme-court/2015-da-14-0465.pdf
 
 ### Second check: not required
 
@@ -8931,10 +8979,13 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Restatement text not available in an accessible primary source in this session; quotation unverified.
+The attached opinion reproduces the asserted Restatement language, and another court opinion independently quotes part of comment c, but I did not obtain the ALI Restatement (Second) of Conflict of Laws §84 comment c itself. A quotation in a judicial opinion corroborates the wording but does not satisfy this audit’s direct-source reading requirement.
 
-Excerpt read: 
+Excerpt read: The judicial reproductions say plaintiff choice should not be disturbed except for weighty reasons and dismissal requires a suitable alternative forum; ALI source text not read.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf
+- https://www.ali.org/publications/restatement-law-second/conflict-laws
+- https://cases.justia.com/montana/supreme-court/2015-da-14-0465.pdf
 
 ### Second check: not required
 
@@ -10556,12 +10607,13 @@ Context: lair County, but only 37 comparable actions pending in Clinton County. 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The 2000 Statistical Summary was not obtained; figures unverified.
+Visually inspected the official 2000 Administrative Office Statistical Summary. Printed pages 19 and 28 (PDF pages 26 and 35) show 37 pending Law > $50,000 jury matters in Clinton and 423 in St. Clair. This is a statistical claim in the Langenhorst dissent, not the majority holding.
 
-Excerpt read: 
+Excerpt read: Clinton row, Law > $50k Jury, end pending: 37. St. Clair row, same column, end pending: 423.
 
+- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/c28abc8f-cbab-4477-b247-e1dfeab97fe5/2000%20Stat%20Summary.pdf
 
 ### Second check: not required
 
@@ -10580,12 +10632,13 @@ Context: between filing and verdict in such cases was 31.9 months in St. Clair C
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The 2000 Statistical Summary was not obtained; figures unverified.
+Visually inspected official printed page 56 (PDF page 63) of the 2000 Statistical Summary. It gives average filing-to-verdict time of 31.9 months for St. Clair and 18.0 months for Clinton in the cited Law > $50,000 jury category. Langenhorst states these in dissent.
 
-Excerpt read: 
+Excerpt read: Time-lapse table, Law > $50k jury: St. Clair 31.9 months; Clinton 18.0 months.
 
+- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/c28abc8f-cbab-4477-b247-e1dfeab97fe5/2000%20Stat%20Summary.pdf
 
 ### Second check: not required
 
@@ -11396,11 +11449,13 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-The 1990 text of Rule 306 was not read; current Rule 306(a)(4) covers residence-based venue-transfer orders, which fits the hospital's section 2-104 motion, but the historical subparagraph was not confirmed.
+Bradbury’s own judicial text says St. Mary’s petitioned under Rule 306(a)(4) following its February 1994 venue ruling, and later judicial text/current official Rule 306(a)(4) cover residence-based transfer. The signed 1993 amendment or authenticated February 1994 compilation was not obtained, so exact historical rule text at the petition date remains unverified.
 
-Excerpt read: Current Rule 306(a)(4): 'from an order of the circuit court granting or denying a motion for a transfer of venue based on the assertion that the defendant is not a resident of the county in which the action was commenced'
+Excerpt read: Bradbury reports St. Mary’s filed under Rule 306(a)(4). Current official Rule 306(a)(4) covers defendant-residence venue transfer; exact February 1994 rule text not read.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf
+- https://www.illinoiscourts.gov/resources/e1bf857c-ae6d-446c-b5d3-e01583b83878/093020.pdf
+- https://law.counselstack.com/opinion/ferguson-v-bill-berger-associates-inc-illappct-1998
 
 ### Second check: not required
 
@@ -12589,12 +12644,15 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED_MINOR_DEFECT
 
-Mentioned by name in a program glossary; statute text not read in this session.
+Read the original 1982 Job Training Partnership Act and the 1998 Workforce Investment Act repeal provision. The 2023 report glossary accurately describes what the former program provided, but uses present tense without noting the JTPA repeal effective July 1, 2000. It is a stale historical label in a 2023 program glossary.
 
-Excerpt read: 
+Excerpt read: Pub. L. 97-300 §2: purpose is to prepare youth and unskilled adults for work and afford job training to economically disadvantaged people. Pub. L. 105-220 §199(b)(2), (c)(2)(B) repeals JTPA effective July 1, 2000.
 
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-96/pdf/STATUTE-96-Pg1322.pdf
+- https://www.govinfo.gov/content/pkg/PLAW-105publ220/html/PLAW-105publ220.htm
 
 ### Second check: not required
 
@@ -13163,13 +13221,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered April 20, 2023 expressly identifies Rule 242, adopted. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered April 20, 2023: Rule 242, adopted. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/418f6839-581b-4224-9094-8ea2904ce05a/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13238,13 +13297,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered January 26, 2023 expressly identifies Rule 706, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered January 26, 2023: Rule 706, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/a24979a1-edab-4c9b-a5de-479b04cff4b3/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13263,13 +13323,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered February 2, 2023 expressly identifies Rule 45, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered February 2, 2023: Rule 45, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/8a236619-e390-4445-90bd-ce52a1eeb6e7/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13313,13 +13374,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered February 2, 2023 expressly identifies Rule 101, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered February 2, 2023: Rule 101, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/8a236619-e390-4445-90bd-ce52a1eeb6e7/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13388,13 +13450,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered February 2, 2023 expressly identifies Rule 286, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered February 2, 2023: Rule 286, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/8a236619-e390-4445-90bd-ce52a1eeb6e7/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13663,13 +13726,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered April 20, 2023 expressly identifies Rule 101, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered April 20, 2023: Rule 101, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/418f6839-581b-4224-9094-8ea2904ce05a/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13688,13 +13752,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered April 20, 2023 expressly identifies Rule 102, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered April 20, 2023: Rule 102, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/418f6839-581b-4224-9094-8ea2904ce05a/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13763,13 +13828,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered April 24, 2023 expressly identifies Rule 102, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered April 24, 2023: Rule 102, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/5b5f1042-5d1d-4f96-8f7d-97a976f30030/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13838,13 +13904,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The official compilation's history for Rule 756 shows 'amended July 5, 2023' while the linked order file is dated 070623; which date is correct was not resolved.
+The signed Illinois Supreme Court order entered July 6, 2023 expressly identifies Rule 756, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: Rule 756 history: 'HYPERLINK ".../files/070623.pdf/amendment" amended July 5, 2023, eff. immediately'
+Excerpt read: Order entered July 6, 2023: Rule 756, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/6d613af7-e70f-4ff5-b78f-558391c00ef3/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13913,13 +13980,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered October 19, 2023 expressly identifies Rule 604, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered October 19, 2023: Rule 604, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/59fd7c8b-e532-4003-a53a-94a61939251b/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -13963,13 +14031,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered November 1, 2023 expressly identifies Rule 299, amended. The report gives the order/adoption date. The order makes the amendment effective January 1, 2024; November 1 is the order date.
 
-Excerpt read: 
+Excerpt read: Order entered November 1, 2023: Rule 299, amended. Effective January 1, 2024.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/2e30487e-3c56-41a3-8e83-a7295bb78e87/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14013,13 +14082,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered December 7, 2023 expressly identifies Rule 315, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered December 7, 2023: Rule 315, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/049c9542-bf88-4e22-a775-619ccb5eb7f2/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14038,13 +14108,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered December 7, 2023 expressly identifies Rule 604, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered December 7, 2023: Rule 604, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/049c9542-bf88-4e22-a775-619ccb5eb7f2/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14063,13 +14134,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered December 7, 2023 expressly identifies Rule 605, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered December 7, 2023: Rule 605, amended. Effective immediately.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/049c9542-bf88-4e22-a775-619ccb5eb7f2/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14163,13 +14235,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The rule exists, but this session's text extraction of the compiled rules' amendment history could not attribute the dated entry to this rule with confidence (order files for this date do appear in the compilation).
+The signed Illinois Supreme Court order entered December 20, 2023 expressly identifies Rule 551, correction. The report gives the order/adoption date. The December 20 order corrects a clerical error in the July 18 Rule 551 amendment nunc pro tunc; it does not newly amend Rule 551 in December.
 
-Excerpt read: 
+Excerpt read: Order entered December 20, 2023: Rule 551, correction. July 18 Rule 551 effective-date clerical error corrected nunc pro tunc.
 
-- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/54d35482-757b-40f9-96b3-4b6cbb7d6434/S_Ct_Rules_full.rtf
+- https://www.illinoiscourts.gov/resources/ffab66b4-e893-4c79-833f-03bcbdc71d22/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14188,12 +14261,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories were not checked in this session.
+The signed Illinois Supreme Court order entered March 1, 2023 expressly identifies IRPC 1.15A, 1.15B, 1.15C, adopted. The report gives the order/adoption date. The order expressly makes these changes effective July 1, 2023; March 1 is the adoption/amendment order date, not the effective date.
 
-Excerpt read: 
+Excerpt read: Order entered March 1, 2023: IRPC 1.15A, 1.15B, 1.15C, adopted. Effective July 1, 2023.
 
+- https://www.illinoiscourts.gov/resources/be30ae40-c75e-4276-8b69-b0478b0b4184/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14212,12 +14287,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories were not checked in this session.
+The signed Illinois Supreme Court order entered January 25, 2023 expressly identifies Illinois Rule of Evidence 803, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered January 25, 2023: Illinois Rule of Evidence 803, amended. Effective immediately.
 
+- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/8278e1cb-1f3c-492c-bb70-e9c3a458c333/012523.pdf
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14236,12 +14313,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories were not checked in this session.
+The signed Illinois Supreme Court order entered March 1, 2023 expressly identifies IRPC 1.5 and 1.15, amended. The report gives the order/adoption date. The order expressly makes these changes effective July 1, 2023; March 1 is the adoption/amendment order date, not the effective date.
 
-Excerpt read: 
+Excerpt read: Order entered March 1, 2023: IRPC 1.5 and 1.15, amended. Effective July 1, 2023.
 
+- https://www.illinoiscourts.gov/resources/be30ae40-c75e-4276-8b69-b0478b0b4184/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14260,12 +14339,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories were not checked in this session.
+The signed Illinois Supreme Court order entered May 17, 2023 expressly identifies Canon 2, Rule 2.11, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered May 17, 2023: Canon 2, Rule 2.11, amended. Effective immediately.
 
+- https://www.illinoiscourts.gov/resources/70e20cc1-b2d0-46f6-a18d-5845d2ab4521/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 
@@ -14284,12 +14365,14 @@ Context:
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories were not checked in this session.
+The signed Illinois Supreme Court order entered July 6, 2023 expressly identifies IRPC 1.0, 1.1, 1.16, 7.2, amended. The report gives the order/adoption date. The order says effective immediately.
 
-Excerpt read: 
+Excerpt read: Order entered July 6, 2023: IRPC 1.0, 1.1, 1.16, 7.2, amended. Effective immediately.
 
+- https://www.illinoiscourts.gov/resources/6d613af7-e70f-4ff5-b78f-558391c00ef3/file
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
 
 ### Second check: not required
 

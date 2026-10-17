@@ -6,22 +6,22 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 0.
+Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 7.
 
-Problem rate: 3.1% (71 / 2296) among recorded citations; coverage incomplete.
+Problem rate: unavailable; coverage or checks pending.
 
 Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1547 |
-| VERIFIED_MINOR_DEFECT | 105 |
+| VERIFIED | 1681 |
+| VERIFIED_MINOR_DEFECT | 108 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
 | MISCHARACTERIZED | 46 |
 | MISQUOTED | 5 |
 | WRONG_CITATION_REAL_CASE | 20 |
-| UNABLE_TO_VERIFY | 573 |
+| UNABLE_TO_VERIFY | 429 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
@@ -104,6 +104,7 @@ Coverage limits:
 - The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.
 - A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.
 - A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.
+- A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect.
 
 [Full citation evidence](results/lrb-dcca-challenge-police-discipline.md)
 
@@ -142,6 +143,7 @@ Coverage limits:
 - Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).
 - No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.
 - The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated.
+- The supplemental source pass attempted all 63 initially unverified references: 44 verified, three minor defects, six new problem proposals pending independent review, and ten still unverified after retrieval attempts. Original access descriptions are historical; current per-reference results control.
 
 [Full citation evidence](results/lrb-forum-non-conveniens-response.md)
 

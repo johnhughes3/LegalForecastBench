@@ -12,23 +12,23 @@
       "citation_instances": 2366,
       "fictional_by_design": 70,
       "checked": 2296,
-      "first_check_problems": 74,
-      "pending_checks": 0,
+      "first_check_problems": 81,
+      "pending_checks": 7,
       "by_final_status": {
-        "VERIFIED": 1547,
-        "VERIFIED_MINOR_DEFECT": 105,
+        "VERIFIED": 1681,
+        "VERIFIED_MINOR_DEFECT": 108,
         "NOT_FOUND_LIKELY_FABRICATED": 0,
         "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
         "MISCHARACTERIZED": 46,
         "MISQUOTED": 5,
         "WRONG_CITATION_REAL_CASE": 20,
-        "UNABLE_TO_VERIFY": 573
+        "UNABLE_TO_VERIFY": 429
       },
       "observed_final_problems": 71,
       "problems": null,
       "problem_rate": null,
-      "checks_complete": true,
-      "observed_problem_rate": 0.03092334494773519,
+      "checks_complete": false,
+      "observed_problem_rate": null,
       "per_matter": [
         {
           "matter": "lrb-certiorari-quasi-judicial-land-use",
@@ -111,7 +111,8 @@
               "No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.",
               "The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.",
               "A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.",
-              "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history."
+              "A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.",
+              "A supplemental GPT-6 Sol primary-source pass attempted another 124 previously unverified references: 90 verified, one proposed characterization problem awaiting independent review, and 33 still unverified after retrieval attempts. The characterization proposal concerns an audit summary label and is not established as an upstream defect."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
             "counts": {
@@ -132,7 +133,7 @@
             "census_complete": false
           },
           "citations": 857,
-          "pending_checks": 0,
+          "pending_checks": 1,
           "complete": false
         },
         {
@@ -167,7 +168,8 @@
               "Not read: Restatement (Second) of Conflict of Laws § 84 cmt. c; the Maag, Kitch and Sunderland law-review articles; the 2000 AOIC Annual Report; the text of the Guerine appendix supervisory orders; the Rules of Professional Conduct, Rules of Evidence and Code of Judicial Conduct amendment histories. These citations are UNABLE_TO_VERIFY, not problems.",
               "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).",
               "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.",
-              "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated."
+              "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated.",
+              "The supplemental source pass attempted all 63 initially unverified references: 44 verified, three minor defects, six new problem proposals pending independent review, and ten still unverified after retrieval attempts. Original access descriptions are historical; current per-reference results control."
             ],
             "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
             "counts": {
@@ -185,8 +187,8 @@
             "census_complete": true
           },
           "citations": 670,
-          "pending_checks": 0,
-          "complete": true
+          "pending_checks": 6,
+          "complete": false
         },
         {
           "matter": "lrb-vicar-trial-jury-instructions",
