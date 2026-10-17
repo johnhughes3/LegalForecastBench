@@ -4140,7 +4140,21 @@
       "source_reading_attempts": [
         "Read Carrillo quotation in reproduced opinion and compared with the attached Kehoe opinion wording.",
         "Searched for reporter pagination; page 183 was corroborated by later judicial citations but not a paginated Carrillo primary copy."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "Overturns the GPT-6 Sol source-reading proposal (MISQUOTED) and the earlier pin-coverage downgrade (UNABLE_TO_VERIFY). I read both primary texts this session. (1) Kehoe: the attached Kehoe.pdf at the pinned revision is a born-digital PDF with a Times New Roman text layer and no images on page 10. I rendered that page and inspected it visually. The printed line reads 'the various states’s procedural and evidentiary rules into the RICO statute.” Id. at 183.' The extra 's' therefore appears in the original document. It is not a PDF-extraction artifact. (2) Carrillo: the Caselaw Access Project scan of 229 F.3d 177 shows the printed reporter page headed '183'. I rendered the scan and inspected it visually. It reads: 'We based our decision in Coonan on our prior holding that “ ‘Congress did not intend to incorporate the various states’ procedural and evidentiary rules into the RICO statute.’ ” Id. at 1564 (quoting United States v. Paone, 782 F.2d 386, 393 (2d Cir.1986)).' CAP's HTML puts the passage between its *183 and *184 page labels. The pin cite to 183 is therefore verified, closing the gap that led to the earlier UNABLE_TO_VERIFY. (3) Materiality: every word appears in the same order, and the proposition is the same. The only textual change is 'states’' to 'states’s', an unmarked change to one possessive. KEHOE-050 ('offence' to 'offense') was ruled VERIFIED_MINOR_DEFECT, and the same rule applies here. MISQUOTED is reserved for purported verbatim text that does not appear in the source. An unbracketed typographical change that leaves the meaning intact is a minor defect. (4) There is a second citation-form issue that Sol did not raise. The words are Carrillo quoting Coonan, which in turn quotes Paone. Kehoe drops the inner single quotation marks and gives no '(quoting ...)' or '(internal quotation marks omitted)' parenthetical. That is also minor: the quoted words do appear at Carrillo 183, and Carrillo is correctly the cited source. Both defects are in an attached Eighth Circuit opinion, not in the task instructions or rubric.",
+        "source_urls": [
+          "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/resolve/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf",
+          "https://static.case.law/f3d/229/case-pdfs/0177-01.pdf",
+          "https://static.case.law/f3d/229/html/0177-01.html",
+          "https://static.case.law/f3d/229/cases/0177-01.json",
+          "https://static.case.law/f3d/229/CasesMetadata.json"
+        ],
+        "excerpt_read": "Kehoe slip op. at 10 (pinned PDF page 10, rendered): 'Furthermore, “Congress did not intend to incorporate the various states’s procedural and evidentiary rules into the RICO statute.” Id. at 183.' Carrillo, 229 F.3d at 183 (CAP reporter scan, page header '183', rendered): 'We based our decision in Coonan on our prior holding that “ ‘Congress did not intend to incorporate the various states’ procedural and evidentiary rules into the RICO statute.’ ” Id. at 1564 (quoting United States v. Paone, 782 F.2d 386, 393 (2d Cir.1986)).'",
+        "model": "Claude Opus 5.5",
+        "reasoning_effort": "high"
+      }
     },
     {
       "ref": "KEHOE-070",
@@ -15936,6 +15950,29 @@
           "For UNABLE_TO_VERIFY rows, an accessible record, quotation in a later opinion, or a section heading alone was not treated as proof of an unread reporter pin, subsection, or article page."
         ]
       }
+    }
+  ],
+  "additional_problem_second_review_coverage": [
+    {
+      "model": "Claude Opus 5.5",
+      "reasoning_effort": "high",
+      "coverage": {
+        "files_read": [
+          "AGENTS.md",
+          "Kehoe.pdf at the pinned revision, downloaded from Hugging Face (byte-identical to the local upstream copy by SHA-256); page 10 text layer extracted and page rendered for visual inspection",
+          "assignment-1 and assignment-2 tests/fixtures/rubric.json at the pinned revision, downloaded from Hugging Face",
+          "Caselaw Access Project 229 F.3d 177: volume metadata, case JSON, case HTML with page labels, and reporter-scan PDF (page 7 = reporter p. 183, rendered for visual inspection)"
+        ],
+        "limits": [
+          "Carrillo pin 183 was verified against the Caselaw Access Project scan of the printed Federal Reporter page and its page labels. No physical print volume or Westlaw/Lexis copy was consulted.",
+          "Only the KEHOE-069 quotation and pin cite were checked; the other Carrillo quotations on Kehoe page 10 (the 182 pin cites) were outside scope and were not re-audited.",
+          "I did not reread the openjurist or CourtListener reproductions cited by earlier passes; the CAP reporter scan was used instead.",
+          "Downloads were kept in a private scratch folder outside the repository's tracked files and parsed with isolated Python (-I). No paid APIs, secrets, host installs, public edits or git mutations were used. No scores were computed and no human verification is claimed."
+        ]
+      },
+      "refs": [
+        "KEHOE-069"
+      ]
     }
   ]
 }

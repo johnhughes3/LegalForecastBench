@@ -5,37 +5,9 @@
     {
       "matter": "lrb-dcca-challenge-police-discipline",
       "ref": "pd-0156"
-    },
-    {
-      "matter": "lrb-forum-non-conveniens-response",
-      "ref": "FNC-0211"
-    },
-    {
-      "matter": "lrb-forum-non-conveniens-response",
-      "ref": "FNC-0221"
-    },
-    {
-      "matter": "lrb-forum-non-conveniens-response",
-      "ref": "FNC-0230"
-    },
-    {
-      "matter": "lrb-forum-non-conveniens-response",
-      "ref": "FNC-0234"
-    },
-    {
-      "matter": "lrb-forum-non-conveniens-response",
-      "ref": "FNC-0235"
-    },
-    {
-      "matter": "lrb-forum-non-conveniens-response",
-      "ref": "FNC-0238"
-    },
-    {
-      "matter": "lrb-vicar-trial-jury-instructions",
-      "ref": "KEHOE-069"
     }
   ],
-  "records_available": 77,
+  "records_available": 87,
   "targeted_by_instructions": 7,
   "targeted_by_criteria": 13,
   "rewards_reliance": 43,
@@ -992,6 +964,96 @@
       "final_status": "MISCHARACTERIZED"
     },
     {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0211",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0212",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "VERIFIED_MINOR_DEFECT",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0213",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "VERIFIED_MINOR_DEFECT",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0221",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0230",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0234",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0235",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "WRONG_CITATION_REAL_CASE",
+      "final_status": "WRONG_CITATION_REAL_CASE"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0238",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "MISCHARACTERIZED",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-forum-non-conveniens-response",
+      "ref": "FNC-0487",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The JTPA entry is a column-heading abbreviation in the probation glossary, not a grading target. The report-based criteria cite only pages 21, 22 and 163 (clearance rates, the Cook County time-lapse gap; assignment-1 criteria 25-28, assignment-2 criteria 18-20). No instruction or criterion mentions the JTPA, the glossary, or probation programs. I agree with Sol's all-false/empty proposal.",
+      "first_check_status": "VERIFIED_MINOR_DEFECT",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
       "matter": "lrb-vicar-trial-jury-instructions",
       "ref": "A1-RUBRIC-019",
       "targeted_by_instructions": false,
@@ -1148,6 +1210,16 @@
         "model": "GPT-6 Sol",
         "reasoning_effort": "high"
       },
+      "first_check_status": "MISQUOTED",
+      "final_status": "VERIFIED_MINOR_DEFECT"
+    },
+    {
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "ref": "KEHOE-069",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The assignment 1 instruction lists Kehoe.pdf as an attachment and in its authorities list. It does not direct the drafter to this Carrillo quotation or to state procedural and evidentiary rules. In the pinned assignment 1 rubric, only criterion_3 (+5) cites Kehoe slip op. at 10. It rewards identifying that the predicate offense for a VICAR attempted-murder charge can come from state law. That proposition does not depend on this quotation's wording, and the possessive change does not affect it. No criterion cites Carrillo or rewards quoting this sentence. The pinned assignment 2 rubric and instruction do not mention Kehoe or Carrillo.",
       "first_check_status": "MISQUOTED",
       "final_status": "VERIFIED_MINOR_DEFECT"
     }

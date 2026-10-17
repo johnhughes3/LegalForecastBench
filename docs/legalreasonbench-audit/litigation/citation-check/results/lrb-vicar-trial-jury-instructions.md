@@ -4351,8 +4351,19 @@ Excerpt read: Congress did not intend to incorporate the various states' procedu
 
 - https://openjurist.org/229/f3d/177/united-states-of-america-v-xavier-carrillo
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns the GPT-6 Sol source-reading proposal (MISQUOTED) and the earlier pin-coverage downgrade (UNABLE_TO_VERIFY). I read both primary texts this session. (1) Kehoe: the attached Kehoe.pdf at the pinned revision is a born-digital PDF with a Times New Roman text layer and no images on page 10. I rendered that page and inspected it visually. The printed line reads 'the various states’s procedural and evidentiary rules into the RICO statute.” Id. at 183.' The extra 's' therefore appears in the original document. It is not a PDF-extraction artifact. (2) Carrillo: the Caselaw Access Project scan of 229 F.3d 177 shows the printed reporter page headed '183'. I rendered the scan and inspected it visually. It reads: 'We based our decision in Coonan on our prior holding that “ ‘Congress did not intend to incorporate the various states’ procedural and evidentiary rules into the RICO statute.’ ” Id. at 1564 (quoting United States v. Paone, 782 F.2d 386, 393 (2d Cir.1986)).' CAP's HTML puts the passage between its *183 and *184 page labels. The pin cite to 183 is therefore verified, closing the gap that led to the earlier UNABLE_TO_VERIFY. (3) Materiality: every word appears in the same order, and the proposition is the same. The only textual change is 'states’' to 'states’s', an unmarked change to one possessive. KEHOE-050 ('offence' to 'offense') was ruled VERIFIED_MINOR_DEFECT, and the same rule applies here. MISQUOTED is reserved for purported verbatim text that does not appear in the source. An unbracketed typographical change that leaves the meaning intact is a minor defect. (4) There is a second citation-form issue that Sol did not raise. The words are Carrillo quoting Coonan, which in turn quotes Paone. Kehoe drops the inner single quotation marks and gives no '(quoting ...)' or '(internal quotation marks omitted)' parenthetical. That is also minor: the quoted words do appear at Carrillo 183, and Carrillo is correctly the cited source. Both defects are in an attached Eighth Circuit opinion, not in the task instructions or rubric.
+
+Excerpt read: Kehoe slip op. at 10 (pinned PDF page 10, rendered): 'Furthermore, “Congress did not intend to incorporate the various states’s procedural and evidentiary rules into the RICO statute.” Id. at 183.' Carrillo, 229 F.3d at 183 (CAP reporter scan, page header '183', rendered): 'We based our decision in Coonan on our prior holding that “ ‘Congress did not intend to incorporate the various states’ procedural and evidentiary rules into the RICO statute.’ ” Id. at 1564 (quoting United States v. Paone, 782 F.2d 386, 393 (2d Cir.1986)).'
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/resolve/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf
+- https://static.case.law/f3d/229/case-pdfs/0177-01.pdf
+- https://static.case.law/f3d/229/html/0177-01.html
+- https://static.case.law/f3d/229/cases/0177-01.json
+- https://static.case.law/f3d/229/CasesMetadata.json
+
+Model: Claude Opus 5.5; reasoning effort: high.
 
 ## KEHOE-070: 18 U.S.C. § 1959
 

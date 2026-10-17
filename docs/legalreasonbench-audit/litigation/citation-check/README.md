@@ -6,7 +6,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Complete: False. Available matter reports: 4 / 4.
 
-Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 8.
+Checked real citations in available reports: 2296. Fictional by design (excluded): 70. Pending checks: 1.
 
 Problem rate: unavailable; coverage or checks pending.
 
@@ -14,14 +14,14 @@ Final statuses for completed real-citation checks only:
 
 | Status | Count |
 |---|---|
-| VERIFIED | 1848 |
-| VERIFIED_MINOR_DEFECT | 113 |
+| VERIFIED | 1865 |
+| VERIFIED_MINOR_DEFECT | 119 |
 | NOT_FOUND_LIKELY_FABRICATED | 0 |
 | CITATION_POINTS_TO_DIFFERENT_CASE | 0 |
 | MISCHARACTERIZED | 46 |
 | MISQUOTED | 5 |
-| WRONG_CITATION_REAL_CASE | 20 |
-| UNABLE_TO_VERIFY | 256 |
+| WRONG_CITATION_REAL_CASE | 21 |
+| UNABLE_TO_VERIFY | 239 |
 
 ## lrb-certiorari-quasi-judicial-land-use
 
@@ -56,6 +56,7 @@ Coverage limits:
 - Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.
 - Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.
 - The Sol second pass rechecked all 27 initial problem rows and added a Part 150 citation. It raised five new problems (refs29,78,87,89,136), promoted here to new first-stage findings with initial judgments preserved. Independent review of those five is pending. The two nonproblem supplemental checks remain separately saved pending further primary-source reading.
+- The supplemental source pass attempted all 32 assigned references: 17 verified and 11 still unverified after retrieval attempts. Four repeated problem proposals concern references already independently second-checked; the new source evidence is retained without replacing those final rulings. Remaining blocks concern seven compound Lee Plan references, two secondary works, and two historical code subsections.
 
 [Full citation evidence](results/lrb-certiorari-quasi-judicial-land-use.md)
 

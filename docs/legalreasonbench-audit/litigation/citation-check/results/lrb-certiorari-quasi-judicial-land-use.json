@@ -28,7 +28,8 @@
       "AC 150/5200-33B and AC 150/5300-13A (cancelled) and AC 150/5300-13B and 150/5200-30D were identified from FAA's current and cancelled AC lists; their texts were not read. AC 150/5190-4B, 150/5200-33C and 150/5190-7 were read in full text.",
       "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.",
       "Integration coverage review preserves the first judgments but marks nine FAA index-only checks and eight current-only code checks UNABLE_TO_VERIFY. The cited circular texts or applicable historical code versions were not read. These are coverage limits, not established citation errors.",
-      "The Sol second pass rechecked all 27 initial problem rows and added a Part 150 citation. It raised five new problems (refs29,78,87,89,136), promoted here to new first-stage findings with initial judgments preserved. Independent review of those five is pending. The two nonproblem supplemental checks remain separately saved pending further primary-source reading."
+      "The Sol second pass rechecked all 27 initial problem rows and added a Part 150 citation. It raised five new problems (refs29,78,87,89,136), promoted here to new first-stage findings with initial judgments preserved. Independent review of those five is pending. The two nonproblem supplemental checks remain separately saved pending further primary-source reading.",
+      "The supplemental source pass attempted all 32 assigned references: 17 verified and 11 still unverified after retrieval attempts. Four repeated problem proposals concern references already independently second-checked; the new source evidence is retained without replacing those final rulings. Remaining blocks concern seven compound Lee Plan references, two secondary works, and two historical code subsections."
     ],
     "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
     "census_complete": false
@@ -867,6 +868,21 @@
         "model": "claude-opus-5-5",
         "reasoning_effort": "high",
         "effort_provenance": "Configured high by the orchestrator; worker did not see the setting."
+      },
+      "additional_source_reading": {
+        "ref": 29,
+        "source_reading_check": {
+          "status": "MISCHARACTERIZED",
+          "explanation": "Read the complete article. The rubric excerpts two passages describing older decisions accurately, but treats that past governmental-function premise as support for an unqualified 2024 county immunity position. Smith’s conclusion expressly says that, absent an exemption, a county is subject to its own zoning and favors a balancing approach. The printed law-review page headers date volume 28 to 1976, not the cited 1967; the repository’s 1967 metadata is inconsistent with the primary article.",
+          "source_urls": [
+            "https://www.floridalawreview.com/article/79428-immunity-of-state-and-state-related-activities-from-local-municipal-zoning-regulations-florida-focus/attachment/165381.pdf"
+          ],
+          "excerpt_read": "PDF pp. 803-04 reports the old Nichols/Fourth DCA premise; conclusion at p. 815 says a county is subject to its own zoning absent exemption; printed headers say 1976."
+        },
+        "attempts": [],
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high",
+        "integration_note": "Additional Sol reading; the independent second-check ruling remains the final status."
       }
     },
     {
@@ -883,12 +899,16 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
-        "status": "UNABLE_TO_VERIFY",
-        "explanation": "\"Nichols\" is referenced only inside the rubric's quotation of the Smith article, which I could not read. Parkway Towers (281 So. 2d at 69) cites Nichols Engineering & Research Corp. v. State ex rel. Knight, 59 So. 2d 874 (Fla. 1952), a likely candidate, but the article's referent and its \"Fourth District\" statement were not confirmed.",
+        "status": "VERIFIED",
+        "explanation": "Read Smith article footnote 23 and the Nichols opinion itself. The bare Nichols reference is Nichols Engineering & Research Corp. v. State ex rel. Knight, 59 So. 2d 874 (Fla. 1952), on a special-act governmental incinerator; the Fourth DCA A1A Mobile Home Park opinion invokes it for the county sewage-facility position. This verifies identity and historical use, not a timeless immunity rule.",
         "source_urls": [
-          "https://www.courtlistener.com/opinion/1672985/metropolitan-dade-cty-v-parkway-towers-condominium-assn/"
+          "https://www.floridalawreview.com/article/79428-immunity-of-state-and-state-related-activities-from-local-municipal-zoning-regulations-florida-focus/attachment/165381.pdf",
+          "https://app.midpage.ai/document/nichols-engineering-research-corp-v-1660553",
+          "https://law.justia.com/cases/florida/district-courts-of-appeal/1971/246-so-2d-126.html"
         ],
-        "excerpt_read": "281 So. 2d at 69: \"Nichols Engineering & Research Corp. v. State ex rel. Knight, Fla. 1952, 59 So.2d 874\""
+        "excerpt_read": "Smith footnote 23: 59 So. 2d 874; Nichols opinion discusses a governmental incinerator and special act.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
       },
       "supplemental_check": {
         "revised_status": "VERIFIED_MINOR_DEFECT",
@@ -901,7 +921,16 @@
         "excerpt_read": "Smith pages 3-4 identify Nichols and footnote A1A; A1A's opinion applies governmental-activity immunity; Nichols describes the incinerator's statutory approvals.",
         "model": "gpt-6-sol",
         "reasoning_effort": "high"
-      }
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "explanation": "\"Nichols\" is referenced only inside the rubric's quotation of the Smith article, which I could not read. Parkway Towers (281 So. 2d at 69) cites Nichols Engineering & Research Corp. v. State ex rel. Knight, 59 So. 2d 874 (Fla. 1952), a likely candidate, but the article's referent and its \"Fourth District\" statement were not confirmed.",
+        "source_urls": [
+          "https://www.courtlistener.com/opinion/1672985/metropolitan-dade-cty-v-parkway-towers-condominium-assn/"
+        ],
+        "excerpt_read": "281 So. 2d at 69: \"Nichols Engineering & Research Corp. v. State ex rel. Knight, Fla. 1952, 59 So.2d 874\""
+      },
+      "source_reading_attempts": []
     },
     {
       "ref": 31,
@@ -1605,6 +1634,30 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read FAA AC 150/5300-13B itself: original cover dated March 31, 2022, identifies Airport Design and expressly cancels AC 150/5300-13A. The supplied citation correctly identifies the replacement circular. This verifies the FAA document and supersession; the county-code incorporation follows the separate as-amended-or-replaced language in LDC §34-1102.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC-150-5300-13B-Airport-Design-Chg1-w-errata.pdf",
+          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.current/documentNumber/150_5300-1"
+        ],
+        "excerpt_read": "Original circular cover: Airport Design, 3/31/2022; cancellation paragraph names AC 150/5300-13A.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13B, Airport Design (2022; Change 1, 2024) is the current airport design AC and replaced 150/5300-13A, which LDC s. 34-1102 names \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2",
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTVIDIRE_DIV12AICODI_S34-1102PUIN"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Current list: \"150/5300-13B, AAS-100, Airport Design - Change 1\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5300-13B, Airport Design (2022; Change 1, 2024) is the current airport design AC and replaced 150/5300-13A, which LDC s. 34-1102 names \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2",
@@ -1612,17 +1665,7 @@
         ],
         "excerpt_read": "Current list: \"150/5300-13B, AAS-100, Airport Design - Change 1\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13B, Airport Design (2022; Change 1, 2024) is the current airport design AC and replaced 150/5300-13A, which LDC s. 34-1102 names \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2",
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTVIDIRE_DIV12AICODI_S34-1102PUIN"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Current list: \"150/5300-13B, AAS-100, Airport Design - Change 1\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 59,
@@ -1845,6 +1888,30 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the FAA consolidated AC 150/5300-13A Change 1 PDF, which contains the Airport Design text; FAA index identifies the original September 28, 2012 issuance and March 31, 2022 cancellation. The 2014 Change 1 consolidation was read rather than a 2012 unamended copy. The source is a real FAA circular named in LDC §34-1102 as amended, renumbered, or replaced.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/150-5300-13A-chg1-interactive-201907.pdf",
+          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.current/documentNumber/150_5300-1"
+        ],
+        "excerpt_read": "AC 150/5300-13A Change 1 cover identifies Airport Design; FAA index gives original 2012 issue.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -1852,17 +1919,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 68,
@@ -1879,6 +1936,29 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the official 28-page FAA AC 150/5200-33B primary PDF. It identifies the 2007 circular as Hazardous Wildlife Attractants on or near Airports and includes guidance for land uses and wastewater facilities near airports. It was later replaced; the LDC citation expressly allows amended, renumbered, or replaced circulars.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_150_5200-33B.pdf"
+        ],
+        "excerpt_read": "Cover: AC 150/5200-33B, 8/28/2007; purpose addresses hazardous wildlife-attracting land uses.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -1886,17 +1966,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 69,
@@ -2408,6 +2478,22 @@
         "model": "claude-opus-5-5",
         "reasoning_effort": "high",
         "effort_provenance": "Configured high by the orchestrator; worker did not see the setting."
+      },
+      "additional_source_reading": {
+        "ref": 87,
+        "source_reading_check": {
+          "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+          "explanation": "The assigned caption labels Southeast Water Reclamation Facility DCI2023-00011 as Z-23-022. Lee County’s September 6, 2023 official agenda assigns Z-23-022 to Daniels Parkway South, DCI2022-00002, a different zoning matter. Lee County’s January 17, 2024 minutes and the supplied resolution identify the Southeast Water Reclamation matter as Z-23-035. This is a wrong cross-matter resolution citation, repeated in Order and Petition captions.",
+          "source_urls": [
+            "https://results.leegov.com/Home/DownloadFile/KT0000315224",
+            "https://leecounty.novusagenda.com/agendapublic/AttachmentViewer.ashx?AttachmentID=23943&ItemID=6825"
+          ],
+          "excerpt_read": "County agenda: DCI2022-00002 / Z-23-022 / Daniels Parkway South; later minutes: Southeast Water Reclamation / Z-23-035."
+        },
+        "attempts": [],
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high",
+        "integration_note": "Additional Sol reading; the independent second-check ruling remains the final status."
       }
     },
     {
@@ -2476,6 +2562,22 @@
         "model": "claude-opus-5-5",
         "reasoning_effort": "high",
         "effort_provenance": "Configured high by the orchestrator; worker did not see the setting."
+      },
+      "additional_source_reading": {
+        "ref": 89,
+        "source_reading_check": {
+          "status": "CITATION_POINTS_TO_DIFFERENT_CASE",
+          "explanation": "The assigned caption labels Southeast Water Reclamation Facility DCI2023-00011 as Z-23-022. Lee County’s September 6, 2023 official agenda assigns Z-23-022 to Daniels Parkway South, DCI2022-00002, a different zoning matter. Lee County’s January 17, 2024 minutes and the supplied resolution identify the Southeast Water Reclamation matter as Z-23-035. This is a wrong cross-matter resolution citation, repeated in Order and Petition captions.",
+          "source_urls": [
+            "https://results.leegov.com/Home/DownloadFile/KT0000315224",
+            "https://leecounty.novusagenda.com/agendapublic/AttachmentViewer.ashx?AttachmentID=23943&ItemID=6825"
+          ],
+          "excerpt_read": "County agenda: DCI2022-00002 / Z-23-022 / Daniels Parkway South; later minutes: Southeast Water Reclamation / Z-23-035."
+        },
+        "attempts": [],
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high",
+        "integration_note": "Additional Sol reading; the independent second-check ruling remains the final status."
       }
     },
     {
@@ -2828,12 +2930,34 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The book exists, but neither its relevant page nor full text was read. Open Library and Google Books exposed bibliographic/preview metadata only; the Internet Archive copy required borrow or preview access. Snyder’s quotation of the book is evidence of Snyder’s text, not independent verification of Babcock.",
+        "source_urls": [
+          "https://openlibrary.org/books/OL5991785M/The_zoning_game",
+          "https://archive.org/details/zoninggamemunici00babc",
+          "https://books.google.com/books/about/The_Zoning_Game.html?id=36ZBAAAAIAAJ"
+        ],
+        "excerpt_read": "No primary book passage read.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Cited only as quoted within Snyder, which reproduces the citation as the Petition gives it (Snyder at 472-73). The book itself was not read.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1910929/bd-of-cty-comrs-of-brevard-v-snyder/"
         ],
         "excerpt_read": "Snyder *473: \"Richard F. Babcock, The Zoning Game (1966).\""
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://archive.org/details/zoninggamemunici00babc",
+          "result": "Item page offered borrow/preview; relevant book page not accessible or read."
+        },
+        {
+          "url": "https://books.google.com/books/about/The_Zoning_Game.html?id=36ZBAAAAIAAJ",
+          "result": "Metadata and index terms only; no relevant page text."
+        }
+      ]
     },
     {
       "ref": 105,
@@ -2852,12 +2976,34 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The 1992 article’s repository landing page was read, but its full text/download returned HTTP 403. The 1995 author follow-up confirms the 1992 article exists; Snyder reproduces the wording, but neither source substitutes for reading the cited 1992 article itself. No direct original-article quotation check is possible.",
+        "source_urls": [
+          "https://scholarship.kentlaw.iit.edu/fac_schol/663/",
+          "https://scholarship.kentlaw.iit.edu/cgi/viewcontent.cgi?article=1662&context=fac_schol",
+          "https://lira.bc.edu/files/pdf?fileid=97dd863a-acf9-47dc-8f6a-8d8c391322f9"
+        ],
+        "excerpt_read": "No primary 1992 article passage read.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "Cited only as quoted within Snyder, which gives the same citation and quotation (Snyder at 473). The article itself was not read.",
         "source_urls": [
           "https://www.courtlistener.com/opinion/1910929/bd-of-cty-comrs-of-brevard-v-snyder/"
         ],
         "excerpt_read": "Snyder *473: \"Daniel R. Mandelker and A. Dan Tarlock, Shifting the Presumption of Constitutionality in Land-Use Law, 24 Urb.Law. 1, 2 (1992).\""
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://scholarship.kentlaw.iit.edu/cgi/viewcontent.cgi?article=1662&context=fac_schol",
+          "result": "Article PDF returned HTTP 403."
+        },
+        {
+          "url": "https://scholarship.kentlaw.iit.edu/fac_schol/663/",
+          "result": "Repository landing page supplied citation metadata only."
+        }
+      ]
     },
     {
       "ref": 106,
@@ -3638,6 +3784,23 @@
         "model": "claude-opus-5-5",
         "reasoning_effort": "high",
         "effort_provenance": "Configured high by the orchestrator; worker did not see the setting."
+      },
+      "additional_source_reading": {
+        "ref": 136,
+        "source_reading_check": {
+          "status": "MISQUOTED",
+          "explanation": "Lee County Ordinance 22-11, adopted May 17 and filed May 25, 2022, displays §34-145(d)(4)a.2(c) as a redline: it deletes the petition’s “Preserves and promotes the general intent of this Code to” formulation and inserts “Protects” before “the public health, safety and welfare.” The 2024 petition quotes superseded text as the applicable finding. The ordinance’s effective-date exception for already sufficient applications cannot cover this 2023 application.",
+          "source_urls": [
+            "https://www.leegov.com/bocc/Ordinances/22-11.pdf",
+            "https://www.leegov.com/bocc/Ordinances/24-14.pdf",
+            "https://www.leegov.com/bocc/Ordinances/25-09.pdf"
+          ],
+          "excerpt_read": "2022 redline at PDF p. 35 changes criterion (c)(2) to “Protects the public health, safety and welfare.”"
+        },
+        "attempts": [],
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high",
+        "integration_note": "Additional Sol reading; the independent second-check ruling remains the final status."
       }
     },
     {
@@ -3814,6 +3977,30 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the FAA consolidated AC 150/5300-13A Change 1 PDF, which contains the Airport Design text; FAA index identifies the original September 28, 2012 issuance and March 31, 2022 cancellation. The 2014 Change 1 consolidation was read rather than a 2012 unamended copy. The source is a real FAA circular named in LDC §34-1102 as amended, renumbered, or replaced.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/150-5300-13A-chg1-interactive-201907.pdf",
+          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.current/documentNumber/150_5300-1"
+        ],
+        "excerpt_read": "AC 150/5300-13A Change 1 cover identifies Airport Design; FAA index gives original 2012 issue.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -3821,17 +4008,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 145,
@@ -3848,6 +4025,29 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the official 28-page FAA AC 150/5200-33B primary PDF. It identifies the 2007 circular as Hazardous Wildlife Attractants on or near Airports and includes guidance for land uses and wastewater facilities near airports. It was later replaced; the LDC citation expressly allows amended, renumbered, or replaced circulars.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_150_5200-33B.pdf"
+        ],
+        "excerpt_read": "Cover: AC 150/5200-33B, 8/28/2007; purpose addresses hazardous wildlife-attracting land uses.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -3855,17 +4055,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 146,
@@ -4089,6 +4279,30 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the FAA consolidated AC 150/5300-13A Change 1 PDF, which contains the Airport Design text; FAA index identifies the original September 28, 2012 issuance and March 31, 2022 cancellation. The 2014 Change 1 consolidation was read rather than a 2012 unamended copy. The source is a real FAA circular named in LDC §34-1102 as amended, renumbered, or replaced.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/150-5300-13A-chg1-interactive-201907.pdf",
+          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.current/documentNumber/150_5300-1"
+        ],
+        "excerpt_read": "AC 150/5300-13A Change 1 cover identifies Airport Design; FAA index gives original 2012 issue.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -4096,17 +4310,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 156,
@@ -4123,6 +4327,29 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the official 28-page FAA AC 150/5200-33B primary PDF. It identifies the 2007 circular as Hazardous Wildlife Attractants on or near Airports and includes guidance for land uses and wastewater facilities near airports. It was later replaced; the LDC citation expressly allows amended, renumbered, or replaced circulars.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_150_5200-33B.pdf"
+        ],
+        "excerpt_read": "Cover: AC 150/5200-33B, 8/28/2007; purpose addresses hazardous wildlife-attracting land uses.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -4130,17 +4357,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 157,
@@ -4735,6 +4952,30 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the FAA consolidated AC 150/5300-13A Change 1 PDF, which contains the Airport Design text; FAA index identifies the original September 28, 2012 issuance and March 31, 2022 cancellation. The 2014 Change 1 consolidation was read rather than a 2012 unamended copy. The source is a real FAA circular named in LDC §34-1102 as amended, renumbered, or replaced.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/150-5300-13A-chg1-interactive-201907.pdf",
+          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.current/documentNumber/150_5300-1"
+        ],
+        "excerpt_read": "AC 150/5300-13A Change 1 cover identifies Airport Design; FAA index gives original 2012 issue.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -4742,17 +4983,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5300-13A, Airport Design (Sept. 28, 2012) exists and is now cancelled (replaced by 150/5300-13B); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5300-13A ... Airport Design ... 2012-09-28\"; current list: \"150/5300-13B ... Airport Design - Change 1\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 183,
@@ -4769,6 +5000,29 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Read the official 28-page FAA AC 150/5200-33B primary PDF. It identifies the 2007 circular as Hazardous Wildlife Attractants on or near Airports and includes guidance for land uses and wastewater facilities near airports. It was later replaced; the LDC citation expressly allows amended, renumbered, or replaced circulars.",
+        "source_urls": [
+          "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_150_5200-33B.pdf"
+        ],
+        "excerpt_read": "Cover: AC 150/5200-33B, 8/28/2007; purpose addresses hazardous wildlife-attracting land uses.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
+          "source_urls": [
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
+            "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
         "source_urls": [
           "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
@@ -4776,17 +5030,7 @@
         ],
         "excerpt_read": "Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read the FAA current/cancelled index and related code incorporation, but expressly did not read this circular's primary text. Identity evidence does not meet this audit's primary-text requirement for a verified citation. Original first-check explanation: AC 150/5200-33B, Hazardous Wildlife Attractants On or Near Airports (Aug. 28, 2007) exists and is now cancelled (replaced by 150/5200-33C); the LDC names it \"as amended, renumbered or replaced.\"",
-        "source_urls": [
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/3",
-          "https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.exportAll/statusID/2"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Cancelled list: \"150/5200-33B ... Hazardous Wildlife Attractants On or Near Airports ... 2007-08-28\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 184,
@@ -5121,6 +5365,30 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "explanation": "The 2010 county ordinance contains the urban-area natural-systems sentence under §10-321(b)(3), and current code has it under (b)(2). The 2025 amendment reproduces subsection (a) but says the remainder is unchanged, so the exact January 2024 subsection was still not independently read. The petition also invokes the urban-only sentence while describing urban and nonurban areas; applicability to the site cannot be established from that quote.",
+        "source_urls": [
+          "https://mcclibraryfunctions-stage.azurewebsites.us/api/ordinanceDownload/12625/431696/pdf",
+          "https://www.leegov.com/bocc/Ordinances/25-09.pdf",
+          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+        ],
+        "excerpt_read": "2010 ordinance §10-321(b)(3) limits the natural-systems sentence to developments within urban areas.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-321(b)(2) contains the quoted urban-area language and cross-reference to s. 10-418. The subject site is outside the future urban areas, for which (b)(1) applies instead. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"(2) Surface water management plans for developments within urban areas must mimic natural systems where feasible. Techniques to mimic the function of natural systems are specified in Section 10-418.\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
         "status": "VERIFIED",
         "explanation": "LDC s. 10-321(b)(2) contains the quoted urban-area language and cross-reference to s. 10-418. The subject site is outside the future urban areas, for which (b)(1) applies instead. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
@@ -5128,16 +5396,16 @@
         ],
         "excerpt_read": "\"(2) Surface water management plans for developments within urban areas must mimic natural systems where feasible. Techniques to mimic the function of natural systems are specified in Section 10-418.\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-321(b)(2) contains the quoted urban-area language and cross-reference to s. 10-418. The subject site is outside the future urban areas, for which (b)(1) applies instead. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"(2) Surface water management plans for developments within urban areas must mimic natural systems where feasible. Techniques to mimic the function of natural systems are specified in Section 10-418.\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leegov.com/bocc/Ordinances/25-09.pdf",
+          "result": "2025 redline prints §10-321(a), but states remainder unchanged; subsection (b)(2) is not printed."
+        },
+        {
+          "url": "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST",
+          "result": "Current code visible, but no January 2024 edition available through this page."
+        }
+      ]
     },
     {
       "ref": 198,
@@ -5154,22 +5422,36 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "The county’s 2009 ordinance prints the §10-418 introduction describing techniques to mimic natural systems, and its 2025 redline reproduces the same introductory sentence before later amendments. This verifies the general cross-reference in the 2024 petition; the citation does not claim an individual later-amended design parameter.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/09-23.pdf",
+          "https://www.leegov.com/bocc/Ordinances/25-09.pdf"
+        ],
+        "excerpt_read": "§10-418: “Techniques to mimic the function of natural systems” introduces the listed design standards.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-418 (Surface water management systems; design standards) contains the techniques to mimic natural systems. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"Sec. 10-418. - Surface water management systems. Design standards. Techniques to...\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "LDC s. 10-418 (Surface water management systems; design standards) contains the techniques to mimic natural systems. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
           "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
         ],
         "excerpt_read": "\"Sec. 10-418. - Surface water management systems. Design standards. Techniques to...\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-418 (Surface water management systems; design standards) contains the techniques to mimic natural systems. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"Sec. 10-418. - Surface water management systems. Design standards. Techniques to...\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 199,
@@ -5251,12 +5533,14 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
-        "status": "UNABLE_TO_VERIFY",
-        "explanation": "Florida Rule of General Practice and Judicial Administration 2.520 (documents) exists by number, but the Florida Bar rules PDF was not retrievable in this session, so its text was not read.",
+        "status": "VERIFIED",
+        "explanation": "Read Florida Bar’s October 31, 2024 official rules compilation. Rule 2.520 is titled Documents and gives electronic filing, format, margin, exhibit and recording-space requirements. The cited use is generic document requirements; no intervening 2024 amendment of this rule was found in the compilation’s rule history.",
         "source_urls": [
-          "https://www.floridabar.org/rules/ctproc/"
+          "https://www-media.floridabar.org/uploads/2024/11/2025_04-OCT-Florida-Rules-of-General-Practice-and-Judicial-Administration-10-31-2024.pdf"
         ],
-        "excerpt_read": "Not read (download blocked)."
+        "excerpt_read": "Rule 2.520 heading is “DOCUMENTS”; subsection (a) defines documents to include petitions.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
       },
       "supplemental_check": {
         "revised_status": "VERIFIED_MINOR_DEFECT",
@@ -5267,7 +5551,16 @@
         "excerpt_read": "Rule 2.520 is titled Documents and sets page size, numbering, margins, font size, electronic-document, paper-document, and exhibit rules.",
         "model": "gpt-6-sol",
         "reasoning_effort": "high"
-      }
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "explanation": "Florida Rule of General Practice and Judicial Administration 2.520 (documents) exists by number, but the Florida Bar rules PDF was not retrievable in this session, so its text was not read.",
+        "source_urls": [
+          "https://www.floridabar.org/rules/ctproc/"
+        ],
+        "excerpt_read": "Not read (download blocked)."
+      },
+      "source_reading_attempts": []
     },
     {
       "ref": 203,
@@ -5371,6 +5664,29 @@
       "fictional_by_design": false,
       "fictional_reason": "",
       "first_check": {
+        "status": "UNABLE_TO_VERIFY",
+        "explanation": "The 2024 county ordinance amending §10-416(d) prints only the lead-in and another buffer provision, expressly leaving (d)(1) through (8) unchanged. It does not print the cited (d)(3) buffer table, and no readable January 2024 codification of its STP/PRE cell or Type F width was obtained. The current table supports the first check only for the later edition.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/24-14.pdf",
+          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+        ],
+        "excerpt_read": "2024 ordinance: “(d)(1) through (8) remain unchanged”; historical buffer-table cell not read.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: The LDC s. 10-416 buffer table requires a Type F buffer where a sewer treatment plant (STP) abuts public preserve land (PRE); Type F minimum width is 30 feet. Section amended by Ord. 24-14 (Oct. 1, 2024), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Buffer requirements table, row STP / column PRE: \"F(2)\"; buffer types table: \"F ... Minimum width in feet 30\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
         "status": "VERIFIED",
         "explanation": "The LDC s. 10-416 buffer table requires a Type F buffer where a sewer treatment plant (STP) abuts public preserve land (PRE); Type F minimum width is 30 feet. Section amended by Ord. 24-14 (Oct. 1, 2024), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
@@ -5378,16 +5694,16 @@
         ],
         "excerpt_read": "Buffer requirements table, row STP / column PRE: \"F(2)\"; buffer types table: \"F ... Minimum width in feet 30\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: The LDC s. 10-416 buffer table requires a Type F buffer where a sewer treatment plant (STP) abuts public preserve land (PRE); Type F minimum width is 30 feet. Section amended by Ord. 24-14 (Oct. 1, 2024), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: Buffer requirements table, row STP / column PRE: \"F(2)\"; buffer types table: \"F ... Minimum width in feet 30\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leegov.com/bocc/Ordinances/24-14.pdf",
+          "result": "Primary amendment omits subsection (d)(3) and its table as unchanged."
+        },
+        {
+          "url": "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST",
+          "result": "Current codification is later than the January 2024 resolution; historical code version not retrievable."
+        }
+      ]
     },
     {
       "ref": 208,
@@ -5404,22 +5720,35 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Lee County Ordinance 25-09’s redline directly prints the pre-amendment §10-329(d)(4) bank-slope requirement of six horizontal to one vertical and retains that parameter in its amended text. This independently recovers the cited historical provision used by the January 2024 resolution.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/25-09.pdf"
+        ],
+        "excerpt_read": "§10-329(d)(4): banks “must be sloped at a ratio not greater than six horizontal to one vertical.”",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-329(d)(4) requires excavation banks sloped no steeper than six horizontal to one vertical. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"(4) Bank slopes. ... The banks of excavations permitted under this section must be sloped at a ratio not greater than six horizontal to one vertical...\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "LDC s. 10-329(d)(4) requires excavation banks sloped no steeper than six horizontal to one vertical. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
           "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
         ],
         "excerpt_read": "\"(4) Bank slopes. ... The banks of excavations permitted under this section must be sloped at a ratio not greater than six horizontal to one vertical...\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-329(d)(4) requires excavation banks sloped no steeper than six horizontal to one vertical. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"(4) Bank slopes. ... The banks of excavations permitted under this section must be sloped at a ratio not greater than six horizontal to one vertical...\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 209,
@@ -5436,22 +5765,36 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Lee County’s adopted 2009 ordinance prints §10-418(2)(c) and its minimum 20-foot planted littoral shelf; the 2025 amendment states subsection (2)(c) remains unchanged. This is primary county text of the parameter underlying the 2024 deviation, not merely the resolution’s own quotation. The 2025 ordinance also creates airport-zone exceptions after the resolution.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/09-23.pdf",
+          "https://www.leegov.com/bocc/Ordinances/25-09.pdf"
+        ],
+        "excerpt_read": "2009 §10-418(2)(c)1: minimum 20-foot-wide shelf, no deeper than two feet below control elevation.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-418(2)c.1 requires a 20-foot-wide planted littoral shelf no deeper than two feet below control elevation. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"c. Shelf configuration. 1. The PLS must be designed to include a minimum of a 20-foot-wide littoral shelf extending waterward of the control elevation at a depth of no greater than two feet below the control elevation.\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "LDC s. 10-418(2)c.1 requires a 20-foot-wide planted littoral shelf no deeper than two feet below control elevation. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
           "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
         ],
         "excerpt_read": "\"c. Shelf configuration. 1. The PLS must be designed to include a minimum of a 20-foot-wide littoral shelf extending waterward of the control elevation at a depth of no greater than two feet below the control elevation.\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-418(2)c.1 requires a 20-foot-wide planted littoral shelf no deeper than two feet below control elevation. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"c. Shelf configuration. 1. The PLS must be designed to include a minimum of a 20-foot-wide littoral shelf extending waterward of the control elevation at a depth of no greater than two feet below the control elevation.\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 210,
@@ -5468,22 +5811,35 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Lee County Ordinance 25-09 directly reproduces the existing §10-291(3) rule in its redline before adding access-deviation language. It requires commercial or industrial developments over ten acres to have more than one means of ingress or egress; that is the rule the 2024 resolution deviates from.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/25-09.pdf"
+        ],
+        "excerpt_read": "§10-291(3): commercial or industrial development over ten acres requires more than one access.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-291(3) requires commercial or industrial development over ten acres to provide more than one means of ingress or egress. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"(3) Residential development of more than five acres and commercial or industrial development of more than ten acres must provide more than one means of ingress or egress for the development.\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "LDC s. 10-291(3) requires commercial or industrial development over ten acres to provide more than one means of ingress or egress. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
           "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
         ],
         "excerpt_read": "\"(3) Residential development of more than five acres and commercial or industrial development of more than ten acres must provide more than one means of ingress or egress for the development.\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-291(3) requires commercial or industrial development over ten acres to provide more than one means of ingress or egress. Section amended by Ord. 25-09 (Apr. 15, 2025), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"(3) Residential development of more than five acres and commercial or industrial development of more than ten acres must provide more than one means of ingress or egress for the development.\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 211,
@@ -5500,12 +5856,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: CFPD complies with the Lee Plan.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 212,
@@ -5545,12 +5927,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: Compatible with existing and planned uses.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 214,
@@ -5589,12 +5997,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: Sufficient access; transportation impacts addressed.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 216,
@@ -5611,12 +6045,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: No adverse effect on environmentally critical areas.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 217,
@@ -5655,12 +6115,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: Served by urban services.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 219,
@@ -5699,12 +6185,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: MCP reflects sufficient access.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 221,
@@ -5743,12 +6255,38 @@
       "fictional_reason": "",
       "first_check": {
         "status": "UNABLE_TO_VERIFY",
+        "explanation": "The January 2024 Lee Plan compilation and maps were not read. An indexed May 2024 official PDF was blocked, and a Wayback capture was truncated; the current county PDF is amended through 2025. The cited cluster of goals, objectives, policies, standards and/or maps therefore cannot be checked item by item for the applicable date or for the resolution’s asserted support. The resolution’s own findings are not independent Plan text.",
+        "source_urls": [
+          "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf"
+        ],
+        "excerpt_read": "No complete applicable Lee Plan text or cited map read for this occurrence: Mix of uses appropriate at location.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "initial_check": {
+        "status": "UNABLE_TO_VERIFY",
         "explanation": "The Lee Plan goal, objective, policy and map numbers listed in the resolution's findings were not checked individually against the Lee Plan in effect in January 2024; existence and support are unverified.",
         "source_urls": [
           "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx"
         ],
         "excerpt_read": "Not read."
-      }
+      },
+      "source_reading_attempts": [
+        {
+          "url": "https://www.leefl.gov/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Indexed May 2024 Lee Plan PDF now returns HTTP 403; it also postdates the January 2024 decision."
+        },
+        {
+          "url": "https://web.archive.org/web/20240619224955id_/https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "June 2024 Wayback capture returns only first 1,048,576 bytes of a roughly 3.9 MB PDF; pages cannot be parsed."
+        },
+        {
+          "url": "https://www.leegov.com/dcd/Documents/Planning/LeePlan/LeePlanText.pdf",
+          "result": "Current 2025 Lee Plan is readable but is later than the January 2024 decision."
+        }
+      ]
     },
     {
       "ref": 223,
@@ -5855,22 +6393,35 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Lee County Ordinance 24-14’s amendment redline reproduces §10-261(a), “Refuse and solid waste disposal facilities,” requiring sufficient on-site container space for garbage and recyclables for new commercial/industrial construction. It is the primary pre-amendment section text pertinent to the two identical Master Concept Plan notes; the plan’s “disposal area” wording describes later site provision rather than literal on-site final disposal.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/24-14.pdf"
+        ],
+        "excerpt_read": "§10-261(a): new commercial/industrial uses provide sufficient on-site space for garbage and recycling containers.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-261 governs refuse and solid waste disposal facilities. Section amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 26-07 (June 16, 2026), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"Sec. 10-261. - Refuse and solid waste disposal facilities. (a) Provision of container spaces...\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "LDC s. 10-261 governs refuse and solid waste disposal facilities. Section amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 26-07 (June 16, 2026), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
           "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
         ],
         "excerpt_read": "\"Sec. 10-261. - Refuse and solid waste disposal facilities. (a) Provision of container spaces...\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-261 governs refuse and solid waste disposal facilities. Section amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 26-07 (June 16, 2026), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"Sec. 10-261. - Refuse and solid waste disposal facilities. (a) Provision of container spaces...\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 228,
@@ -5887,22 +6438,35 @@
       "fictional_reason": "",
       "first_check": {
         "status": "VERIFIED",
+        "explanation": "Lee County Ordinance 24-14’s amendment redline reproduces §10-261(a), “Refuse and solid waste disposal facilities,” requiring sufficient on-site container space for garbage and recyclables for new commercial/industrial construction. It is the primary pre-amendment section text pertinent to the two identical Master Concept Plan notes; the plan’s “disposal area” wording describes later site provision rather than literal on-site final disposal.",
+        "source_urls": [
+          "https://www.leegov.com/bocc/Ordinances/24-14.pdf"
+        ],
+        "excerpt_read": "§10-261(a): new commercial/industrial uses provide sufficient on-site space for garbage and recycling containers.",
+        "model": "gpt-6-sol",
+        "reasoning_effort": "high"
+      },
+      "earlier_second_checks": [
+        {
+          "revised_status": "UNABLE_TO_VERIFY",
+          "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-261 governs refuse and solid waste disposal facilities. Section amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 26-07 (June 16, 2026), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
+          "source_urls": [
+            "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
+          ],
+          "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"Sec. 10-261. - Refuse and solid waste disposal facilities. (a) Provision of container spaces...\"",
+          "model": "GPT-6.1 Sol integration coverage review",
+          "reasoning_effort": "medium"
+        }
+      ],
+      "initial_check": {
+        "status": "VERIFIED",
         "explanation": "LDC s. 10-261 governs refuse and solid waste disposal facilities. Section amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 26-07 (June 16, 2026), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
         "source_urls": [
           "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
         ],
         "excerpt_read": "\"Sec. 10-261. - Refuse and solid waste disposal facilities. (a) Provision of container spaces...\""
       },
-      "second_check": {
-        "revised_status": "UNABLE_TO_VERIFY",
-        "explanation": "The first reviewer read current code text but expressly did not retrieve the pre-amendment version applicable to the cited document. The cited historical requirement remains unverified; the current text and amendment history do not establish its earlier wording. Original first-check explanation: LDC s. 10-261 governs refuse and solid waste disposal facilities. Section amended by Ord. 24-14 (Oct. 1, 2024) and Ord. 26-07 (June 16, 2026), after the document; the pre-amendment text was not retrieved. The cited requirement is in the current text.",
-        "source_urls": [
-          "https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH10DEST"
-        ],
-        "excerpt_read": "Integration reviewed the saved first-check excerpt and coverage statement; no additional primary authority text was read. Saved excerpt: \"Sec. 10-261. - Refuse and solid waste disposal facilities. (a) Provision of container spaces...\"",
-        "model": "GPT-6.1 Sol integration coverage review",
-        "reasoning_effort": "medium"
-      }
+      "source_reading_attempts": []
     },
     {
       "ref": 230,
@@ -5982,5 +6546,71 @@
       "The public intent file docs/legalreasonbench-audit/litigation/citation-check/intent/lrb-certiorari-quasi-judicial-land-use.json already contains gpt-6-sol-authored records for refs 29 and 87 that match Sol's proposals. This review did not edit that file; the parent should reconcile it with these rulings.",
       "No human verification is claimed. No score corrections were made, and no paid provider APIs, host installs or secrets were used."
     ]
-  }
+  },
+  "source_reading_supplements": [
+    {
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high",
+      "assigned_refs": [
+        29,
+        30,
+        58,
+        67,
+        68,
+        87,
+        89,
+        104,
+        105,
+        136,
+        144,
+        145,
+        155,
+        156,
+        182,
+        183,
+        197,
+        198,
+        202,
+        207,
+        208,
+        209,
+        210,
+        211,
+        213,
+        215,
+        216,
+        218,
+        220,
+        222,
+        227,
+        228
+      ],
+      "by_status": {
+        "MISCHARACTERIZED": 1,
+        "VERIFIED": 17,
+        "CITATION_POINTS_TO_DIFFERENT_CASE": 2,
+        "UNABLE_TO_VERIFY": 11,
+        "MISQUOTED": 1
+      },
+      "coverage": {
+        "files_read": [
+          "AGENTS.md",
+          "docs/legalreasonbench-audit/litigation/citation-check/results/lrb-certiorari-quasi-judicial-land-use.json",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/input.json",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-2/input.json",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-petition.docx.md",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-orderpdf.docx.transcription.md",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-resolution.docx.md",
+          "docs/legalreasonbench-audit/litigation/tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-resolution.docx.figures.md"
+        ],
+        "limits": [
+          "No January 2024 Lee Plan compilation or maps were recoverable; seven multi-citation Plan rows remain unverified.",
+          "No readable primary text for Babcock book or 1992 Mandelker/Tarlock article.",
+          "The pre-2024 code text for §10-321(b)(2) and §10-416(d)(3) was not recovered.",
+          "FAA 150/5300-13A was read in its 2014 Change 1 consolidation, not an unamended 2012 printing.",
+          "County ordinances from 2009, 2022, and 2024-25 establish cited code language where quoted; later redlines are identified as such and not presented as a complete January 2024 code compilation."
+        ]
+      }
+    }
+  ]
 }

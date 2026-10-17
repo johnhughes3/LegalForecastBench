@@ -5524,8 +5524,19 @@ Excerpt read: The appellate court is ordered to reconsider the order affirming d
 - https://www.leagle.com/decision/20011748755ne2d99311712
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns Sol's MISCHARACTERIZED. I read the October 3, 2001 order on Leagle (755 N.E.2d 993, 258 Ill. Dec. 174, No. 92108). It directs the Fifth District to vacate its July 19, 2001 order affirming the circuit court's denial of the defendant's 'motion to dismiss on forum non conveniens grounds' and to reconsider in light of Vinson v. Allstate; the text is cut off after the Vinson citation. Guerine says 'ordering the Fifth District to reconsider [its] order affirming the trial court's denial of the defendant's forum non conveniens motion to transfer venue.' That is right on the court directed, the act (reconsider), and the appellate affirmance. The only error is the motion type. A primary text confirms that error: the later appellate opinion in the same litigation (Warehouse [sic] v. Goodyear Tire & Rubber Co., 353 Ill. App. 3d 346 (3d Dist. 2004), read on CourtListener) says the motion was 'a motion to dismiss based on improper venue and on the grounds of interstate forum non conveniens', that the Fifth District 'affirmed in a Rule 23 order entered on July 19, 2001', and that 'the supreme court entered a supervisory order vacating the appellate court's order.' So the motion was an interstate dismissal (Nebraska/Iowa), not an intrastate transfer, and the parenthetical's label is wrong. Guerine's appendix reads as a stylized summary, not a precise motion-by-motion description: (1) every one of the roughly 30 entries uses the same phrase, 'forum non conveniens motion to transfer venue', including A.P. Green, whose own order describes a 'motion to dismiss or transfer'; (2) the body sentence that cites the appendix ('Since Peile, we have exercised our supervisory authority more than 30 times to transfer cases away from plaintiffs' chosen fora') counts reconsideration orders (Wakehouse, Popp) and an interlocutory-appeal order (A.P. Green) as instances of 'transfer', so the court is using 'transfer' loosely; (3) the appendix says 'ordering the Fifth District to vacate' even where the supreme court itself vacated the appellate judgment, and those rows were VERIFIED (Kinzler, Beldner). The official reporter text on CourtListener (764 N.E.2d at *64-*66) matches the attachment word for word, including the 'reconsider is order' typo, so these are the court's own words and not artifacts of the copy. House calibration: if the proposition the authority is cited for survives and a parenthetical detail is wrong, the row is VERIFIED_MINOR_DEFECT; MISCHARACTERIZED is reserved for a parenthetical that states a disposition the order does not contain or that is the opposite of it. Wakehouse is still a supervisory order in which the supreme court set aside an FNC ruling that kept the case in the plaintiff's chosen forum. That supports what the appendix cites it for, so the motion label is a minor defect. Under current Rule 187 the dismissal/transfer split is meaningful (187(c)(1) intrastate transfer versus 187(c)(2) dismissal conditions), but it does not change the proposition being supported.
+
+Excerpt read: Order: 'In the exercise of this Court's supervisory authority, the Appellate Court, Fifth District, is directed to vacate its order in Wakehouse v. Goodyear Tire and Rubber Co., case No. 5-99-0749 (July 19, 2001), affirming the circuit court's denial of defendant's motion to dismiss on forum non conveniens grounds. The appellate court is ordered to reconsider in light of Vinson v. Allstate, 144 Ill.2d 306, ...' [truncated]. 353 Ill. App. 3d 346: 'The defendants subsequently filed a motion to dismiss based on improper venue and on the grounds of interstate forum non conveniens. The circuit court denied the motion and, after granting defendants' Rule 306 petition for leave to appeal, the Fifth District Appellate Court affirmed in a Rule 23 order entered on July 19, 2001. ... The supreme court entered a supervisory order vacating the appellate court's order ...'
+
+- https://www.leagle.com/decision/20011748755ne2d99311712
+- https://www.courtlistener.com/opinion/3138994/warehouse-v-goodyear-tire-rubber-co/
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/7ae8a196-2a43-4484-9666-43098da60282/S_Ct_Rules_full.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0212: A.P . Green Industries, Inc. v. Houston, 195 Ill. 2d 547 (2001) (supervisory order)
 
@@ -5550,8 +5561,17 @@ Excerpt read: The Appellate Court, Fifth District, is directed to enter an order
 - https://www.leagle.com/decision/20012034754ne2d128031999
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+I tried to upgrade this to VERIFIED and could not; Sol's minor-defect rating stands. The June 6, 2001 order (754 N.E.2d 1280, 195 Ill. 2d 547, 257 Ill. Dec. 885, No. 91077) directs the Fifth District to allow an interlocutory appeal, in Houston v. ACandS and Geyer v. ACandS, of 'the order denying the motion to dismiss or transfer based on forum non conveniens.' That supports the appendix's disposition, and the relevant language appears before Leagle's cutoff ('and to enter a decision...'). The appendix's 'motion to transfer venue' is its standard gloss and reasonably describes a 'dismiss or transfer' motion. The defect is the caption. The reporter caption is 'In re A.P. Green Industries, Inc., et al., etc. (ACandS, Inc., petitioner, v. Jerri L. Houston, etc., respondent).' Guerine's 'A.P. Green Industries, Inc. v. Houston' invents an adversarial caption that names A.P. Green rather than ACandS as the party opposing Houston. The citation and parallels are correct.
+
+Excerpt read: 'In re A.P. GREEN INDUSTRIES, INC., et al., etc. (ACandS, Inc., petitioner, v. Jerri L. Houston, etc., respondent).' ... 'the Appellate Court, Fifth District, is directed to enter an order in the cases of Houston v. ACandS, case No. 00 L 850, and Geyer v. ACandS, case No. 00 L 852, allowing an interlocutory appeal of the order denying the motion to dismiss or transfer based on forum non conveniens, and to enter a decision...' [truncated]
+
+- https://www.leagle.com/decision/20012034754ne2d128031999
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0213: Armstrong World Industries, Inc. v. Geyer, 195 Ill. 2d 547 (2001) (supervisory order)
 
@@ -5576,8 +5596,17 @@ Excerpt read: The Appellate Court, Fifth District, is directed to enter an order
 - https://www.leagle.com/decision/20012035754ne2d128111999
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+Upheld after trying to upgrade it to VERIFIED. The companion June 6, 2001 order (754 N.E.2d 1281, 195 Ill. 2d 547, 257 Ill. Dec. 886, No. 91078) has the same operative text: it directs the Fifth District to allow an interlocutory appeal of the denial of the motion to dismiss or transfer based on forum non conveniens in Geyer v. ACandS. That supports the appendix's '(same)', and the operative language is visible before the cutoff. Caption defect: the reporter caption is 'In re Armstrong World Indutries [sic], Inc., et al., etc. (ACandS, Inc., petitioner, v. Benjamin Geyer, respondent).' Guerine's 'Armstrong World Industries, Inc. v. Geyer' names the wrong moving party in an adversarial form. The citation and parallels are correct.
+
+Excerpt read: 'In re ARMSTRONG WORLD INDUTRIES, INC., et al., etc. (ACandS, Inc., petitioner, v. Benjamin Geyer, respondent).' ... 'directed to enter an order in the cases of Houston v. ACandS, case No. 00 L 850, and Geyer v. ACandS, case No. 00 L 852, allowing an interlocutory appeal of the order denying the motion to dismiss or transfer based on forum non conveniens, and to enter a decision...' [truncated]
+
+- https://www.leagle.com/decision/20012035754ne2d128111999
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0214: Olin v. A.P . Green Industries, Inc., 192 Ill. 2d 693 (2000) (supervisory order)
 
@@ -5784,8 +5813,18 @@ Excerpt read: Cook County is directed to vacate its denial of defendant’s moti
 - https://www.leagle.com/decision/1998998697ne2d3013995
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns Sol's MISCHARACTERIZED. The April 1, 1998 order (697 N.E.2d 301, 177 Ill. 2d 569, 231 Ill. Dec. 747, No. 84816) directs the Cook County circuit court to vacate its October 2, 1997 order 'denying defendant's motion to dismiss for forum non conveniens, and to enter an order allowing defendant's motion to dismiss for forum non conveniens.' Guerine's '(same)' points back to Fitzgerald: 'ordering the Cook County circuit court to grant the defendant's forum non conveniens motion to transfer venue.' The court, the direction to grant, and the FNC basis are all correct. The motion is mislabeled 'transfer venue' when the order calls it a motion to dismiss. I did not independently confirm whether Guest was an interstate case; I read no underlying record. Current Rule 187(c)(2) treats dismissal as the interstate remedy, but I read only the current rule text (amended 2013 and 2017), not the 1998 version. Guerine's appendix reads as a stylized summary, not a precise motion-by-motion description: (1) every one of the roughly 30 entries uses the same phrase, 'forum non conveniens motion to transfer venue', including A.P. Green, whose own order describes a 'motion to dismiss or transfer'; (2) the body sentence that cites the appendix ('Since Peile, we have exercised our supervisory authority more than 30 times to transfer cases away from plaintiffs' chosen fora') counts reconsideration orders (Wakehouse, Popp) and an interlocutory-appeal order (A.P. Green) as instances of 'transfer', so the court is using 'transfer' loosely; (3) the appendix says 'ordering the Fifth District to vacate' even where the supreme court itself vacated the appellate judgment, and those rows were VERIFIED (Kinzler, Beldner). The official reporter text on CourtListener (764 N.E.2d at *64-*66) matches the attachment word for word, including the 'reconsider is order' typo, so these are the court's own words and not artifacts of the copy. House calibration: if the proposition the authority is cited for survives and a parenthetical detail is wrong, the row is VERIFIED_MINOR_DEFECT; MISCHARACTERIZED is reserved for a parenthetical that states a disposition the order does not contain or that is the opposite of it. An FNC dismissal also takes the case away from the plaintiff's chosen forum, so the order supports what the appendix cites it for. The 'transfer venue' label is a loose parenthetical detail, not a disposition the order lacks.
+
+Excerpt read: 'Petition for leave to appeal denied. In the exercise of this Court's supervisory authority, the Circuit Court of Cook County, in case No. 96 L 14302, is directed to vacate its order of October 2, 1997, denying defendant's motion to dismiss for forum non conveniens, and to enter an order allowing defendant's motion to dismiss for forum non conveniens...'
+
+- https://www.leagle.com/decision/1998998697ne2d3013995
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/7ae8a196-2a43-4484-9666-43098da60282/S_Ct_Rules_full.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0222: Allen v. Illinois Power Co., 173 Ill. 2d 521 (1997) (supervisory order)
 
@@ -6019,8 +6058,18 @@ Excerpt read: Madison County is directed to vacate denial of defendant’s motio
 - https://www.leagle.com/decision/19951572655ne2d91711532
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns Sol's MISCHARACTERIZED. The October 4, 1995 order (655 N.E.2d 917, 163 Ill. 2d 585, 211 Ill. Dec. 534, No. 79403) directs the Madison County circuit court to vacate its order in No. 94-L-381 'denying defendant's motion to dismiss the case on the basis of forum non conveniens and to enter an order allowing...'. Leagle's text stops there, so the object of 'allowing' is not on the page; Sol's 'allowing that motion' is an inference, though the natural one. Guerine's '(same)' (back through Eby to Uebinger) reads 'ordering the Madison County circuit court to grant the defendant's forum non conveniens motion to transfer venue.' The court, the vacatur of an FNC denial, and the direction to allow are correct. The motion type is mislabeled (dismiss, not transfer). I did not confirm whether Peters was interstate, and I read only the current text of Rule 187. Because of the truncation, the visible text cannot show that the disposition itself was mischaracterized; what it does show is a wrong motion label. Guerine's appendix reads as a stylized summary, not a precise motion-by-motion description: (1) every one of the roughly 30 entries uses the same phrase, 'forum non conveniens motion to transfer venue', including A.P. Green, whose own order describes a 'motion to dismiss or transfer'; (2) the body sentence that cites the appendix ('Since Peile, we have exercised our supervisory authority more than 30 times to transfer cases away from plaintiffs' chosen fora') counts reconsideration orders (Wakehouse, Popp) and an interlocutory-appeal order (A.P. Green) as instances of 'transfer', so the court is using 'transfer' loosely; (3) the appendix says 'ordering the Fifth District to vacate' even where the supreme court itself vacated the appellate judgment, and those rows were VERIFIED (Kinzler, Beldner). The official reporter text on CourtListener (764 N.E.2d at *64-*66) matches the attachment word for word, including the 'reconsider is order' typo, so these are the court's own words and not artifacts of the copy. House calibration: if the proposition the authority is cited for survives and a parenthetical detail is wrong, the row is VERIFIED_MINOR_DEFECT; MISCHARACTERIZED is reserved for a parenthetical that states a disposition the order does not contain or that is the opposite of it. The order supports the cited proposition, so the label error is a minor defect.
+
+Excerpt read: 'In the exercise of this Court's supervisory authority, the Circuit Court of Madison County is directed to vacate its order in case No. 94-L-381 denying defendant's motion to dismiss the case on the basis of forum non conveniens and to enter an order allowing...' [truncated]
+
+- https://www.leagle.com/decision/19951572655ne2d91711532
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+- https://ilcourtsaudio.blob.core.windows.net/antilles-resources/resources/7ae8a196-2a43-4484-9666-43098da60282/S_Ct_Rules_full.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0231: Doe v. Terra Properties, Inc., 163 Ill. 2d 552 (1995) (supervisory order)
 
@@ -6123,8 +6172,17 @@ Excerpt read: The First District judgment is vacated and the Circuit Court of Co
 - https://www.leagle.com/decision/1995864650ne2d2142858
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns Sol's MISCHARACTERIZED. This is the closest call of the nine. The June 1, 1995 order (650 N.E.2d 214, 162 Ill. 2d 580, 208 Ill. Dec. 757, No. 78783) says the judgment of the First District in No. 1-94-4093 'is VACATED and the Circuit Court of Cook County is directed to reconsider its order in case No. 94-L-4145 denying defendant's motions to dismiss the case under the doctrine of forum non conveniens, in light of Peile v. Skelgas.' Guerine says 'ordering the First District to reconsider [its] order affirming the trial court's denial of the defendant's forum non conveniens motion to transfer venue.' The parenthetical gets two things wrong and asserts a third that the order text neither confirms nor denies. It names the wrong court as the one told to reconsider (the order vacates the First District's judgment and sends reconsideration to the circuit court). It calls the motion a transfer motion when the order says motions to dismiss. And it calls the First District's ruling an 'affirmance', which the order text does not say; that point is unverified, not shown false. I weighed this against the house examples. The parenthetical does not assert the opposite of the order or an unrelated holding, as in the Pruett and Emlee rows. Its substance is correct: the supreme court used supervisory authority to set aside the appellate disposition and send the FNC denial back for reconsideration in light of Peile. The errors concern which court reconsiders and what the appellate ruling was called, which is closer to the 'FRSA, not SOX' type of minor detail error. Guerine's appendix reads as a stylized summary, not a precise motion-by-motion description: (1) every one of the roughly 30 entries uses the same phrase, 'forum non conveniens motion to transfer venue', including A.P. Green, whose own order describes a 'motion to dismiss or transfer'; (2) the body sentence that cites the appendix ('Since Peile, we have exercised our supervisory authority more than 30 times to transfer cases away from plaintiffs' chosen fora') counts reconsideration orders (Wakehouse, Popp) and an interlocutory-appeal order (A.P. Green) as instances of 'transfer', so the court is using 'transfer' loosely; (3) the appendix says 'ordering the Fifth District to vacate' even where the supreme court itself vacated the appellate judgment, and those rows were VERIFIED (Kinzler, Beldner). The official reporter text on CourtListener (764 N.E.2d at *64-*66) matches the attachment word for word, including the 'reconsider is order' typo, so these are the court's own words and not artifacts of the copy. House calibration: if the proposition the authority is cited for survives and a parenthetical detail is wrong, the row is VERIFIED_MINOR_DEFECT; MISCHARACTERIZED is reserved for a parenthetical that states a disposition the order does not contain or that is the opposite of it. A stricter reviewer who treats naming the wrong court as a misstated disposition could reasonably keep MISCHARACTERIZED. I rate it minor because the cited proposition survives intact.
+
+Excerpt read: 'Petition for leave to appeal denied. In the exercise of this Court's supervisory authority, the judgment of the Appellate Court, First District, in case No. 1-94-4093, is VACATED and the Circuit Court of Cook County is directed to reconsider its order in case No. 94-L-4145 denying defendant's motions to dismiss the case under the doctrine of forum non conveniens, in light of Peile v. Skelgas (1994), 163 Ill.2d 323, ...' [truncated]
+
+- https://www.leagle.com/decision/1995864650ne2d2142858
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0235: Ferris v. Southern Pacific Transportation Co., 162 Ill. 2d 566 (1995) (supervisory order)
 
@@ -6149,8 +6207,21 @@ Excerpt read: Ferris v. Southern Pacific Transportation Co., 162 Ill. 2d 566, 20
 - https://www.leagle.com/decision/19951194650ne2d54411165
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: pending
+### Second check: WRONG_CITATION_REAL_CASE
 
+I tried to downgrade this to VERIFIED_MINOR_DEFECT and could not; Sol's status stands. The June 1, 1995 Ferris order is real. It sits at 650 N.E.2d 544 with 162 Ill. 2d 566 and 208 Ill. Dec. 848, and it directs Madison County to vacate its denial of the 'motion to transfer venue on the basis of forum non conveniens' and to transfer venue to Macoupin [County], which matches the appendix's disposition. Guerine's 650 N.E.2d 542 is wrong. My check does not rely on Leagle's URL encoding. Leagle's 650 N.E.2d volume index lists no entry beginning at page 542 or 543. Zurich Insurance Co. v. Baxter International (162 Ill. 2d 582) and People v. Schwickert (162 Ill. 2d 577) are both at 650 N.E.2d 541 / 208 Ill. Dec. 847, and Ferris and People v. Meyers are both at 650 N.E.2d 544 / 208 Ill. Dec. 848. So Guerine's correct Ill. Dec. 848 parallel itself corresponds to N.E.2d 544. The official Guerine text on CourtListener also prints 542, so the error is in the published opinion. In this audit, a wrong reporter location for a real case is WRONG_CITATION_REAL_CASE (compare KEHOE-072). It is at the mild end because the Ill. 2d and Ill. Dec. cites are correct. Residual uncertainty: I cannot rule out that pages 542-43 hold a petition-for-leave-to-appeal-denied table listing Ferris; the index shows no entry there.
+
+Excerpt read: Ferris: '650 N.E.2d 544 (1995) / 162 Ill.2d 566 / 208 Ill.Dec. 848 ... the Circuit Court of Madison County is directed to vacate its order in case No. 94-L-731 denying defendant's motion to transfer venue on the basis of forum non conveniens and to enter an order transferring venue to Macoupin...' [truncated]. Zurich: '650 N.E.2d 541 (1995) / 162 Ill.2d 582 / 208 Ill.Dec. 847'. Schwickert: '650 N.E.2d 541 (1995) / 162 Ill.2d 577 / 208 Ill.Dec. 847'. Meyers: '650 N.E.2d 544 (1995) / 162 Ill.2d 576 / 208 Ill.Dec. 848'. Guerine (CourtListener): 'Ferris v. Southern Pacific Transportation Co., 162 Ill.2d 566, 208 Ill.Dec. 848, 650 N.E.2d 542 (1995)'.
+
+- https://www.leagle.com/decision/19951194650ne2d54411165
+- https://www.leagle.com/decisions/browse/series/volume/650%20N.E.2d
+- https://www.leagle.com/decision/19951191650ne2d54111164
+- https://www.leagle.com/decision/19951191650ne2d54121163
+- https://www.leagle.com/decision/19951194650ne2d54421164
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0236: Mayse v. Servicemaster Co. Ltd. Partnership, 159 Ill. 2d 569 (1995) (supervisory order)
 
@@ -6227,8 +6298,17 @@ Excerpt read: The denial is vacated and the case is remanded to the circuit cour
 - https://www.leagle.com/decision/1995851645ne2d2062845
 - https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
 
-### Second check: pending
+### Second check: VERIFIED_MINOR_DEFECT
 
+Overturns Sol's MISCHARACTERIZED. The February 1, 1995 order (645 N.E.2d 206, 159 Ill. 2d 579, 206 Ill. Dec. 201, No. 76944) vacates the Fifth District's judgment in No. 5-92-0577. It also vacates the St. Clair County order 'denying defendant's motion to transfer the case on the basis of forum non conveniens' and remands 'for a hearing to determine the appropriate county in which to try this case.' The disposition sentence is complete before Leagle's cutoff ('Harrison II,...'). Guerine says 'ordering the Fifth District to vacate its order denying the defendant's forum non conveniens motion to transfer venue and ordering the St. Clair County circuit court to transfer venue.' The motion type (transfer) and the vacatur of the denial are correct. 'Ordering the Fifth District to vacate', where the supreme court itself vacated, is the appendix's standard phrasing, and the same phrasing was accepted as VERIFIED for Kinzler and Beldner. The real defect is that the parenthetical says the court ordered an outright transfer, while the order remanded for a hearing on the appropriate county and named no transferee. That overstates the order by leaving out the hearing step; it does not invent a disposition. I do not assume what the hearing produced. Guerine's appendix reads as a stylized summary, not a precise motion-by-motion description: (1) every one of the roughly 30 entries uses the same phrase, 'forum non conveniens motion to transfer venue', including A.P. Green, whose own order describes a 'motion to dismiss or transfer'; (2) the body sentence that cites the appendix ('Since Peile, we have exercised our supervisory authority more than 30 times to transfer cases away from plaintiffs' chosen fora') counts reconsideration orders (Wakehouse, Popp) and an interlocutory-appeal order (A.P. Green) as instances of 'transfer', so the court is using 'transfer' loosely; (3) the appendix says 'ordering the Fifth District to vacate' even where the supreme court itself vacated the appellate judgment, and those rows were VERIFIED (Kinzler, Beldner). The official reporter text on CourtListener (764 N.E.2d at *64-*66) matches the attachment word for word, including the 'reconsider is order' typo, so these are the court's own words and not artifacts of the copy. House calibration: if the proposition the authority is cited for survives and a parenthetical detail is wrong, the row is VERIFIED_MINOR_DEFECT; MISCHARACTERIZED is reserved for a parenthetical that states a disposition the order does not contain or that is the opposite of it. The order supports the cited proposition, since it vacated a denial of FNC transfer that had kept the case in the plaintiff's chosen county, so this is a minor defect.
+
+Excerpt read: 'In the exercise of this Court's supervisory authority, the judgment of the Appellate Court, Fifth District, No. 5-92-0577, is VACATED. It is further ordered that the order of the Circuit Court of St. Clair County in case No. 91-L-1340 denying defendant's motion to transfer the case on the basis of forum non conveniens is VACATED, and this case is REMANDED to the circuit court for a hearing to determine the appropriate county in which to try this case. Harrison II,...' [truncated]
+
+- https://www.leagle.com/decision/1995851645ne2d2062845
+- https://www.courtlistener.com/opinion/2056494/first-nat-bank-v-guerine/
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0239: Swartzlander v. Illinois Central R.R. Co., 159 Ill. 2d 581 (1995) (supervisory order)
 
@@ -12654,8 +12734,17 @@ Excerpt read: Pub. L. 97-300 §2: purpose is to prepare youth and unskilled adul
 - https://www.govinfo.gov/content/pkg/STATUTE-96/pdf/STATUTE-96-Pg1322.pdf
 - https://www.govinfo.gov/content/pkg/PLAW-105publ220/html/PLAW-105publ220.htm
 
-### Second check: not required
+### Second check: VERIFIED_MINOR_DEFECT
 
+I tried to upgrade this to VERIFIED and could not; Sol's minor-defect rating stands. Page 239 of the 2023 report is an 'ABBREVIATIONS' page explaining column headings. It defines JTPA as 'Job Training Partnership Act: Program that provides training activities to prepare income eligible persons for employment.' The JTPA column is still in use: page 273, 'Juvenile Programs Ordered, Totals for the Year 2023', has a JTPA column with nonzero entries (for example, Union County 2 and 1st Circuit total 2). The label is a legacy reporting category. Pub. L. 97-300 § 2 (96 Stat. 1322, read on govinfo) states the purpose 'to establish programs to prepare youth and unskilled adults for entry into the labor force and to afford job training to those economically disadvantaged individuals ...', so the description of what the program does is accurate. Pub. L. 105-220 § 199(b)(2) and (c)(2)(B) (read on govinfo) repeal the JTPA effective July 1, 2000. A 2023 glossary that describes the Act in the present tense as a program that 'provides' training is stale. This is a minor defect in a descriptive column label, not a mischaracterization; the report makes no legal claim that depends on it.
+
+Excerpt read: Report p.239: 'ABBREVIATIONS / Explanations for abbreviations used in column headings in this section are explained below. ... JTPA ... Job Training Partnership Act: Program that provides training activities to prepare income eligible persons for employment.' Report p.273 header: 'Circuit County Alcohol Drug Alcohol & Drug Youth Services Mental Health Alt. Ed. TASC UDIS JTPA Other Total'. 96 Stat. 1322 § 2: 'It is the purpose of this Act to establish programs to prepare youth and unskilled adults for entry into the labor force and to afford job training to those economically disadvantaged individuals ...'. 112 Stat. 1059 § 199(b)(2): 'The Job Training Partnership Act (29 U.S.C. 1501 et seq.)' repealed; (c)(2)(B): 'The repeal made by subsection (b)(2) shall take effect on July 1, 2000.'
+
+- https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-96/pdf/STATUTE-96-Pg1322.pdf
+- https://www.govinfo.gov/content/pkg/PLAW-105publ220/html/PLAW-105publ220.htm
+
+Model: claude-opus-5-5; reasoning effort: high (orchestration-configured).
 
 ## FNC-0488: Ill. S. Ct. R. 23
 
