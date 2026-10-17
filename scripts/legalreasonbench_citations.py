@@ -15,7 +15,9 @@ CITATION_NOTE = (
     "AI-generated citation checks, not human legal verification or score corrections. "
     "The counting unit is a citation in a unique matter document, not each repeated "
     "assignment packet. Worker file lists and limits are reproduced below; absence "
-    "of a stated limit does not independently establish exhaustive coverage. Every "
+    "of a stated limit does not independently establish exhaustive coverage. "
+    "Completion requires an explicit census-complete judgment; verification limits "
+    "remain visible. Every "
     "first-check problem requires an independent second check, including overturned "
     "findings. Missing files and pending checks never establish a zero-problem result."
 )
@@ -104,7 +106,7 @@ def citation_summary(out: Path) -> tuple[Json, list[Json]]:
                 "citations": len(unique),
                 "pending_checks": matter_pending,
                 "complete": bool(coverage["files_read"])
-                and not coverage["limits"]
+                and coverage.get("census_complete") is True
                 and matter_pending == 0,
             }
         )

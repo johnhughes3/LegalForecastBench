@@ -394,6 +394,7 @@ def save_citations(
             "reasoning_effort": "high",
             "coverage": {
                 "files_read": ["authority.pdf"],
+                "census_complete": not bool(limits),
                 "limits": limits or [],
                 "counting_unit": "unique matter document citations",
             },
@@ -463,6 +464,29 @@ def test_worker_limits_and_missing_matters_prevent_complete_rate(
     assert summary["checked"] is None and summary["problems"] is None
     assert summary["matters_available"] == 0
     assert summary["per_matter"][0]["coverage"] is None
+
+
+def test_completed_census_can_disclose_verification_limits(tmp_path: Path) -> None:
+    setup_task(tmp_path)
+    path = save_citations(
+        tmp_path,
+        [checked_citation("a", "UNABLE_TO_VERIFY")],
+        ["Historical text unavailable"],
+    )
+    report = json.loads(path.read_text())
+    report["coverage"]["census_complete"] = True
+    save(path, report)
+    summary, rows = citations.citation_summary(tmp_path)
+    assert summary["complete"] is True
+    assert summary["problem_rate"] == 0
+    assert summary["by_final_status"]["UNABLE_TO_VERIFY"] == 1
+    assert "Historical text unavailable" in "\n".join(
+        citations.citation_pages(summary, rows)[Path("citation-check/README.md")]
+    )
+    report["coverage"].pop("census_complete")
+    save(path, report)
+    summary, _ = citations.citation_summary(tmp_path)
+    assert summary["complete"] is False and summary["problem_rate"] is None
 
 
 def test_citation_status_and_conflicting_duplicate_rejected(tmp_path: Path) -> None:
