@@ -243,6 +243,14 @@ def harvey_comparison(
     citation_path = harvey / "citation-check/summary.json"
     old_citations = load(citation_path) if citation_path.exists() else None
     census = load(out / "in-scope.json")
+    citation_rate = "unavailable; coverage or checks pending"
+    if citations and citations["complete"]:
+        citation_rate = rate(citations["problems"], citations["checked"])
+    elif citations and citations.get("observed_problem_rate") is not None:
+        citation_rate = (
+            rate(citations["observed_final_problems"], citations["checked"])
+            + " among recorded citations; coverage incomplete"
+        )
     data: Json = {
         "comparability_limit": note,
         "legalreasonbench": {
@@ -337,9 +345,7 @@ def harvey_comparison(
         ),
         row(
             "LegalReasonBench",
-            rate(citations["problems"], citations["checked"])
-            if citations and citations["complete"]
-            else "unavailable; coverage or checks pending",
+            citation_rate,
         ),
         "",
         "Harvey counts citation occurrences in task environments, including "
