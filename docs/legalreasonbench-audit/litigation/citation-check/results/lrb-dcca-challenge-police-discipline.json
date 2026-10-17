@@ -14570,7 +14570,19 @@
       "source_reading_attempts": [
         "Retrieved and read official Statutes at Large at https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf.",
         "Read official U.S. Reports 461 U.S. 761, which prints the embedded citation as 78 Stat. 259."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED_MINOR_DEFECT",
+        "explanation": "I confirm Sol's VERIFIED_MINOR_DEFECT. Grace's text at *761 (CourtListener's text of 461 U.S. 757, with star pagination) reads 'a bona fide seniority system protected by § 703(h) of the Civil Rights Act, 78 Stat. 259, 42 U. S. C. §2000e-2(h).' I read the official Statutes at Large print of Pub. L. 88-352, the same GovInfo document Sol used, kept in the audit's private source folder. Section 703 begins on 78 Stat. 255. Subsection (h) begins at the top of 78 Stat. 257 ('(h) Notwithstanding any other provision of this title, it shall not be an unlawful employment practice for an employer to apply different standards ... pursuant to a bona fide seniority or merit system...') and ends on that same page, before § 703(i) and (j) and § 704. Page 258 opens with the end of § 704(b), and § 705 (EEOC) begins further down that page. Page 259 is the middle of § 705(g), the Commission's powers (technical assistance, conciliation, technical studies), and contains nothing from § 703. Statute-page pins in Supreme Court practice point either to the page where the cited provision begins or to the page range it occupies. Because § 703(h) begins and ends on 257, both conventions give 78 Stat. 257, and neither supports 259. Teamsters, the case Grace cites in the same discussion, cites Title VII at 78 Stat. 253, the first page of the title, consistent with this pagination. The error is harmless: the section number, the U.S.C. parallel (42 U.S.C. § 2000e-2(h)), and the proposition (protection of bona fide seniority systems) are all correct, so any reader is led to the right provision. The defect is embedded in an authentic Supreme Court opinion supplied as an attachment. It is not a rubric defect.",
+        "source_urls": [
+          "https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf",
+          "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/",
+          "https://www.courtlistener.com/opinion/109665/international-brotherhood-of-teamsters-v-united-states/"
+        ],
+        "excerpt_read": "78 Stat. 257 (Pub. L. 88-352): '(h) Notwithstanding any other provision of this title, it shall not be an unlawful employment practice for an employer to apply different standards of compensation, or different terms, conditions, or privileges of employment pursuant to a bona fide seniority or merit system ... provided that such differences are not the result of an intention to discriminate...'. 78 Stat. 258 opens with the end of § 704(b) ('...when religion, sex, or national origin is a bona fide occupational qualification for employment.') and then begins 'SEC. 705. (a) There is hereby created a Commission...'; 78 Stat. 259 opens '(3) to furnish to persons subject to this title such technical assistance...'. Grace at *761: '§ 703(h) of the Civil Rights Act, 78 Stat. 259, 42 U. S. C. §2000e-2(h).'",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      }
     },
     {
       "ref": "pd-0548",
@@ -15487,7 +15499,20 @@
       "source_reading_attempts": [
         "Searched exact citation and authority: Dennison v. City of Los Angeles Department of Water and Power, 658 F.2d 694, 695-696 (CA9 1981).",
         "Read primary legal text at https://www.law.cornell.edu/supremecourt/text/461/757 and checked the cited proposition/pin."
-      ]
+      ],
+      "second_check": {
+        "revised_status": "VERIFIED",
+        "explanation": "Sol's first check (MISCHARACTERIZED) is not sustained, but it stays on record as history. The citation is accurate, and I read the primary Dennison text at the cited pages. (1) The first check rests on misreading our own audit metadata. Sol read the row's 'cited_for: Same' as carrying over a retroactivity point. In this audit's row order, the label immediately before pd-0580 is pd-0579 (Franks, 424 U.S. 778-779), whose cited_for is 'Judicial alteration of seniority provisions'. The retroactivity label belongs to pd-0577 (652 F.2d at 1255, note 8), which sits two rows earlier, before the Teamsters row. So 'Same' already means judicial alteration of seniority provisions, which is the proposition Sol says Grace actually cites Dennison for. Even if the label had been wrong, it is a label our worker generated, not text in the upstream dataset or in Grace. It cannot be counted as a dataset citation defect. (2) The upstream citation is real and correctly cited. Grace footnote 9, which I read in CourtListener's text of 461 U.S. 757, reads: 'Neither do we decide whether such an award could be enforced in the face of a valid judicial alteration of seniority provisions, pursuant to Franks v. Bowman Transportation Co., 424 U.S. 747, 778-779 (1976), to provide relief to discriminatees under Title VII or other law. See Dennison v. City of Los Angeles Department of Water and Power, 658 F.2d 694, 695-696 (CA9 1981); EEOC v. McCall Printing Corp., 633 F.2d 1232, 1237 (CA6 1980).' The name, volume, first page, court and year all match: Ninth Circuit, No. 80-5061, decided Oct. 5, 1981, Canby, J. (3) The pin covers the material. I used the Caselaw Access Project scan of 658 F.2d, which carries reporter page labels. The case runs 694-696. Page *695 begins in the first sentence of the opinion ('...summary judgment to the Department and [*695] Dennison'), and *696 begins mid-paragraph ('the present [*696] action indirectly seeks to confer the benefits of promotion on others'). Pages 695-696 therefore hold essentially the whole opinion: the Title VII consent decree giving 50% of promotions to minority class members; the holding that non-minority employees' compensation suit is an impermissible collateral attack; the reasoning that such relief 'would impose conflicting or inconsistent obligations on the Department' and would undercut Title VII's policy of promoting settlements; and the holding that the union had a chance to intervene. (4) Fit with the signal. Grace cites Dennison under 'See' in a footnote that reserves a question; it is not stating a holding. Dennison supports the reserved concern: a court-approved Title VII remedial decree changed the order of employment benefits, and the court refused to make the employer pay other employees for complying with it. That is the dilemma Grace sets aside, a contract-based award that collides with a valid judicial alteration of employment rights. Caveat: Dennison concerns promotion priority under an affirmative-action consent decree, not seniority provisions by name, and it involves neither an arbitral award nor a collective-bargaining agreement. Under a 'See' signal attached to a reserved question, that analogical fit is ordinary, not a mischaracterization. No audit_metadata_correction is recorded because the existing label is correct by reference.",
+        "source_urls": [
+          "https://static.case.law/f2d/658/html/0694-01.html",
+          "https://static.case.law/f2d/658/cases/0694-01.json",
+          "https://www.courtlistener.com/opinion/393918/",
+          "https://www.courtlistener.com/opinion/110944/w-r-grace-co-v-local-union-759-international-union-of-the-united/"
+        ],
+        "excerpt_read": "Dennison, 658 F.2d 694 (CAP, paginated): '...appeals the district court's grant of summary judgment to the Department and [*695] Dennison. ... It is settled that a consent decree is not subject to collateral attack ... Awarding compensatory relief to the non-minority employees would impose conflicting or inconsistent obligations on the Department. ... The decree established who was entitled to promotion, and the present [*696] action indirectly seeks to confer the benefits of promotion on others. ... Moreover, we feel that permitting the IBEW to sue for compensation would be inimical to the policy underlying Title VII of promoting settlements.' Grace n.9: 'Neither do we decide whether such an award could be enforced in the face of a valid judicial alteration of seniority provisions, pursuant to Franks ... to provide relief to discriminatees under Title VII or other law. See Dennison ... 658 F. 2d 694, 695-696 (CA9 1981); EEOC v. McCall Printing Corp., 633 F. 2d 1232, 1237 (CA6 1980).'",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high (harness-configured)"
+      }
     },
     {
       "ref": "pd-0581",
@@ -24127,5 +24152,25 @@
       "Census: exactly 2 refs (pd-0080 and pd-0696) were checked. Both Sol proposals survived the attempt to overturn them; neither prior judgment was overturned here. For pd-0080, the first check's VERIFIED is superseded by MISCHARACTERIZED, with the page mapping corrected from 332 to 332-333."
     ],
     "direct_dcca_premise": "D.C. Code § 1-617.13(c), read verbatim this session, provides that a person aggrieved by a final PERB order 'may obtain review of such order in the Superior Court of the District of Columbia by filing a request within 30 days after the final order has been issued.' The uploaded FOP opinion shows that posture: PERB, then Superior Court, then a DCCA appeal ('After the Superior Court affirmed the PERB's decision, FOP timely appealed to this court'). The DCCA then reviews the PERB decision as if heard initially there, and FOP n.8 cites § 1-617.13(c). The PERB Braddock decision is dated November 6, 2025, and the scenario date is March 2, 2026. The record shows no Superior Court filing or service date. On the face of the record, then, a direct DCCA petition is not the statutory first-instance route, and the 30-day window counted from issuance appears to have run unless a filing exists outside the record. I did not check how Superior Court agency-review rules compute the period or whether any tolling applies. These points concern the scenario premise, not a finding that assignment-5 criterion_1 (+4, 'should petition the DCCA for review') is a rubric error. The prompts instruct the solver to assume a DCCA challenge, and whether that assumption should be honored or flagged is left to reconciliation."
+  },
+  "source_problem_second_review_coverage": {
+    "files_read": [
+      "AGENTS.md",
+      "docs/legalreasonbench-audit/litigation/citation-check/results/lrb-dcca-challenge-police-discipline.json (rows pd-0577 to pd-0581: location, citation, cited_for)",
+      "docs/legalreasonbench-audit/litigation/citation-check/rubric-intent.json (pd-0580 listed as missing intent)",
+      "Dennison v. City of Los Angeles Dep't of Water & Power, 658 F.2d 694: CourtListener opinion 393918 (full text, unpaginated) and Caselaw Access Project HTML/JSON (with reporter page labels), downloaded to a private audit folder",
+      "W.R. Grace & Co. v. Local Union 759, 461 U.S. 757: CourtListener opinion 110944 (footnote 9 and the *761 passage, by targeted search)",
+      "Teamsters v. United States, 431 U.S. 324: CourtListener opinion 109665 (78 Stat. citation only)",
+      "Pinned LegalReasonBench rubric.json for lrb-dcca-challenge-police-discipline assignments 1-5 at revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9, downloaded to a private audit folder",
+      "Reproduced input.json for assignments 1-5 (prompts scanned for Dennison, seniority, 703(h), 2000e, 78 Stat.; no hits)"
+    ],
+    "limits": [
+      "I did not read the official U.S. Reports PDF of Grace for this pass. Grace's text came from CourtListener, whose star pagination matches the 78 Stat. 259 reading Sol reports from the official U.S. Reports.",
+      "Dennison's page breaks rest on the Caselaw Access Project scan labels (*695, *696; case pages 694-696). I did not view a West print image.",
+      "I did not run a citator or check subsequent history for Dennison. 'Rehearing Denied Dec. 2, 1981' appears in the CAP head matter.",
+      "pd-0581 (McCall) also carries 'cited_for: Same' and depends on row order the same way. I did not review it beyond noting that its prior result is VERIFIED.",
+      "Grace's opening citation of Title VII as '78 Stat. 263' looks inconsistent with Title VII beginning at 78 Stat. 253, but that row is outside this two-ref scope and I did not audit it.",
+      "Downloads in this pass are untrusted copies in private tmp folders. PDF and HTML text was extracted with uv run python -I. I made no public edits and no git changes, used no paid APIs or secrets, and did no human verification or score correction."
+    ]
   }
 }
