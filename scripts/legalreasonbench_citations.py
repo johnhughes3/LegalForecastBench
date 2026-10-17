@@ -112,6 +112,9 @@ def citation_summary(out: Path) -> tuple[Json, list[Json]]:
         )
     complete = bool(per_matter) and all(m["complete"] for m in per_matter)
     available = any(m["available"] for m in per_matter)
+    checks_complete = (
+        bool(per_matter) and all(m["available"] for m in per_matter) and pending == 0
+    )
     observed = sum(by_status[s] for s in PROBLEMS)
     return {
         "dataset_revision": REVISION,
@@ -128,6 +131,10 @@ def citation_summary(out: Path) -> tuple[Json, list[Json]]:
         "observed_final_problems": observed if available else None,
         "problems": observed if complete else None,
         "problem_rate": observed / checked if complete and checked else None,
+        "checks_complete": checks_complete,
+        "observed_problem_rate": observed / checked
+        if checks_complete and checked
+        else None,
         "per_matter": per_matter,
     }, records
 
@@ -222,7 +229,13 @@ def citation_pages(summary: Json, records: list[Json]) -> dict[Path, list[str]]:
             f"{100 * summary['problem_rate']:.1f}% "
             f"({summary['problems']} / {summary['checked']})."
             if summary["problem_rate"] is not None
-            else "unavailable; coverage or checks pending."
+            else (
+                f"{100 * summary['observed_problem_rate']:.1f}% "
+                f"({summary['observed_final_problems']} / {summary['checked']}) "
+                "among recorded citations; coverage incomplete."
+                if summary["observed_problem_rate"] is not None
+                else "unavailable; coverage or checks pending."
+            )
         ),
         "",
         "Final statuses for completed real-citation checks only:",

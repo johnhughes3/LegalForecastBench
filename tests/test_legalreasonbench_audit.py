@@ -192,6 +192,21 @@ def test_harvey_comparison_uses_json_categories_and_discloses_limit(
     assert "| LegalReasonBench | unavailable; coverage or checks pending |" in markdown
     assert "different counting units" in markdown
     assert "verified error rate" in markdown and "score corrections" in markdown
+    renderer.harvey_comparison(
+        out,
+        json.loads((out / "comparison.json").read_text()),
+        harvey,
+        {
+            "complete": False,
+            "checked": 4,
+            "observed_final_problems": 1,
+            "observed_problem_rate": 0.25,
+        },
+    )
+    assert (
+        "1 / 4 (25.0%) among recorded citations; coverage incomplete"
+        in (out / "comparison-to-harvey.md").read_text()
+    )
 
 
 def test_report_rejects_wrong_denominator_and_unknown_criteria(tmp_path: Path) -> None:
@@ -420,6 +435,7 @@ def test_citations_pending_second_check_and_real_dedup_counts(tmp_path: Path) ->
     assert summary["problems"] is None and summary["problem_rate"] is None
     assert summary["by_final_status"]["MISQUOTED"] == 0
     assert summary["complete"] is False
+    assert summary["observed_problem_rate"] is None
     pages = citations.citation_pages(summary, rows)
     assert "Second check: pending" in "\n".join(
         pages[Path("citation-check/results/matter.md")]
@@ -456,6 +472,10 @@ def test_worker_limits_and_missing_matters_prevent_complete_rate(
     summary, rows = citations.citation_summary(tmp_path)
     assert summary["complete"] is False and summary["problem_rate"] is None
     assert summary["checked"] == 1
+    assert summary["observed_problem_rate"] == 0
+    assert "coverage incomplete" in "\n".join(
+        citations.citation_pages(summary, rows)[Path("citation-check/README.md")]
+    )
     assert "Tables not inspected" in "\n".join(
         citations.citation_pages(summary, rows)[Path("citation-check/README.md")]
     )
@@ -463,6 +483,7 @@ def test_worker_limits_and_missing_matters_prevent_complete_rate(
     summary, _ = citations.citation_summary(tmp_path)
     assert summary["checked"] is None and summary["problems"] is None
     assert summary["matters_available"] == 0
+    assert summary["observed_problem_rate"] is None
     assert summary["per_matter"][0]["coverage"] is None
 
 
