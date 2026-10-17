@@ -4,7 +4,7 @@ AI-generated citation checks, not human legal verification or score corrections.
 
 Model: Claude Opus 5.5; reasoning effort: high.
 
-Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.", "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.", "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.', 'No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.', 'The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.', 'A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}, 'census_complete': False}
+Worker coverage: {'files_read': ['https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf', 'https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf'], 'limits': ["Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.", "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).", 'FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.', 'D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.', "DCMR attachment is the D.C. Department of Human Resources' DPM Chapter 16 page (Transmittal 238), not a DCMR print, and reproduces all of Chapter 16. Only citations to authority outside Chapter 16 and the D.C. Register addendum were itemized; Chapter 16's internal cross-references to its own sections (for example '§ 1618', '§§ 1626 through 1637') and the DPM 'Active Issuances' list were not itemized.", "Record citations inside the real opinions (App., briefs, record pages, 'ante'/'supra note' cross-references within the same opinion) were not counted. Name-only references to the same statute after a full citation in the same paragraph (e.g. later bare 'CMPA', 'Title VII', 'Back Pay Act') were counted once per document.", "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.", 'The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.', 'Coverage of embedded citations is a census, not full verification: of the citations inside the five real opinions and the regulation, those marked UNABLE_TO_VERIFY were resolved for existence only (CourtListener citation lookup or the citator links in the official opinion text) or not retrieved at all (legislative history, Federal Register, executive orders, Comptroller General decisions, unpublished Civil Service Commission and early MSPB decisions, the Federal Personnel Manual, treatises and law reviews, 1980 versions of Title 5). Their pin cites and propositions were not read.', 'No purchased databases were used. Primary sources read: CourtListener opinion texts; code.dccouncil.gov (official D.C. Code); dcregs.dc.gov (official DCMR section documents); go.mpdconline.com (MPD General Order PER-120.21, eff. Nov. 27, 2022); Cornell LII for 5 U.S.C. § 5596. The MPD-FOP collective bargaining agreement and the PERB Dexter Allen decision were not retrieved.', 'The supplemental second review adds internal Chapter 16 cross-references and statutory short forms omitted by the first census. Original source-reading limits remain part of the history; additional primary-source reading is recorded separately when completed.', 'A supplemental GPT-6 Sol primary-source pass attempted 124 previously unverified occurrences: 69 verified, one minor defect, 54 still unable to verify. Its per-reference attempts and remaining access limits are retained; the original unattempted status is historical, not the current result.', 'A further GPT-6 Sol primary-source pass attempted all 64 unverified citations added by the second census: 63 statutory referents and supporting premises verified, one October 2019 D.C. Register notice still unavailable. The 63 earlier unattempted judgments are retained only as history.'], 'counting_unit': 'citation occurrence in each unique matter document, separate prompt and rubric occurrences', 'counts': {'citation_instances': 698, 'fictional_by_design': 63, 'real_law': 635, 'by_first_check_status': {'VERIFIED': 224, 'MISCHARACTERIZED': 9, 'VERIFIED_MINOR_DEFECT': 24, 'WRONG_CITATION_REAL_CASE': 6, 'UNABLE_TO_VERIFY': 372}, 'prompt_occurrences': 45, 'rubric_occurrences': 103, 'attachment_occurrences': 550}, 'census_complete': False}
 
 ## pd-0001: Final Notice of Adverse Action (Braddock)
 
@@ -19720,12 +19720,14 @@ Context: discretion; 0PM also emphasizes the purpose of the Reform Act to
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including separation of personnel management from independent Board adjudication in §§ 201-202 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 3 calls for increased Board authority in hearings and appeals.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19744,12 +19746,14 @@ Context: 1978 and the Civil Service Reform Act, it is contended, this Board as
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Full statutory name repeated in the opinion. The enacted text and precise proposition were not independently read; census only.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the enacted short title in § 1. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 1 names the Civil Service Reform Act of 1978.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19768,12 +19772,14 @@ Context: the Reform Act was responsive to studies which had long suggested a
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including § 3 policy and the Board appeal structure; the opinion's reference to earlier studies is not independently established by the Act. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 3 calls for increased Board authority in hearings and appeals.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19792,12 +19798,14 @@ Context: Thus, unless "inconsistent with any provision in" the Reform Act,24 the
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including § 905, which supersedes inconsistent provisions of Reorganization Plan No. 2. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 905 supersedes inconsistent reorganization-plan provisions.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19816,12 +19824,14 @@ Context: No. 2 is inconsistent with any particular provision of the Reform Act.
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the § 905 inconsistency condition and Plan § 202 retained functions. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 905 supersedes inconsistent reorganization-plan provisions.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19840,12 +19850,14 @@ Context: fundamental principles of the Reform Act.26
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including merit-system principles and employee protection in § 3. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 3 states merit-system principles and employee protections.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19864,12 +19876,14 @@ Context: OPM's statement of this Reform Act principle is generally unexcep-
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the distinct OPM and Board roles in §§ 201-202 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 205 leaves the Board independent in decisionmaking.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19888,12 +19902,14 @@ Context: mer Commission's adjudicatory and appellate functions.28 The Reform Act
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including Plan § 202 retention of hearing and appeal functions and Act § 205 appellate procedures. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: Plan § 202 retains Commission hearing and appeal functions.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19912,12 +19928,14 @@ Context: authorities set forth in the pre-Reform Act provisions of 5 U.S.C. 1104
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including Plan § 202 references to pre-reform 5 U.S.C. §§ 1104 and 7701. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: Plan § 202 lists 5 U.S.C. 1104 and 7701.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19936,12 +19954,14 @@ Context: of those provisions, as amended substantially by the Reform Act in resp
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including amendments to 5 U.S.C. §§ 1104 and 7701 in §§ 201 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: §§ 201 and 205 amend 5 U.S.C. 1104 and 7701.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19960,12 +19980,14 @@ Context: gument obsolete. The Reform Act and Reorganization Plan No. 2 of
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the enacted Act and contemporaneous Reorganization Plan No. 2. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: Plan § 202 retains adjudicatory functions with the Board.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -19984,12 +20006,14 @@ Context: Reform Act somehow had the effect of silently abrogating the Board's
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including Act § 905 and Plan § 202; the no-abrogation conclusion is an interpretation by the Board. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 905 supersedes only inconsistent plan provisions.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20008,12 +20032,14 @@ Context: ^OPM does not claim that either the Reorganization Plan or the Reform A
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including Plan § 202 retained Board functions and Act § 205; the sentence reports OPM's litigation position. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: Plan § 202 retains adjudicatory functions with the Board.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20032,12 +20058,14 @@ Context: by the Board under the Reform Act. OPM's argument thus amounts to a con
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the Board's statutory appeal role under § 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 7701 permits appeal to the Board.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20056,12 +20084,14 @@ Context: amendment to the Veterans Preference Act. Nothing in the Reform Act or 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read § 14 of the 1944 Veterans’ Preference Act and the August 4, 1947 amendment at 61 Stat. 723. The opinion accurately identifies an amendment to that Act; the separate scope of penalty-mitigation authority is the opinion’s interpretation.
 
-Excerpt read: 
+Excerpt read: The 1947 act amends § 14 and makes Commission corrective action mandatory.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-58/pdf/STATUTE-58-Pg387.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-61/pdf/STATUTE-61-Pg722.pdf
 
 ### Second check: not required
 
@@ -20080,12 +20110,14 @@ Context: amendment to the Veterans Preference Act. Nothing in the Reform Act or 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including Act § 905 and Plan § 202; the no-abrogation conclusion remains interpretive. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 905 supersedes only inconsistent plan provisions.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20104,12 +20136,14 @@ Context: us that this construction is consistent with the Reform Act's purposes
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including § 3 purposes, including merit principles and protection in appeals. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 3 states merit-system principles and employee protections.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20128,12 +20162,14 @@ Context: Regional Rait Reorganization Act Cases, 419 U.S. 102,133-34 (1974). If 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the Act's hearing and appeal provisions in §§ 202 and 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 7701 permits appeal to the Board.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20152,12 +20188,14 @@ Context: intention, there is clear indication that Congress intended in the comb
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including Act § 905 and Plan § 202 as the basis for reading the two instruments together. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: Plan § 202 retains functions; Act § 905 addresses conflicts.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20176,12 +20214,14 @@ Context: discretionary judgment entrusted to the Board by the Reform Act.
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including the Board's hearing and final-action powers in § 202 and § 205. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 1205 authorizes hearing, adjudication, and final action.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20200,12 +20240,14 @@ Context: but was modified by the Reform Act, "Regardless of whether the Commissi
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1978 enacted Act and Reorganization Plan No. 2, including § 205, especially enacted 5 U.S.C. § 7701(c)'s evidentiary standards. The Douglas short form identifies the real Civil Service Reform Act. This verifies the statutory referent and stated statutory premise; the Board's ultimate mitigation holding is its legal interpretation.
 
-Excerpt read: 
+Excerpt read: § 7701(c) specifies substantial-evidence and preponderance standards.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg1111.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-92/pdf/STATUTE-92-Pg3783.pdf
 
 ### Second check: not required
 
@@ -20224,12 +20266,13 @@ Context: the arbitral award was “contrary to law because it violates ․ the B
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports the opinion's named Act and § 5596 remedial scheme. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20248,12 +20291,14 @@ Context: interpretation of the CMPA unless the interpretation is “unreasonable
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the named D.C. personnel act and PERB review authority. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 502(f) permits review when an award on its face contravenes law and public policy.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 
 ### Second check: not required
 
@@ -20272,12 +20317,14 @@ Context: The PERB itself has limited authority to overturn an arbitral award. �
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports D.C. Law 2-139 § 502(f), allowing narrow review of grievance arbitration awards. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 502(f) permits review when an award on its face contravenes law and public policy.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 
 ### Second check: not required
 
@@ -20296,12 +20343,14 @@ Context: CMPA (specifically, D.C.Code § 1-605.02(6)) is where, in arriving at
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 502(f) and its later codification at D.C. Code § 1-605.02(6). Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 502(f) permits review when an award on its face contravenes law and public policy.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 
 ### Second check: not required
 
@@ -20320,12 +20369,14 @@ Context: CMPA language unless the interpretation is plainly erroneous, a conclus
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the express facial-law-and-policy ground in § 502(f). Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 502(f) permits review when an award on its face contravenes law and public policy.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 
 ### Second check: not required
 
@@ -20344,12 +20395,13 @@ Context: Substantial evidence supports the PERB's finding that the arbitrator �
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports the finding that the award expressly relied on the Back Pay Act. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20368,12 +20420,13 @@ Context: was separated [from his employment], in accordance with the Back Pay Ac
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports the arbitrator's reference to the Back Pay Act in the remedy. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20392,12 +20445,13 @@ Context: Arbitrator Barrett used a term of art set forth in the Back Pay Act. Se
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)'s unjustified-personnel-action terminology. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20416,12 +20470,13 @@ Context: The Back Pay Act permits the award of “all or any part of the pay, al
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)(A)(i)'s pay remedy. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20440,12 +20495,13 @@ Context: Back Pay Act requires an offset of interim earnings.  MPD, supra note
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)(A)(i)'s interim-earnings offset. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20464,12 +20520,14 @@ Context: FOP further contends that the CMPA authorizes PERB to reverse an arbitr
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the § 502(f) review grounds relevant to the party's argument. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 502(f) permits review when an award on its face contravenes law and public policy.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 
 ### Second check: not required
 
@@ -20488,12 +20546,14 @@ Context: reasonable interpretation of the CMPA, we must uphold it.   Drivers, 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports the § 502(f) grounds and PERB authority. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 502(f) permits review when an award on its face contravenes law and public policy.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-605.02
 
 ### Second check: not required
 
@@ -20512,12 +20572,13 @@ Context: award in this case was “completely lawful.”FOP also argues that the
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 2006 edition of 5 U.S.C. § 5596, the version cited by the 2009 opinion. It directly supports § 5596(b)(1)(A)(i)-(ii), including pay and attorney-fee provisions. The citation is to the real Federal Back Pay Act; application to the particular arbitral award is the court's conclusion.
 
-Excerpt read: 
+Excerpt read: § 5596(b)(1)(A)(i): pay less amounts earned through other employment.
 
+- https://www.govinfo.gov/content/pkg/USCODE-2006-title5/html/USCODE-2006-title5-partIII-subpartD-chap55-subchapIX-sec5596.htm
 
 ### Second check: not required
 
@@ -20536,12 +20597,14 @@ Context: personnel matters, depends on whether the provision at issue is saved b
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 204 savings of incumbent personnel rights and benefits. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 204 preserves incumbent rights in force immediately before the Act.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04
 
 ### Second check: not required
 
@@ -20560,12 +20623,14 @@ Context: under the D.C. CMPA, equal to those applicable to federal employees ‘
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 204(a)'s immediately-prior rights floor. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 204 preserves incumbent rights in force immediately before the Act.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04
 
 ### Second check: not required
 
@@ -20584,12 +20649,14 @@ Context: those previously available under the federal system, even after the CMP
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read enacted D.C. Law 2-139 and the official code section implementing it. The CMPA short form correctly refers to that Act and supports § 204(c)'s December 31, 1979 limitation. Court deference and application to the award remain judicial interpretation.
 
-Excerpt read: 
+Excerpt read: § 204 preserves incumbent rights in force immediately before the Act.
 
+- https://code.dccouncil.gov/dc/council/laws/docs/2-139.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/1-602.04
 
 ### Second check: not required
 
@@ -20608,12 +20675,14 @@ Context: 9.   Finally, FOP urges us to apply our Uniform Arbitration Act cas
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the enacted D.C. Uniform Arbitration Act, D.C. Law 1-117, and the official code history. The June 2009 opinion invokes a real Act; the cited chapter was repealed effective July 1, 2009, after the opinion date. Its requested analogy is a judicial argument, not statutory text.
 
-Excerpt read: 
+Excerpt read: D.C. Law 1-117: District of Columbia Uniform Arbitration Act.
 
+- https://code.dccouncil.gov/us/dc/council/laws/docs/1-117.pdf
+- https://code.dccouncil.gov/us/dc/council/code/sections/16-4301
 
 ### Second check: not required
 
@@ -20632,12 +20701,14 @@ Context: compliance with Title VII. Although petitioner and the EEOC agreed to n
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII employment-discrimination duties and EEOC conciliation. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20656,12 +20727,14 @@ Context: Commission and the Company. It held that, under Title VII, the seniorit
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII employment-discrimination and seniority provisions. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20680,12 +20753,14 @@ Context: contempt citation and Title VII liability. The dilemma, however, was of
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII liability as a potential consequence of discriminatory employment practice. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20704,12 +20779,14 @@ Context: faced with possible Title VII liability if it departed
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports Title VII liability as a potential consequence of discriminatory employment practice. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20728,12 +20805,14 @@ Context: Voluntary compliance with Title VII also is an important public policy.
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b)'s informal conference, conciliation, and persuasion process. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20752,12 +20831,14 @@ Context: to be the preferred means of enforcing Title VII. Alexander v. Gardner-
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b)'s informal conciliation process. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20776,12 +20857,14 @@ Context: (1974). Critical to the compliance scheme is the Commission's role in s
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b)'s EEOC conciliation process. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20800,12 +20883,14 @@ Context: conference, conciliation, and persuasion before a Title VII plaintiff o
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(b) and (f)'s conciliation-before-Commission-suit sequence. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20824,12 +20909,14 @@ Context: in Title VII conciliation efforts in order to protect its contractual p
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) process; the union's role is the opinion's case-specific analysis. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20848,12 +20935,14 @@ Context: faces Title VII liability, the union may enter the conciliation process
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) process; hypothetical union bargaining is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20872,12 +20961,14 @@ Context: in exchange for helping the employer avoid a Title VII suit. If, howeve
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) process; hypothetical union bargaining is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20896,12 +20987,14 @@ Context: the Commission's demands. On this view, the conciliation process of Tit
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the § 706(b) conciliation mechanism. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: § 706(b) directs informal conference, conciliation, and persuasion.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20920,12 +21013,14 @@ Context: 778-779 (1976), to provide relief to discriminatees under Title VII or 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(g) remedial authority under Title VII. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20944,12 +21039,14 @@ Context: alleging that the Company had violated Title VII, the Court of Appeals 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the Title VII claim distinguished from a § 301 labor-contract claim in the opinion. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20968,12 +21065,14 @@ Context: (CA7) (judicial review of Title VII settlement agreement is not review 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the Title VII settlement context; characterization of earlier judicial review is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -20992,12 +21091,14 @@ Context: (CA7) (judicial review of Title VII settlement agreement is not review 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the second Title VII mention on the same opinion line; characterization of earlier judicial review is the opinion's analysis. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -21016,12 +21117,14 @@ Context: was not brought under Title VII, 565 F.2d at 917, and refused to remand
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports the Title VII cause of action distinguished from the contract action. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -21040,12 +21143,14 @@ Context: 917. Thus, the courts had no occasion to order injunctive relief under 
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read Title VII in the 1964 enactment and the 1972 amendment governing EEOC enforcement before the 1983 decision. The short form refers to the real Title VII and the text supports § 706(g) judicial relief under Title VII. Case-specific facts and outcomes are not established by the statute itself.
 
-Excerpt read: 
+Excerpt read: Title VII governs employment discrimination and judicial relief.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-78/pdf/STATUTE-78-Pg241.pdf
+- https://www.govinfo.gov/content/pkg/STATUTE-86/pdf/STATUTE-86-Pg103.pdf
 
 ### Second check: not required
 
@@ -21064,12 +21169,13 @@ Context: Under the Arbitration Act, the federal courts are empowered to set asid
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1925 Federal Arbitration Act § 10. Its vacatur grounds include arbitrator misconduct in refusing pertinent and material evidence, matching the opinion’s statutory premise. The separate labor-arbitration analogy is the Court’s reasoning.
 
-Excerpt read: 
+Excerpt read: § 10 lists vacatur grounds including refusal to hear pertinent evidence.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf
 
 ### Second check: not required
 
@@ -21088,12 +21194,13 @@ Context: The Arbitration Act does not apply to "contracts of employment of . . .
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The statute is identifiable from an earlier full name in this attachment, but historical statutory primary text and the specific proposition at this mention were not independently read. Census only; no verified-law claim.
+Read the 1925 Federal Arbitration Act § 1. The opinion’s quoted employment-contract exclusion matches the enacted text in substance; the omission marks in the opinion are conventional and do not change it.
 
-Excerpt read: 
+Excerpt read: § 1 excludes employment contracts of workers in interstate commerce.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf
 
 ### Second check: not required
 
@@ -21112,12 +21219,13 @@ Context: Section 1600.3(a)   Errata correction: due to updates made pursuant to
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.
+Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.
 
-Excerpt read: 
+Excerpt read: 66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).
 
+- https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf
 - https://edpm.dc.gov/chapter/16/
 
 ### Second check: not required
@@ -21137,12 +21245,13 @@ Context: Section 1600.3(a)   Errata correction: due to updates made pursuant to
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.
+Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.
 
-Excerpt read: 
+Excerpt read: 66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).
 
+- https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf
 - https://edpm.dc.gov/chapter/16/
 
 ### Second check: not required
@@ -21162,12 +21271,13 @@ Context: Section 1600.3(a)   Errata correction: due to updates made pursuant to
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-The addendum reports a historical correction; the superseded regulation and original D.C. Register issue were not independently read.
+Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.
 
-Excerpt read: 
+Excerpt read: 66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).
 
+- https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf
 - https://edpm.dc.gov/chapter/16/
 
 ### Second check: not required
@@ -21212,12 +21322,13 @@ Context: Addendum states historical correction from §1625(c) to 1625(b).
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Addendum states historical correction from §1625(c) to 1625(b). Historical source text not read.
+Read the August 30, 2019 D.C. Register errata at 66 DCR 011585 and the official D.C. personnel manual Chapter 16. The historical notice expressly changes the § 1600.3(a) cross-reference from § 1625(a),(c) to § 1625(a),(b), supporting the addendum’s correction.
 
-Excerpt read: 
+Excerpt read: 66 DCR 011585 corrects § 1600.3(a) from (a),(c) to (a),(b).
 
+- https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf
 - https://edpm.dc.gov/chapter/16/
 
 ### Second check: not required
@@ -21239,10 +21350,11 @@ Fictional by design: False;
 
 ### First check: UNABLE_TO_VERIFY
 
-Addendum states later historical renumbering; superseded text not independently read. Historical source text not read.
+The August 2019 primary errata and current official Chapter 16 were read; the agency addendum identifies a later October 2019 correction at 66 DCR 013372. The October historical notice itself was not located, so its exact renumbering text is not verified from the target historical primary issue.
 
-Excerpt read: 
+Excerpt read: Agency compilation now reads §§ 1625.1(a) and (b).
 
+- https://dclottery.com/sites/default/files/2023-04/dc_register_08302019.pdf
 - https://edpm.dc.gov/chapter/16/
 
 ### Second check: not required
@@ -21262,11 +21374,12 @@ Context: The Supreme Court opinion explains that federal courts have often looke
 
 Fictional by design: False; 
 
-### First check: UNABLE_TO_VERIFY
+### First check: VERIFIED
 
-Context resolves “the Act” to the Federal Arbitration Act, but historical statutory text and its precise scope were not independently reread for this short form.
+Read the 1925 Federal Arbitration Act §§ 1 and 10 and the immediately preceding sentence of Misco. “The Act” resolves to the Federal Arbitration Act; the Court’s use of it as labor-arbitration guidance is its own legal analysis.
 
-Excerpt read: 
+Excerpt read: § 1 excludes certain employment contracts from the Act.
 
+- https://www.govinfo.gov/content/pkg/STATUTE-43/pdf/STATUTE-43-Pg883.pdf
 
 ### Second check: not required
