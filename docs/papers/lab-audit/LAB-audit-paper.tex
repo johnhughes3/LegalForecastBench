@@ -127,7 +127,7 @@ Total checked & 3{,}618 & 590\\
 \label{tab:citecheck}
 \end{table}
 
-\draft{[[Placeholder: To add results of attorney audit of the results, the hallucinated cases issue was identified only on 10/4/2026, the day before our original intended publication date. We delayed publication to understand how widespread the issue was, and initial spot checks suggest there are a meaningful number of hallucinated citations in the task environments so we need to present that with some validation so the issue is properly quantified.]]}
+To test these findings, I reviewed a simple random sample of the 436 unintentional errors myself. Before looking at any sampled finding, I fixed the draw, the verdict definitions, and a stopping rule: review ten entries, stop if all ten are confirmed errors, and otherwise review ten more \citep{labciteaudit}. For each entry I read the passage in the task document and the cited authority. All ten were errors that a careful lawyer would correct before filing, and the AI had classified each one correctly: seven authorities were cited for propositions they do not support, and three were real authorities cited by the wrong number or subsection. Three of the ten cited the Eleventh Circuit's pattern civil jury instructions; I checked each against every edition available from the court, back to 2005, and in none did the cited instruction number carry the content attributed to it. With ten of ten confirmed, at least 325 of the 436 flagged errors (74.5\%) are real errors, at one-sided 95\% confidence. The sample says nothing about errors the AI may have missed among the citations it marked as verified.
 
 \section{A motion-to-dismiss case study}
 \label{app:lab}
@@ -165,6 +165,8 @@ As I am a practicing attorney and do not have any formal training in artificial 
 \bibitem{labreview} John Hughes. Human review of AI-flagged Harvey LAB litigation criteria: protocol, sample, and worksheet. \emph{Research artifact}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/human-review}.
 
 \bibitem{labcitecheck} Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author. Citation check of the Harvey LAB litigation and dispute resolution task environments. \emph{AI-generated research artifact, not attorney-reviewed}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check}.
+
+\bibitem{labciteaudit} John Hughes. Attorney review of the AI citation check of Harvey LAB litigation task environments: protocol, sample, and worksheet. \emph{Research artifact}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check/attorney-review}.
 
 \bibitem{labtask} Harvey AI task authors; upstream authorship not individually listed. Pinned LAB task.json for analyze-counterparty-motion-to-dismiss. \emph{Primary online source}, 2026. \url{https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json}.
 
