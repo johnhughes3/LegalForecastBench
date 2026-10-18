@@ -1594,85 +1594,147 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
         asyncio.run(client.close())
 
 
-def test_gateway_agent_turns_get_a_long_read_timeout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_gateway_agent_turns_stream_with_a_long_read_timeout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A non-Flex Gateway model's non-streaming turn must outlast a long
-    final reasoning turn; the default 600 s read timeout stranded a cell."""
+    """A non-Flex Gateway turn streams, so the Gateway's 789 s buffered-response
+    ceiling cannot drop a long reasoning turn, and the SDK read timeout stays
+    long enough for a slow chunk. The terminal stream event must still supply
+    the Gateway routing and cost envelope that settlement requires."""
     import httpx2
     from openai import AsyncOpenAI
     from pydantic_ai.providers.openai import OpenAIProvider
 
     model_id = "mistral/mistral-large-4"
     requests: list[httpx2.Request] = []
+    output_item: dict[str, Any] = {
+        "type": "function_call",
+        "id": "fc_fixture",
+        "call_id": "call_fixture",
+        "name": "final_result",
+        "arguments": json.dumps(
+            {
+                "case_assessment": "Fixture",
+                "predictions": [
+                    {
+                        "unit_id": "unit-a",
+                        "probability_fully_dismissed": 0.5,
+                    }
+                ],
+            }
+        ),
+        "status": "completed",
+    }
+    reasoning_item: dict[str, Any] = {
+        "type": "reasoning",
+        "id": "rs_fixture",
+        "status": "completed",
+        "summary": [],
+        "content": [{"type": "reasoning_text", "text": "Weigh the motion."}],
+    }
+    response_json: dict[str, Any] = {
+        "id": "resp_fixture",
+        "object": "response",
+        "created_at": 1,
+        "status": "completed",
+        "model": model_id,
+        "output": [reasoning_item, output_item],
+        "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+        "parallel_tool_calls": False,
+        "tools": [],
+        "tool_choice": "auto",
+        "service_tier": "auto",
+        "providerMetadata": {
+            "gateway": {
+                "routing": {
+                    "originalModelId": model_id,
+                    "resolvedProvider": "mistral",
+                    "resolvedProviderApiModelId": "mistral-large-4",
+                    "canonicalSlug": model_id,
+                    "finalProvider": "mistral",
+                    "modelAttemptCount": 1,
+                    "totalProviderAttemptCount": 1,
+                },
+                "generationId": "gen_fixture",
+                "cost": 0.001,
+                "gatewayCost": 0.0011,
+                "marketCost": 0.001,
+            }
+        },
+    }
+    created: dict[str, Any] = {
+        **response_json,
+        "status": "in_progress",
+        "output": [],
+        "usage": None,
+        "providerMetadata": None,
+    }
+    # The Gateway streams Mistral's raw reasoning through nonstandard
+    # ``response.reasoning.*`` events and only the completed item carries it.
+    events: list[tuple[str, dict[str, Any]]] = [
+        ("response.created", {"response": created, "sequence_number": 0}),
+        (
+            "response.output_item.added",
+            {
+                "item": {**reasoning_item, "content": None, "status": "in_progress"},
+                "output_index": 0,
+                "sequence_number": 1,
+            },
+        ),
+        (
+            "response.reasoning.delta",
+            {
+                "item_id": "rs_fixture",
+                "output_index": 0,
+                "content_index": 0,
+                "delta": "Weigh the motion.",
+                "sequence_number": 2,
+            },
+        ),
+        (
+            "response.output_item.done",
+            {"item": reasoning_item, "output_index": 0, "sequence_number": 3},
+        ),
+        (
+            "response.output_item.added",
+            {"item": output_item, "output_index": 1, "sequence_number": 4},
+        ),
+        (
+            "response.output_item.done",
+            {"item": output_item, "output_index": 1, "sequence_number": 5},
+        ),
+        ("response.completed", {"response": response_json, "sequence_number": 6}),
+    ]
+    body_text = "".join(
+        f"event: {name}\ndata: {json.dumps({'type': name, **payload})}\n\n"
+        for name, payload in events
+    )
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
         body = json.loads(request.content)
+        assert body["stream"] is True
         assert request.extensions["timeout"]["read"] == 1800.0
         assert body.get("service_tier") in (None, "default", "auto")
         assert body["providerOptions"] == {"gateway": {"only": ["mistral"]}}
         return httpx2.Response(
             200,
-            json={
-                "id": "resp_fixture",
-                "object": "response",
-                "created_at": 1,
-                "status": "completed",
-                "model": model_id,
-                "output": [
-                    {
-                        "type": "function_call",
-                        "id": "fc_fixture",
-                        "call_id": "call_fixture",
-                        "name": "final_result",
-                        "arguments": json.dumps(
-                            {
-                                "case_assessment": "Fixture",
-                                "predictions": [
-                                    {
-                                        "unit_id": "unit-a",
-                                        "probability_fully_dismissed": 0.5,
-                                    }
-                                ],
-                            }
-                        ),
-                    }
-                ],
-                "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
-                "parallel_tool_calls": False,
-                "tools": [],
-                "tool_choice": "auto",
-                "providerMetadata": {
-                    "gateway": {
-                        "routing": {
-                            "originalModelId": model_id,
-                            "resolvedProvider": "mistral",
-                            "resolvedProviderApiModelId": "mistral-large-4",
-                            "canonicalSlug": model_id,
-                            "finalProvider": "mistral",
-                            "modelAttemptCount": 1,
-                            "totalProviderAttemptCount": 1,
-                        },
-                        "generationId": "gen_fixture",
-                        "cost": 0.001,
-                        "marketCost": 0.001,
-                    }
-                },
-            },
+            headers={"content-type": "text/event-stream"},
+            content=body_text.encode(),
         )
 
     client = AsyncOpenAI(
         api_key="fixture",
         http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)),
     )
-    monkeypatch.setattr(
-        managed_execution,
-        "OpenAIProvider",
-        lambda **_kwargs: OpenAIProvider(openai_client=client),
-    )
+
+    def provider(**_kwargs: Any) -> OpenAIProvider:
+        return OpenAIProvider(openai_client=client)
+
+    monkeypatch.setattr(managed_execution, "OpenAIProvider", provider)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    transcript_path = tmp_path / "transcript.json"
     result = run_managed_tool_agent(
         _gateway_entry(model_id),
         initial_prompt="Forecast fixture",
@@ -1681,6 +1743,80 @@ def test_gateway_agent_turns_get_a_long_read_timeout(
         workspace=workspace,
         request_id="cell-gateway",
         api_key="fixture",
+        transcript_path=transcript_path,
     )
     assert result.request_count == 1
     assert len(requests) == 1
+    assert result.response_usages == ((20, 10),)
+    assert result.finish_reason == "stop"
+    # Pydantic AI copies the terminal event's service tier itself; keep proving it.
+    assert result.service_tier == "auto"
+    transcript = json.loads(transcript_path.read_text())
+    response_parts = [
+        [part["part_kind"] for part in message["parts"]]
+        for message in transcript["messages"]
+        if message["kind"] == "response"
+    ]
+    assert response_parts == [["thinking", "tool-call"]]
+    thinking = transcript["messages"][1]["parts"][0]
+    assert thinking["id"] == "rs_fixture"
+    assert thinking["provider_details"] == {"raw_content": ["Weigh the motion."]}
+    assert result.gateway_response_metadata == (
+        {
+            "original_model_id": model_id,
+            "resolved_provider": "mistral",
+            "resolved_provider_api_model_id": "mistral-large-4",
+            "canonical_slug": model_id,
+            "final_provider": "mistral",
+            "model_attempt_count": "1",
+            "total_provider_attempt_count": "1",
+            "generation_id": "gen_fixture",
+            "cost_usd": "0.0011",
+            "market_cost_usd": "0.001",
+        },
+    )
+
+
+def test_scripted_gateway_models_without_a_stream_function_stay_unstreamed(
+    tmp_path: Path,
+) -> None:
+    """Pydantic AI's scripted model only streams when given a stream function,
+    so the Gateway streaming switch must not break scripted non-streaming runs."""
+
+    def scripted(messages: list[Any], info: Any) -> ModelResponse:
+        return replace(
+            _response(
+                [
+                    ToolCallPart(
+                        tool_name="final_result",
+                        args={
+                            "case_assessment": "Fixture",
+                            "predictions": [
+                                {
+                                    "unit_id": "unit-a",
+                                    "probability_fully_dismissed": 0.5,
+                                }
+                            ],
+                        },
+                    )
+                ],
+                inputs=20,
+                outputs=10,
+            ),
+            model_name="moonshotai/kimi-k3",
+            provider_details={"gateway_metadata": _gateway_response_metadata()},
+        )
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_managed_tool_agent(
+        _gateway_entry(),
+        initial_prompt="Forecast fixture",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-gateway",
+        api_key="fixture",
+        model=FunctionModel(scripted),
+    )
+    assert result.request_count == 1

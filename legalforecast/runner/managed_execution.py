@@ -10,7 +10,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
 
-from openai.types.responses import Response
+from openai import AsyncStream
+from openai.types.responses import (
+    Response,
+    ResponseReasoningItem,
+    ResponseStreamEvent,
+)
 from pydantic import BaseModel, Field
 from pydantic_ai import (
     Agent,
@@ -26,11 +31,14 @@ from pydantic_ai import (
     ToolOutput,
     capture_run_messages,
 )
+from pydantic_ai.messages import ThinkingPart
 from pydantic_ai.models import Model, ModelRequestParameters
+from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.models.openai import (
     OpenAIResponsesModel,
     OpenAIResponsesModelSettings,
+    OpenAIResponsesStreamedResponse,
 )
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -148,6 +156,59 @@ class ManagedCaseInput:
     cell_id: str
 
 
+class _ObservedTierStreamedResponse(OpenAIResponsesStreamedResponse):
+    """Keep what only the terminal stream event carries: the Gateway cost
+    envelope and, for providers that stream raw reasoning through nonstandard
+    events, the completed reasoning items the non-streaming mapper would keep."""
+
+    def _handle_terminal_response(self, response: Response) -> None:
+        super()._handle_terminal_response(response)
+        gateway_metadata = gateway_response_metadata(response)
+        if gateway_metadata is not None:
+            self.provider_details = {
+                **(self.provider_details or {}),
+                "gateway_metadata": gateway_metadata,
+            }
+        self._restore_raw_reasoning(response)
+
+    def _restore_raw_reasoning(self, response: Response) -> None:
+        """Mirror ``_map_reasoning_item`` for raw chain-of-thought that arrived
+        only on the completed item, so later turns send it back as before."""
+
+        recorded = {
+            part.id
+            for part in self._parts_manager.get_parts()
+            if isinstance(part, ThinkingPart)
+            and (part.provider_details or {}).get("raw_content")
+        }
+        for item in response.output:
+            if not isinstance(item, ResponseReasoningItem) or not item.content:
+                continue
+            if item.id in recorded:
+                continue
+            raw_content = [content.text for content in item.content]
+            summary = "".join(entry.text for entry in item.summary) or None
+            for _event in self._parts_manager.handle_thinking_delta(
+                vendor_part_id=item.id,
+                id=item.id,
+                content=summary,
+                provider_name=self.provider_name,
+                provider_details={"raw_content": raw_content},
+            ):
+                pass
+
+    def get(self) -> ModelResponse:
+        # Restored reasoning is appended after the streamed parts; the
+        # non-streaming mapper lists reasoning items first, and the next turn's
+        # request replays parts in this order.
+        message = super().get()
+        thinking = [part for part in message.parts if isinstance(part, ThinkingPart)]
+        if not thinking or message.parts[: len(thinking)] == thinking:
+            return message
+        others = [part for part in message.parts if not isinstance(part, ThinkingPart)]
+        return replace(message, parts=[*thinking, *others])
+
+
 class _ObservedTierOpenAIResponsesModel(OpenAIResponsesModel):
     """Retain OpenAI's actual Responses service tier in normalized metadata."""
 
@@ -168,6 +229,51 @@ class _ObservedTierOpenAIResponsesModel(OpenAIResponsesModel):
         if gateway_metadata is not None:
             details["gateway_metadata"] = gateway_metadata
         return replace(normalized, provider_details=details or None)
+
+    async def _process_streamed_response(
+        self,
+        response: AsyncStream[ResponseStreamEvent],
+        model_settings: OpenAIResponsesModelSettings,
+        model_request_parameters: ModelRequestParameters,
+        *,
+        expected_model_name: str | None = None,
+        expected_response_id: str | None = None,
+    ) -> OpenAIResponsesStreamedResponse:
+        streamed = await super()._process_streamed_response(
+            response,
+            model_settings,
+            model_request_parameters,
+            expected_model_name=expected_model_name,
+            expected_response_id=expected_response_id,
+        )
+        # Pydantic AI builds the streamed response itself, so the terminal hook is
+        # attached by narrowing the instance to the field-compatible subclass.
+        streamed.__class__ = _ObservedTierStreamedResponse
+        return streamed
+
+
+async def _consume_stream_events(
+    _run_context: RunContext[ManagedToolAgentDeps],
+    events: AsyncIterable[AgentStreamEvent],
+) -> None:
+    """Keep long generations on the provider's streaming endpoint.
+
+    Google closes non-streaming requests after ten minutes even when the client
+    allows twenty, and the Gateway drops buffered responses near 800 s. The SDK
+    still owns the complete tool loop and final result; the transcript records
+    the finished messages, so the events themselves need no handling.
+    """
+
+    async for _event in events:
+        pass
+
+
+def _streams_model_requests(model: Model) -> bool:
+    """Pydantic AI's scripted test double only streams when given a stream function."""
+
+    if isinstance(model, FunctionModel):
+        return model.stream_function is not None
+    return True
 
 
 class ForecastPrediction(BaseModel):
@@ -316,20 +422,6 @@ class ManagedToolAgentResult:
     authentication: Mapping[str, str] | None = None
 
 
-async def _consume_google_events(
-    _context: RunContext[ManagedToolAgentDeps],
-    events: AsyncIterable[AgentStreamEvent],
-) -> None:
-    """Keep Google's long generations on its streaming endpoint.
-
-    Google closes non-streaming requests after ten minutes even when the client
-    allows twenty. The SDK still owns the complete tool loop and final result;
-    consuming events also avoids leaving long reasoning turns silent on the wire.
-    """
-    async for _event in events:
-        pass
-
-
 def run_managed_tool_agent(
     entry: ModelRegistryEntry,
     *,
@@ -472,21 +564,29 @@ def run_managed_tool_agent(
         request_id=request_id,
     )
     usage = RunUsage()
+    # The Gateway buffers a non-streaming Responses request until the provider
+    # finishes and has dropped buffered responses near 800 s, consistent with
+    # its documented 789 s maximum provider timeout, which no client read
+    # timeout can extend. The documented timeout clears at the first streamed
+    # chunk, so stream long high-effort reasoning turns. Google's ten-minute
+    # non-streaming limit gets the same treatment.
+    event_stream_handler = (
+        _consume_stream_events
+        if provider in {"google", "vercel_ai_gateway"}
+        and _streams_model_requests(resolved_model)
+        else None
+    )
     with capture_run_messages() as messages:
         try:
             result = agent.run_sync(
                 initial_prompt,
                 deps=deps,
                 usage=usage,
-                event_stream_handler=(
-                    _consume_google_events
-                    if provider == "google" and model is None
-                    else None
-                ),
                 usage_limits=UsageLimits(
                     request_limit=MAX_AGENT_REQUESTS,
                     tool_calls_limit=MAX_AGENT_TOOL_CALLS,
                 ),
+                event_stream_handler=event_stream_handler,
             )
             managed_result = _managed_result_from_run(
                 result,

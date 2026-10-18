@@ -382,8 +382,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 175,
         "layer": "application",
-        "line_count": 1979,
-        "nonblank_line_count": 1723,
+        "line_count": 1980,
+        "nonblank_line_count": 1724,
         "top_level_definition_count": 89
       },
       "legalforecast/evals/model_registry.py": {
@@ -1684,9 +1684,9 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 1133,
-        "nonblank_line_count": 1049,
-        "top_level_definition_count": 21
+        "line_count": 1233,
+        "nonblank_line_count": 1138,
+        "top_level_definition_count": 23
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -2325,9 +2325,9 @@
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
         "largest_symbol_lines": 193,
         "layer": "test",
-        "line_count": 1686,
-        "nonblank_line_count": 1549,
-        "top_level_definition_count": 31
+        "line_count": 1822,
+        "nonblank_line_count": 1679,
+        "top_level_definition_count": 32
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -2776,8 +2776,8 @@
         "largest_symbol": "test_checked_out_model_registry_is_the_only_local_fan_in_input",
         "largest_symbol_lines": 209,
         "layer": "test",
-        "line_count": 830,
-        "nonblank_line_count": 776,
+        "line_count": 831,
+        "nonblank_line_count": 777,
         "top_level_definition_count": 17
       },
       "tests/test_official_provider_workflow.py": {
