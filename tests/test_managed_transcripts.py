@@ -353,3 +353,47 @@ def test_managed_provider_failure_transcript_keeps_only_safe_category(
         "category": category,
         "status_code": 503 if category == "http" else None,
     }
+
+
+@pytest.mark.parametrize("client", ["httpx", "httpx2"])
+@pytest.mark.parametrize(
+    ("error_name", "category"),
+    [
+        ("ReadTimeout", "timeout"),
+        ("ConnectTimeout", "timeout"),
+        ("ConnectError", "connection"),
+        ("RemoteProtocolError", "connection"),
+    ],
+)
+def test_google_transport_failure_category(
+    tmp_path: Path, client: str, error_name: str, category: str
+) -> None:
+    import importlib
+
+    from pydantic_ai import ModelAPIError
+
+    transport = importlib.import_module(client)
+    secret = "private-provider-response-and-key"
+    cause = getattr(transport, error_name)(secret)
+
+    def failing(_messages: Any, _info: Any) -> ModelResponse:
+        raise ModelAPIError(model_name="gemini-4-argon", message=secret) from cause
+
+    transcript = tmp_path / "failure.json"
+    with pytest.raises(ModelAPIError):
+        run_managed_tool_agent(
+            _entry(),
+            initial_prompt="Read the motion.",
+            required_unit_ids=("unit-a",),
+            executor=_Executor(),
+            workspace=tmp_path / "workspace",
+            request_id="cell-1",
+            model=FunctionModel(failing),
+            transcript_path=transcript,
+        )
+    text = transcript.read_text()
+    assert secret not in text
+    assert json.loads(text)["provider_failure"] == {
+        "category": category,
+        "status_code": None,
+    }
