@@ -592,6 +592,22 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             id="sol-standard-served-after-flex-request",
         ),
         pytest.param(
+            _gateway_entry("mistral/mistral-large-4"),
+            # Streamed Responses report the provider's bare API model id; the
+            # routing rows attest the slug. Gateway omits the API model id here.
+            "mistral-large-4",
+            {
+                **_gateway_metadata(),
+                "original_model_id": "mistral/mistral-large-4",
+                "canonical_slug": "mistral/mistral-large-4",
+                "resolved_provider": "mistral",
+                "final_provider": "mistral",
+            },
+            "succeeded",
+            0.0003314,
+            id="mistral-streamed-bare-served-id",
+        ),
+        pytest.param(
             _grok_gateway_entry(),
             "xai/grok-4.6",
             _grok_gateway_metadata(),
@@ -715,6 +731,9 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
         payload = json.loads(record.response_payload)
         assert payload["gateway_response_metadata"] == [metadata, metadata]
         assert payload["estimated_cost_usd"] == pytest.approx(expected_cost)
+        # Live execution stores the reported served model verbatim; replay must
+        # reproduce those bytes rather than the normalized frozen id.
+        assert payload["served_model"] == model_name
 
 
 def test_failed_transcript_without_messages_is_rejected_before_restore(

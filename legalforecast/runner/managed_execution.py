@@ -1086,6 +1086,7 @@ def complete_managed_tool_cell(
                 served_model = gateway_normalize_model_identity(
                     entry.model_version_or_snapshot,
                     served_model,
+                    gateway_metadata=gateway_metadata,
                 )
             except ValueError as exc:
                 raise RunValidationError(str(exc)) from exc

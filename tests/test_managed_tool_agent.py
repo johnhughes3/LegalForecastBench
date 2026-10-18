@@ -159,6 +159,54 @@ def _grok_gateway_response_metadata(model_version: str = "4.6") -> dict[str, str
     }
 
 
+def _mistral_gateway_response_metadata() -> dict[str, str]:
+    # Gateway omits resolved_provider_api_model_id on this route; the slug and
+    # resolved provider are the only served-identity evidence it returns.
+    return {
+        "original_model_id": "mistral/mistral-large-4",
+        "resolved_provider": "mistral",
+        "canonical_slug": "mistral/mistral-large-4",
+        "final_provider": "mistral",
+        "generation_id": "redacted-mistral-generation-id",
+        "cost_usd": "0.069",
+        "market_cost_usd": "0.069",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
+
+
+def test_gateway_streamed_bare_model_id_needs_attesting_route_metadata() -> None:
+    """Streamed Responses report ``mistral-large-4`` where the buffered response
+    reported ``mistral/mistral-large-4``; the routing rows must attest the slug."""
+    normalize = managed_execution.gateway_normalize_model_identity
+    metadata = _mistral_gateway_response_metadata()
+    assert (
+        normalize(
+            "mistral/mistral-large-4",
+            "mistral-large-4",
+            gateway_metadata=(metadata, metadata),
+        )
+        == "mistral/mistral-large-4"
+    )
+    with pytest.raises(ValueError, match="changed the served model"):
+        normalize("mistral/mistral-large-4", "mistral-large-4")
+    with pytest.raises(ValueError, match="changed the served model"):
+        normalize(
+            "mistral/mistral-large-4",
+            "mistral-large-4",
+            gateway_metadata=(
+                metadata,
+                {**metadata, "resolved_provider": "deepinfra"},
+            ),
+        )
+    with pytest.raises(ValueError, match="changed the served model"):
+        normalize(
+            "mistral/mistral-large-4",
+            "mistral-medium-4",
+            gateway_metadata=(metadata,),
+        )
+
+
 def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope() -> (
     None
 ):
@@ -1375,6 +1423,48 @@ def test_gateway_cell_normalizes_grok_served_alias_before_settlement() -> None:
     assert response.metadata is not None
     assert response.metadata["served_model_version"] == "spacexai/grok-4.6"
     assert handler.settlement == (80, 10, 0.002, raw_output)
+
+
+def test_gateway_cell_settles_streamed_bare_model_id_with_route_metadata() -> None:
+    raw_output = (
+        '{"case_assessment":"Assessment","predictions":['
+        '{"unit_id":"unit-a","probability_fully_dismissed":0.5}]}'
+    )
+    metadata = _mistral_gateway_response_metadata()
+    handler = _ReplayHandler(
+        {
+            "raw_output": raw_output,
+            "request_count": 2,
+            "input_tokens": 80,
+            "output_tokens": 10,
+            "served_model": "mistral-large-4",
+            "finish_reason": "stop",
+            "service_tier": "auto",
+            "called_tools": ["read"],
+            "gateway_response_metadata": [metadata, metadata],
+            "estimated_cost_usd": 0.138,
+        }
+    )
+
+    response = managed_execution.complete_managed_tool_cell(
+        _gateway_entry("mistral/mistral-large-4"),
+        handler=cast(Any, handler),
+        managed_case=ManagedCaseInput(
+            case_id="case-1",
+            required_unit_ids=("unit-a",),
+            documents={},
+            unit_descriptions=(),
+            document_descriptions=(),
+            cell_id="cell-1",
+        ),
+        request_body_observer=lambda _body: None,
+        environ={"AI_GATEWAY_API_KEY": "fixture-key"},
+        registry_sha256="sha256:" + "b" * 64,
+    )
+
+    assert response.metadata is not None
+    assert response.metadata["served_model_version"] == "mistral/mistral-large-4"
+    assert handler.settlement == (80, 10, 0.138, raw_output)
 
 
 class _FailureHandler(_AttemptHandler):

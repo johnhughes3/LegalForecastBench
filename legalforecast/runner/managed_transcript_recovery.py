@@ -245,28 +245,6 @@ def managed_result_from_transcript(
         allowed_provider_names.update({"openai", expected_provider})
     if provider_names and not provider_names.issubset(allowed_provider_names):
         raise RunValidationError("managed transcript provider differs from registry")
-    served_model = next(iter(served_models))
-    if provider == "vercel_ai_gateway":
-        try:
-            served_model = managed_execution.gateway_normalize_model_identity(
-                entry.model_version_or_snapshot,
-                served_model,
-            )
-        except ValueError as exc:
-            raise RunValidationError(str(exc)) from exc
-    elif served_model != entry.model_version_or_snapshot:
-        raise RunValidationError(
-            "managed transcript served model differs from registry"
-        )
-    finish_reason = responses[-1].finish_reason
-    if not isinstance(finish_reason, str) or not finish_reason:
-        raise RunValidationError("managed transcript lacks finish reason")
-    verification = verify_provider_response(
-        {"finish_reason": finish_reason}, provider=provider
-    )
-    require_publishable_response_metadata(verification.to_metadata())
-    service_tier = _service_tier(responses, provider=provider)
-
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     if provider == "vercel_ai_gateway":
         assert expected_provider is not None
@@ -288,6 +266,32 @@ def managed_result_from_transcript(
             except ValueError as exc:
                 raise RunValidationError(str(exc)) from exc
         gateway_response_metadata = tuple(metadata_rows)
+
+    # Live execution stores the provider's reported served model verbatim and
+    # normalizes it at settlement, so validate here but keep the raw value for
+    # the byte-exact comparison against that durable payload.
+    served_model = next(iter(served_models))
+    if provider == "vercel_ai_gateway":
+        try:
+            managed_execution.gateway_normalize_model_identity(
+                entry.model_version_or_snapshot,
+                served_model,
+                gateway_metadata=gateway_response_metadata,
+            )
+        except ValueError as exc:
+            raise RunValidationError(str(exc)) from exc
+    elif served_model != entry.model_version_or_snapshot:
+        raise RunValidationError(
+            "managed transcript served model differs from registry"
+        )
+    finish_reason = responses[-1].finish_reason
+    if not isinstance(finish_reason, str) or not finish_reason:
+        raise RunValidationError("managed transcript lacks finish reason")
+    verification = verify_provider_response(
+        {"finish_reason": finish_reason}, provider=provider
+    )
+    require_publishable_response_metadata(verification.to_metadata())
+    service_tier = _service_tier(responses, provider=provider)
 
     response_usages: list[tuple[int, int]] = []
     response_usage_details: list[managed_execution.ManagedResponseUsage] = []
