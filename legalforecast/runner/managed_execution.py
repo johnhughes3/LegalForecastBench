@@ -38,6 +38,7 @@ from pydantic_ai.usage import RunUsage, UsageLimits
 import legalforecast.runner.managed_cost as _managed_cost
 from legalforecast.contracts import ARTIFACT_CANONICAL_JSON_V1
 from legalforecast.evals.live_model_solver import (
+    DEFAULT_TIMEOUT_SECONDS,
     GATEWAY_AGENT_TIMEOUT_SECONDS,
     OPENAI_FLEX_TIMEOUT_SECONDS,
     LiveModelProviderError,
@@ -404,15 +405,16 @@ def run_managed_tool_agent(
         settings = _anthropic_model_settings(entry)
     else:
         google_settings = GoogleModelSettings(max_tokens=entry.max_output_tokens)
-        if entry.model_id == "gemini-4-argon":
-            # Google recommends at least fifteen minutes for Argon reasoning.
-            google_settings["timeout"] = 900.0
         if entry.thinking_level is not None:
             cast(dict[str, Any], google_settings)["google_thinking_config"] = {
                 "thinking_level": entry.thinking_level.value.upper(),
                 "include_thoughts": True,
             }
         settings = google_settings
+    # Apply the same request allowance to every provider, including Anthropic
+    # and Google models that otherwise inherit the SDK's shorter default.
+    # Preserve the Gateway's existing longer timeout.
+    settings.setdefault("timeout", DEFAULT_TIMEOUT_SECONDS)
     unit_ids = json.dumps(list(required_unit_ids), separators=(",", ":"))
     # Keep Ultramarine's document calls and final result in the SDK tool protocol;
     # its native JSON mode returned terminal responses before inspecting evidence.

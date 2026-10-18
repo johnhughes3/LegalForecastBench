@@ -57,10 +57,12 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 
+# Long reasoning requests need twenty minutes, including non-streaming turns.
+DEFAULT_TIMEOUT_SECONDS = 1200.0
 # Official OpenAI eval uses Flex processing: Batch-rate tokens, slower replies.
-OPENAI_FLEX_TIMEOUT_SECONDS = 900.0
+OPENAI_FLEX_TIMEOUT_SECONDS = DEFAULT_TIMEOUT_SECONDS
 # Official Anthropic eval calls are non-streaming at 128K max_output_tokens.
-ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS = 900.0
+ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS = DEFAULT_TIMEOUT_SECONDS
 # Managed Gateway agent turns are non-streaming Responses requests, so the
 # read timeout caps a whole generation. Completed Cycle 1 cells spent up to
 # about 450 s on their final high-effort reasoning turn, and the OpenAI SDK
@@ -68,7 +70,6 @@ ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS = 900.0
 # turn longer than pydantic-ai's 600 s default could never finish. Flex-tier
 # Gateway models keep the OpenAI Flex timeout.
 GATEWAY_AGENT_TIMEOUT_SECONDS = 1800.0
-DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
 _PRICE_UNITS_PER_TOKEN = 1_000_000

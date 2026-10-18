@@ -294,6 +294,7 @@ def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     ]
 
     async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        assert _info.model_settings["timeout"] == 1200.0
         return turns.pop(0)
 
     workspace = tmp_path / "workspace"
@@ -396,7 +397,7 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
     async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
         if model_id == "openai/gpt-5.6-sol":
             assert _info.model_settings["openai_service_tier"] == "flex"
-            assert _info.model_settings["timeout"] == 900.0
+            assert _info.model_settings["timeout"] == 1200.0
         return turns.pop(0)
 
     workspace = tmp_path / "workspace"
@@ -609,9 +610,7 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
 
     assert captured["model_id"] == model_id
     assert captured["settings"]["google_thinking_config"]["thinking_level"] == "HIGH"
-    assert captured["settings"].get("timeout") == (
-        900.0 if model_id == "gemini-4-argon" else None
-    )
+    assert captured["settings"]["timeout"] == 1200.0
     assert captured["provider"].__class__.__name__ == "GoogleProvider"
     assert managed_execution.uses_managed_document_tools(_google_entry())
     assert result.served_model == "function:scripted:"
@@ -711,6 +710,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
         "api_key": "fixture-key",
         "settings": {
             "max_tokens": 16000,
+            "timeout": 1200.0,
             "anthropic_thinking": {"type": "adaptive"},
             "anthropic_cache": True,
             "parallel_tool_calls": False,
@@ -792,6 +792,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     requests: list[dict[str, Any]] = []
 
     async def handler(request: Any) -> Any:
+        assert request.extensions["timeout"]["read"] == 1200.0
         requests.append(json.loads((await request.aread()).decode("utf-8")))
         response = responses[len(requests) - 1]
         if requests[-1].get("stream"):
@@ -902,7 +903,9 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     assert len(requests) == 2
     for request in requests:
         assert request["max_tokens"] == max_tokens
-        assert bool(request.get("stream")) is (max_tokens == 128000)
+        # The explicit timeout lets the SDK accept non-streaming requests even
+        # at 128K output; it no longer invokes its default-timeout fallback.
+        assert not request.get("stream")
         assert request["thinking"] == {"type": "adaptive"}
         assert request["cache_control"] == {"type": "ephemeral", "ttl": "5m"}
         assert request["tool_choice"] == {
@@ -1432,7 +1435,7 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
         assert body["service_tier"] == tier
         if tier == "default":
             assert "reasoning" not in body
-        assert request.extensions["timeout"]["read"] == 900.0
+        assert request.extensions["timeout"]["read"] == 1200.0
         if len(requests) <= unavailable_responses:
             return httpx2.Response(
                 429,
