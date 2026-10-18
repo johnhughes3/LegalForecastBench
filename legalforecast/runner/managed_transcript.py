@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
+import httpx
+import httpx2
 from openai import APIConnectionError, APITimeoutError
 from pydantic_ai import ModelAPIError, ModelHTTPError, ModelMessagesTypeAdapter
 from pydantic_ai.messages import ModelMessage
@@ -71,9 +73,20 @@ def provider_error_category(
     # SDK wrappers preserve their underlying exception as the explicit cause.
     # Bound traversal, including deliberately cyclic exception chains.
     for _ in range(8):
-        if isinstance(cause, APITimeoutError):
+        if isinstance(
+            cause, (APITimeoutError, httpx.TimeoutException, httpx2.TimeoutException)
+        ):
             return "timeout"
-        if isinstance(cause, APIConnectionError):
+        if isinstance(
+            cause,
+            (
+                APIConnectionError,
+                httpx.NetworkError,
+                httpx.ProtocolError,
+                httpx2.NetworkError,
+                httpx2.ProtocolError,
+            ),
+        ):
             return "connection"
         if cause is None:
             break
