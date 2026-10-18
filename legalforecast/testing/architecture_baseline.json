@@ -382,8 +382,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 175,
         "layer": "application",
-        "line_count": 1978,
-        "nonblank_line_count": 1722,
+        "line_count": 1979,
+        "nonblank_line_count": 1723,
         "top_level_definition_count": 89
       },
       "legalforecast/evals/model_registry.py": {
@@ -1684,8 +1684,8 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 1111,
-        "nonblank_line_count": 1030,
+        "line_count": 1113,
+        "nonblank_line_count": 1032,
         "top_level_definition_count": 20
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
@@ -2323,10 +2323,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
-        "largest_symbol_lines": 190,
+        "largest_symbol_lines": 193,
         "layer": "test",
-        "line_count": 1618,
-        "nonblank_line_count": 1483,
+        "line_count": 1621,
+        "nonblank_line_count": 1486,
         "top_level_definition_count": 31
       },
       "tests/test_managed_transcript_recovery.py": {
