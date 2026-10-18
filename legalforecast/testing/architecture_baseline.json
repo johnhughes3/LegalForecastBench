@@ -1682,10 +1682,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 319,
+        "largest_symbol_lines": 320,
         "layer": "application",
-        "line_count": 1233,
-        "nonblank_line_count": 1138,
+        "line_count": 1234,
+        "nonblank_line_count": 1139,
         "top_level_definition_count": 23
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
@@ -1699,10 +1699,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "managed_result_from_transcript",
-        "largest_symbol_lines": 199,
+        "largest_symbol_lines": 203,
         "layer": "application",
-        "line_count": 733,
-        "nonblank_line_count": 686,
+        "line_count": 737,
+        "nonblank_line_count": 690,
         "top_level_definition_count": 14
       },
       "legalforecast/runner/protected_recovery.py": {
@@ -2325,9 +2325,9 @@
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
         "largest_symbol_lines": 193,
         "layer": "test",
-        "line_count": 1822,
-        "nonblank_line_count": 1679,
-        "top_level_definition_count": 32
+        "line_count": 1912,
+        "nonblank_line_count": 1761,
+        "top_level_definition_count": 35
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -2342,8 +2342,8 @@
         "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
         "largest_symbol_lines": 278,
         "layer": "test",
-        "line_count": 883,
-        "nonblank_line_count": 826,
+        "line_count": 902,
+        "nonblank_line_count": 845,
         "top_level_definition_count": 20
       },
       "tests/test_model_registry.py": {
