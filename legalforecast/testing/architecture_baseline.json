@@ -1684,9 +1684,9 @@
         "largest_symbol": "complete_managed_tool_cell",
         "largest_symbol_lines": 319,
         "layer": "application",
-        "line_count": 1113,
-        "nonblank_line_count": 1032,
-        "top_level_definition_count": 20
+        "line_count": 1133,
+        "nonblank_line_count": 1049,
+        "top_level_definition_count": 21
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -2325,8 +2325,8 @@
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
         "largest_symbol_lines": 193,
         "layer": "test",
-        "line_count": 1621,
-        "nonblank_line_count": 1486,
+        "line_count": 1686,
+        "nonblank_line_count": 1549,
         "top_level_definition_count": 31
       },
       "tests/test_managed_transcript_recovery.py": {

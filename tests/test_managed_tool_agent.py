@@ -580,16 +580,70 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
         ),
     ]
 
-    async def scripted(_messages: list[Any], info: Any) -> ModelResponse:
-        seen.extend(sorted(tool.name for tool in info.function_tools))
-        captured["settings"] = info.model_settings
-        return turns.pop(0)
+    import httpx2
+    from pydantic_ai.models.google import GoogleModel
+    from pydantic_ai.providers.google import GoogleProvider
 
     captured: dict[str, Any] = {}
 
-    def google_model(model_id: str, *, provider: Any) -> FunctionModel:
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        assert "streamGenerateContent" in request.url.path
+        assert request.extensions["timeout"]["read"] == 1200
+        body = json.loads(request.content)
+        seen.extend(
+            sorted(
+                tool["name"]
+                for group in body["tools"]
+                for tool in group.get("functionDeclarations", [])
+                if tool["name"] != "final_result"
+            )
+        )
+        captured["settings"] = body["generationConfig"]
+        turn = turns.pop(0)
+        part = turn.parts[0]
+        assert isinstance(part, ToolCallPart)
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            {
+                                "functionCall": {
+                                    "name": part.tool_name,
+                                    "args": part.args_as_dict(),
+                                }
+                            }
+                        ],
+                    },
+                    "finishReason": "STOP",
+                }
+            ],
+            "modelVersion": model_id,
+            "usageMetadata": {
+                "promptTokenCount": turn.usage.input_tokens,
+                "cachedContentTokenCount": 10,
+                "candidatesTokenCount": turn.usage.output_tokens
+                - turn.usage.details["thoughts_tokens"],
+                "thoughtsTokenCount": turn.usage.details["thoughts_tokens"],
+                "totalTokenCount": turn.usage.input_tokens + turn.usage.output_tokens,
+            },
+        }
+        return httpx2.Response(
+            200,
+            text="data: " + json.dumps(payload) + "\n\n",
+            headers={"content-type": "text/event-stream"},
+        )
+
+    def google_model(model_id: str, *, provider: Any) -> GoogleModel:
         captured.update(model_id=model_id, provider=provider)
-        return FunctionModel(scripted)
+        return GoogleModel(
+            model_id,
+            provider=GoogleProvider(
+                api_key="fixture-key",
+                http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)),
+            ),
+        )
 
     monkeypatch.setattr(managed_execution, "GoogleModel", google_model)
 
@@ -606,20 +660,31 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
         workspace=workspace,
         request_id="cell-1",
         api_key="fixture-key",
+        transcript_path=tmp_path / "transcript.json",
     )
 
     assert captured["model_id"] == model_id
-    assert captured["settings"]["google_thinking_config"]["thinking_level"] == "HIGH"
-    assert captured["settings"]["timeout"] == 1200.0
+    assert captured["settings"]["thinkingConfig"]["thinking_level"] == "HIGH"
     assert captured["provider"].__class__.__name__ == "GoogleProvider"
     assert managed_execution.uses_managed_document_tools(_google_entry())
-    assert result.served_model == "function:scripted:"
+    assert result.served_model == model_id
     assert result.service_tier == "unreported"
     assert result.input_tokens == 250
     assert result.output_tokens == 100
     assert result.thoughts_tokens == 70
     assert result.response_usages == ((100, 40), (150, 60))
     assert seen == ["bash", "edit", "glob", "grep", "read", "write"] * 2
+
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
+    assert transcript["agent_status"] == "succeeded"
+    assert [m["kind"] for m in transcript["messages"]] == [
+        "request",
+        "response",
+        "request",
+        "response",
+        "request",
+    ]
+    assert transcript["messages"][1]["usage"]["cache_read_tokens"] == 10
 
 
 @pytest.mark.parametrize(
