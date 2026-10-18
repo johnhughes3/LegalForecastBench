@@ -12,7 +12,7 @@ The approved identity is the plain courthouse (option A): a pediment, three colu
 
 Keep aspect ratios intact. Leave at least one column-width of clear space around the courthouse. Use the standalone icon at small sizes; use the full partnership lockup only when the partner mark remains at least 24 pixels high (the supplied lockup needs a width of at least 468 pixels). The website header uses accessible live text and a separate 24-pixel partner mark so the partnership remains readable on phones.
 
-The root public directory contains `favicon.svg`, `favicon.ico` (16, 32, and 48 pixels), `favicon-32.png`, and `apple-touch-icon.png` (180 pixels). Their cream backgrounds preserve contrast in browser chrome of either theme. The Apple icon has a square background; the device applies its own mask.
+The root public directory contains `favicon.svg`, `favicon.ico` (16, 32, and 48 pixels), `favicon-32.png`, `favicon-96.png`, and `apple-touch-icon.png` (180 pixels). The homepage explicitly links the 96-pixel PNG so search engines can use a larger raster version of the same courthouse mark. Their cream backgrounds preserve contrast in browser chrome of either theme. The Apple icon has a square background; the device applies its own mask.
 
 ## Editing and regeneration
 
