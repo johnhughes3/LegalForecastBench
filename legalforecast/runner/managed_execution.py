@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import AsyncIterable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,6 +16,7 @@ from pydantic_ai import (
     Agent,
     AgentRetries,
     AgentRunResult,
+    AgentStreamEvent,
     ModelAPIError,
     ModelHTTPError,
     ModelResponse,
@@ -315,6 +316,20 @@ class ManagedToolAgentResult:
     authentication: Mapping[str, str] | None = None
 
 
+async def _consume_google_events(
+    _context: RunContext[ManagedToolAgentDeps],
+    events: AsyncIterable[AgentStreamEvent],
+) -> None:
+    """Keep Google's long generations on its streaming endpoint.
+
+    Google closes non-streaming requests after ten minutes even when the client
+    allows twenty. The SDK still owns the complete tool loop and final result;
+    consuming events also avoids leaving long reasoning turns silent on the wire.
+    """
+    async for _event in events:
+        pass
+
+
 def run_managed_tool_agent(
     entry: ModelRegistryEntry,
     *,
@@ -463,6 +478,11 @@ def run_managed_tool_agent(
                 initial_prompt,
                 deps=deps,
                 usage=usage,
+                event_stream_handler=(
+                    _consume_google_events
+                    if provider == "google" and model is None
+                    else None
+                ),
                 usage_limits=UsageLimits(
                     request_limit=MAX_AGENT_REQUESTS,
                     tool_calls_limit=MAX_AGENT_TOOL_CALLS,
