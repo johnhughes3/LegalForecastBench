@@ -59,6 +59,9 @@ def test_pinned_worker_gateway_and_real_container_isolation(tmp_path: Path) -> N
     )
     prompt = "BEGIN " + "x" * 45000 + " MIDDLE " + "y" * 45000 + " END"
     (workspace / "prompt.txt").write_text(prompt)
+    (workspace / "documents").mkdir()
+    document_text = "\u3400" * 6000 + "DOCUMENT-TAIL"
+    (workspace / "documents" / "record.txt").write_text(document_text)
     (workspace / "openclaw-request.json").write_text(json.dumps(req.to_record()))
     (workspace / "openclaw-model.json").write_text(
         json.dumps(
@@ -86,6 +89,7 @@ def test_pinned_worker_gateway_and_real_container_isolation(tmp_path: Path) -> N
             "prompt.txt",
             "openclaw-request.json",
             "openclaw-model.json",
+            "documents",
         ),
         model_gateway=ModelGatewayRequest(
             upstream_base_url="http://fixture-provider:8081",
@@ -182,6 +186,10 @@ try:
  open('/workspace/prompt.txt','a').write('tamper')
 except OSError: pass
 else: raise AssertionError('prompt writable')
+try:
+ open('/workspace/documents/record.txt','a').write('tamper')
+except OSError: pass
+else: raise AssertionError('release document writable')
 print('isolation-probes-passed')
 """
                 assert (
@@ -227,6 +235,7 @@ print('isolation-probes-passed')
             ).stdout
         )
         assert "".join(stats["pages"]) == prompt
+        assert "".join(stats["documents"]) == document_text
         assert set(stats["headers"]) == {"provider-sentinel-only-gateway"}
         output = json.loads(
             (workspace / "private-logs/openclaw-forecast.json").read_text()

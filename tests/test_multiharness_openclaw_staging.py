@@ -78,6 +78,8 @@ def test_host_staging_collision_refuses_before_container_launch(
     solver = tmp_path / "solver"
     solver.mkdir()
     (solver / "prompt.txt").write_bytes(prompt)
+    (solver / "documents").mkdir()
+    (solver / "documents" / "record.txt").write_bytes(b"record")
     workspace = tmp_path / "worker"
     workspace.mkdir()
     target = workspace / filename
@@ -135,9 +137,11 @@ def test_worker_result_collision_preserves_existing_bytes(
         transport: worker.StagedPromptTransport,
         *,
         gateway: GatewayRuntimeConfig,
+        documents_enabled: bool,
     ) -> RunResult:
         assert received == run_request and workspace == tmp_path
         assert gateway.capability == "synthetic-run-capability"
+        assert documents_enabled is True
         return RunResult(
             result_id="worker-result",
             request_id=received.request_id,

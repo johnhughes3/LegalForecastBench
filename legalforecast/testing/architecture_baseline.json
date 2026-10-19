@@ -2642,6 +2642,24 @@
         "nonblank_line_count": 778,
         "top_level_definition_count": 25
       },
+      "tests/test_multiharness_openclaw.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_real_openclaw_turn_with_local_provider_double",
+        "largest_symbol_lines": 163,
+        "layer": "test",
+        "line_count": 659,
+        "nonblank_line_count": 610,
+        "top_level_definition_count": 17
+      },
       "tests/test_multiharness_openclaw_paid.py": {
         "cycle_id": "",
         "disposition_kind": "watch",

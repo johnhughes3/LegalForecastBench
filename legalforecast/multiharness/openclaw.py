@@ -26,6 +26,7 @@ OPENCLAW_VERSION = "2026.9.6"
 OPENCLAW_COMMIT = "eb377ac59e6c9fd6c7705028034812becf00271b"
 GATEWAY_HARNESS_ID = f"{ADAPTER_ID}/{OPENCLAW_VERSION}/{OPENCLAW_COMMIT}"
 TOOL_NAME = "lfb_read_task"
+DOCUMENT_TOOL_NAME = "lfb_read_release_document"
 
 
 class OpenClawError(RuntimeError):
@@ -33,10 +34,10 @@ class OpenClawError(RuntimeError):
 
 
 class ToolTransport(Protocol):
-    """Existing host-owned container protocol, without provider credentials."""
+    """Existing host-owned release protocol, without provider credentials."""
 
     def execute(self, request: ToolRequest) -> ToolResponse:
-        """Read the staged solver prompt through the host tool runtime."""
+        """Read authenticated solver input through the host tool runtime."""
         ...
 
 
@@ -60,7 +61,7 @@ def capabilities() -> AdapterCapabilities:
                 "version": ADAPTER_VERSION,
                 "runtime": OPENCLAW_VERSION,
                 "commit": OPENCLAW_COMMIT,
-                "tool": TOOL_NAME,
+                "tools": [TOOL_NAME, DOCUMENT_TOOL_NAME],
             }
         ),
     )
@@ -124,6 +125,8 @@ def normalize_result(
     *,
     tool_reads: int,
     prompt_complete: bool,
+    document_reads: int = 0,
+    documents_complete: bool = False,
     gateway_auth: bool = False,
 ) -> RunResult:
     """Reject failed/drifted runs and retain predictions only as private data."""
@@ -136,6 +139,10 @@ def normalize_result(
         raise OpenClawError("OpenClaw served model or provider mismatch")
     if not prompt_complete or tool_reads < 2:
         raise OpenClawError("OpenClaw must acknowledge every solver prompt page")
+    if gateway_auth and (document_reads < 2 or not documents_complete):
+        raise OpenClawError(
+            "OpenClaw must read the complete authenticated release documents"
+        )
     raw = envelope.get("final")
     if not isinstance(raw, str):
         raise OpenClawError("OpenClaw final output is missing")
@@ -170,9 +177,18 @@ def normalize_result(
         "provider": provider,
         "requested_model": model,
         "served_model": model,
-        "tool_policy": "host-container-solver-prompt-only",
-        "tool_call_count": tool_reads,
+        "allowed_tools": (
+            [TOOL_NAME, DOCUMENT_TOOL_NAME] if gateway_auth else [TOOL_NAME]
+        ),
+        "tool_policy": (
+            "host-container-solver-prompt-and-release-document-pages"
+            if gateway_auth
+            else "host-container-solver-prompt-only"
+        ),
+        "tool_call_count": tool_reads + document_reads,
         "prompt_delivery_complete": prompt_complete,
+        "document_tool_call_count": document_reads,
+        "documents_delivery_complete": documents_complete,
         "transcript_mirror_behavior": "private-state-only",
         "task_id": request.task.task_id,
         "sandbox_policy_id": request.sandbox_policy.policy_id,

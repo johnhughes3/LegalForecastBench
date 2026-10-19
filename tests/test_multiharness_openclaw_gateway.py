@@ -25,7 +25,7 @@ from test_multiharness_openclaw import request
 
 def test_gateway_config_uses_native_anthropic_and_only_run_capability() -> None:
     gateway = GatewayRuntimeConfig("run-capability", 200000, 2048)
-    config = build_config("claude-opus-5-5", 9, gateway=gateway)
+    config = build_config("claude-opus-5-5", 9, gateway=gateway, document_descriptor=10)
     provider = config["models"]["providers"]["anthropic"]
     assert provider["api"] == "anthropic-messages"
     assert provider["baseUrl"] == "http://lfb-model-gateway:8080"
@@ -34,6 +34,14 @@ def test_gateway_config_uses_native_anthropic_and_only_run_capability() -> None:
     assert config["agents"]["defaults"]["model"] == {
         "primary": "anthropic/claude-opus-5-5",
         "fallbacks": [],
+    }
+    assert config["tools"]["alsoAllow"] == [
+        "lfb_read_task",
+        "lfb_read_release_document",
+    ]
+    assert config["plugins"]["entries"]["lfb-container-tool"]["config"] == {
+        "descriptor": 9,
+        "documentDescriptor": 10,
     }
     assert config["plugins"]["allow"] == ["anthropic", "lfb-container-tool"]
     assert "OPENAI_API_KEY" not in json.dumps(config)
@@ -58,6 +66,10 @@ class AnthropicFixture:
         self.requests: list[dict] = []
         self.headers: list[str | None] = []
         self.pages: list[str] = []
+        self.documents: list[str] = []
+        self.document_completeness: list[bool] = []
+        self.phase = "prompt"
+        self.document_path = ""
         self.released = threading.Event()
         if not hold:
             self.released.set()
@@ -72,6 +84,8 @@ class AnthropicFixture:
                         "requests": owner.requests,
                         "headers": owner.headers,
                         "pages": owner.pages,
+                        "documents": owner.documents,
+                        "document_completeness": owner.document_completeness,
                     }
                 ).encode()
                 self.send_response(200)
@@ -84,7 +98,10 @@ class AnthropicFixture:
                 owner.requests.append(body)
                 owner.headers.append(self.headers.get("x-api-key"))
                 assert owner.released.wait(timeout=45), "fixture release timed out"
-                assert [tool["name"] for tool in body["tools"]] == ["lfb_read_task"]
+                assert {tool["name"] for tool in body["tools"]} == {
+                    "lfb_read_task",
+                    "lfb_read_release_document",
+                }
                 results = [
                     block
                     for message in body["messages"]
@@ -100,9 +117,43 @@ class AnthropicFixture:
                         else "".join(item.get("text", "") for item in content)
                     )
                     page = json.loads(text)
-                    if "content" in page:
+                    if owner.phase == "prompt" and "content" in page:
                         owner.pages.append(page["content"])
-                if page and page.get("complete"):
+                if owner.phase == "prompt" and page and page.get("complete"):
+                    owner.phase = "catalog"
+                    block = {
+                        "type": "tool_use",
+                        "id": f"read_document_{len(owner.requests)}",
+                        "name": "lfb_read_release_document",
+                        "input": {},
+                    }
+                    delta = {
+                        "type": "input_json_delta",
+                        "partial_json": "{}",
+                    }
+                    stop = "tool_use"
+                elif owner.phase == "catalog":
+                    paths = json.loads(page["text"])
+                    assert paths == ["documents/record.txt"]
+                    owner.document_path = paths[0]
+                    owner.phase = "document"
+                    block = {
+                        "type": "tool_use",
+                        "id": f"read_document_{len(owner.requests)}",
+                        "name": "lfb_read_release_document",
+                        "input": {},
+                    }
+                    delta = {
+                        "type": "input_json_delta",
+                        "partial_json": json.dumps(
+                            {"path": owner.document_path, "offset": 0}
+                        ),
+                    }
+                    stop = "tool_use"
+                elif owner.phase == "document" and page and page.get("complete"):
+                    owner.documents.append(page["text"])
+                    owner.document_completeness.append(page["complete"])
+                    owner.phase = "done"
                     block = {"type": "text", "text": ""}
                     delta = {
                         "type": "text_delta",
@@ -119,6 +170,22 @@ class AnthropicFixture:
                         ),
                     }
                     stop = "end_turn"
+                elif owner.phase == "document":
+                    owner.documents.append(page["text"])
+                    owner.document_completeness.append(page["complete"])
+                    block = {
+                        "type": "tool_use",
+                        "id": f"read_document_{len(owner.requests)}",
+                        "name": "lfb_read_release_document",
+                        "input": {},
+                    }
+                    delta = {
+                        "type": "input_json_delta",
+                        "partial_json": json.dumps(
+                            {"path": owner.document_path, "offset": page["next_offset"]}
+                        ),
+                    }
+                    stop = "tool_use"
                 else:
                     block = {
                         "type": "tool_use",
@@ -222,6 +289,9 @@ def test_native_anthropic_loop_through_real_gateway(
         ),
     )
     prompt = "BEGIN " + "m" * 45000 + " MIDDLE " + "n" * 45000 + " END"
+    (tmp_path / "documents").mkdir()
+    document_text = "\u3400" * 6000 + "DOCUMENT-TAIL"
+    (tmp_path / "documents" / "record.txt").write_text(document_text)
     (tmp_path / "prompt.txt").write_text(prompt)
     (tmp_path / "openclaw-request.json").write_text(json.dumps(req.to_record()))
     (tmp_path / "openclaw-model.json").write_text(
@@ -248,11 +318,14 @@ def test_native_anthropic_loop_through_real_gateway(
         upstream.close()
     assert result.status == "succeeded"
     assert "".join(upstream.pages) == prompt
-    assert len(upstream.requests) == len(upstream.pages) + 2
+    assert len(upstream.requests) >= len(upstream.pages) + 3
     assert set(upstream.headers) == {"upstream-only-sentinel"}
     assert "ambient-provider-must-not-leak" not in json.dumps(upstream.requests)
     assert result.public_summary["auth_mode"] == "protected-gateway-capability"
     assert result.public_summary["provider"] == "anthropic"
+    assert result.public_summary["documents_delivery_complete"] is True
+    assert upstream.document_completeness == [False, True]
+    assert "".join(upstream.documents) == document_text
     assert gateway.gateway.usage.snapshot().rejected_count == 0
     output = json.loads((tmp_path / result.artifacts[0].path).read_text())
     assert output["predictions"][0]["probability_fully_dismissed"] == 0.37

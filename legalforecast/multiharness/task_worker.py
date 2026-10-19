@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
@@ -20,9 +21,24 @@ from legalforecast.multiharness.tool_protocol import (
     encode_tool_message,
 )
 
+DOCUMENT_PAGE_RESULT_CHAR_BUDGET = 7_500
 
-def _document_page(
-    root: Path, paths: tuple[str, ...], arguments: dict[str, object]
+
+def serialize_document_page(
+    output: Mapping[str, object], *, ensure_ascii: bool = False
+) -> str:
+    """Return the exact JSON text exposed by a document-tool consumer."""
+
+    return json.dumps(dict(output), ensure_ascii=ensure_ascii)
+
+
+def document_page(
+    root: Path,
+    paths: tuple[str, ...],
+    arguments: dict[str, object],
+    *,
+    result_char_budget: int = DOCUMENT_PAGE_RESULT_CHAR_BUDGET,
+    ensure_ascii: bool = False,
 ) -> dict[str, object]:
     """Read only release-staged documents, with bounded model-visible pages."""
 
@@ -74,7 +90,10 @@ def _document_page(
             "next_offset": end,
             "complete": end == len(text),
         }
-        if len(json.dumps(page, ensure_ascii=False)) <= 7500:
+        if (
+            len(serialize_document_page(page, ensure_ascii=ensure_ascii))
+            <= result_char_budget
+        ):
             return page
         end = offset + (end - offset) // 2
 
@@ -88,7 +107,7 @@ def serve(incoming: BinaryIO, outgoing: BinaryIO, input_root: Path) -> int:
             request = decode_tool_request(line)
             request_id = request.request_id
             if request.operation == "read_release_document":
-                output = _document_page(
+                output = document_page(
                     input_root, request.input_paths, dict(request.arguments)
                 )
             elif (

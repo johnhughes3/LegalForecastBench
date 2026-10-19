@@ -13,6 +13,10 @@ from pathlib import Path
 
 from legalforecast.multiharness.adapters import AdapterPreparation
 from legalforecast.multiharness.auth_profiles import PUBLISHED_API_KEY
+from legalforecast.multiharness.claude_code_container_inputs import (
+    stage_visible_solver_input,
+    verify_staged_solver_input,
+)
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.container_harness import (
     ContainerHarnessSpec,
@@ -31,6 +35,7 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
     MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL,
 )
 from legalforecast.multiharness.openclaw import (
+    DOCUMENT_TOOL_NAME,
     GATEWAY_HARNESS_ID,
     OPENCLAW_COMMIT,
     OPENCLAW_VERSION,
@@ -159,6 +164,7 @@ class OpenClawContainerAdapter:
     def run_with_solver_input(
         self, request: RunRequest, workspace: Path, solver_input_root: Path
     ) -> RunResult:
+        """Run the supported release-execute path over materialized solver input."""
         validate_request(request)
         if (
             request.model_key != self.options.model_key
@@ -183,135 +189,157 @@ class OpenClawContainerAdapter:
             raise OpenClawError(
                 "OpenClaw task differs from the approved forecast release"
             )
-        prompt = read_release_regular_file(solver_input_root / "prompt.txt")
-        prompt_digest = require_release_metadata_str(
-            request.task.metadata, "prompt_sha256"
+        staged_files, staged_directories = stage_visible_solver_input(
+            solver_input_root, workspace
         )
-        if release_bytes_sha256(prompt) != prompt_digest:
-            raise OpenClawError("OpenClaw staged prompt commitment mismatch")
-        workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
-        write_release_create_only(workspace / "prompt.txt", prompt, mode=0o400)
-        write_release_json_create_only(
-            workspace / "openclaw-request.json", request.to_record()
-        )
-        write_release_json_create_only(
-            workspace / "openclaw-model.json",
-            {
-                "context_limit": config.registry_entry.context_limit,
-                "max_output_tokens": config.registry_entry.max_output_tokens,
-                "reasoning_effort": "high",
-            },
-        )
-        capability = secrets.token_urlsafe(32)
-        region = os.environ.get(PROTECTED_AUTHORITY_REGION_ENV, "")
-        if not region or any(
-            c not in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in region
-        ):
-            raise OpenClawError("protected gateway region is missing or invalid")
-        spec = ContainerHarnessSpec(
-            run_id="openclaw-" + request.request_sha256.removeprefix("sha256:")[:16],
-            image=self.options.image,
-            proxy_image=self.options.gateway_image_digest,
-            harness_argv=("run",),
-            workspace=workspace,
-            log_root=workspace / "private-logs/container",
-            allow_hosts=("api.anthropic.com", f"dynamodb.{region}.amazonaws.com"),
-            environment={CAPABILITY_ENV: capability},
-            cli_name="openclaw",
-            model_gateway=ModelGatewayRequest(
-                upstream_base_url=MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL,
-                model_key=request.model_key,
-                run_capability=capability,
-                paid_config_path=self.options.paid_config_path,
-                model_registry_path=self.options.model_registry_path,
-                request_id=request.request_id,
-            ),
-            container_user="0:0",
-            read_only_workspace_paths=(
+        try:
+            prompt = read_release_regular_file(workspace / "prompt.txt")
+            prompt_digest = require_release_metadata_str(
+                request.task.metadata, "prompt_sha256"
+            )
+            if release_bytes_sha256(prompt) != prompt_digest:
+                raise OpenClawError("OpenClaw staged prompt commitment mismatch")
+            if not any(
+                path.relative_to(workspace).as_posix().startswith("documents/")
+                for path, _payload in staged_files
+            ):
+                raise OpenClawError(
+                    "OpenClaw authenticated release documents are missing"
+                )
+            write_release_json_create_only(
+                workspace / "openclaw-request.json", request.to_record()
+            )
+            write_release_json_create_only(
+                workspace / "openclaw-model.json",
+                {
+                    "context_limit": config.registry_entry.context_limit,
+                    "max_output_tokens": config.registry_entry.max_output_tokens,
+                    "reasoning_effort": "high",
+                },
+            )
+            capability = secrets.token_urlsafe(32)
+            region = os.environ.get(PROTECTED_AUTHORITY_REGION_ENV, "")
+            if not region or any(
+                c not in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in region
+            ):
+                raise OpenClawError("protected gateway region is missing or invalid")
+            read_only_paths = [
                 "prompt.txt",
                 "openclaw-request.json",
                 "openclaw-model.json",
-            ),
-            timeout_seconds=self.options.timeout_seconds,
-        )
-        container = run_container_harness(
-            spec,
-            publication_directory=workspace / "private-logs/container-package",
-            backend=self.options.backend,
-        )
-        if (
-            container.exit_code != 0
-            or container.timed_out
-            or container.gateway_usage is None
-        ):
-            raise OpenClawError("contained OpenClaw or gateway accounting failed")
-        if read_release_regular_file(workspace / "prompt.txt") != prompt:
-            raise OpenClawError("OpenClaw changed the authenticated prompt")
-        result = RunResult.from_record(
-            read_release_object(workspace / "openclaw-result.json", "OpenClaw result")
-        )
-        summary = result.public_summary
-        if (
-            result.request_id != request.request_id
-            or result.status != "succeeded"
-            or summary.get("openclaw_version") != OPENCLAW_VERSION
-            or summary.get("openclaw_commit") != OPENCLAW_COMMIT
-            or summary.get("prompt_delivery_complete") is not True
-            or summary.get("auth_mode") != "protected-gateway-capability"
-            or summary.get("provider") != "anthropic"
-            or summary.get("requested_model") != request.model_key.split(":", 1)[1]
-            or summary.get("served_model") != summary.get("requested_model")
-        ):
-            raise OpenClawError("OpenClaw worker result/provenance mismatch")
-        forecast = read_release_regular_file(
-            workspace / "private-logs/openclaw-forecast.json"
-        )
-        transcript = release_canonical_bytes(
-            {
-                "request_sha256": request.request_sha256,
-                "packet_sha256": require_release_metadata_str(
-                    request.task.metadata, "packet_sha256"
+                "documents",
+            ]
+            spec = ContainerHarnessSpec(
+                run_id="openclaw-"
+                + request.request_sha256.removeprefix("sha256:")[:16],
+                image=self.options.image,
+                proxy_image=self.options.gateway_image_digest,
+                harness_argv=("run",),
+                workspace=workspace,
+                log_root=workspace / "private-logs/container",
+                allow_hosts=("api.anthropic.com", f"dynamodb.{region}.amazonaws.com"),
+                environment={CAPABILITY_ENV: capability},
+                cli_name="openclaw",
+                model_gateway=ModelGatewayRequest(
+                    upstream_base_url=MODEL_GATEWAY_PROTECTED_UPSTREAM_BASE_URL,
+                    model_key=request.model_key,
+                    run_capability=capability,
+                    paid_config_path=self.options.paid_config_path,
+                    model_registry_path=self.options.model_registry_path,
+                    request_id=request.request_id,
                 ),
-                "prompt_sha256": prompt_digest,
-                "response_sha256": release_bytes_sha256(forecast),
-                "container": container.to_record(),
-            }
-        )
-        transcript_path = "private-logs/release-harness-transcript.json"
-        write_release_create_only(workspace / transcript_path, transcript, mode=0o600)
-        output_artifact = ArtifactRecord(
-            artifact_id=RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
-            path="private-logs/openclaw-forecast.json",
-            sha256=release_bytes_sha256(forecast),
-            media_type="application/json",
-            public=False,
-            size_bytes=len(forecast),
-        )
-        transcript_artifact = ArtifactRecord(
-            artifact_id=RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
-            path=transcript_path,
-            sha256=release_bytes_sha256(transcript),
-            media_type="application/json",
-            public=False,
-            size_bytes=len(transcript),
-        )
-        public = dict(
-            summary,
-            harness_track="native",
-            allowed_tools=[TOOL_NAME],
-            tool_policy="host-container-solver-prompt-only",
-            transcript_sha256=transcript_artifact.sha256,
-            gateway_usage=dict(container.gateway_usage),
-        )
-        return replace(
-            result,
-            artifacts=(output_artifact, transcript_artifact),
-            public_summary=public,
-            result_sha256=record_digest(
+                container_user="0:0",
+                read_only_workspace_paths=tuple(read_only_paths),
+                timeout_seconds=self.options.timeout_seconds,
+            )
+            container = run_container_harness(
+                spec,
+                publication_directory=workspace / "private-logs/container-package",
+                backend=self.options.backend,
+            )
+            if (
+                container.exit_code != 0
+                or container.timed_out
+                or container.gateway_usage is None
+            ):
+                raise OpenClawError("contained OpenClaw or gateway accounting failed")
+            verify_staged_solver_input(staged_files)
+            result = RunResult.from_record(
+                read_release_object(
+                    workspace / "openclaw-result.json", "OpenClaw result"
+                )
+            )
+            summary = result.public_summary
+            if (
+                result.request_id != request.request_id
+                or result.status != "succeeded"
+                or summary.get("openclaw_version") != OPENCLAW_VERSION
+                or summary.get("openclaw_commit") != OPENCLAW_COMMIT
+                or summary.get("prompt_delivery_complete") is not True
+                or summary.get("documents_delivery_complete") is not True
+                or summary.get("allowed_tools") != [TOOL_NAME, DOCUMENT_TOOL_NAME]
+                or summary.get("auth_mode") != "protected-gateway-capability"
+                or summary.get("provider") != "anthropic"
+                or summary.get("requested_model") != request.model_key.split(":", 1)[1]
+                or summary.get("served_model") != summary.get("requested_model")
+            ):
+                raise OpenClawError("OpenClaw worker result/provenance mismatch")
+            forecast = read_release_regular_file(
+                workspace / "private-logs/openclaw-forecast.json"
+            )
+            transcript = release_canonical_bytes(
                 {
-                    "request": request.request_sha256,
-                    "summary": public,
-                    "forecast": output_artifact.sha256,
+                    "request_sha256": request.request_sha256,
+                    "packet_sha256": require_release_metadata_str(
+                        request.task.metadata, "packet_sha256"
+                    ),
+                    "prompt_sha256": prompt_digest,
+                    "response_sha256": release_bytes_sha256(forecast),
+                    "container": container.to_record(),
                 }
-            ),
-        )
+            )
+            transcript_path = "private-logs/release-harness-transcript.json"
+            write_release_create_only(
+                workspace / transcript_path, transcript, mode=0o600
+            )
+            output_artifact = ArtifactRecord(
+                artifact_id=RELEASE_FORECAST_OUTPUT_ARTIFACT_ID,
+                path="private-logs/openclaw-forecast.json",
+                sha256=release_bytes_sha256(forecast),
+                media_type="application/json",
+                public=False,
+                size_bytes=len(forecast),
+            )
+            transcript_artifact = ArtifactRecord(
+                artifact_id=RELEASE_HARNESS_TRANSCRIPT_ARTIFACT_ID,
+                path=transcript_path,
+                sha256=release_bytes_sha256(transcript),
+                media_type="application/json",
+                public=False,
+                size_bytes=len(transcript),
+            )
+            public = dict(
+                summary,
+                harness_track="native",
+                allowed_tools=[TOOL_NAME, DOCUMENT_TOOL_NAME],
+                tool_policy="host-container-solver-prompt-and-release-document-pages",
+                transcript_sha256=transcript_artifact.sha256,
+                gateway_usage=dict(container.gateway_usage),
+            )
+            return replace(
+                result,
+                artifacts=(output_artifact, transcript_artifact),
+                public_summary=public,
+                result_sha256=record_digest(
+                    {
+                        "request": request.request_sha256,
+                        "summary": public,
+                        "forecast": output_artifact.sha256,
+                    }
+                ),
+            )
+        finally:
+            for path, _payload in reversed(staged_files):
+                path.unlink(missing_ok=True)
+            for directory in reversed(staged_directories):
+                directory.rmdir()

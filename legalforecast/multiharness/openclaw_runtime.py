@@ -19,6 +19,7 @@ from legalforecast.multiharness.host_environment import (
     build_host_subprocess_environment,
 )
 from legalforecast.multiharness.openclaw import (
+    DOCUMENT_TOOL_NAME,
     OPENCLAW_COMMIT,
     OPENCLAW_VERSION,
     TOOL_NAME,
@@ -28,7 +29,12 @@ from legalforecast.multiharness.openclaw import (
     unit_ids,
     validate_request,
 )
-from legalforecast.multiharness.openclaw_tool import PromptDelivery, bridge_read
+from legalforecast.multiharness.openclaw_tool import (
+    DocumentDelivery,
+    PromptDelivery,
+    bridge_documents,
+    bridge_read,
+)
 from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import RunRequest, RunResult
 
@@ -84,10 +90,22 @@ def verify_runtime(root: Path) -> Path:
 
 
 def build_config(
-    model: str, descriptor: int, *, gateway: GatewayRuntimeConfig | None = None
+    model: str,
+    descriptor: int,
+    *,
+    gateway: GatewayRuntimeConfig | None = None,
+    document_descriptor: int | None = None,
 ) -> dict[str, Any]:
-    """Select the built-in managed runtime and only the host-owned read tool."""
+    """Select the built-in managed runtime and host-owned release tools."""
     provider = "openai" if gateway is None else "anthropic"
+    if gateway is None and document_descriptor is not None:
+        raise OpenClawError("release document access requires the protected gateway")
+    plugin_config: dict[str, int] = {"descriptor": descriptor}
+    if document_descriptor is not None:
+        plugin_config["documentDescriptor"] = document_descriptor
+    allowed_tools = [TOOL_NAME]
+    if document_descriptor is not None:
+        allowed_tools.append(DOCUMENT_TOOL_NAME)
     config: dict[str, Any] = {
         "agents": {
             "defaults": {
@@ -97,7 +115,7 @@ def build_config(
         },
         "tools": {
             "profile": "minimal",
-            "alsoAllow": [TOOL_NAME],
+            "alsoAllow": allowed_tools,
             "deny": ["session_status", "gateway"],
             "codeMode": {"enabled": False},
             "toolSearch": False,
@@ -108,7 +126,7 @@ def build_config(
             "entries": {
                 "lfb-container-tool": {
                     "enabled": True,
-                    "config": {"descriptor": descriptor},
+                    "config": plugin_config,
                 }
             },
         },
@@ -144,6 +162,7 @@ def run_openclaw(
     transport: ToolTransport,
     *,
     gateway: GatewayRuntimeConfig | None = None,
+    documents_enabled: bool = False,
 ) -> RunResult:
     """Run one managed OpenClaw turn; model tools never receive provider keys."""
     validate_request(request)
@@ -157,6 +176,8 @@ def run_openclaw(
     if request.sandbox_policy.network_policy != PROVIDER_EGRESS_HOST_ONLY:
         raise OpenClawError(f"OpenClaw requires {PROVIDER_EGRESS_HOST_ONLY} policy")
     provider, separator, model = request.model_key.partition(":")
+    if documents_enabled and gateway is None:
+        raise OpenClawError("release document access requires the protected gateway")
     expected_provider = "openai" if gateway is None else "anthropic"
     if provider != expected_provider or not separator or not model.strip():
         raise OpenClawError(f"OpenClaw model must use {expected_provider}:<model>")
@@ -193,20 +214,46 @@ def run_openclaw(
         native_timeout = max(1, request.sandbox_policy.timeout_seconds - 10)
         host, child = socket.socketpair()
         host.settimeout(child_timeout)
+        document_host: socket.socket | None = None
+        document_child: socket.socket | None = None
+        if documents_enabled:
+            document_host, document_child = socket.socketpair()
+            document_host.settimeout(child_timeout)
         delivery = PromptDelivery()
+        document_delivery = DocumentDelivery()
         failures: list[BaseException] = []
+        document_failures: list[BaseException] = []
         worker = threading.Thread(
             target=bridge_read,
             args=(host, transport, request.request_id, delivery, failures),
             daemon=True,
         )
+        document_worker: threading.Thread | None = None
+        if document_host is not None and document_child is not None:
+            document_worker = threading.Thread(
+                target=bridge_documents,
+                args=(
+                    document_host,
+                    transport,
+                    request.request_id,
+                    document_delivery,
+                    document_failures,
+                ),
+                daemon=True,
+            )
         try:
             config_path = root / "config.json"
+            config = build_config(
+                model,
+                child.fileno(),
+                gateway=gateway,
+                document_descriptor=(
+                    document_child.fileno() if document_child is not None else None
+                ),
+            )
             write_json_object(
                 config_path,
-                build_config(model, child.fileno())
-                if gateway is None
-                else build_config(model, child.fileno(), gateway=gateway),
+                config,
             )
             config_path.chmod(0o600)
             prompt_path = root / "prompt.txt"
@@ -215,7 +262,15 @@ def run_openclaw(
                 'page 0 and receipt "". Each result supplies next_page and a receipt: '
                 "pass both back to the same tool until it confirms complete=true. "
                 "Do not forecast before acknowledging the final page. "
-                "Use only that prompt. Return only a JSON object with a nonempty "
+                + (
+                    f"Then use {DOCUMENT_TOOL_NAME} without a path to read the "
+                    "catalog, followed by every catalogued document from offset 0 "
+                    "until complete. Use only that authenticated pre-decision "
+                    "record. "
+                    if documents_enabled
+                    else "Use only that prompt. "
+                )
+                + "Return only a JSON object with a nonempty "
                 "case_assessment and predictions array. Each prediction has unit_id "
                 "and probability_fully_dismissed between 0 and 1. Include exactly "
                 "these unit IDs: " + json.dumps(required),
@@ -223,6 +278,8 @@ def run_openclaw(
             )
             prompt_path.chmod(0o600)
             worker.start()
+            if document_worker is not None:
+                document_worker.start()
             # Inherit the public CommandAdapter's containment/process group so
             # its timeout and signal cleanup also owns this runtime's descendants.
             with (
@@ -254,13 +311,32 @@ def run_openclaw(
                     stdin=subprocess.DEVNULL,
                     stdout=stdout,
                     stderr=stderr,
-                    pass_fds=(child.fileno(),),
+                    pass_fds=tuple(
+                        fd
+                        for fd in (
+                            child.fileno(),
+                            document_child.fileno()
+                            if document_child is not None
+                            else None,
+                        )
+                        if fd is not None
+                    ),
                     timeout=child_timeout,
                     check=False,
                 )
             child.close()
             worker.join(timeout=1)
-            if completed.returncode != 0 or failures or worker.is_alive():
+            if document_child is not None:
+                document_child.close()
+            if document_worker is not None:
+                document_worker.join(timeout=1)
+            if (
+                completed.returncode != 0
+                or failures
+                or document_failures
+                or worker.is_alive()
+                or (document_worker is not None and document_worker.is_alive())
+            ):
                 raise OpenClawError("OpenClaw managed run or host tool channel failed")
             payload = (private / "openclaw-stdout.json").read_bytes()
             if len(payload) > 1_048_576:
@@ -274,6 +350,8 @@ def run_openclaw(
                 cast(Mapping[str, Any], envelope),
                 tool_reads=delivery.tool_calls,
                 prompt_complete=delivery.complete,
+                document_reads=document_delivery.tool_calls,
+                documents_complete=document_delivery.complete,
                 gateway_auth=gateway is not None,
             )
         except subprocess.TimeoutExpired:
@@ -289,3 +367,13 @@ def run_openclaw(
             host.close()
             if worker.ident is not None:
                 worker.join(timeout=1)
+            if document_host is not None:
+                try:
+                    document_host.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                document_host.close()
+            if document_child is not None:
+                document_child.close()
+            if document_worker is not None and document_worker.ident is not None:
+                document_worker.join(timeout=1)

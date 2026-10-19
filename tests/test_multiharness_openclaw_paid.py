@@ -399,6 +399,10 @@ def test_host_normalizes_worker_output_and_binds_protected_container_spec(
     solver.mkdir()
     prompt = b"Outcome-blinded case record and unit count-1."
     (solver / "prompt.txt").write_bytes(prompt)
+    (solver / "documents").mkdir()
+    (solver / "documents" / "record.txt").write_bytes(
+        b"Authenticated pre-decision record."
+    )
     original = _release_request(descriptor)
     run_request = replace(
         original,
@@ -429,9 +433,16 @@ def test_host_normalizes_worker_output_and_binds_protected_container_spec(
             "prompt.txt",
             "openclaw-request.json",
             "openclaw-model.json",
+            "documents",
         )
         assert (spec.workspace / "prompt.txt").read_bytes() == prompt
-        assert (spec.workspace / "prompt.txt").stat().st_mode & 0o777 == 0o400
+        assert (spec.workspace / "prompt.txt").stat().st_mode & 0o777 == 0o444
+        assert (
+            spec.workspace / "documents" / "record.txt"
+        ).read_bytes() == b"Authenticated pre-decision record."
+        assert (
+            spec.workspace / "documents" / "record.txt"
+        ).stat().st_mode & 0o777 == 0o444
         assert (
             json.loads((spec.workspace / "openclaw-request.json").read_text())
             == run_request.to_record()
@@ -452,6 +463,8 @@ def test_host_normalizes_worker_output_and_binds_protected_container_spec(
             {**envelope(), "provider": "anthropic", "model": "claude-opus-5-5"},
             tool_reads=2,
             prompt_complete=True,
+            document_reads=2,
+            documents_complete=True,
             gateway_auth=True,
         )
         if drift is not None:
