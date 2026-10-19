@@ -35,7 +35,7 @@ from .model_gateway_responses_paid import (
     build_paid_responses_gateway_controller,
     load_paid_responses_gateway_config,
     openai_responses_registry_charge_extractor,
-    priced_service_tiers_for_registry_entry,
+    priced_service_tier_for_registry_entry,
 )
 from .model_gateway_responses_protocol import (
     OPENAI_PROVIDER,
@@ -122,7 +122,7 @@ class ResponsesGatewayPolicy:
             raise ModelGatewayError(
                 "allowed_ingress_hosts must contain nonempty host names"
             )
-        if not self.allowed_service_tiers or any(
+        if len(self.allowed_service_tiers) != 1 or any(
             tier not in {"default", "flex"} for tier in self.allowed_service_tiers
         ):
             raise ModelGatewayError(
@@ -209,14 +209,21 @@ class OpenAIResponsesGateway:
             payload = _decode_json_object(body, self.policy.max_request_bytes)
             if len(body) > self.policy.max_input_tokens:
                 raise GatewayBudgetExceeded("input-token limit exceeded")
-            model, max_output_tokens = validate_responses_request(
+            model, max_output_tokens, service_tier = validate_responses_request(
                 payload,
                 allowed_models=self.policy.allowed_models,
                 max_output_tokens=self.policy.max_output_tokens,
                 allowed_service_tiers=self.policy.allowed_service_tiers,
             )
+            outbound_body = _outbound_request_body(
+                payload,
+                service_tier=service_tier,
+                max_bytes=self.policy.max_request_bytes,
+            )
+            if len(outbound_body) > self.policy.max_input_tokens:
+                raise GatewayBudgetExceeded("input-token limit exceeded")
             reservation = self.usage.reserve(
-                input_tokens=len(body),
+                input_tokens=len(outbound_body),
                 output_tokens=max_output_tokens,
                 policy=self.policy,
             )
@@ -236,7 +243,7 @@ class OpenAIResponsesGateway:
             try:
                 spend_lease = self._spend_controller.authorize_request(
                     request_id=self.policy.run_request_id,
-                    body=body,
+                    body=outbound_body,
                     model=model,
                     max_tokens=max_output_tokens,
                 )
@@ -259,7 +266,7 @@ class OpenAIResponsesGateway:
 
         try:
             upstream = self._transport.request(
-                body,
+                outbound_body,
                 _forward_headers(
                     headers or {}, upstream_api_key=self.policy.upstream_api_key
                 ),
@@ -270,7 +277,24 @@ class OpenAIResponsesGateway:
                 raise GatewayUpstreamError("upstream response exceeds response limit")
             content_type = _safe_content_type(upstream.headers.get("content-type"))
             terminal = parse_responses_terminal(upstream.body, content_type)
-            observed = None if terminal is None else terminal.usage
+            if upstream.status_code < 200 or upstream.status_code >= 300:
+                self._settle_unknown(reservation, spend_lease, "gateway_upstream_error")
+                return error_response(HTTPStatus.BAD_GATEWAY, "upstream request failed")
+            if terminal is None:
+                self._settle_unknown(reservation, spend_lease, "gateway_usage_missing")
+                return error_response(
+                    HTTPStatus.BAD_GATEWAY,
+                    "upstream charge evidence unavailable",
+                )
+            if terminal.service_tier != service_tier:
+                self._settle_unknown(
+                    reservation, spend_lease, "gateway_service_tier_unverified"
+                )
+                return error_response(
+                    HTTPStatus.BAD_GATEWAY,
+                    "provider service tier unavailable",
+                )
+            observed = terminal.usage
             if not self._settle_usage(reservation, observed, spend_lease):
                 return error_response(
                     HTTPStatus.SERVICE_UNAVAILABLE, "usage accounting failed"
@@ -299,9 +323,7 @@ class OpenAIResponsesGateway:
                         HTTPStatus.BAD_GATEWAY,
                         "upstream charge evidence unavailable",
                     )
-            if upstream.status_code < 200 or upstream.status_code >= 300:
-                return error_response(HTTPStatus.BAD_GATEWAY, "upstream request failed")
-            if terminal is not None and terminal.kind != "completed":
+            if terminal.kind != "completed":
                 return error_response(
                     HTTPStatus.BAD_GATEWAY, "upstream response did not complete"
                 )
@@ -444,6 +466,19 @@ def _decode_json_object(body: bytes, max_bytes: int) -> Mapping[str, object]:
     return cast(Mapping[str, object], payload)
 
 
+def _outbound_request_body(
+    payload: Mapping[str, object], *, service_tier: str, max_bytes: int
+) -> bytes:
+    outbound = dict(payload)
+    outbound["service_tier"] = service_tier
+    body = json.dumps(outbound, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    if len(body) > max_bytes:
+        raise ModelGatewayError("request body exceeds limit after tier binding")
+    return body
+
+
 def _forward_headers(
     headers: Mapping[str, str], *, upstream_api_key: str
 ) -> dict[str, str]:
@@ -528,6 +563,6 @@ __all__ = [
     "openai_responses_registry_charge_extractor",
     "parse_responses_terminal",
     "parse_responses_usage",
-    "priced_service_tiers_for_registry_entry",
+    "priced_service_tier_for_registry_entry",
     "responses_route_allowed",
 ]

@@ -84,34 +84,9 @@ def _registry_bytes() -> bytes:
 
 def _openai_registry_bytes() -> bytes:
     return (
-        json.dumps(
-            [
-                {
-                    "provider": "openai",
-                    "model_id": "gpt-test",
-                    "display_name": "GPT test",
-                    "model_version_or_snapshot": "gpt-test",
-                    "release_timestamp": "2026-08-01T00:00:00Z",
-                    "release_timestamp_source": "fixture release note",
-                    "provider_training_cutoff_status": "unknown",
-                    "max_output_tokens": 128_000,
-                    "network_disabled": True,
-                    "search_disabled": True,
-                    "tool_policy": "controlled_docket_tool_only",
-                    "context_limit": 1_000_000,
-                    "pricing_source": "fixture standard pricing",
-                    "input_token_price": 5.0,
-                    "output_token_price": 25.0,
-                    "cache_read_token_price": 0.5,
-                    "cache_write_token_price": 6.25,
-                    "known_cutoff_publicity_caveats": [],
-                }
-            ],
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        + "\n"
-    ).encode()
+        Path(__file__).parents[1]
+        / "model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json"
+    ).read_bytes()
 
 
 def _inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
@@ -229,6 +204,33 @@ def test_descriptor_binds_registry_bytes_for_later_loader_rechecks(
         )
 
 
+def test_anthropic_descriptor_rejects_codex_pricing_tier_field(
+    tmp_path: Path,
+) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+    descriptor = issue_paid_gateway_descriptor(
+        manifest_path=manifest_path,
+        forecast_path=forecast_path,
+        artifact_root=artifact_root,
+        model_registry_path=registry_path,
+        model_key="anthropic:claude-sonnet-4-5",
+        ceiling_microusd=_CEILING_MICROUSD,
+        account="official",
+        environment=_ENVIRONMENT,
+    )
+    record = descriptor.to_record()
+    record["pricing_service_tier"] = "default"
+    output_path = tmp_path / "paid-gateway.json"
+    output_path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(ProtectedTerminalPaidError, match="only for Codex"):
+        load_paid_gateway_config(
+            output_path,
+            model_registry_path=registry_path,
+            environment=_ENVIRONMENT,
+        )
+
+
 def test_codex_cli_issues_openai_descriptor_accepted_by_paid_loader(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -250,7 +252,7 @@ def test_codex_cli_issues_openai_descriptor_accepted_by_paid_loader(
             "--model-registry",
             str(registry_path),
             "--model-key",
-            "openai:gpt-test",
+            "openai:gpt-6.1-sol",
             "--ceiling-microusd",
             str(_CEILING_MICROUSD),
             "--account",
@@ -274,9 +276,61 @@ def test_codex_cli_issues_openai_descriptor_accepted_by_paid_loader(
 
     assert exit_code == 0
     assert loaded.harness_id == CODEX_HARNESS_ID
-    assert loaded.model_key == "openai:gpt-test"
+    assert loaded.model_key == "openai:gpt-6.1-sol"
     assert loaded.spend.provider == "openai"
+    assert loaded.pricing_service_tier == "default"
+    assert (
+        json.loads(output_path.read_text(encoding="utf-8"))["pricing_service_tier"]
+        == "default"
+    )
     assert responses_loaded == loaded
+
+
+def test_responses_loader_rejects_descriptor_tier_that_differs_from_price_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+    registry_path.write_bytes(_openai_registry_bytes())
+    for name, value in _ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    output_path = tmp_path / "codex-paid-gateway.json"
+    assert (
+        paid_gateway_descriptor_main(
+            [
+                "--manifest",
+                str(manifest_path),
+                "--forecast",
+                str(forecast_path),
+                "--artifact-root",
+                str(artifact_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-6.1-sol",
+                "--ceiling-microusd",
+                str(_CEILING_MICROUSD),
+                "--account",
+                "official",
+                "--harness",
+                CODEX_HARNESS_ID,
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    record = json.loads(output_path.read_text(encoding="utf-8"))
+    record["pricing_service_tier"] = "flex"
+    output_path.chmod(0o600)
+    output_path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pricing tier differs"):
+        load_paid_responses_gateway_config(
+            output_path,
+            model_registry_path=registry_path,
+            environment=_ENVIRONMENT,
+        )
 
 
 def test_descriptor_rejects_provider_harness_mismatch(tmp_path: Path) -> None:

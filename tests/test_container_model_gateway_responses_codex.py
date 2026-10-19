@@ -10,12 +10,109 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from legalforecast.evals.model_registry import (
+    load_model_registry,
+    model_registry_entry_sha256,
+)
 from legalforecast.multiharness.container_harness import model_gateway_responses_server
+from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    PAID_GATEWAY_CONFIG_SCHEMA,
+    PAID_GATEWAY_WORKFLOW_MARKER,
+)
 from legalforecast.multiharness.container_harness.model_gateway_responses import (
+    OpenAIResponsesGateway,
+    ResponsesGatewayPolicy,
     ResponsesUpstreamResponse,
+    load_paid_responses_gateway_config,
 )
 
-from test_container_model_gateway_responses import _policy
+from test_container_model_gateway_responses import _request, _response_body
+
+_ENVIRONMENT = {
+    "GITHUB_ACTIONS": "true",
+    "LFB_PROTECTED_TERMINAL_RELEASE": "1",
+    "LFB_PROVIDER_AUTHORITY_TABLE": "provider-spend",
+    "LFB_AWS_REGION": "us-east-1",
+    "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256": "c" * 64,
+}
+
+
+def _production_loaded_policy(tmp_path: Path) -> ResponsesGatewayPolicy:
+    registry_path = (
+        Path(__file__).parents[1]
+        / "model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json"
+    )
+    registry = load_model_registry(registry_path)
+    entry = registry.entries[0]
+    config_path = tmp_path / "paid-gateway.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema_version": PAID_GATEWAY_CONFIG_SCHEMA,
+                "workflow_marker": PAID_GATEWAY_WORKFLOW_MARKER,
+                "cycle_id": "cycle-1",
+                "account": "official",
+                "model_key": entry.registry_key,
+                "ceiling_microusd": 50_000_000,
+                "max_requests": 8,
+                "authority_identity_sha256": "a" * 64,
+                "reservation_ledger_sha256": "b" * 64,
+                "provider_authority_table": "provider-spend",
+                "provider_authority_region": "us-east-1",
+                "provider_authority_resource_identity_sha256": "c" * 64,
+                "model_registry_sha256": registry.source_sha256,
+                "model_registry_entry_sha256": model_registry_entry_sha256(entry),
+                "harness_id": "codex",
+                "pricing_service_tier": "default",
+            }
+        ),
+        encoding="utf-8",
+    )
+    paid_config = load_paid_responses_gateway_config(
+        config_path,
+        model_registry_path=registry_path,
+        environment=_ENVIRONMENT,
+    )
+    return model_gateway_responses_server.build_paid_responses_gateway_policy(
+        paid_config,
+        upstream_api_key="upstream-only",
+        capability_token="run-capability",
+        run_request_id="case-123",
+    )
+
+
+def test_production_loaded_registry_injects_explicit_standard_tier(
+    tmp_path: Path,
+) -> None:
+    body = _response_body(service_tier="default")
+    transport = _CodexLoopTransport([])
+    transport_response = ResponsesUpstreamResponse(
+        200, {"content-type": "application/json"}, body
+    )
+
+    class OneResponseTransport:
+        def request(
+            self,
+            request_body: bytes,
+            headers: Mapping[str, str],
+            *,
+            timeout_seconds: float,
+            max_response_bytes: int,
+        ) -> ResponsesUpstreamResponse:
+            del headers, timeout_seconds, max_response_bytes
+            transport.requests.append(json.loads(request_body))
+            return transport_response
+
+    gateway = OpenAIResponsesGateway(
+        _production_loaded_policy(tmp_path), transport=OneResponseTransport()
+    )
+
+    result = gateway.handle(
+        _request(model="gpt-6.1-sol"), authorization="Bearer run-capability"
+    )
+
+    assert result.status_code == 200
+    assert transport.requests[0]["service_tier"] == "default"
 
 
 @dataclass
@@ -74,6 +171,7 @@ class _CodexLoopTransport:
         response = {
             "id": response_id,
             "status": "completed",
+            "service_tier": "default",
             "usage": {
                 "input_tokens": 1,
                 "input_tokens_details": {
@@ -132,7 +230,7 @@ def test_real_pinned_codex_owns_tool_loop_through_local_gateway(
 
     transport = _CodexLoopTransport([])
     server = model_gateway_responses_server.build_responses_gateway_server(
-        _policy(tmp_path), transport=transport
+        _production_loaded_policy(tmp_path), transport=transport
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -163,7 +261,7 @@ def test_real_pinned_codex_owns_tool_loop_through_local_gateway(
         "--sandbox",
         "danger-full-access",
         "--model",
-        "gpt-test",
+        "gpt-6.1-sol",
         "-C",
         str(workspace),
         "-c",
@@ -201,6 +299,7 @@ def test_real_pinned_codex_owns_tool_loop_through_local_gateway(
     assert len(transport.requests) == 2
     first_request = transport.requests[0]
     assert first_request["store"] is False
+    assert first_request["service_tier"] == "default"
     tools = first_request["tools"]
     assert isinstance(tools, list)
     assert {

@@ -54,6 +54,7 @@ class ResponsesTerminal:
 
     kind: Literal["completed", "failed", "incomplete"]
     usage: ResponsesUsage | None
+    service_tier: str | None
 
 
 def validate_responses_request(
@@ -62,7 +63,7 @@ def validate_responses_request(
     allowed_models: frozenset[str],
     max_output_tokens: int,
     allowed_service_tiers: frozenset[str],
-) -> tuple[str, int]:
+) -> tuple[str, int, str]:
     """Validate the bounded fields that select spend or remote capabilities."""
 
     raw_model = payload.get("model")
@@ -78,13 +79,16 @@ def validate_responses_request(
         raise ModelGatewayError("stream must be a boolean")
     if payload.get("store") is not False:
         raise ModelGatewayError("store=false is required")
-    service_tier = payload.get("service_tier", "default")
+    if len(allowed_service_tiers) != 1:
+        raise ModelGatewayError("exactly one priced service_tier is required")
+    priced_service_tier = next(iter(allowed_service_tiers))
+    service_tier = payload.get("service_tier", priced_service_tier)
     if not isinstance(service_tier, str) or service_tier not in allowed_service_tiers:
         raise ModelGatewayError("service_tier is not priced by the locked registry")
     _validate_local_tools(payload.get("tools"))
     if _contains_remote_input_url(payload.get("input")):
         raise ModelGatewayError("remote input URLs are disabled")
-    return raw_model, raw_max_output
+    return raw_model, raw_max_output, service_tier
 
 
 def parse_responses_usage(
@@ -205,7 +209,15 @@ def _terminal_from_response(
     return ResponsesTerminal(
         kind=cast(Literal["completed", "failed", "incomplete"], kind),
         usage=_usage_from_object(response),
+        service_tier=_service_tier_from_response(response),
     )
+
+
+def _service_tier_from_response(response: Mapping[str, object]) -> str | None:
+    value = response.get("service_tier")
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
 
 
 def _sse_data_objects(body: bytes) -> tuple[Mapping[str, object], ...] | None:

@@ -24,6 +24,7 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    CODEX_HARNESS_ID,
     PAID_GATEWAY_CONFIG_SCHEMA,
     PAID_GATEWAY_WORKFLOW_MARKER,
     worst_case_request_microusd,
@@ -41,7 +42,6 @@ from legalforecast.runner import (
 )
 
 TERMINAL_HARNESS_ID: Final[str] = "claude-code-terminal"
-CODEX_HARNESS_ID: Final[str] = "codex"
 TERMINAL_ABLATION: Final[str] = "none"
 TERMINAL_REPEAT_INDEX: Final[int] = 1
 # One sidecar is launched per case.  This fixed bound accommodates the
@@ -74,6 +74,7 @@ class ProtectedPaidGatewayDescriptor:
     model_registry_entry_sha256: str
     harness_id: str = TERMINAL_HARNESS_ID
     forecast_release_digest: str | None = None
+    pricing_service_tier: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the exact loader-facing descriptor fields."""
@@ -104,6 +105,8 @@ class ProtectedPaidGatewayDescriptor:
             record.update(
                 forecast_release_digest=self.forecast_release_digest,
             )
+        if self.pricing_service_tier is not None:
+            record["pricing_service_tier"] = self.pricing_service_tier
         return record
 
 
@@ -222,6 +225,18 @@ def issue_paid_gateway_descriptor(
             domain=PUBLIC_RUN_IDENTITY_V1,
         ).digest
     )
+    pricing_service_tier: str | None = None
+    if harness_id == CODEX_HARNESS_ID:
+        # Imported here to keep the generic descriptor issuer independent of
+        # the Responses launcher while still deriving the field from the exact
+        # registry entry rather than accepting an operator-supplied tier.
+        from legalforecast.multiharness.container_harness import (
+            model_gateway_responses_paid as responses_paid,
+        )
+
+        pricing_service_tier = responses_paid.priced_service_tier_for_registry_entry(
+            entry
+        )
     return ProtectedPaidGatewayDescriptor(
         cycle_id=release.release_id,
         account=account,
@@ -239,6 +254,7 @@ def issue_paid_gateway_descriptor(
         model_registry_entry_sha256=model_registry_entry_sha256(entry),
         harness_id=harness_id,
         forecast_release_digest=release.release_digest,
+        pricing_service_tier=pricing_service_tier,
     )
 
 

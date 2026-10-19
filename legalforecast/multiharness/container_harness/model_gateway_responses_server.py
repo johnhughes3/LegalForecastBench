@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import cast
 
+from .model_gateway_paid import ProtectedPaidGatewayConfig
 from .model_gateway_protocol import (
     MAX_HTTP_HEADER_BYTES,
     GatewaySpendController,
@@ -25,7 +26,6 @@ from .model_gateway_responses import (
     ResponsesUpstreamTransport,
     build_paid_responses_gateway_controller,
     load_paid_responses_gateway_config,
-    priced_service_tiers_for_registry_entry,
     responses_route_allowed,
 )
 from .model_gateway_types import GatewayResponse, ModelGatewayError
@@ -144,6 +144,43 @@ def build_responses_gateway_server(
     return ResponsesGatewayHTTPServer((bind_host, port), gateway)
 
 
+def build_paid_responses_gateway_policy(
+    paid_config: ProtectedPaidGatewayConfig,
+    *,
+    upstream_api_key: str,
+    capability_token: str,
+    run_request_id: str,
+) -> ResponsesGatewayPolicy:
+    """Build the immutable policy from one production-loaded descriptor."""
+
+    pricing_service_tier = paid_config.pricing_service_tier
+    if pricing_service_tier is None:
+        raise ModelGatewayError(
+            "paid Responses gateway requires a structured pricing service tier"
+        )
+    model_keys = (paid_config.model_key,)
+    if any(not key.startswith(f"{OPENAI_PROVIDER}:") for key in model_keys):
+        raise ModelGatewayError("--model-key must use the openai:model namespace")
+    max_requests = paid_config.max_requests
+    max_input_tokens = paid_config.registry_entry.context_limit
+    max_output_tokens = paid_config.registry_entry.max_output_tokens
+    return ResponsesGatewayPolicy(
+        upstream_api_key=upstream_api_key,
+        capability_token=capability_token,
+        run_request_id=run_request_id,
+        allowed_model_keys=frozenset(model_keys),
+        allowed_ingress_hosts=frozenset({"127.0.0.1"}),
+        allowed_service_tiers=frozenset({pricing_service_tier}),
+        max_request_bytes=DEFAULT_REQUEST_BYTES,
+        max_response_bytes=DEFAULT_RESPONSE_BYTES,
+        max_requests=max_requests,
+        max_input_tokens=max_input_tokens,
+        max_output_tokens=max_output_tokens,
+        max_total_input_tokens=max_requests * max_input_tokens,
+        max_total_output_tokens=max_requests * max_output_tokens,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Launch the protected gateway; provider values never appear in argv."""
 
@@ -167,36 +204,21 @@ def main(argv: list[str] | None = None) -> int:
             args.paid_config,
             model_registry_path=args.model_registry,
         )
-        model_keys = (paid_config.model_key,)
         spend_controller: GatewaySpendController = (
             build_paid_responses_gateway_controller(paid_config)
         )
-        if args.model_key is not None and tuple(args.model_key) != model_keys:
+        if args.model_key is not None and tuple(args.model_key) != (
+            paid_config.model_key,
+        ):
             raise ModelGatewayError("--model-key does not match paid gateway config")
-        if any(not key.startswith(f"{OPENAI_PROVIDER}:") for key in model_keys):
-            raise ModelGatewayError("--model-key must use the openai:model namespace")
         upstream_api_key = _required_environment("LFB_RESPONSES_UPSTREAM_API_KEY")
         capability_token = _required_environment("LFB_RESPONSES_CAPABILITY_TOKEN")
         run_request_id = _required_environment("LFB_RESPONSES_REQUEST_ID")
-        max_requests = paid_config.max_requests
-        max_input_tokens = paid_config.registry_entry.context_limit
-        max_output_tokens = paid_config.registry_entry.max_output_tokens
-        policy = ResponsesGatewayPolicy(
+        policy = build_paid_responses_gateway_policy(
+            paid_config,
             upstream_api_key=upstream_api_key,
             capability_token=capability_token,
             run_request_id=run_request_id,
-            allowed_model_keys=frozenset(model_keys),
-            allowed_ingress_hosts=frozenset({"127.0.0.1"}),
-            allowed_service_tiers=priced_service_tiers_for_registry_entry(
-                paid_config.registry_entry
-            ),
-            max_request_bytes=DEFAULT_REQUEST_BYTES,
-            max_response_bytes=DEFAULT_RESPONSE_BYTES,
-            max_requests=max_requests,
-            max_input_tokens=max_input_tokens,
-            max_output_tokens=max_output_tokens,
-            max_total_input_tokens=max_requests * max_input_tokens,
-            max_total_output_tokens=max_requests * max_output_tokens,
         )
         server = build_responses_gateway_server(
             policy,
@@ -253,6 +275,7 @@ def _error(status: HTTPStatus, reason: str) -> GatewayResponse:
 
 __all__ = [
     "ResponsesGatewayHTTPServer",
+    "build_paid_responses_gateway_policy",
     "build_responses_gateway_server",
     "main",
 ]

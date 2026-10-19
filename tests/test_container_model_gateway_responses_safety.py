@@ -7,6 +7,7 @@ from http.client import IncompleteRead
 from pathlib import Path
 
 import pytest
+from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.multiharness.container_harness import model_gateway_responses_server
 from legalforecast.multiharness.container_harness.model_gateway_responses import (
     OpenAIResponsesGateway,
@@ -16,7 +17,7 @@ from legalforecast.multiharness.container_harness.model_gateway_responses import
     openai_responses_registry_charge_extractor,
     parse_responses_terminal,
     parse_responses_usage,
-    priced_service_tiers_for_registry_entry,
+    priced_service_tier_for_registry_entry,
 )
 from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalPaidError,
@@ -151,8 +152,8 @@ def test_unpriced_service_tier_and_remote_input_url_are_rejected(
     assert transport.requests == []
 
 
-def test_flex_pricing_requires_explicit_flex_service_tier(tmp_path: Path) -> None:
-    body = _response_body()
+def test_flex_pricing_injects_explicit_flex_service_tier(tmp_path: Path) -> None:
+    body = _response_body(service_tier="flex")
     transport = _FakeTransport(
         [ResponsesUpstreamResponse(200, {"content-type": "application/json"}, body)]
     )
@@ -160,21 +161,39 @@ def test_flex_pricing_requires_explicit_flex_service_tier(tmp_path: Path) -> Non
     gateway = OpenAIResponsesGateway(policy, transport=transport)
 
     omitted = gateway.handle(_request(), authorization="Bearer run-capability")
-    explicit = gateway.handle(
-        _request(service_tier="flex"), authorization="Bearer run-capability"
+
+    assert omitted.status_code == 200
+    assert len(transport.requests) == 1
+    assert json.loads(transport.requests[0][0])["service_tier"] == "flex"
+
+
+@pytest.mark.parametrize(
+    ("registry_name", "expected_tier"),
+    [
+        ("cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json", "default"),
+        ("cycle-1-agentic-gpt-4.1-2026-09-24.json", "default"),
+        ("cycle-1-agentic-gpt-6-sol-high-2026-09-22.json", "flex"),
+        ("cycle-1-agentic-gpt-6-luna-high-2026-09-22.json", "flex"),
+    ],
+)
+def test_checked_in_structured_price_profile_selects_service_tier(
+    registry_name: str, expected_tier: str
+) -> None:
+    registry = load_model_registry(
+        Path(__file__).parents[1] / "model_registries" / registry_name
     )
 
-    assert omitted.status_code == 400
-    assert explicit.status_code == 200
-    assert len(transport.requests) == 1
+    assert priced_service_tier_for_registry_entry(registry.entries[0]) == expected_tier
 
 
-def test_registry_price_source_selects_the_only_allowed_service_tier() -> None:
-    standard = _openai_entry()
-    flex = replace(standard, pricing_source="OpenAI Flex pricing")
+def test_unrecognized_structured_price_profile_fails_closed() -> None:
+    entry = load_model_registry(
+        Path(__file__).parents[1]
+        / "model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json"
+    ).entries[0]
 
-    assert priced_service_tiers_for_registry_entry(standard) == frozenset({"default"})
-    assert priced_service_tiers_for_registry_entry(flex) == frozenset({"flex"})
+    with pytest.raises(ValueError, match="structured price profile"):
+        priced_service_tier_for_registry_entry(replace(entry, input_token_price=1.75))
 
 
 @pytest.mark.parametrize("store", [None, True])
@@ -224,6 +243,7 @@ def test_noncompleted_terminal_settles_known_usage_but_is_not_returned_as_succes
             cache_write_tokens=4,
             reasoning_tokens=3,
         ),
+        "default",
     )
 
 
@@ -273,6 +293,48 @@ def test_duplicate_or_conflicting_sse_terminals_are_ambiguous(tmp_path: Path) ->
 
     assert result.status_code == 502
     assert controller.failures[0]["failure_type"] == "gateway_usage_missing"
+    assert gateway.usage.snapshot().observed_input_tokens is None
+
+
+@pytest.mark.parametrize("reported_tier", [None, "priority"])
+@pytest.mark.parametrize("terminal_status", ["completed", "failed", "incomplete"])
+@pytest.mark.parametrize("stream", [False, True])
+def test_unpriced_provider_tier_retains_unknown_hold_without_settlement(
+    tmp_path: Path,
+    terminal_status: str,
+    stream: bool,
+    reported_tier: str | None,
+) -> None:
+    response = json.loads(
+        _response_body(status=terminal_status, service_tier=reported_tier)
+    )
+    if stream:
+        event = {
+            "type": f"response.{terminal_status}",
+            "response": response,
+        }
+        body = (
+            f"event: response.{terminal_status}\n"
+            f"data: {json.dumps(event, separators=(',', ':'))}\n\n"
+            "data: [DONE]\n\n"
+        ).encode()
+        content_type = "text/event-stream"
+    else:
+        body = json.dumps(response, separators=(",", ":")).encode()
+        content_type = "application/json"
+    transport = _FakeTransport(
+        [ResponsesUpstreamResponse(200, {"content-type": content_type}, body)]
+    )
+    controller = _RecordingSpendController()
+    gateway = OpenAIResponsesGateway(
+        _policy(tmp_path), transport=transport, spend_controller=controller
+    )
+
+    result = gateway.handle(_request(), authorization="Bearer run-capability")
+
+    assert result.status_code == 502
+    assert controller.settled == []
+    assert controller.failures[0]["failure_type"] == "gateway_service_tier_unverified"
     assert gateway.usage.snapshot().observed_input_tokens is None
 
 
@@ -345,6 +407,7 @@ def test_openai_charge_extractor_keeps_unknown_cache_usage_unknown() -> None:
     body = json.dumps(
         {
             "status": "completed",
+            "service_tier": "default",
             "usage": {
                 "input_tokens": 10,
                 "output_tokens": 2,
@@ -352,12 +415,29 @@ def test_openai_charge_extractor_keeps_unknown_cache_usage_unknown() -> None:
             },
         }
     ).encode()
-    extractor = openai_responses_registry_charge_extractor(_openai_entry())
+    extractor = openai_responses_registry_charge_extractor(
+        _openai_entry(), expected_service_tier="default"
+    )
 
     usage = parse_responses_usage(body, "application/json")
     assert usage is not None
     assert usage.cache_write_tokens is None
     assert extractor(body, 200, "application/json") is None
+
+
+def test_openai_charge_extractor_rejects_provider_tier_mismatch() -> None:
+    extractor = openai_responses_registry_charge_extractor(
+        _openai_entry(), expected_service_tier="default"
+    )
+
+    assert (
+        extractor(
+            _response_body(service_tier="priority"),
+            200,
+            "application/json",
+        )
+        is None
+    )
 
 
 def test_server_startup_sanitizes_protected_config_errors(

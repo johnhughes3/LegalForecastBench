@@ -854,17 +854,17 @@
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
         "fan_in": 1,
-        "fan_out": 7,
+        "fan_out": 5,
         "flags": [
           "watch"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "OpenAIResponsesGateway",
-        "largest_symbol_lines": 167,
+        "largest_symbol_lines": 221,
         "layer": "application",
-        "line_count": 689,
-        "nonblank_line_count": 610,
-        "top_level_definition_count": 22
+        "line_count": 568,
+        "nonblank_line_count": 514,
+        "top_level_definition_count": 14
       },
       "legalforecast/multiharness/container_harness/plan.py": {
         "cycle_id": "",

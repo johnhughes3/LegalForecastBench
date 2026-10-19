@@ -152,24 +152,25 @@ def _response_body(
     input_tokens: int = 32,
     output_tokens: int = 7,
     status: str = "completed",
+    service_tier: str | None = "default",
 ) -> bytes:
-    return json.dumps(
-        {
-            "id": "resp-fixture",
-            "object": "response",
-            "status": status,
-            "usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "input_tokens_details": {
-                    "cached_tokens": 12,
-                    "cache_write_tokens": 4,
-                },
-                "output_tokens_details": {"reasoning_tokens": 3},
+    response: dict[str, object] = {
+        "id": "resp-fixture",
+        "object": "response",
+        "status": status,
+        "usage": {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "input_tokens_details": {
+                "cached_tokens": 12,
+                "cache_write_tokens": 4,
             },
+            "output_tokens_details": {"reasoning_tokens": 3},
         },
-        separators=(",", ":"),
-    ).encode()
+    }
+    if service_tier is not None:
+        response["service_tier"] = service_tier
+    return json.dumps(response, separators=(",", ":")).encode()
 
 
 def _sse_body() -> bytes:
@@ -180,7 +181,8 @@ def _sse_body() -> bytes:
         b'data: {"type":"response.completed","response":{"usage":{'
         b'"input_tokens":32,"output_tokens":7,"input_tokens_details":{'
         b'"cached_tokens":12,"cache_write_tokens":4},'
-        b'"output_tokens_details":{"reasoning_tokens":3}}}}\n\n'
+        b'"output_tokens_details":{"reasoning_tokens":3}},'
+        b'"service_tier":"default"}}\n\n'
         b"data: [DONE]\n\n"
     )
 
@@ -203,6 +205,7 @@ def test_nonstreaming_response_is_forwarded_byte_for_byte_and_hides_capability(
     assert result.status_code == 200
     assert result.body == body
     assert result.headers["content-type"] == "application/json"
+    assert json.loads(transport.requests[0][0])["service_tier"] == "default"
     assert transport.requests[0][1]["authorization"] == "Bearer upstream-only"
     assert "run-capability" not in transport.requests[0][1]["authorization"]
 
@@ -231,6 +234,7 @@ def test_streaming_response_preserves_exact_sse_and_settles_cache_usage(
     assert controller.settled[0]["content_type"] == "text/event-stream"
     assert controller.settled[0]["input_tokens"] == 32
     assert controller.settled[0]["output_tokens"] == 7
+    assert json.loads(transport.requests[0][0])["service_tier"] == "default"
     usage = parse_responses_usage(body, "text/event-stream")
     assert usage == ResponsesUsage(
         32,
@@ -386,7 +390,9 @@ def _openai_entry() -> ModelRegistryEntry:
 
 
 def test_openai_charge_extractor_prices_cached_input_and_reasoning_output() -> None:
-    extractor = openai_responses_registry_charge_extractor(_openai_entry())
+    extractor = openai_responses_registry_charge_extractor(
+        _openai_entry(), expected_service_tier="default"
+    )
 
     actual_microusd = extractor(
         _response_body(input_tokens=32, output_tokens=7), 200, None
@@ -401,6 +407,7 @@ def test_openai_charge_extractor_rejects_malformed_cache_dimensions() -> None:
     body = json.dumps(
         {
             "status": "completed",
+            "service_tier": "default",
             "usage": {
                 "input_tokens": 10,
                 "output_tokens": 2,
@@ -411,7 +418,9 @@ def test_openai_charge_extractor_rejects_malformed_cache_dimensions() -> None:
             },
         }
     ).encode()
-    extractor = openai_responses_registry_charge_extractor(_openai_entry())
+    extractor = openai_responses_registry_charge_extractor(
+        _openai_entry(), expected_service_tier="default"
+    )
 
     assert extractor(body, 200, "application/json") is None
 
