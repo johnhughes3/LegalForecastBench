@@ -6,13 +6,17 @@ import argparse
 import io
 import json
 import zipfile
+from functools import partial
 from pathlib import Path
 
 import legalforecast.multiharness.harvey_lab_protected_operator as protected_operator
 import pytest
 from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
-from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapter
+from legalforecast.multiharness.claude_code import (
+    ClaudeCodeCliAdapter,
+    ClaudeCodeCliAdapterError,
+)
 from legalforecast.multiharness.harvey_lab.core_cli import register
 from legalforecast.multiharness.harvey_lab_evaluator import (
     HarveyLabJudgeRequest,
@@ -23,7 +27,10 @@ from legalforecast.multiharness.harvey_lab_production_runner import (
     ProductionJudgeCall,
     ProductionJudgeResponse,
 )
-from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
+from legalforecast.multiharness.harvey_lab_projection import (
+    ISSUE_196_LAB_TASK_ID,
+    project_harvey_lab_suite,
+)
 from legalforecast.multiharness.harvey_lab_protected_operator import (
     ProtectedHarveyLabOperatorRequest,
     ProtectedHarveyLabRuntime,
@@ -123,8 +130,10 @@ def test_protected_judge_boundary_uses_descriptor_authority_and_settles_response
 class _SolverDouble:
     def __init__(self) -> None:
         self.parent_env: dict[str, str] = {}
+        self.calls = 0
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
+        self.calls += 1
         output = spec.working_directory / "output"
         output.mkdir(exist_ok=True)
         (output / "issue-identification-memo.docx").write_bytes(_docx_bytes())
@@ -184,7 +193,145 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
         pin=FIXTURE_PIN,
     )
     env = _install_binaries(tmp_path)
+    solver = _SolverDouble()
     boundary = _JudgeBoundaryDouble()
+    runtime = _protected_runtime(solver=solver, boundary=boundary, env=env)
+    run_root = tmp_path / "run"
+    args = _run_clean_native_args(
+        tmp_path=tmp_path,
+        source=source,
+        projection=projection,
+        private=private,
+        run_root=run_root,
+    )
+    _install_runtime_double(monkeypatch, runtime)
+    try:
+        assert args.handler(args) == 0
+    finally:
+        _make_writable(tmp_path)
+
+    report = json.loads(capsys.readouterr().out)
+    assert report == {
+        "execution_mode": "production",
+        "n_criteria": 23,
+        "n_passed": 23,
+        "score": 1,
+        "task_id": "employment-labor/identify-issues-in-counterparty-motion-brief",
+    }
+    assert len(boundary.before) == len(boundary.after) == 23
+    assert solver.calls == 1
+    assert (run_root / "sealed" / "issue-identification-memo.docx").is_file()
+
+
+def test_run_clean_native_cli_rejects_modified_private_criterion_pretransport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _issue_196_source(tmp_path / "source")
+    projection = tmp_path / "projection"
+    private = tmp_path / "private"
+    project_harvey_lab_suite(
+        source_root=source,
+        solver_root=projection,
+        evaluator_private_root=private,
+        pin=FIXTURE_PIN,
+    )
+    _make_writable(private)
+    task_json = private / "tasks" / ISSUE_196_LAB_TASK_ID / "task.json"
+    task = json.loads(task_json.read_text(encoding="utf-8"))
+    task["criteria"][0]["match_criteria"] = "tampered criterion"
+    task_json.write_text(json.dumps(task, sort_keys=True), encoding="utf-8")
+
+    solver = _SolverDouble()
+    boundary = _JudgeBoundaryDouble()
+    runtime = _protected_runtime(
+        solver=solver,
+        boundary=boundary,
+        env=_install_binaries(tmp_path),
+    )
+    args = _run_clean_native_args(
+        tmp_path=tmp_path,
+        source=source,
+        projection=projection,
+        private=private,
+        run_root=tmp_path / "run",
+    )
+    _install_runtime_double(monkeypatch, runtime)
+
+    with pytest.raises(
+        ClaudeCodeCliAdapterError,
+        match="prepared Harvey LAB evaluator-private bytes",
+    ) as exc_info:
+        args.handler(args)
+
+    assert solver.calls == 0
+    assert boundary.before == []
+    assert "tampered criterion" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("tamper", "error_match"),
+    [
+        ("missing", "file census.*missing:.*gold-answers.json"),
+        ("extra", "file census.*extra:.*unexpected.json"),
+        ("symlink", "must not contain symlinks"),
+    ],
+)
+def test_run_clean_native_cli_rejects_invalid_private_tree_pretransport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tamper: str,
+    error_match: str,
+) -> None:
+    source = _issue_196_source(tmp_path / "source")
+    projection = tmp_path / "projection"
+    private = tmp_path / "private"
+    project_harvey_lab_suite(
+        source_root=source,
+        solver_root=projection,
+        evaluator_private_root=private,
+        pin=FIXTURE_PIN,
+    )
+    _make_writable(private)
+    task_root = private / "tasks" / ISSUE_196_LAB_TASK_ID
+    if tamper == "missing":
+        (task_root / "gold-answers.json").unlink()
+    elif tamper == "extra":
+        (task_root / "unexpected.json").write_text("{}", encoding="utf-8")
+    else:
+        task_json = task_root / "task.json"
+        task_json.unlink()
+        task_json.symlink_to(source / "tasks" / ISSUE_196_LAB_TASK_ID / "task.json")
+
+    solver = _SolverDouble()
+    boundary = _JudgeBoundaryDouble()
+    runtime = _protected_runtime(
+        solver=solver,
+        boundary=boundary,
+        env=_install_binaries(tmp_path),
+    )
+    args = _run_clean_native_args(
+        tmp_path=tmp_path,
+        source=source,
+        projection=projection,
+        private=private,
+        run_root=tmp_path / "run",
+    )
+    _install_runtime_double(monkeypatch, runtime)
+
+    with pytest.raises(ClaudeCodeCliAdapterError, match=error_match):
+        args.handler(args)
+
+    assert solver.calls == 0
+    assert boundary.before == []
+
+
+def _protected_runtime(
+    *,
+    solver: _SolverDouble,
+    boundary: _JudgeBoundaryDouble,
+    env: dict[str, str],
+) -> ProtectedHarveyLabRuntime:
     runner = ProductionHarveyLabEvaluatorRunner(
         provider_call=_judge_call,
         attempt_writer=lambda _call, _response: None,
@@ -196,9 +343,9 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
         model_id="claude-sonnet-4-6",
         pricing_sha256=PRICING_SHA256,
     )
-    runtime = ProtectedHarveyLabRuntime(
+    return ProtectedHarveyLabRuntime(
         adapter=ClaudeCodeCliAdapter(
-            execution_service=_SolverDouble(),  # type: ignore[arg-type]
+            execution_service=solver,  # type: ignore[arg-type]
             output_format="stream-json",
             verbose=True,
         ),
@@ -212,10 +359,19 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
         model="claude-sonnet-4-6",
         ceiling_microusd=1_000_000,
     )
+
+
+def _run_clean_native_args(
+    *,
+    tmp_path: Path,
+    source: Path,
+    projection: Path,
+    private: Path,
+    run_root: Path,
+) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     register(parser.add_subparsers())
-    run_root = tmp_path / "run"
-    args = parser.parse_args(
+    return parser.parse_args(
         [
             "harvey-lab",
             "run-clean-native",
@@ -242,6 +398,11 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
         ]
     )
 
+
+def _install_runtime_double(
+    monkeypatch: pytest.MonkeyPatch,
+    runtime: ProtectedHarveyLabRuntime,
+) -> None:
     def run_double(request: ProtectedHarveyLabOperatorRequest):
         return run_protected_harvey_lab_operator(request, runtime=runtime)
 
@@ -254,23 +415,8 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
     monkeypatch.setattr(
         protected_operator,
         "ProtectedHarveyLabOperatorRequest",
-        lambda **kwargs: request_type(**kwargs, pin=FIXTURE_PIN),
+        partial(request_type, pin=FIXTURE_PIN),
     )
-    try:
-        assert args.handler(args) == 0
-    finally:
-        _make_writable(tmp_path)
-
-    report = json.loads(capsys.readouterr().out)
-    assert report == {
-        "execution_mode": "production",
-        "n_criteria": 23,
-        "n_passed": 23,
-        "score": 1,
-        "task_id": "employment-labor/identify-issues-in-counterparty-motion-brief",
-    }
-    assert len(boundary.before) == len(boundary.after) == 23
-    assert (run_root / "sealed" / "issue-identification-memo.docx").is_file()
 
 
 def _judge_call(call: ProductionJudgeCall) -> ProductionJudgeResponse:

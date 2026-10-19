@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import MappingProxyType
 
 from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapterError,
     classify_claude_completion_execution,
 )
+from legalforecast.multiharness.harvey_lab.evaluation_contract import (
+    HarveyLabEvaluationError,
+    directory_snapshot,
+)
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
     EvaluatorRunner,
     HarveyLabEvaluatorProvenance,
     HarveyLabJudgeRequestBoundary,
+)
+from legalforecast.multiharness.harvey_lab_projection import (
+    HarveyLabPin,
+    project_harvey_lab_suite,
+    remove_projected_tree,
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
@@ -73,6 +84,59 @@ def require_complete_production_evaluator(
         )
 
 
+def require_authentic_prepared_private_material(
+    *,
+    source_root: Path,
+    evaluator_private_root: Path,
+    pin: HarveyLabPin,
+    lab_task_id: str,
+) -> None:
+    """Bind prepared evaluator-private bytes to a fresh pinned projection."""
+
+    with TemporaryDirectory(prefix="lfb-lab-private-compare-") as temporary:
+        comparison_root = Path(temporary)
+        expected_solver = comparison_root / "solver"
+        expected_private = comparison_root / "private"
+        try:
+            expected = project_harvey_lab_suite(
+                source_root=source_root,
+                solver_root=expected_solver,
+                evaluator_private_root=expected_private,
+                pin=pin,
+                lab_task_ids=(lab_task_id,),
+            )
+            try:
+                _, expected_files = directory_snapshot(
+                    expected.evaluator_private_root,
+                    "authenticated evaluator-private material",
+                )
+                _, prepared_files = directory_snapshot(
+                    evaluator_private_root,
+                    "prepared evaluator-private material",
+                )
+            except HarveyLabEvaluationError as exc:
+                raise ClaudeCodeCliAdapterError(str(exc)) from exc
+            expected_paths = set(expected_files)
+            prepared_paths = set(prepared_files)
+            if expected_paths != prepared_paths:
+                missing = ", ".join(sorted(expected_paths - prepared_paths)) or "none"
+                extra = ", ".join(sorted(prepared_paths - expected_paths)) or "none"
+                raise ClaudeCodeCliAdapterError(
+                    "prepared Harvey LAB evaluator-private file census does not "
+                    "match the authenticated checkout "
+                    f"(missing: {missing}; extra: {extra})"
+                )
+            for relative in sorted(expected_paths):
+                if prepared_files[relative] != expected_files[relative]:
+                    raise ClaudeCodeCliAdapterError(
+                        "prepared Harvey LAB evaluator-private bytes do not match "
+                        f"the authenticated checkout: {relative}"
+                    )
+        finally:
+            remove_projected_tree(expected_solver)
+            remove_projected_tree(expected_private)
+
+
 def require_solver_success(
     spec: RunSpec,
     execution: ExecutionReceipt,
@@ -109,4 +173,8 @@ def require_solver_success(
     )
 
 
-__all__ = ["require_complete_production_evaluator", "require_solver_success"]
+__all__ = [
+    "require_authentic_prepared_private_material",
+    "require_complete_production_evaluator",
+    "require_solver_success",
+]

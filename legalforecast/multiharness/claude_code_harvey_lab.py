@@ -25,6 +25,9 @@ from legalforecast.multiharness.claude_code_container_inputs import (
     stage_read_only_solver_prompt,
 )
 from legalforecast.multiharness.claude_code_harvey_lab_guards import (
+    require_authentic_prepared_private_material,
+)
+from legalforecast.multiharness.claude_code_harvey_lab_guards import (
     require_complete_production_evaluator as _require_complete_production_evaluator,
 )
 from legalforecast.multiharness.claude_code_harvey_lab_guards import (
@@ -188,10 +191,12 @@ def run_claude_code_clean_native_harvey_lab(
             raise ClaudeCodeCliAdapterError(
                 "prepared Harvey LAB projection does not match the selected pin"
             )
-        if not evaluator_private_root.is_dir() or evaluator_private_root.is_symlink():
-            raise ClaudeCodeCliAdapterError(
-                "prepared Harvey LAB evaluator-private root is unavailable"
-            )
+        require_authentic_prepared_private_material(
+            source_root=source_root,
+            evaluator_private_root=evaluator_private_root,
+            pin=applied_pin,
+            lab_task_id=lab_task_id,
+        )
         projection = HarveyLabProjectionResult(
             solver_root=solver_root.resolve(),
             evaluator_private_root=evaluator_private_root.resolve(),
