@@ -17,6 +17,15 @@ test("every ranked configuration has the same cost and basis in paper data and s
 		assert.ok(paper, model.slug);
 		assert.equal(paper.cost.usd, model.cost.usd, `${model.slug}: USD`);
 		const receipt = receiptCosts.find((row) => row.slug === model.slug);
+		if (receipt) {
+			assert.equal(
+				model.cost.basis,
+				receipt.standard_rate_estimate_usd === null
+					? "unavailable"
+					: "estimated",
+				`${model.slug}: site basis`,
+			);
+		}
 		// Paper data names the reconstruction method; the site labels those
 		// same amounts as estimates and exposes the method in its cost note.
 		assert.equal(
