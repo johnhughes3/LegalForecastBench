@@ -454,15 +454,32 @@ else:
         "FAKE_AWS_STORE": str(store),
     }
 
-    def reconcile(payload: bytes) -> subprocess.CompletedProcess[str]:
+    def reconcile(
+        payload: bytes, *, run_id: str = "101", attempt: str = "1"
+    ) -> subprocess.CompletedProcess[str]:
         source.write_bytes(payload)
+        assignment = next(
+            line.strip()
+            for line in WORKFLOW.splitlines()
+            if line.strip().startswith('destination="reports/')
+        )
+        destination = subprocess.check_output(
+            ["bash", "-c", assignment + '\nprintf %s "$destination"'],
+            env={
+                **environment,
+                "CYCLE_ID": "cycle-1",
+                "GITHUB_RUN_ID": run_id,
+                "GITHUB_RUN_ATTEMPT": attempt,
+            },
+            text=True,
+        )
         return subprocess.run(
             [
                 "bash",
                 str(ROOT / ".github/scripts/reconcile-s3-object.sh"),
                 "results-bucket",
                 str(source),
-                "reports/cycle-1/multi-ablation/scores.json",
+                f"{destination}/scores.json",
             ],
             capture_output=True,
             text=True,
@@ -483,6 +500,13 @@ else:
     mismatch = reconcile(b"changed score bytes!\n")
     assert mismatch.returncode != 0
     assert "refusing S3 object mismatch" in mismatch.stderr
+
+    # A different scoring run or runtime retry gets a separate immutable report.
+    another_run = reconcile(b"another model score\n", run_id="102")
+    assert another_run.returncode == 0, another_run.stderr
+    another_attempt = reconcile(b"repaired scoring output\n", attempt="2")
+    assert another_attempt.returncode == 0, another_attempt.stderr
+    assert len(list(store.glob("*.json"))) == 3
 
 
 def test_hugging_face_publication_is_retained_publish_only_and_oidc_bound() -> None:
