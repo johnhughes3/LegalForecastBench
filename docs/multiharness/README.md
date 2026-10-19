@@ -35,6 +35,7 @@ Community submissions live under [`community/submissions/`](../../community/subm
 - [Evaluator receipt authority](receipt-authority.md): the Ed25519 evaluator-issuer seam (not yet provisioned) and the credential-free executable probe.
 - [Claude Code terminal release run](terminal-release.md): running an outcome-blinded forecast release through the headless Claude Code CLI, with a provider-free fixture path. The protected benchmark workflow accepts this and the Hermes and OpenClaw harnesses as alternative execution modes, but the published Cycle 1 results use the native document-tool runner.
 - [Local CLI adapter manifest](local-cli-adapter-manifest-v1.md): the generic manifest contract for local agentic CLI adapters.
+- [Codex Responses gateway](codex-responses-gateway.md): the bounded native Responses protocol proxy and protected paid-launch contract.
 - Adapter tracks: [provider baselines](adapters/provider-baselines.md) and the [Hermes Agent bridge](adapters/hermes-agent.md).
 
 LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.

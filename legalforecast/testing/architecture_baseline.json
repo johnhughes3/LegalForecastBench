@@ -390,7 +390,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "evals",
-        "fan_in": 30,
+        "fan_in": 31,
         "fan_out": 2,
         "flags": [
           "watch"
@@ -836,7 +836,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 3,
+        "fan_in": 5,
         "fan_out": 3,
         "flags": [
           "watch"
@@ -848,6 +848,23 @@
         "line_count": 810,
         "nonblank_line_count": 746,
         "top_level_definition_count": 18
+      },
+      "legalforecast/multiharness/container_harness/model_gateway_responses.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 1,
+        "fan_out": 7,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "OpenAIResponsesGateway",
+        "largest_symbol_lines": 167,
+        "layer": "application",
+        "line_count": 689,
+        "nonblank_line_count": 610,
+        "top_level_definition_count": 22
       },
       "legalforecast/multiharness/container_harness/plan.py": {
         "cycle_id": "",
@@ -1281,7 +1298,7 @@
         "cycle_id": "",
         "disposition_kind": "watch",
         "disposition_owner": "multiharness",
-        "fan_in": 8,
+        "fan_in": 9,
         "fan_out": 8,
         "flags": [
           "watch"
