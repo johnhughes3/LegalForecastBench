@@ -708,8 +708,8 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 418,
         "layer": "application",
-        "line_count": 1690,
-        "nonblank_line_count": 1551,
+        "line_count": 1694,
+        "nonblank_line_count": 1555,
         "top_level_definition_count": 49
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -2207,6 +2207,24 @@
         "nonblank_line_count": 729,
         "top_level_definition_count": 30
       },
+      "tests/test_hermes_paid.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_paid_wrapper_requires_durable_settlement",
+        "largest_symbol_lines": 119,
+        "layer": "test",
+        "line_count": 518,
+        "nonblank_line_count": 473,
+        "top_level_definition_count": 10
+      },
       "tests/test_integrated_fixture_pipeline.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -2969,6 +2987,23 @@
         "line_count": 916,
         "nonblank_line_count": 848,
         "top_level_definition_count": 30
+      },
+      "tests/test_terminal_release_execute_score.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_issue_unequal_case_release",
+        "largest_symbol_lines": 79,
+        "layer": "test",
+        "line_count": 534,
+        "nonblank_line_count": 484,
+        "top_level_definition_count": 12
       },
       "tests/test_tier0_operator_half.py": {
         "cycle_id": "",

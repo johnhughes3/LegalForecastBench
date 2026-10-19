@@ -181,8 +181,12 @@ class ProtectedHermesAdapter:
         )
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
+        result: RunResult | None = None
+        delegate_error: Exception | None = None
         try:
             result = delegate.run_with_tools(request, workspace, tool_executor)
+        except Exception as exc:
+            delegate_error = exc
         finally:
             server.shutdown()
             server.server_close()
@@ -190,22 +194,25 @@ class ProtectedHermesAdapter:
             route.unlink()
         usage = server.gateway.usage.snapshot()
         settled_requests, settled_microusd = controller.settlement_totals()
-        if (
+        settled = not (
             usage.request_count < 1
             or settled_requests != usage.request_count
             or usage.observed_input_tokens is None
             or usage.observed_output_tokens is None
             or usage.reserved_input_tokens
             or usage.reserved_output_tokens
+            or result is None
             or result.status != "succeeded"
-        ):
-            raise ValueError("Hermes provider usage did not fully settle")
+        )
         evidence = {
+            "schema_version": 1,
             "request_sha256": request.request_sha256,
             "capabilities_sha256": self.capabilities(workspace).capabilities_sha256,
             "model_key": request.model_key,
             "auth_profile": "published-api-key",
             "ceiling_microusd": self.config.spend.ceiling_microusd,
+            "settlement_status": "settled" if settled else "unsettled",
+            "gateway_request_count": usage.request_count,
             "usage": asdict(usage),
             "settled_requests": settled_requests,
             "settled_microusd": settled_microusd,
@@ -213,6 +220,11 @@ class ProtectedHermesAdapter:
         payload = release_canonical_bytes(evidence)
         path = private / "settlement.json"
         write_release_create_only(path, payload, mode=0o600)
+        if delegate_error is not None:
+            raise delegate_error
+        if not settled:
+            raise ValueError("Hermes provider usage did not fully settle")
+        assert result is not None
         digest = release_bytes_sha256(payload)
         summary = {
             **result.public_summary,

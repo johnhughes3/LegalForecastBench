@@ -242,6 +242,47 @@ def test_scoreless_execution_round_trip_scores_unequal_case_failure(
     assert report["headline_metrics_available"] is True
 
 
+def test_release_execute_returns_failure_when_a_row_is_recorded_as_failed(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from legalforecast.multiharness import cli as multiharness_cli
+
+    release_root, artifact_root = _issue_unequal_case_release(tmp_path)
+    adapter = CaseBatchFixtureAdapter(failed_case_id="case-002")
+    monkeypatch.setattr(
+        multiharness_cli,
+        "_build_terminal_release_adapter",
+        lambda options, *, case_count: adapter,
+    )
+    output = tmp_path / "cli-run"
+    assert (
+        main(
+            [
+                "multiharness",
+                "release-execute",
+                "--forecast-release",
+                str(release_root / "forecast-release.json"),
+                "--artifact-root",
+                str(artifact_root),
+                "--output-dir",
+                str(output),
+                "--model-key",
+                "fixture",
+                "--image",
+                "sha256:" + "a" * 64,
+                "--fixture-base-url",
+                "https://fixture.invalid:8080",
+            ]
+        )
+        == 1
+    )
+    rows = [
+        json.loads(line)
+        for line in (output / "row-results.jsonl").read_text().splitlines()
+    ]
+    assert [row["status"] for row in rows] == ["succeeded", "failed"]
+
+
 @pytest.mark.parametrize("case_id", [None, "case-001"])
 def test_release_execute_and_score_cli_separate_label_boundary(
     tmp_path: Path,

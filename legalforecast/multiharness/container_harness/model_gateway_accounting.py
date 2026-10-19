@@ -133,6 +133,20 @@ class GatewayUsage:
                     self._observed_output_tokens += observed.output_tokens
             self._write_evidence_locked()
 
+    def reject(self, reservation: Reservation) -> None:
+        """Drop a reservation that was refused before upstream transport.
+
+        The request admission remains counted so repeated authorization
+        failures cannot bypass the gateway request cap.  No token usage is
+        accounted because this path did not send provider bytes.
+        """
+
+        with self._lock:
+            self._reserved_input_tokens -= reservation.input_tokens
+            self._reserved_output_tokens -= reservation.output_tokens
+            self._rejected_count += 1
+            self._write_evidence_locked()
+
     def snapshot(self) -> GatewayUsageSnapshot:
         """Return a consistent usage snapshot."""
 
