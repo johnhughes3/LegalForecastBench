@@ -35,6 +35,7 @@ from legalforecast.multiharness.protected_terminal_paid import (
 )
 
 PAID_GATEWAY_CONFIG_SCHEMA: Final[int] = 1
+CODEX_HARNESS_ID: Final[str] = "codex"
 PAID_GATEWAY_WORKFLOW_MARKER: Final[str] = (
     f"{PROTECTED_WORKFLOW_MARKER}={PROTECTED_WORKFLOW_MARKER_VALUE}"
 )
@@ -58,7 +59,14 @@ _REQUIRED_FIELDS: Final[frozenset[str]] = frozenset(
     }
 )
 _OPTIONAL_FIELDS: Final[frozenset[str]] = frozenset(
-    {"stage", "ablation", "repeat_index", "harness_id", "forecast_release_digest"}
+    {
+        "stage",
+        "ablation",
+        "repeat_index",
+        "harness_id",
+        "forecast_release_digest",
+        "pricing_service_tier",
+    }
 )
 
 
@@ -74,6 +82,7 @@ class ProtectedPaidGatewayConfig:
     reservation_microusd: int
     harness_id: str | None = None
     forecast_release_digest: str | None = None
+    pricing_service_tier: str | None = None
 
     @property
     def model_key(self) -> str:
@@ -166,6 +175,22 @@ def load_paid_gateway_config(
         raise ProtectedTerminalPaidError(
             "paid gateway worst-case request cost exceeds the approved ceiling"
         )
+    pricing_service_tier = (
+        _required_str(payload, "pricing_service_tier")
+        if "pricing_service_tier" in payload
+        else None
+    )
+    harness_id = (
+        _required_str(payload, "harness_id") if "harness_id" in payload else None
+    )
+    if pricing_service_tier not in {None, "default", "flex"}:
+        raise ProtectedTerminalPaidError(
+            "paid gateway config pricing_service_tier is invalid"
+        )
+    if pricing_service_tier is not None and harness_id != CODEX_HARNESS_ID:
+        raise ProtectedTerminalPaidError(
+            "pricing_service_tier is supported only for Codex descriptors"
+        )
     return ProtectedPaidGatewayConfig(
         spend=config,
         model_registry_sha256=registry_sha256,
@@ -173,12 +198,11 @@ def load_paid_gateway_config(
         registry_entry=entry,
         max_requests=max_requests,
         reservation_microusd=reservation,
-        harness_id=_required_str(payload, "harness_id")
-        if "harness_id" in payload
-        else None,
+        harness_id=harness_id,
         forecast_release_digest=_required_str(payload, "forecast_release_digest")
         if "forecast_release_digest" in payload
         else None,
+        pricing_service_tier=pricing_service_tier,
     )
 
 
@@ -313,6 +337,7 @@ def _split_model_key(model_key: str) -> tuple[str, str]:
 
 
 __all__ = [
+    "CODEX_HARNESS_ID",
     "PAID_GATEWAY_CONFIG_SCHEMA",
     "PAID_GATEWAY_WORKFLOW_MARKER",
     "ProtectedPaidGatewayConfig",

@@ -24,6 +24,7 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    CODEX_HARNESS_ID,
     PAID_GATEWAY_CONFIG_SCHEMA,
     PAID_GATEWAY_WORKFLOW_MARKER,
     worst_case_request_microusd,
@@ -47,6 +48,12 @@ TERMINAL_REPEAT_INDEX: Final[int] = 1
 # reviewed Claude Code tool loop while keeping the gateway request envelope
 # independent of the total release case count.
 PAID_GATEWAY_MAX_REQUESTS_PER_CASE: Final[int] = 8
+_HARNESS_PROVIDERS: Final[dict[str, str]] = {
+    TERMINAL_HARNESS_ID: "anthropic",
+    CODEX_HARNESS_ID: "openai",
+    GATEWAY_HARNESS_ID: "anthropic",
+    "hermes-agent": "anthropic",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +74,7 @@ class ProtectedPaidGatewayDescriptor:
     model_registry_entry_sha256: str
     harness_id: str = TERMINAL_HARNESS_ID
     forecast_release_digest: str | None = None
+    pricing_service_tier: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the exact loader-facing descriptor fields."""
@@ -97,6 +105,8 @@ class ProtectedPaidGatewayDescriptor:
             record.update(
                 forecast_release_digest=self.forecast_release_digest,
             )
+        if self.pricing_service_tier is not None:
+            record["pricing_service_tier"] = self.pricing_service_tier
         return record
 
 
@@ -119,13 +129,15 @@ def issue_paid_gateway_descriptor(
     official workflow must never become a paid gateway launch input.
     """
 
-    if harness_id not in {TERMINAL_HARNESS_ID, GATEWAY_HARNESS_ID, "hermes-agent"}:
+    expected_provider = _HARNESS_PROVIDERS.get(harness_id)
+    if expected_provider is None:
         raise ProtectedTerminalPaidError("unsupported protected gateway harness")
     if not model_key.strip():
         raise ProtectedTerminalPaidError("model_key must be nonempty")
-    if not model_key.startswith("anthropic:"):
+    if not model_key.startswith(f"{expected_provider}:"):
         raise ProtectedTerminalPaidError(
-            "protected Claude Code terminal runs require an Anthropic model key"
+            f"protected {harness_id} runs require a canonical "
+            f"{expected_provider}:model_id key"
         )
     if type(ceiling_microusd) is not int or ceiling_microusd <= 0:
         raise ProtectedTerminalPaidError("ceiling_microusd must be a positive integer")
@@ -149,9 +161,9 @@ def issue_paid_gateway_descriptor(
         registry_sha256 = model_registry_sha256(registry_bytes)
         require_official_registry_entries(registry.entries)
         provider, separator, model_id = model_key.partition(":")
-        if separator != ":" or provider != "anthropic" or not model_id:
+        if separator != ":" or provider != expected_provider or not model_id:
             raise ProtectedTerminalPaidError(
-                "model_key must use the canonical anthropic:model_id form"
+                f"model_key must use the canonical {expected_provider}:model_id form"
             )
         try:
             entry = registry.get(provider, model_id)
@@ -165,7 +177,7 @@ def issue_paid_gateway_descriptor(
             )
         if not entry.network_disabled or not entry.search_disabled:
             raise ProtectedTerminalPaidError(
-                "locked Anthropic registry entry must disable network and search"
+                "locked registry entry must disable network and search"
             )
         try:
             validate_executable_packets(run_inputs.execution)
@@ -213,6 +225,18 @@ def issue_paid_gateway_descriptor(
             domain=PUBLIC_RUN_IDENTITY_V1,
         ).digest
     )
+    pricing_service_tier: str | None = None
+    if harness_id == CODEX_HARNESS_ID:
+        # Imported here to keep the generic descriptor issuer independent of
+        # the Responses launcher while still deriving the field from the exact
+        # registry entry rather than accepting an operator-supplied tier.
+        from legalforecast.multiharness.container_harness import (
+            model_gateway_responses_paid as responses_paid,
+        )
+
+        pricing_service_tier = responses_paid.priced_service_tier_for_registry_entry(
+            entry
+        )
     return ProtectedPaidGatewayDescriptor(
         cycle_id=release.release_id,
         account=account,
@@ -230,6 +254,7 @@ def issue_paid_gateway_descriptor(
         model_registry_entry_sha256=model_registry_entry_sha256(entry),
         harness_id=harness_id,
         forecast_release_digest=release.release_digest,
+        pricing_service_tier=pricing_service_tier,
     )
 
 
@@ -267,7 +292,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--harness",
-        choices=("claude-code-terminal", "hermes-agent", "openclaw"),
+        choices=("claude-code-terminal", "codex", "hermes-agent", "openclaw"),
         default="claude-code-terminal",
         help="Bind spend identity to the selected pinned release harness.",
     )
@@ -297,6 +322,7 @@ if __name__ == "__main__":  # pragma: no cover - exercised by the workflow comma
 
 
 __all__ = [
+    "CODEX_HARNESS_ID",
     "PAID_GATEWAY_MAX_REQUESTS_PER_CASE",
     "ProtectedPaidGatewayDescriptor",
     "issue_paid_gateway_descriptor",

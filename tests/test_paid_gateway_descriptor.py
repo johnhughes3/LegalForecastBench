@@ -13,10 +13,17 @@ from legalforecast.immutable_io import ImmutableIOError
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
     load_paid_gateway_config,
 )
+from legalforecast.multiharness.container_harness.model_gateway_responses import (
+    load_paid_responses_gateway_config,
+)
 from legalforecast.multiharness.paid_gateway_descriptor import (
+    CODEX_HARNESS_ID,
     PAID_GATEWAY_MAX_REQUESTS_PER_CASE,
     issue_paid_gateway_descriptor,
     write_paid_gateway_descriptor,
+)
+from legalforecast.multiharness.paid_gateway_descriptor import (
+    main as paid_gateway_descriptor_main,
 )
 from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalPaidError,
@@ -73,6 +80,13 @@ def _registry_bytes() -> bytes:
         )
         + "\n"
     ).encode()
+
+
+def _openai_registry_bytes() -> bytes:
+    return (
+        Path(__file__).parents[1]
+        / "model_registries/cycle-1-agentic-gpt-6.1-sol-high-2026-09-29.json"
+    ).read_bytes()
 
 
 def _inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
@@ -149,7 +163,6 @@ def test_descriptor_is_derived_from_locked_inputs_and_loads_as_paid_config(
         model_registry_path=registry_path,
         environment=_ENVIRONMENT,
     )
-
     assert descriptor.cycle_id == "synthetic-three-case-v1"
     assert descriptor.max_requests == PAID_GATEWAY_MAX_REQUESTS_PER_CASE
     assert re.fullmatch(r"[0-9a-f]{64}", descriptor.reservation_ledger_sha256)
@@ -188,6 +201,152 @@ def test_descriptor_binds_registry_bytes_for_later_loader_rechecks(
             output_path,
             model_registry_path=changed_registry_path,
             environment=_ENVIRONMENT,
+        )
+
+
+def test_anthropic_descriptor_rejects_codex_pricing_tier_field(
+    tmp_path: Path,
+) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+    descriptor = issue_paid_gateway_descriptor(
+        manifest_path=manifest_path,
+        forecast_path=forecast_path,
+        artifact_root=artifact_root,
+        model_registry_path=registry_path,
+        model_key="anthropic:claude-sonnet-4-5",
+        ceiling_microusd=_CEILING_MICROUSD,
+        account="official",
+        environment=_ENVIRONMENT,
+    )
+    record = descriptor.to_record()
+    record["pricing_service_tier"] = "default"
+    output_path = tmp_path / "paid-gateway.json"
+    output_path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(ProtectedTerminalPaidError, match="only for Codex"):
+        load_paid_gateway_config(
+            output_path,
+            model_registry_path=registry_path,
+            environment=_ENVIRONMENT,
+        )
+
+
+def test_codex_cli_issues_openai_descriptor_accepted_by_paid_loader(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+    registry_path.write_bytes(_openai_registry_bytes())
+    for name, value in _ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    output_path = tmp_path / "codex-paid-gateway.json"
+
+    exit_code = paid_gateway_descriptor_main(
+        [
+            "--manifest",
+            str(manifest_path),
+            "--forecast",
+            str(forecast_path),
+            "--artifact-root",
+            str(artifact_root),
+            "--model-registry",
+            str(registry_path),
+            "--model-key",
+            "openai:gpt-6.1-sol",
+            "--ceiling-microusd",
+            str(_CEILING_MICROUSD),
+            "--account",
+            "official",
+            "--harness",
+            CODEX_HARNESS_ID,
+            "--output",
+            str(output_path),
+        ]
+    )
+    loaded = load_paid_gateway_config(
+        output_path,
+        model_registry_path=registry_path,
+        environment=_ENVIRONMENT,
+    )
+    responses_loaded = load_paid_responses_gateway_config(
+        output_path,
+        model_registry_path=registry_path,
+        environment=_ENVIRONMENT,
+    )
+
+    assert exit_code == 0
+    assert loaded.harness_id == CODEX_HARNESS_ID
+    assert loaded.model_key == "openai:gpt-6.1-sol"
+    assert loaded.spend.provider == "openai"
+    assert loaded.pricing_service_tier == "default"
+    assert (
+        json.loads(output_path.read_text(encoding="utf-8"))["pricing_service_tier"]
+        == "default"
+    )
+    assert responses_loaded == loaded
+
+
+def test_responses_loader_rejects_descriptor_tier_that_differs_from_price_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+    registry_path.write_bytes(_openai_registry_bytes())
+    for name, value in _ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    output_path = tmp_path / "codex-paid-gateway.json"
+    assert (
+        paid_gateway_descriptor_main(
+            [
+                "--manifest",
+                str(manifest_path),
+                "--forecast",
+                str(forecast_path),
+                "--artifact-root",
+                str(artifact_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-6.1-sol",
+                "--ceiling-microusd",
+                str(_CEILING_MICROUSD),
+                "--account",
+                "official",
+                "--harness",
+                CODEX_HARNESS_ID,
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    record = json.loads(output_path.read_text(encoding="utf-8"))
+    record["pricing_service_tier"] = "flex"
+    output_path.chmod(0o600)
+    output_path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pricing tier differs"):
+        load_paid_responses_gateway_config(
+            output_path,
+            model_registry_path=registry_path,
+            environment=_ENVIRONMENT,
+        )
+
+
+def test_descriptor_rejects_provider_harness_mismatch(tmp_path: Path) -> None:
+    manifest_path, forecast_path, artifact_root, registry_path = _inputs(tmp_path)
+
+    with pytest.raises(ProtectedTerminalPaidError, match="require a canonical openai"):
+        issue_paid_gateway_descriptor(
+            manifest_path=manifest_path,
+            forecast_path=forecast_path,
+            artifact_root=artifact_root,
+            model_registry_path=registry_path,
+            model_key="anthropic:claude-sonnet-4-5",
+            ceiling_microusd=_CEILING_MICROUSD,
+            account="official",
+            environment=_ENVIRONMENT,
+            harness_id=CODEX_HARNESS_ID,
         )
 
 
