@@ -129,6 +129,33 @@ def recover_managed_transcript(
                 )
                 if matches_legacy_payload:
                     accepted_compatibility_payload = prior_payload_bytes
+        if (
+            not matches_current_payload
+            and not matches_legacy_payload
+            and entry.provider.strip().lower() == "vercel_ai_gateway"
+        ):
+            # Older transcript replay stored the normalized frozen identity.
+            # Match that historical field in both supported Gateway shapes,
+            # while keeping the provider's raw identity for new payloads.
+            normalized_model = managed_execution.gateway_normalize_model_identity(
+                entry.model_version_or_snapshot,
+                result.served_model,
+                gateway_metadata=result.gateway_response_metadata,
+            )
+            for candidate in (
+                payload,
+                _prior_managed_replay_payload(result, entry=entry),
+            ):
+                normalized_payload = {**candidate, "served_model": normalized_model}
+                normalized_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(normalized_payload)
+                if (
+                    cell.response_payload_sha256
+                    == hashlib.sha256(normalized_bytes).hexdigest()
+                    and cell.response_payload == normalized_bytes
+                ):
+                    matches_legacy_payload = True
+                    accepted_compatibility_payload = normalized_bytes
+                    break
         if not matches_current_payload and not matches_legacy_payload:
             raise RunValidationError(
                 "existing durable response differs from transcript recovery"
