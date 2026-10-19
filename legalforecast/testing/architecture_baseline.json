@@ -972,18 +972,18 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 7,
+        "fan_in": 8,
         "fan_out": 10,
         "flags": [
           "oversized"
         ],
         "lane_owner": "multiharness",
-        "largest_symbol": "invoke_isolated_harvey_lab_evaluator",
-        "largest_symbol_lines": 163,
+        "largest_symbol": "execute_isolated_harvey_lab_evaluator",
+        "largest_symbol_lines": 128,
         "layer": "application",
-        "line_count": 1094,
-        "nonblank_line_count": 994,
-        "top_level_definition_count": 39
+        "line_count": 1167,
+        "nonblank_line_count": 1059,
+        "top_level_definition_count": 41
       },
       "legalforecast/multiharness/harvey_lab_output_discovery.py": {
         "cycle_id": "",
@@ -1023,7 +1023,7 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 10,
+        "fan_in": 11,
         "fan_out": 7,
         "flags": [
           "oversized"
@@ -1032,9 +1032,9 @@
         "largest_symbol": "classify_harvey_lab_task",
         "largest_symbol_lines": 144,
         "layer": "application",
-        "line_count": 1397,
-        "nonblank_line_count": 1236,
-        "top_level_definition_count": 59
+        "line_count": 1409,
+        "nonblank_line_count": 1245,
+        "top_level_definition_count": 60
       },
       "legalforecast/multiharness/hermes_agent.py": {
         "cycle_id": "",

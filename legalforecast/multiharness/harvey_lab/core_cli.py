@@ -11,6 +11,13 @@ from legalforecast.multiharness.harvey_lab.core_bridge import (
     run_lab_core,
 )
 from legalforecast.multiharness.harvey_lab.core_runtime import LabCoreRuntime
+from legalforecast.multiharness.harvey_lab_projection import (
+    ISSUE_196_LAB_TASK_ID,
+    ROOT_MANIFEST_NAME,
+    harvey_lab_v1_1_pin,
+    project_harvey_lab_suite,
+    remove_projected_tree,
+)
 
 
 def register(
@@ -21,6 +28,19 @@ def register(
         "harvey-lab", help="Use the pinned lab-core 1.1.0 native CLI bridge."
     )
     commands = group.add_subparsers(dest="lab_command")
+    prepare = commands.add_parser(
+        "prepare-clean-native",
+        help="Produce the pinned task split for the Claude Code clean-native baseline.",
+    )
+    prepare.add_argument(
+        "--source-root",
+        type=Path,
+        required=True,
+        help="Clean harveyai/harvey-labs checkout at the v1.1.0 commit.",
+    )
+    prepare.add_argument("--output-dir", type=Path, required=True)
+    prepare.add_argument("--evaluator-private-dir", type=Path, required=True)
+    prepare.set_defaults(handler=_prepare_clean_native)
     for name in ("probe", "run"):
         command = commands.add_parser(
             name,
@@ -97,6 +117,40 @@ def _probe(args: argparse.Namespace) -> int:
     runtime = LabCoreRuntime(args.source_root, args.python)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     print(json.dumps(runtime.probe(args.output_dir), sort_keys=True))
+    return 0
+
+
+def _prepare_clean_native(args: argparse.Namespace) -> int:
+    """Produce the exact solver/private split consumed by the baseline join."""
+
+    for label, path in (
+        ("--output-dir", args.output_dir),
+        ("--evaluator-private-dir", args.evaluator_private_dir),
+    ):
+        if path.exists() or path.is_symlink():
+            raise ValueError(f"{label} must name a fresh, absent path: {path}")
+    try:
+        result = project_harvey_lab_suite(
+            source_root=args.source_root,
+            solver_root=args.output_dir,
+            evaluator_private_root=args.evaluator_private_dir,
+            pin=harvey_lab_v1_1_pin(),
+            lab_task_ids=(ISSUE_196_LAB_TASK_ID,),
+        )
+    except BaseException:
+        remove_projected_tree(args.output_dir)
+        remove_projected_tree(args.evaluator_private_dir)
+        raise
+    print(
+        json.dumps(
+            {
+                "projection_manifest": str(result.solver_root / ROOT_MANIFEST_NAME),
+                "provider_requests": 0,
+                "task_id": ISSUE_196_LAB_TASK_ID,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

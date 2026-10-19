@@ -1,9 +1,4 @@
-"""Clean-native Claude Code → Harvey LAB composition.
-
-Wires landed modules: projection → contained ``claude -p`` with native tools
-→ sandbox output discovery → isolated evaluator → authorized scoring.
-Does not invent a second RunSpec, ExecutionReceipt, or failure-class family.
-"""
+"""Clean-native Claude Code to Harvey LAB composition."""
 
 from __future__ import annotations
 
@@ -34,13 +29,20 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EVALUATOR_COMMAND_NAME,
+    EvaluatorProvenanceProvider,
     EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorExecution,
     HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
     HarveyLabJudgeRequestBoundary,
+    execute_isolated_harvey_lab_evaluator,
     invoke_isolated_harvey_lab_evaluator,
+)
+from legalforecast.multiharness.harvey_lab_observed_score import (
+    HarveyLabObservedScore,
+    observed_harvey_lab_score,
 )
 from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryResult,
@@ -62,6 +64,7 @@ from legalforecast.multiharness.local_cli_contracts import (
     is_local_cli_sandbox_denial,
 )
 from legalforecast.multiharness.local_cli_identity import sha256_file
+from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.scoring import (
     ScoreArtifact,
     build_harvey_lab_metric_definition,
@@ -91,6 +94,19 @@ class ClaudeCodeHarveyLabPipelineResult:
     score: ScoreArtifact
 
 
+@dataclass(frozen=True, slots=True)
+class ClaudeCodeHarveyLabMeasurementResult:
+    """Unsigned operator-run evidence for the standalone clean-native baseline."""
+
+    projection: HarveyLabProjectionResult
+    task: HarveyLabProjectedTask
+    solver_spec: RunSpec
+    solver_execution: ExecutionReceipt
+    discovery: HarveyLabOutputDiscoveryResult
+    evaluation: HarveyLabEvaluatorExecution
+    score: HarveyLabObservedScore
+
+
 def run_claude_code_clean_native_harvey_lab(
     *,
     adapter: ClaudeCodeCliAdapter,
@@ -102,8 +118,8 @@ def run_claude_code_clean_native_harvey_lab(
     quarantine_root: Path,
     overlay_root: Path,
     evaluator_working_directory: Path,
-    signer: Callable[[bytes], bytes],
-    issuer_public_key: Ed25519PublicKey,
+    signer: Callable[[bytes], bytes] | None = None,
+    issuer_public_key: Ed25519PublicKey | None = None,
     lab_task_id: str = ISSUE_196_LAB_TASK_ID,
     pin: HarveyLabPin | None = None,
     model: str = "claude-sonnet-4-6",
@@ -119,12 +135,18 @@ def run_claude_code_clean_native_harvey_lab(
     before_solver: Callable[[RunSpec], None] | None = None,
     after_solver: Callable[[RunSpec, ExecutionReceipt], ExecutionReceipt] | None = None,
     before_evaluator: Callable[[], None] | None = None,
-    after_evaluator: Callable[[HarveyLabIsolatedEvaluation], None] | None = None,
+    after_evaluator: Callable[
+        [HarveyLabIsolatedEvaluation | HarveyLabEvaluatorExecution], None
+    ]
+    | None = None,
     judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
     evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    evaluator_provenance_provider: EvaluatorProvenanceProvider | None = None,
     require_production_provenance: bool = False,
-) -> ClaudeCodeHarveyLabPipelineResult:
+    evaluator_execution_service: LocalCliExecutionService | None = None,
+    container_workspace: bool = False,
+) -> ClaudeCodeHarveyLabPipelineResult | ClaudeCodeHarveyLabMeasurementResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
     service = adapter.execution_service
@@ -159,6 +181,13 @@ def run_claude_code_clean_native_harvey_lab(
     instructions = task_dir / INSTRUCTIONS_NAME
     prompt = _lab_solver_prompt(instructions, task.expected_deliverables)
     sandbox_root.mkdir(parents=True, exist_ok=True)
+    invocation_workspace = sandbox_root
+    invocation_task_dir = task_dir
+    if container_workspace:
+        staged_task = sandbox_root / "task"
+        shutil.copytree(task_dir, staged_task)
+        invocation_workspace = Path("/workspace")
+        invocation_task_dir = Path("/workspace/task")
     resolved_output = require_harvey_lab_sandbox_hosts(
         sandbox_root=sandbox_root,
         output_root=output_root or (sandbox_root / "output"),
@@ -184,25 +213,30 @@ def run_claude_code_clean_native_harvey_lab(
         prompt=prompt,
         model=model,
         required_unit_ids=(),
-        workspace=sandbox_root,
-        output_schema_path=schema_path,
+        workspace=invocation_workspace,
+        output_schema_path=(
+            Path("/workspace") / CLAUDE_CODE_OUTPUT_SCHEMA_NAME
+            if container_workspace
+            else schema_path
+        ),
         allowed_tools=tools,
         manifest=adapter.local_manifest,
         auth_profile=adapter.auth_profile,
         json_schema=HARVEY_LAB_COMPLETION_SCHEMA,
-        extra_add_dirs=(task_dir,),
+        extra_add_dirs=(invocation_task_dir,),
         max_budget_usd=max_budget_usd,
     )
     if plan.argv[plan.argv.index("--tools") + 1] != tools_token:
         raise ClaudeCodeCliAdapterError(
             "clean-native --tools argv token drifted from the frozen encoding"
         )
-    _require_on_path(
-        CLAUDE_CODE_EXECUTABLE_NAME,
-        service.parent_env,
-        label="clean-native Claude Code executable",
-        missing="local CLI executable could not be launched",
-    )
+    if not container_workspace:
+        _require_on_path(
+            CLAUDE_CODE_EXECUTABLE_NAME,
+            service.parent_env,
+            label="clean-native Claude Code executable",
+            missing="local CLI executable could not be launched",
+        )
     spec = RunSpec(
         spec_id=task.task_id,
         argv=plan.argv,
@@ -239,11 +273,12 @@ def run_claude_code_clean_native_harvey_lab(
         raise ClaudeCodeCliAdapterError(
             "discovered outputs include quarantined files; scoring refused"
         )
+    evaluator_service = evaluator_execution_service or service
     wrapper_sha256 = "sha256:" + sha256_file(
         Path(
             _require_on_path(
                 evaluator_command,
-                service.parent_env,
+                evaluator_service.parent_env,
                 label="evaluator wrapper",
             )
         )
@@ -254,6 +289,7 @@ def run_claude_code_clean_native_harvey_lab(
         overlay_root=overlay_root,
         working_directory=evaluator_working_directory,
         solver_projection_root=projection.solver_root,
+        evaluator_source_root=source_root,
     )
     identity = HarveyLabEvaluationIdentity(
         lab_task_id=task.lab_task_id,
@@ -267,47 +303,88 @@ def run_claude_code_clean_native_harvey_lab(
     )
     if before_evaluator is not None:
         before_evaluator()
-    evaluation = invoke_isolated_harvey_lab_evaluator(
-        hosts=hosts,
-        sealed_manifest=discovery.sealed,
-        identity=identity,
-        execution_service=service,
-        signer=signer,
-        issuer_key_id=HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
-        issuer_policy_sha256=harvey_lab_issuer_policy_sha256(),
-        evaluator_command=evaluator_command,
-        timeout_seconds=applied_timeout,
-        measurement_id=measurement_id,
-        evaluation_attempt_id=evaluation_attempt_id,
-        attempt_nonce=attempt_nonce,
-        judge_request_boundary=judge_request_boundary,
-        evaluator_runner=evaluator_runner,
-        evaluator_provenance=evaluator_provenance,
-        require_production_provenance=require_production_provenance,
-    )
+    if (signer is None) != (issuer_public_key is None):
+        raise ClaudeCodeCliAdapterError(
+            "signer and issuer_public_key must be supplied together"
+        )
+    if signer is None:
+        evaluation = execute_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=discovery.sealed,
+            identity=identity,
+            execution_service=evaluator_service,
+            evaluator_command=evaluator_command,
+            timeout_seconds=applied_timeout,
+            judge_request_boundary=judge_request_boundary,
+            evaluator_runner=evaluator_runner,
+            evaluator_provenance=evaluator_provenance,
+            evaluator_provenance_provider=evaluator_provenance_provider,
+            require_production_provenance=require_production_provenance,
+        )
+    else:
+        assert issuer_public_key is not None
+        evaluation = invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=discovery.sealed,
+            identity=identity,
+            execution_service=evaluator_service,
+            signer=signer,
+            issuer_key_id=HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
+            issuer_policy_sha256=harvey_lab_issuer_policy_sha256(),
+            evaluator_command=evaluator_command,
+            timeout_seconds=applied_timeout,
+            measurement_id=measurement_id,
+            evaluation_attempt_id=evaluation_attempt_id,
+            attempt_nonce=attempt_nonce,
+            judge_request_boundary=judge_request_boundary,
+            evaluator_runner=evaluator_runner,
+            evaluator_provenance=evaluator_provenance,
+            evaluator_provenance_provider=evaluator_provenance_provider,
+            require_production_provenance=require_production_provenance,
+        )
     if after_evaluator is not None:
         after_evaluator(evaluation)
-    metric = build_harvey_lab_metric_definition(
-        rubric_sha256=evaluation.spec.rubric_sha256,
-        criteria_sha256=evaluation.spec.criteria_sha256,
-        aggregation_sha256=evaluation.spec.aggregation_sha256,
-        output_schema_sha256=evaluation.spec.judge_output_schema_sha256,
-        criterion_count=evaluation.criterion_count,
-    )
-    score = verify_authorized_harvey_lab_receipt(
-        evaluation.receipt.to_record(),
-        raw_result=evaluation.raw_result,
-        spec=evaluation.spec,
-        metric=metric,
-        issuer_public_key=issuer_public_key,
-        expected_measurement_id=evaluation.receipt.measurement_id,
-        expected_evaluation_attempt_id=evaluation.receipt.evaluation_attempt_id,
-        expected_attempt_nonce=evaluation.receipt.attempt_nonce,
-        expected_repeat_index=evaluation.receipt.repeat_index,
-        expected_deliverable_manifest_sha256=discovery.sealed.manifest_sha256,
-        expected_runtime_policy_sha256=evaluation.spec.runtime_policy_sha256,
-    )
-    return ClaudeCodeHarveyLabPipelineResult(
+    if isinstance(evaluation, HarveyLabIsolatedEvaluation):
+        metric = build_harvey_lab_metric_definition(
+            rubric_sha256=evaluation.spec.rubric_sha256,
+            criteria_sha256=evaluation.spec.criteria_sha256,
+            aggregation_sha256=evaluation.spec.aggregation_sha256,
+            output_schema_sha256=evaluation.spec.judge_output_schema_sha256,
+            criterion_count=evaluation.criterion_count,
+        )
+        assert issuer_public_key is not None
+        score: ScoreArtifact | HarveyLabObservedScore = (
+            verify_authorized_harvey_lab_receipt(
+                evaluation.receipt.to_record(),
+                raw_result=evaluation.raw_result,
+                spec=evaluation.spec,
+                metric=metric,
+                issuer_public_key=issuer_public_key,
+                expected_measurement_id=evaluation.receipt.measurement_id,
+                expected_evaluation_attempt_id=(
+                    evaluation.receipt.evaluation_attempt_id
+                ),
+                expected_attempt_nonce=evaluation.receipt.attempt_nonce,
+                expected_repeat_index=evaluation.receipt.repeat_index,
+                expected_deliverable_manifest_sha256=(discovery.sealed.manifest_sha256),
+                expected_runtime_policy_sha256=evaluation.spec.runtime_policy_sha256,
+            )
+        )
+    else:
+        score = observed_harvey_lab_score(evaluation)
+    if isinstance(evaluation, HarveyLabIsolatedEvaluation):
+        assert isinstance(score, ScoreArtifact)
+        return ClaudeCodeHarveyLabPipelineResult(
+            projection=projection,
+            task=task,
+            solver_spec=spec,
+            solver_execution=execution,
+            discovery=discovery,
+            evaluation=evaluation,
+            score=score,
+        )
+    assert isinstance(score, HarveyLabObservedScore)
+    return ClaudeCodeHarveyLabMeasurementResult(
         projection=projection,
         task=task,
         solver_spec=spec,

@@ -5491,6 +5491,78 @@
       "group_dest": "lab_command",
       "handler": {
         "module": "legalforecast.multiharness.harvey_lab.core_cli",
+        "name": "_prepare_clean_native",
+        "qualname": "_prepare_clean_native"
+      },
+      "logical_handler_id": "harvey-lab.prepare-clean-native",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "output_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--output-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "evaluator_private_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--evaluator-private-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        }
+      ],
+      "path": [
+        "harvey-lab",
+        "prepare-clean-native"
+      ],
+      "registration_index": 50
+    },
+    {
+      "aliases": [],
+      "group_dest": "lab_command",
+      "handler": {
+        "module": "legalforecast.multiharness.harvey_lab.core_cli",
         "name": "_probe",
         "qualname": "_probe"
       },
@@ -5556,7 +5628,7 @@
         "harvey-lab",
         "probe"
       ],
-      "registration_index": 50
+      "registration_index": 51
     },
     {
       "aliases": [],
@@ -5745,7 +5817,7 @@
         "harvey-lab",
         "run"
       ],
-      "registration_index": 51
+      "registration_index": 52
     }
   ],
   "prog": "legalforecast",

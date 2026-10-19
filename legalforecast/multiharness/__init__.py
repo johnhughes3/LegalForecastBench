@@ -111,11 +111,14 @@ from legalforecast.multiharness.harvey_lab_adapter import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EVALUATION_INPUT_SCHEMA_VERSION,
+    EvaluatorProvenanceProvider,
     HarveyLabEvaluationError,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorExecution,
     HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
+    execute_isolated_harvey_lab_evaluator,
     invoke_isolated_harvey_lab_evaluator,
 )
 from legalforecast.multiharness.harvey_lab_production_runner import (
@@ -133,6 +136,7 @@ from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabProjectionError,
     HarveyLabProjectionManifest,
     HarveyLabProjectionResult,
+    harvey_lab_v1_1_pin,
     project_harvey_lab_suite,
     verify_harvey_lab_projection,
 )
@@ -414,6 +418,7 @@ __all__ = [
     "EvaluationSpec",
     "EvaluationTokenUsage",
     "EvaluatorIssuerAuthority",
+    "EvaluatorProvenanceProvider",
     "HarnessAdapter",
     "HarveyLabCliAdapter",
     "HarveyLabCliAdapterError",
@@ -421,6 +426,7 @@ __all__ = [
     "HarveyLabEvaluationError",
     "HarveyLabEvaluationHosts",
     "HarveyLabEvaluationIdentity",
+    "HarveyLabEvaluatorExecution",
     "HarveyLabEvaluatorProvenance",
     "HarveyLabIsolatedEvaluation",
     "HarveyLabPin",
@@ -496,7 +502,9 @@ __all__ = [
     "deliverable_tree_sha256",
     "encode_tool_message",
     "evaluator_material_access",
+    "execute_isolated_harvey_lab_evaluator",
     "harvey_lab_manifest",
+    "harvey_lab_v1_1_pin",
     "invoke_isolated_harvey_lab_evaluator",
     "lfb_native_capabilities",
     "lfb_native_manifest",

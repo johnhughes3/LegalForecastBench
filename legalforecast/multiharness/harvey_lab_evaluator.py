@@ -51,6 +51,7 @@ from legalforecast.multiharness.harvey_lab.evaluation_contract import (
 from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
     HarveyLabProjectionError,
+    harvey_lab_v1_1_pin,
     issue_196_pin,
     verify_harvey_lab_projection,
     verify_harvey_lab_source_pin,
@@ -127,6 +128,9 @@ class HarveyLabJudgeRequestBoundary:
 EvaluatorRunner = Callable[
     [LocalCliExecutionService, RunSpec, HarveyLabJudgeRequestBoundary],
     ExecutionReceipt,
+]
+EvaluatorProvenanceProvider = Callable[
+    [ExecutionReceipt], "HarveyLabEvaluatorProvenance"
 ]
 
 
@@ -230,6 +234,26 @@ class HarveyLabEvaluatorProvenance:
 
 
 @dataclass(frozen=True, slots=True)
+class HarveyLabEvaluatorExecution:
+    """Source-grounded result of one isolated evaluator invocation.
+
+    This is the evidence needed to report an operator-run LAB measurement.  It
+    deliberately does not claim that a third-party issuer authorized the
+    result: exact inputs, the isolated execution receipt, and the raw score
+    bytes are sufficient to reproduce and inspect our own measurement.
+    """
+
+    spec: EvaluationSpec
+    execution: ExecutionReceipt
+    raw_result: bytes
+    criterion_count: int
+    overlay_root: Path
+    input_manifest: Mapping[str, object]
+    timing: MonotonicTiming
+    provenance: HarveyLabEvaluatorProvenance | None
+
+
+@dataclass(frozen=True, slots=True)
 class HarveyLabIsolatedEvaluation:
     """Result of one contained evaluator invocation."""
 
@@ -298,9 +322,94 @@ def invoke_isolated_harvey_lab_evaluator(
     judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
     evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    evaluator_provenance_provider: EvaluatorProvenanceProvider | None = None,
     require_production_provenance: bool = False,
 ) -> HarveyLabIsolatedEvaluation:
     """Run the common LAB evaluator in a contained boundary and bind a receipt."""
+
+    result = execute_isolated_harvey_lab_evaluator(
+        hosts=hosts,
+        sealed_manifest=sealed_manifest,
+        identity=identity,
+        execution_service=execution_service,
+        evaluator_command=evaluator_command,
+        timeout_seconds=timeout_seconds,
+        judge_request_boundary=judge_request_boundary,
+        evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
+        evaluator_provenance_provider=evaluator_provenance_provider,
+        require_production_provenance=require_production_provenance,
+    )
+    receipt = build_evaluation_receipt(
+        spec=result.spec,
+        signer=signer,
+        measurement_id=measurement_id or f"measurement-{uuid4().hex[:12]}",
+        evaluation_attempt_id=evaluation_attempt_id
+        or f"eval-attempt-{uuid4().hex[:12]}",
+        attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
+        repeat_index=1,
+        judge_resolved_identity=(
+            FIXTURE_JUDGE_IDENTITY
+            if result.provenance is None
+            else result.provenance.judge_resolved_identity
+        ),
+        raw_result_sha256=_prefixed_digest(result.raw_result),
+        raw_result_size_bytes=len(result.raw_result),
+        raw_result_media_type="application/json",
+        status="succeeded",
+        token_usage=(
+            _fixture_token_usage()
+            if result.provenance is None
+            else result.provenance.token_usage
+        ),
+        cost=(_fixture_cost() if result.provenance is None else result.provenance.cost),
+        timing=result.timing,
+        issuer_policy_sha256=_require_prefixed(
+            issuer_policy_sha256, "issuer_policy_sha256"
+        ),
+        issuer_key_id=issuer_key_id,
+    )
+    write_json_object(
+        hosts.overlay_root / "evaluation-output.json",
+        {
+            "schema_version": EVALUATION_OUTPUT_SCHEMA_VERSION,
+            "evaluation_spec_sha256": result.spec.spec_sha256,
+            "receipt_sha256": receipt.receipt_sha256,
+            "raw_result_sha256": _prefixed_digest(result.raw_result),
+        },
+    )
+    return HarveyLabIsolatedEvaluation(
+        spec=result.spec,
+        receipt=receipt,
+        execution=result.execution,
+        raw_result=result.raw_result,
+        criterion_count=result.criterion_count,
+        overlay_root=result.overlay_root,
+        input_manifest=result.input_manifest,
+    )
+
+
+def execute_isolated_harvey_lab_evaluator(
+    *,
+    hosts: HarveyLabEvaluationHosts,
+    sealed_manifest: DeliverableManifest,
+    identity: HarveyLabEvaluationIdentity,
+    execution_service: LocalCliExecutionService,
+    evaluator_command: str = EVALUATOR_COMMAND_NAME,
+    timeout_seconds: float = 30.0,
+    judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
+    evaluator_runner: EvaluatorRunner | None = None,
+    evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    evaluator_provenance_provider: EvaluatorProvenanceProvider | None = None,
+    require_production_provenance: bool = False,
+) -> HarveyLabEvaluatorExecution:
+    """Run and authenticate the evaluator without minting an issuer claim."""
+
+    if evaluator_provenance is not None and evaluator_provenance_provider is not None:
+        raise HarveyLabEvaluationError(
+            "provide evaluator provenance directly or derive it from execution, "
+            "not both"
+        )
 
     _reject_checkout_env(hosts.evaluator_source_root)
     _require_evaluator_source_pin(hosts, identity)
@@ -369,12 +478,17 @@ def invoke_isolated_harvey_lab_evaluator(
             raise HarveyLabEvaluationError(
                 "contained LAB evaluator failed; evaluation never reruns the solver"
             )
+        observed_provenance = (
+            evaluator_provenance_provider(execution)
+            if evaluator_provenance_provider is not None
+            else evaluator_provenance
+        )
         if require_production_provenance:
-            if evaluator_provenance is None:
+            if observed_provenance is None:
                 raise HarveyLabEvaluationError(
                     "production evaluator provenance and accounting are required"
                 )
-            _verify_production_execution_accounting(execution, evaluator_provenance)
+            _verify_production_execution_accounting(execution, observed_provenance)
         scores_path = Path(str(stdin_record["scores_output_path"]))
         try:
             raw_result = _read_regular_file(scores_path)
@@ -388,59 +502,18 @@ def invoke_isolated_harvey_lab_evaluator(
             private_material_sha256=str(stdin_record["private_material_sha256"]),
             wrapper_sha256=observed_wrapper,
             raw_result=raw_result,
-            provenance=evaluator_provenance,
+            provenance=observed_provenance,
             require_production_provenance=require_production_provenance,
         )
-        receipt = build_evaluation_receipt(
+        return HarveyLabEvaluatorExecution(
             spec=evaluation_spec,
-            signer=signer,
-            measurement_id=measurement_id or f"measurement-{uuid4().hex[:12]}",
-            evaluation_attempt_id=evaluation_attempt_id
-            or f"eval-attempt-{uuid4().hex[:12]}",
-            attempt_nonce=attempt_nonce or f"nonce-{uuid4().hex[:12]}",
-            repeat_index=1,
-            judge_resolved_identity=(
-                FIXTURE_JUDGE_IDENTITY
-                if evaluator_provenance is None
-                else evaluator_provenance.judge_resolved_identity
-            ),
-            raw_result_sha256=_prefixed_digest(raw_result),
-            raw_result_size_bytes=len(raw_result),
-            raw_result_media_type="application/json",
-            status="succeeded",
-            token_usage=(
-                _fixture_token_usage()
-                if evaluator_provenance is None
-                else evaluator_provenance.token_usage
-            ),
-            cost=(
-                _fixture_cost()
-                if evaluator_provenance is None
-                else evaluator_provenance.cost
-            ),
-            timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
-            issuer_policy_sha256=_require_prefixed(
-                issuer_policy_sha256, "issuer_policy_sha256"
-            ),
-            issuer_key_id=issuer_key_id,
-        )
-        write_json_object(
-            hosts.overlay_root / "evaluation-output.json",
-            {
-                "schema_version": EVALUATION_OUTPUT_SCHEMA_VERSION,
-                "evaluation_spec_sha256": evaluation_spec.spec_sha256,
-                "receipt_sha256": receipt.receipt_sha256,
-                "raw_result_sha256": _prefixed_digest(raw_result),
-            },
-        )
-        return HarveyLabIsolatedEvaluation(
-            spec=evaluation_spec,
-            receipt=receipt,
             execution=execution,
             raw_result=raw_result,
             criterion_count=criterion_count,
             overlay_root=hosts.overlay_root.resolve(),
             input_manifest=stdin_record,
+            timing=_timing(started_at, ended_at, started_monotonic, ended_monotonic),
+            provenance=observed_provenance,
         )
     finally:
         shutil.rmtree(wrapper_dir, ignore_errors=True)
@@ -882,11 +955,11 @@ def _require_evaluator_source_pin(
     hosts: HarveyLabEvaluationHosts,
     identity: HarveyLabEvaluationIdentity,
 ) -> None:
-    if identity.pin != issue_196_pin():
+    if identity.pin not in {issue_196_pin(), harvey_lab_v1_1_pin()}:
         return
     if hosts.evaluator_source_root is None:
         raise HarveyLabEvaluationError(
-            "evaluator source root is required when signing the official pin"
+            "evaluator source root is required for an official LAB pin"
         )
     try:
         verify_harvey_lab_source_pin(hosts.evaluator_source_root, identity.pin)

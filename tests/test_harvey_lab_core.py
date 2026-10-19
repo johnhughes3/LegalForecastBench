@@ -30,6 +30,8 @@ from legalforecast.multiharness.harvey_lab.core_runtime import (
     LabCoreRuntime,
 )
 
+from test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
+
 
 def _request() -> LabCoreRequest:
     return LabCoreRequest(
@@ -319,6 +321,42 @@ def test_native_command_is_wired_into_installed_cli() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "--judge-model" in result.stdout and "--sandbox-image" in result.stdout
+
+
+def test_prepare_clean_native_produces_the_pinned_task_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = _issue_196_source(tmp_path / "lab")
+    monkeypatch.setattr(
+        "legalforecast.multiharness.harvey_lab.core_cli.harvey_lab_v1_1_pin",
+        lambda: FIXTURE_PIN,
+    )
+    projected = tmp_path / "projected"
+    private = tmp_path / "private"
+    parser = argparse.ArgumentParser()
+    register(parser.add_subparsers())
+    args = parser.parse_args(
+        [
+            "harvey-lab",
+            "prepare-clean-native",
+            "--source-root",
+            str(source),
+            "--output-dir",
+            str(projected),
+            "--evaluator-private-dir",
+            str(private),
+        ]
+    )
+    assert args.handler(args) == 0
+    assert (projected / "harvey-lab-projection.v1.json").is_file()
+    assert (
+        private
+        / "tasks"
+        / "employment-labor"
+        / "identify-issues-in-counterparty-motion-brief"
+        / "task.json"
+    ).is_file()
+    assert '"provider_requests": 0' in capsys.readouterr().out
 
 
 def _real_runtime() -> LabCoreRuntime:
