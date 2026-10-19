@@ -21,7 +21,7 @@ from legalforecast.multiharness.tool_protocol import (
 )
 
 
-def _document_page(
+def document_page(
     root: Path, paths: tuple[str, ...], arguments: dict[str, object]
 ) -> dict[str, object]:
     """Read only release-staged documents, with bounded model-visible pages."""
@@ -88,7 +88,7 @@ def serve(incoming: BinaryIO, outgoing: BinaryIO, input_root: Path) -> int:
             request = decode_tool_request(line)
             request_id = request.request_id
             if request.operation == "read_release_document":
-                output = _document_page(
+                output = document_page(
                     input_root, request.input_paths, dict(request.arguments)
                 )
             elif (

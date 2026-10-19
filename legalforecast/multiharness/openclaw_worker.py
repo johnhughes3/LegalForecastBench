@@ -9,7 +9,6 @@ from pathlib import Path
 
 from pypdf.errors import PyPdfError
 
-from legalforecast.multiharness import task_worker
 from legalforecast.multiharness.harvey_tools import HarveyToolExecutor
 from legalforecast.multiharness.openclaw import OpenClawError
 from legalforecast.multiharness.openclaw_runtime import (
@@ -19,6 +18,7 @@ from legalforecast.multiharness.openclaw_runtime import (
 from legalforecast.multiharness.release_harness import read_release_object
 from legalforecast.multiharness.release_runtime import write_release_json_create_only
 from legalforecast.multiharness.spec import RunRequest
+from legalforecast.multiharness.task_worker import document_page
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 
 CAPABILITY_ENV = "LFB_OPENCLAW_GATEWAY_CAPABILITY"
@@ -35,7 +35,7 @@ class StagedPromptTransport:
     def execute(self, request: ToolRequest) -> ToolResponse:
         if request.operation == "read_release_document":
             try:
-                output = task_worker._document_page(  # pyright: ignore[reportPrivateUsage]
+                output = document_page(
                     self.document_root,
                     request.input_paths,
                     dict(request.arguments),

@@ -31,13 +31,11 @@ class DocumentDelivery:
     """Track authenticated catalog and document-page delivery to OpenClaw."""
 
     tool_calls: int = 0
-    catalog_parts: list[str] = field(default_factory=lambda: list[str]())
+    catalog_parts: list[str] = field(default_factory=list[str])
     catalog_next_offset: int = 0
     catalog_paths: tuple[str, ...] = ()
-    document_next_offsets: dict[str, int] = field(
-        default_factory=lambda: dict[str, int]()
-    )
-    completed_paths: set[str] = field(default_factory=lambda: set[str]())
+    document_next_offsets: dict[str, int] = field(default_factory=dict[str, int])
+    completed_paths: set[str] = field(default_factory=set[str])
 
     @property
     def complete(self) -> bool:

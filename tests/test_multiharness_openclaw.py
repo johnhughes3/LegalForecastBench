@@ -129,6 +129,30 @@ def test_normalization_retains_actual_predictions_privately(tmp_path: Path) -> N
     )
 
 
+def test_normalization_reports_aggregate_and_document_tool_counts(
+    tmp_path: Path,
+) -> None:
+    original = request()
+    protected_request = replace(
+        original,
+        model_key="anthropic:claude-opus-5-5",
+        sandbox_policy=replace(original.sandbox_policy, allowed_provider_env_vars=()),
+    )
+    result = normalize_result(
+        protected_request,
+        tmp_path,
+        envelope() | {"provider": "anthropic", "model": "claude-opus-5-5"},
+        tool_reads=2,
+        prompt_complete=True,
+        document_reads=2,
+        documents_complete=True,
+        gateway_auth=True,
+    )
+
+    assert result.public_summary["tool_call_count"] == 4
+    assert result.public_summary["document_tool_call_count"] == 2
+
+
 def test_normalization_retains_parser_accepted_fenced_forecast(tmp_path: Path) -> None:
     value = envelope()
     value["final"] = f"```json\n{value['final']}\n```"

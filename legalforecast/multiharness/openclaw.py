@@ -185,7 +185,7 @@ def normalize_result(
             if gateway_auth
             else "host-container-solver-prompt-only"
         ),
-        "tool_call_count": tool_reads,
+        "tool_call_count": tool_reads + document_reads,
         "prompt_delivery_complete": prompt_complete,
         "document_tool_call_count": document_reads,
         "documents_delivery_complete": documents_complete,
