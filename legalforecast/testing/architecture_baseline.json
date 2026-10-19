@@ -2902,6 +2902,23 @@
         "nonblank_line_count": 538,
         "top_level_definition_count": 21
       },
+      "tests/test_receipt_accounting.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_cost_only_report_renders_mixed_evidence_and_unknown_repricing",
+        "largest_symbol_lines": 61,
+        "layer": "test",
+        "line_count": 542,
+        "nonblank_line_count": 485,
+        "top_level_definition_count": 23
+      },
       "tests/test_resume_cli.py": {
         "cycle_id": "",
         "disposition_kind": "watch",

@@ -32,7 +32,9 @@ def append_receipt_costs(
         "are identified separately; these are not invoice totals. Failed attempts, "
         "retries, unresolved charges and summary preparation are excluded. Missing "
         "latency and tool-call observations remain unknown in the leaderboard. "
-        "Standard repricing retains missing usage/cache evidence and coverage."
+        "Standard-rate USD restates the same usage at published standard API "
+        "prices with cache reads and writes at published cache rates; it differs "
+        "from the workload charge when a run was discounted or cached unexpectedly."
     )
     headers = (
         "Model",

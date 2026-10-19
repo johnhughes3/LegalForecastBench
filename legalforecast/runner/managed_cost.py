@@ -429,3 +429,57 @@ def managed_usage_cost(
         ],
         response_usage_details=response_usage_details,
     )
+
+
+def standard_rate_usage_cost(
+    entry: ModelRegistryEntry, response_usage_details: Sequence[ManagedResponseUsage]
+) -> float:
+    """Reprice reported usage at the provider's published standard API rates.
+
+    This is the scoring-side "standard-rate" column, not the live estimate:
+    it never feeds durable replay payloads, so its rule can differ from
+    ``_managed_response_cost``.  Cache reads and cache writes are priced at
+    the frozen cache rates whenever the response reported them.  A provider
+    that omits a cache dimension is treated as having none of that traffic,
+    so the remaining input is priced at the ordinary rate rather than
+    discarding the cache evidence it did report.  Reported cache tokens with
+    no frozen cache rate are priced at the ordinary input rate; the accounting
+    layer discloses that case through its missing-cache-rate count.
+    """
+
+    total = 0.0
+    for usage in response_usage_details:
+        cache_read_tokens = usage.cache_read_tokens or 0
+        cache_write_tokens = usage.cache_write_tokens or 0
+        uncached_tokens = usage.input_tokens - cache_read_tokens - cache_write_tokens
+        if uncached_tokens < 0:
+            raise ManagedToolAgentError("cached input tokens exceed input tokens")
+        input_price = entry.input_token_price
+        cache_read_price = (
+            entry.cache_read_token_price
+            if entry.cache_read_token_price is not None
+            else input_price
+        )
+        cache_write_price = (
+            entry.cache_write_token_price
+            if entry.cache_write_token_price is not None
+            else input_price
+        )
+        output_price = entry.output_token_price
+        surcharge = entry.long_context_surcharge
+        if (
+            surcharge is not None
+            and usage.input_tokens > surcharge.threshold_input_tokens
+        ):
+            multiplier = surcharge.input_price_multiplier
+            input_price *= multiplier
+            cache_read_price *= multiplier
+            cache_write_price *= multiplier
+            output_price *= surcharge.output_price_multiplier
+        total += (
+            uncached_tokens * input_price
+            + cache_read_tokens * cache_read_price
+            + cache_write_tokens * cache_write_price
+            + usage.output_tokens * output_price
+        ) / 1_000_000
+    return total

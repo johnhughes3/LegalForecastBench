@@ -14,15 +14,17 @@ from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.gateway import gateway_total_cost_usd
 from legalforecast.runner.managed_cost import (
     ManagedResponseUsage,
-    managed_usage_cost,
+    standard_rate_usage_cost,
 )
 
 COST_SCOPE = "successful_case_workload"
 COST_CAVEAT = (
     "Successful case receipts only; excludes failed attempts, retries, unresolved "
     "charges and summary preparation. These are workload charges or usage estimates, "
-    "not provider invoice totals. Standard repricing uses ordinary input estimates "
-    "when cache dimensions or frozen cache rates are missing."
+    "not provider invoice totals. Standard-rate repricing restates the same usage "
+    "at the provider's published standard API prices, with reported cache reads "
+    "and writes at the published cache rates; an unreported cache dimension is "
+    "priced as ordinary input."
 )
 
 
@@ -35,7 +37,13 @@ def _count(value: object, name: str) -> int:
 def _standard_cost(
     entry: ModelRegistryEntry, details: Sequence[ManagedResponseUsage], method: str
 ) -> float | None:
-    """Reprice only when frozen evidence identifies the rate basis."""
+    """Reprice at published standard rates when frozen evidence identifies them.
+
+    Provider-reported charges usually equal standard pricing.  They diverge
+    when a run received a discounted rate (a gateway or reseller discount, a
+    temporary promotion, flex or batch tier pricing) or when caching behaved
+    unexpectedly; this column restates every model on the same published basis.
+    """
     if not details:
         return None  # Aggregates cannot reproduce per-response context surcharges.
     if (
@@ -59,8 +67,8 @@ def _standard_cost(
         "vercel_ai_gateway",
         "typesafe",
     }:
-        # Native Jev is a single request priced by the frozen input/output rates.
-        return managed_usage_cost(entry, details)
+        # Native Jev is a single request priced by the frozen published rates.
+        return standard_rate_usage_cost(entry, details)
     source = entry.pricing_source.lower()
     multiplier: float | None = None
     if "flex is 50% of standard" in source or (
@@ -71,7 +79,7 @@ def _standard_cost(
         multiplier = 1.0
     if multiplier is None:
         return None
-    return multiplier * managed_usage_cost(entry, details)
+    return multiplier * standard_rate_usage_cost(entry, details)
 
 
 def build_public_accounting(
