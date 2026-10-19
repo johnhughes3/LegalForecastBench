@@ -25,6 +25,8 @@ Source conversion uses pandoc for DOCX, displaying tracked changes, and a PDF te
 
 This is an independent critique, not an assessment endorsed by micro1. The sample includes public court records and adapted matter documents; opposing advocacy, hypothetical scenario instructions, planted mistakes the rubric asks a solver to identify, and genuine grading defects must be distinguished. Neither this audit nor the Harvey audit supplies a verified error rate. The full LegalReasonBench sample has only 221 criteria, fewer in litigation scope, clustered in a few sequential matters. No full-benchmark extrapolation, causal comparison, score correction, or claim of human verification is warranted.
 
+The [prompt recovery and comparison](prompts/README.md) explains what was recovered and how the instructions differ from Harvey. The [saved blind and reconciliation task prompts](prompts/audit-prompts.md) retain both models' common instruction, all four scope suffixes, and the later reconciliation instruction, with machine-specific paths replaced by portable placeholders.
+
 ## Review method
 
 Claude Opus 5.5 at high effort and GPT-6 Sol at high reasoning independently read the assignment packets and produced separate reports. Each model's work was divided into two matter groups, with separate output files and instructions not to read the other model's LegalReasonBench findings. The saved reports state their actual document and legal-source coverage. External research for the audit checks the accuracy of supplied law; it does not expand the universe a solver was permitted to use in a closed-research assignment.
@@ -77,6 +79,8 @@ The extraction used pandoc 3.1.3, pypdf 6.21.0, and fonttools 4.67.0. Replaying 
 - [comparison-to-harvey.md](comparison-to-harvey.md)
 - [comparison.md](comparison.md)
 - [in-scope.md](in-scope.md)
+- [prompts/README.md](prompts/README.md)
+- [prompts/audit-prompts.md](prompts/audit-prompts.md)
 - [tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/README.md](tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/README.md)
 - [tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-lcu-project.pdf.md](tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-lcu-project.pdf.md)
 - [tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-lcu-project.pdf.transcription.md](tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/attachments/assignment-1/1774361815-lcu-project.pdf.transcription.md)
