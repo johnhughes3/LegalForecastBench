@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import importlib.util
 import json
+import re
 import shutil
 from pathlib import Path
 from types import ModuleType
@@ -95,6 +96,19 @@ def test_disclosed_sections_are_left_out_and_shown_as_omitted() -> None:
     assert "3. LegalForecastBench: Dataset and evaluation protocol\n\n[...]" in paper
     assert "4. Results\n\n[...]\n\n5. " in paper
     assert "micro-Brier" not in paper.split("4. Results")[1].split("5. ")[0]
+
+
+def test_ai_prose_exclusions_are_limited_to_benchmark_sections_three_and_four() -> None:
+    benchmark = MANUSCRIPT.read_text(encoding="utf-8")
+    sections = list(re.finditer(r"(?m)^\\section\{", benchmark))
+    exclusions = list(pangram_check.AI_PREPARED.finditer(benchmark))
+    assert len(exclusions) == 2
+    for exclusion, section_index in zip(exclusions, (2, 3), strict=True):
+        assert sections[section_index].end() < exclusion.start()
+        assert exclusion.end() < sections[section_index + 1].start()
+    assert not pangram_check.AI_PREPARED.search(
+        LAB_MANUSCRIPT.read_text(encoding="utf-8")
+    )
 
 
 def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:

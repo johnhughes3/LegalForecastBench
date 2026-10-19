@@ -127,9 +127,8 @@ Total checked & 3{,}618 & 590\\
 \label{tab:citecheck}
 \end{table}
 
-% BEGIN AI-PREPARED citation-review results and calculation
 To test these findings, I reviewed a simple random sample of the 436 unintentional errors myself. Before looking at any sampled finding, I fixed the draw, the verdict definitions, and a stopping rule: review ten entries, stop if all ten are confirmed errors, and otherwise review ten more. For each entry I read the passage in the task document and the cited authority. All ten were errors that a careful lawyer would correct before filing, and the AI had classified each one correctly: seven authorities were cited for propositions they do not support, and three were real authorities cited by the wrong number or subsection. Three of the ten cited the Eleventh Circuit's pattern civil jury instructions; I checked each against every edition available from the court, back to 2005, and in none did the cited instruction number carry the content attributed to it. With ten of ten confirmed, a conservative one-sided 95\% lower confidence bound is 303 of the 436 flagged errors (69.5\%). This calculation allocates a 2.5\% error allowance to each of the two possible analyses, so the total is at most 5\% despite the stopping rule. The adjustment was made after review; the sampling and stopping rules were fixed before review. The sample says nothing about errors the AI may have missed among the citations it marked as verified.
-% END AI-PREPARED
+
 
 \section{A motion-to-dismiss case study}
 \label{app:lab}
@@ -188,7 +187,6 @@ As I am a practicing attorney and do not have any formal training in artificial 
 \appendix
 \section{Model outputs and native LAB judging}
 \label{app:nativejudging}
-% BEGIN AI-PREPARED (numerical results and methods prepared with AI, as disclosed above)
 To examine how the rubrics operated on model-generated work product, we ran GPT-6 Luna with xhigh reasoning and Claude Opus 5.5 with low reasoning on all 52 public litigation and dispute resolution tasks at Harvey commit \texttt{1dd81403}, using the original task instructions, documents, and rubrics. Each solver produced 52 task outputs, for 104 outputs in total. LAB's standard judge pair, Claude Sonnet 4.6 and GPT-5.5, graded every output, producing 208 judge records. The human-review examples in Appendix~\ref{app:labreview} draw on these outputs and verdicts. The \href{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/model-runs}{task-level results and deliverables} include both judges' criterion-level verdicts and reasoning.
 
 \begin{table}[ht]\centering\small
@@ -201,7 +199,7 @@ Claude Opus 5.5 & low & 52 & 90.81\%\\
 \label{tab:nativejudging}\end{table}
 
 These grades describe how LAB's own AI judges applied the original rubrics; they are not human assessments of legal correctness or grades corrected for the defects identified in this audit. The solvers used different reasoning settings, so the difference is not a controlled comparison of model capability. The aggregate rates provide context for the criterion-level examples, rather than independent validation of the rubrics.
-% END AI-PREPARED
+
 
 \clearpage
 \section{Human review of AI-flagged LAB criteria}
