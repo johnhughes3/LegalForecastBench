@@ -16,7 +16,10 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
-from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapterError
+from legalforecast.multiharness.claude_code import (
+    ClaudeCodeCliAdapter,
+    ClaudeCodeCliAdapterError,
+)
 from legalforecast.multiharness.claude_code_harvey_lab import (
     _require_solver_success,
     run_claude_code_clean_native_harvey_lab,
@@ -50,6 +53,16 @@ KEY = Ed25519PrivateKey.from_private_bytes(b"G" * 32)
 LAB_MODEL = "claude-sonnet-4-6"
 
 
+class _UnexpectedSolverService:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.parent_env: dict[str, str] = {}
+
+    def execute(self, _spec: RunSpec) -> ExecutionReceipt:
+        self.calls += 1
+        pytest.fail("incomplete production configuration reached solver transport")
+
+
 def _empty_path_env(tmp_path: Path) -> dict[str, str]:
     """Return a parent env whose PATH holds no solver and no evaluator.
 
@@ -65,6 +78,25 @@ def _empty_path_env(tmp_path: Path) -> dict[str, str]:
         "LC_CTYPE": "C.UTF-8",
         "HOME": "/private/operator-home",
     }
+
+
+def test_production_join_requires_distinct_complete_evaluator_before_solver(
+    tmp_path: Path,
+) -> None:
+    service = _UnexpectedSolverService()
+    with pytest.raises(
+        ClaudeCodeCliAdapterError,
+        match="explicit evaluator execution service",
+    ):
+        run_claude_code_clean_native_harvey_lab(
+            adapter=ClaudeCodeCliAdapter(
+                execution_service=service,  # type: ignore[arg-type]
+            ),
+            pin=FIXTURE_PIN,
+            require_production_provenance=True,
+            **_hosts(tmp_path),
+        )
+    assert service.calls == 0
 
 
 def test_require_hosts_accepts_a_real_directory_inside_the_sandbox(

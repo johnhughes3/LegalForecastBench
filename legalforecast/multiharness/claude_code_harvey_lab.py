@@ -7,8 +7,7 @@ import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -19,8 +18,17 @@ from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
     build_claude_invocation_plan,
-    classify_claude_completion_execution,
     encode_claude_code_tools_argv_token,
+)
+from legalforecast.multiharness.claude_code_container_inputs import (
+    CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION,
+    stage_read_only_solver_prompt,
+)
+from legalforecast.multiharness.claude_code_harvey_lab_guards import (
+    require_complete_production_evaluator as _require_complete_production_evaluator,
+)
+from legalforecast.multiharness.claude_code_harvey_lab_guards import (
+    require_solver_success as _require_solver_success,
 )
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
@@ -55,14 +63,12 @@ from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
     HarveyLabProjectedTask,
     HarveyLabProjectionResult,
+    harvey_lab_v1_1_pin,
     project_harvey_lab_suite,
+    verify_harvey_lab_projection,
+    verify_harvey_lab_source_pin,
 )
-from legalforecast.multiharness.local_cli_contracts import (
-    ExecutionReceipt,
-    LocalCliFailureClass,
-    RunSpec,
-    is_local_cli_sandbox_denial,
-)
+from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_identity import sha256_file
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.scoring import (
@@ -105,6 +111,8 @@ class ClaudeCodeHarveyLabMeasurementResult:
     discovery: HarveyLabOutputDiscoveryResult
     evaluation: HarveyLabEvaluatorExecution
     score: HarveyLabObservedScore
+    execution_mode: Literal["fixture", "production"]
+    baseline_score_value: int | None
 
 
 def run_claude_code_clean_native_harvey_lab(
@@ -146,10 +154,20 @@ def run_claude_code_clean_native_harvey_lab(
     require_production_provenance: bool = False,
     evaluator_execution_service: LocalCliExecutionService | None = None,
     container_workspace: bool = False,
+    use_prepared_projection: bool = False,
 ) -> ClaudeCodeHarveyLabPipelineResult | ClaudeCodeHarveyLabMeasurementResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
     service = adapter.execution_service
+    _require_complete_production_evaluator(
+        solver_service=service,
+        evaluator_execution_service=evaluator_execution_service,
+        judge_request_boundary=judge_request_boundary,
+        evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
+        evaluator_provenance_provider=evaluator_provenance_provider,
+        require_production_provenance=require_production_provenance,
+    )
     tools = tuple(
         CLAUDE_CODE_CLEAN_NATIVE_TOOLS if allowed_tools is None else allowed_tools
     )
@@ -162,13 +180,32 @@ def run_claude_code_clean_native_harvey_lab(
         raise ClaudeCodeCliAdapterError(
             "clean-native Harvey LAB runs must not keep the empty --tools pin"
         )
-    projection = project_harvey_lab_suite(
-        source_root=source_root,
-        solver_root=solver_root,
-        evaluator_private_root=evaluator_private_root,
-        pin=pin,
-        lab_task_ids=(lab_task_id,),
-    )
+    applied_pin = pin or harvey_lab_v1_1_pin()
+    if use_prepared_projection:
+        verify_harvey_lab_source_pin(source_root, applied_pin)
+        manifest = verify_harvey_lab_projection(solver_root)
+        if manifest.pin != applied_pin:
+            raise ClaudeCodeCliAdapterError(
+                "prepared Harvey LAB projection does not match the selected pin"
+            )
+        if not evaluator_private_root.is_dir() or evaluator_private_root.is_symlink():
+            raise ClaudeCodeCliAdapterError(
+                "prepared Harvey LAB evaluator-private root is unavailable"
+            )
+        projection = HarveyLabProjectionResult(
+            solver_root=solver_root.resolve(),
+            evaluator_private_root=evaluator_private_root.resolve(),
+            manifest=manifest,
+            tasks=(),
+        )
+    else:
+        projection = project_harvey_lab_suite(
+            source_root=source_root,
+            solver_root=solver_root,
+            evaluator_private_root=evaluator_private_root,
+            pin=applied_pin,
+            lab_task_ids=(lab_task_id,),
+        )
     if (
         len(projection.manifest.tasks) != 1
         or projection.manifest.tasks[0].lab_task_id != lab_task_id
@@ -186,6 +223,7 @@ def run_claude_code_clean_native_harvey_lab(
     if container_workspace:
         staged_task = sandbox_root / "task"
         shutil.copytree(task_dir, staged_task)
+        stage_read_only_solver_prompt(prompt.encode("utf-8"), sandbox_root)
         invocation_workspace = Path("/workspace")
         invocation_task_dir = Path("/workspace/task")
     resolved_output = require_harvey_lab_sandbox_hosts(
@@ -210,7 +248,9 @@ def run_claude_code_clean_native_harvey_lab(
         else min(float(timeout_seconds), declared_timeout)
     )
     plan = build_claude_invocation_plan(
-        prompt=prompt,
+        prompt=(
+            CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION if container_workspace else prompt
+        ),
         model=model,
         required_unit_ids=(),
         workspace=invocation_workspace,
@@ -225,6 +265,8 @@ def run_claude_code_clean_native_harvey_lab(
         json_schema=HARVEY_LAB_COMPLETION_SCHEMA,
         extra_add_dirs=(invocation_task_dir,),
         max_budget_usd=max_budget_usd,
+        output_format=adapter.output_format,
+        verbose=adapter.verbose,
     )
     if plan.argv[plan.argv.index("--tools") + 1] != tools_token:
         raise ClaudeCodeCliAdapterError(
@@ -244,6 +286,7 @@ def run_claude_code_clean_native_harvey_lab(
         environment={},
         timeout_seconds=applied_timeout,
         json_schema=plan.json_schema,
+        output_format=plan.output_format,
         max_budget_usd=(None if max_budget_usd is None else float(max_budget_usd)),
     )
     if before_solver is not None:
@@ -392,6 +435,10 @@ def run_claude_code_clean_native_harvey_lab(
         discovery=discovery,
         evaluation=evaluation,
         score=score,
+        execution_mode=("production" if require_production_provenance else "fixture"),
+        baseline_score_value=(
+            score.score_value if require_production_provenance else None
+        ),
     )
 
 
@@ -415,65 +462,6 @@ def _lab_solver_prompt(
     return (
         f"{body}\n\n{declaration} into the output directory under the working "
         "directory. Use only in-sandbox native tools."
-    )
-
-
-_LAB_FAILURE_MESSAGES: Mapping[LocalCliFailureClass, str] = MappingProxyType(
-    {
-        LocalCliFailureClass.TIMEOUT: (
-            "clean-native Claude Code Harvey LAB run timed out"
-        ),
-        LocalCliFailureClass.CANCELLED: (
-            "clean-native Claude Code Harvey LAB run was cancelled"
-        ),
-        LocalCliFailureClass.SANDBOX_DENIAL: (
-            "clean-native Claude Code Harvey LAB run hit a sandbox denial"
-        ),
-        LocalCliFailureClass.IDENTITY_DRIFT: (
-            "clean-native Claude Code Harvey LAB run was served a different model"
-        ),
-    }
-)
-
-
-def _require_solver_success(
-    spec: RunSpec,
-    execution: ExecutionReceipt,
-    *,
-    requested_model: str,
-) -> None:
-    """Refuse to score a LAB run that is not a clean, correctly served success.
-
-    The classification order is the shared adapter-core taxonomy rather than a
-    LAB-local copy: ``cancelled`` is a lifecycle abort, not a crash, and a
-    served-model mismatch is ``identity_drift`` even when the CLI exits zero.
-    """
-
-    if execution.spec_sha256 != spec.spec_sha256:
-        raise ClaudeCodeCliAdapterError("execution receipt does not bind the RunSpec")
-    failure_class = classify_claude_completion_execution(
-        execution,
-        requested_model=requested_model,
-    )
-    if failure_class is None and is_local_cli_sandbox_denial(
-        "\n".join((execution.stdout, execution.stderr))
-    ):
-        failure_class = LocalCliFailureClass.SANDBOX_DENIAL
-    if failure_class is None:
-        if execution.status != "succeeded" or execution.returncode not in {0, None}:
-            detail = execution.stderr.strip() or execution.stdout.strip() or "crash"
-            raise ClaudeCodeCliAdapterError(
-                f"clean-native Claude Code Harvey LAB run failed: {detail}",
-                failure_class=LocalCliFailureClass.CRASH,
-            )
-        return
-    named = _LAB_FAILURE_MESSAGES.get(failure_class)
-    if named is not None:
-        raise ClaudeCodeCliAdapterError(named, failure_class=failure_class)
-    detail = execution.stderr.strip() or execution.stdout.strip() or "crash"
-    raise ClaudeCodeCliAdapterError(
-        f"clean-native Claude Code Harvey LAB run failed: {detail}",
-        failure_class=failure_class,
     )
 
 

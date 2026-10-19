@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib import import_module
 from pathlib import Path
 
 from legalforecast.multiharness.harvey_lab.core_bridge import (
@@ -17,6 +18,10 @@ from legalforecast.multiharness.harvey_lab_projection import (
     harvey_lab_v1_1_pin,
     project_harvey_lab_suite,
     remove_projected_tree,
+)
+
+_PROTECTED_OPERATOR_MODULE = ".".join(
+    ("legalforecast", "multiharness", "harvey_lab_protected_operator")
 )
 
 
@@ -41,6 +46,25 @@ def register(
     prepare.add_argument("--output-dir", type=Path, required=True)
     prepare.add_argument("--evaluator-private-dir", type=Path, required=True)
     prepare.set_defaults(handler=_prepare_clean_native)
+    protected = commands.add_parser(
+        "run-clean-native",
+        help=(
+            "Run the prepared Claude Code LAB arm with the protected solver "
+            "gateway and a separately metered production judge."
+        ),
+    )
+    protected.add_argument("--source-root", type=Path, required=True)
+    protected.add_argument("--projection-dir", type=Path, required=True)
+    protected.add_argument("--evaluator-private-dir", type=Path, required=True)
+    protected.add_argument("--run-dir", type=Path, required=True)
+    protected.add_argument("--evaluator-bin-dir", type=Path, required=True)
+    protected.add_argument("--paid-config", type=Path, required=True)
+    protected.add_argument("--model-registry", type=Path, required=True)
+    protected.add_argument("--solver-image", required=True)
+    protected.add_argument("--gateway-image", required=True)
+    protected.add_argument("--model-key", required=True)
+    protected.add_argument("--timeout-seconds", type=int, default=900)
+    protected.set_defaults(handler=_run_clean_native)
     for name in ("probe", "run"):
         command = commands.add_parser(
             name,
@@ -170,4 +194,40 @@ def _run(args: argparse.Namespace) -> int:
         LabCoreRuntime(args.source_root, args.python), request, args.output_dir
     )
     print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def _run_clean_native(args: argparse.Namespace) -> int:
+    # The provider adapter is an optional paid-runtime dependency. Load it only
+    # when this protected command is selected, after CLI registration completes.
+    operator = import_module(_PROTECTED_OPERATOR_MODULE)
+    request_type = operator.ProtectedHarveyLabOperatorRequest
+    run_operator = operator.run_protected_harvey_lab_operator
+    result = run_operator(
+        request_type(
+            source_root=args.source_root,
+            projection_root=args.projection_dir,
+            evaluator_private_root=args.evaluator_private_dir,
+            run_root=args.run_dir,
+            evaluator_bin_dir=args.evaluator_bin_dir,
+            paid_config_path=args.paid_config,
+            model_registry_path=args.model_registry,
+            solver_image_digest=args.solver_image,
+            gateway_image_digest=args.gateway_image,
+            model_key=args.model_key,
+            timeout_seconds=args.timeout_seconds,
+        )
+    )
+    print(
+        json.dumps(
+            {
+                "execution_mode": result.execution_mode,
+                "n_criteria": result.score.n_criteria,
+                "n_passed": result.score.n_passed,
+                "score": result.baseline_score_value,
+                "task_id": result.task.lab_task_id,
+            },
+            sort_keys=True,
+        )
+    )
     return 0

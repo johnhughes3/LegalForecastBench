@@ -5563,6 +5563,182 @@
       "group_dest": "lab_command",
       "handler": {
         "module": "legalforecast.multiharness.harvey_lab.core_cli",
+        "name": "_run_clean_native",
+        "qualname": "_run_clean_native"
+      },
+      "logical_handler_id": "harvey-lab.run-clean-native",
+      "options": [
+        {
+          "action": "help",
+          "choices": null,
+          "default": {
+            "kind": "suppress"
+          },
+          "dest": "help",
+          "metavar": null,
+          "nargs": 0,
+          "option_strings": [
+            "-h",
+            "--help"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "source_root",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--source-root"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "projection_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--projection-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "evaluator_private_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--evaluator-private-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "run_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--run-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "evaluator_bin_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--evaluator-bin-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "paid_config",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--paid-config"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_registry",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-registry"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "solver_image",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--solver-image"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "gateway_image",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--gateway-image"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "model_key",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--model-key"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": 900,
+          "dest": "timeout_seconds",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--timeout-seconds"
+          ],
+          "required": false,
+          "type": "int"
+        }
+      ],
+      "path": [
+        "harvey-lab",
+        "run-clean-native"
+      ],
+      "registration_index": 51
+    },
+    {
+      "aliases": [],
+      "group_dest": "lab_command",
+      "handler": {
+        "module": "legalforecast.multiharness.harvey_lab.core_cli",
         "name": "_probe",
         "qualname": "_probe"
       },
@@ -5628,7 +5804,7 @@
         "harvey-lab",
         "probe"
       ],
-      "registration_index": 51
+      "registration_index": 52
     },
     {
       "aliases": [],
@@ -5817,7 +5993,7 @@
         "harvey-lab",
         "run"
       ],
-      "registration_index": 52
+      "registration_index": 53
     }
   ],
   "prog": "legalforecast",

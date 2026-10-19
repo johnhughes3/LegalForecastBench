@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Final
 
 from legalforecast.multiharness.release_harness import (
     ReleaseHarnessError,
@@ -10,6 +11,23 @@ from legalforecast.multiharness.release_harness import (
     write_release_create_only,
 )
 from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
+
+CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION: Final[str] = (
+    "Read the complete authenticated solver input from /workspace/prompt.txt "
+    "with Bash before answering. Follow that input exactly, use only the "
+    "workspace files it identifies, and return the requested structured answer."
+)
+
+
+def stage_read_only_solver_prompt(prompt: bytes, workspace: Path) -> Path:
+    """Create the authenticated container prompt at its protected path."""
+
+    if not prompt:
+        raise ReleaseHarnessError("authenticated solver input prompt is empty")
+    workspace.mkdir(parents=True, exist_ok=True)
+    target = workspace / SOLVER_INPUT_ENTRY_PATH
+    write_release_create_only(target, prompt, mode=0o444)
+    return target
 
 
 def stage_visible_solver_input(
@@ -70,4 +88,9 @@ def verify_staged_solver_input(staged_files: list[tuple[Path, bytes]]) -> None:
             )
 
 
-__all__ = ["stage_visible_solver_input", "verify_staged_solver_input"]
+__all__ = [
+    "CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION",
+    "stage_read_only_solver_prompt",
+    "stage_visible_solver_input",
+    "verify_staged_solver_input",
+]
