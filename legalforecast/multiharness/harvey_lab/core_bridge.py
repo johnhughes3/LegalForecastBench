@@ -6,6 +6,7 @@ import hashlib
 import math
 import re
 import shutil
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -18,6 +19,11 @@ from legalforecast.multiharness.harvey_lab.core_runtime import (
     LabCoreError,
     LabCoreRuntime,
     regular_files,
+)
+from legalforecast.multiharness.harvey_lab.gateway import (
+    LabCoreGateway,
+    LabCoreGatewayError,
+    LabCoreGatewaySession,
 )
 from legalforecast.multiharness.validation import (
     validate_no_secret_values,
@@ -48,6 +54,7 @@ class LabCoreRequest:
     max_turns: int
     sandbox_image: str
     provider_env: tuple[str, ...] = ()
+    gateway: LabCoreGateway | None = None
     reasoning_effort: str | None = None
     timeout_seconds: float = 3600
 
@@ -67,6 +74,16 @@ class LabCoreRequest:
             raise LabCoreError("LAB turn and time limits must be positive")
         if not set(self.provider_env).issubset(_PROVIDER_NAMES):
             raise LabCoreError("only named model-provider variables may reach LAB")
+        if self.gateway is not None:
+            if self.provider_env:
+                raise LabCoreError(
+                    "native LAB gateway runs must not pass direct provider keys"
+                )
+            for value in (_gateway_model_id(self.model), self.judge_model):
+                if value not in self.gateway.policy.allowed_models:
+                    raise LabCoreError(
+                        "native LAB gateway does not allow the requested model"
+                    )
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", self.judge_model):
             raise LabCoreError("LAB judge must be one unqualified upstream model ID")
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", self.sandbox_image):
@@ -123,60 +140,110 @@ def run_lab_core(
     if request.reasoning_effort is not None:
         argv += ("--reasoning-effort", request.reasoning_effort)
     _verify_unchanged(runtime, private, identity, input_hashes)
-    runtime.invoke(
-        RUN_MODULE,
-        argv,
-        private_root=private,
-        lab_root=lab_root,
-        phase="solve",
-        timeout=request.timeout_seconds,
-        provider_env=request.provider_env,
+    gateway_record: dict[str, int | None] | None = None
+    gateway_secret_values: tuple[str, ...] = ()
+    gateway_context = (
+        request.gateway.serve(private)
+        if request.gateway is not None
+        else nullcontext(None)
     )
-    _verify_unchanged(runtime, private, identity, input_hashes)
-    if run_root.resolve(strict=True) != run_root:
-        raise LabCoreError("LAB run root must not traverse symlinks")
-    config = _read_result(run_root, "config.json")
-    metrics = _read_result(run_root, "metrics.json")
-    for record in (config, metrics):
-        if any(
-            record.get(key) != expected
-            for key, expected in (
-                ("task", request.upstream_task_id),
-                ("model", request.model),
-                ("run_id", native_id),
+    try:
+        with gateway_context as gateway_session:
+            if gateway_session is not None:
+                gateway_secret_values = gateway_session.secret_values
+                solver_gateway_start = gateway_session.snapshot().request_count
+            else:
+                solver_gateway_start = 0
+            _invoke(
+                runtime,
+                RUN_MODULE,
+                argv,
+                private_root=private,
+                lab_root=lab_root,
+                phase="solve",
+                timeout=request.timeout_seconds,
+                provider_env=request.provider_env,
+                gateway_session=gateway_session,
             )
-        ):
-            raise LabCoreError(
-                "LAB run metadata does not match task/model/run identity"
+            if gateway_session is not None:
+                solver_gateway_requests = (
+                    gateway_session.snapshot().request_count - solver_gateway_start
+                )
+                if solver_gateway_requests < 1:
+                    raise LabCoreError(
+                        "native LAB solver completed without a gateway request"
+                    )
+            else:
+                solver_gateway_requests = 0
+            _verify_unchanged(runtime, private, identity, input_hashes)
+            if run_root.resolve(strict=True) != run_root:
+                raise LabCoreError("LAB run root must not traverse symlinks")
+            config = _read_result(run_root, "config.json")
+            metrics = _read_result(run_root, "metrics.json")
+            for record in (config, metrics):
+                if any(
+                    record.get(key) != expected
+                    for key, expected in (
+                        ("task", request.upstream_task_id),
+                        ("model", request.model),
+                        ("run_id", native_id),
+                    )
+                ):
+                    raise LabCoreError(
+                        "LAB run metadata does not match task/model/run identity"
+                    )
+            if metrics.get("finished_cleanly") is not True:
+                raise LabCoreError(
+                    "LAB solver did not finish cleanly; no evaluation was launched"
+                )
+            deliverables = _discover_outputs(run_root, task_record)
+            if gateway_session is not None:
+                evaluate_gateway_start = gateway_session.snapshot().request_count
+            else:
+                evaluate_gateway_start = 0
+            _invoke(
+                runtime,
+                EVALUATE_MODULE,
+                (
+                    "--task",
+                    request.upstream_task_id,
+                    "--run-id",
+                    native_id,
+                    "--judges",
+                    request.judge_model,
+                    "--parallel",
+                    "1",
+                ),
+                private_root=private,
+                lab_root=lab_root,
+                phase="evaluate",
+                timeout=request.timeout_seconds,
+                provider_env=request.provider_env,
+                gateway_session=gateway_session,
             )
-    if metrics.get("finished_cleanly") is not True:
-        raise LabCoreError(
-            "LAB solver did not finish cleanly; no evaluation was launched"
-        )
-    deliverables = _discover_outputs(run_root, task_record)
-    runtime.invoke(
-        EVALUATE_MODULE,
-        (
-            "--task",
-            request.upstream_task_id,
-            "--run-id",
-            native_id,
-            "--judges",
-            request.judge_model,
-            "--parallel",
-            "1",
-        ),
-        private_root=private,
-        lab_root=lab_root,
-        phase="evaluate",
-        timeout=request.timeout_seconds,
-        provider_env=request.provider_env,
-    )
-    _verify_unchanged(runtime, private, identity, {**input_hashes, **deliverables})
-    if _discover_outputs(run_root, task_record) != deliverables:
-        raise LabCoreError("LAB output membership changed during evaluation")
-    scores = _read_result(run_root, "scores.json")
-    normalized = normalize_scores(scores, request, criteria_ids)
+            if gateway_session is not None:
+                evaluate_gateway_requests = (
+                    gateway_session.snapshot().request_count - evaluate_gateway_start
+                )
+                if evaluate_gateway_requests < 1:
+                    raise LabCoreError(
+                        "native LAB evaluator completed without a gateway request"
+                    )
+                try:
+                    gateway_record = gateway_session.require_settled()
+                except LabCoreGatewayError as exc:
+                    raise LabCoreError(str(exc)) from exc
+            _verify_unchanged(
+                runtime, private, identity, {**input_hashes, **deliverables}
+            )
+            if _discover_outputs(run_root, task_record) != deliverables:
+                raise LabCoreError("LAB output membership changed during evaluation")
+            scores = _read_result(run_root, "scores.json")
+            normalized = normalize_scores(scores, request, criteria_ids)
+    except LabCoreGatewayError as exc:
+        raise LabCoreError(str(exc)) from exc
+    if gateway_record is not None:
+        normalized["gateway"] = gateway_record
     normalized["source"] = identity
     normalized["settings"] = {
         "max_turns": request.max_turns,
@@ -190,7 +257,7 @@ def run_lab_core(
     values = runtime.environment(private, request.provider_env)
     validate_no_secret_values(
         normalized,
-        tuple(values[name] for name in request.provider_env),
+        tuple(values[name] for name in request.provider_env) + gateway_secret_values,
         "LAB public results",
     )
     validate_public_record(normalized, "LAB public results")
@@ -205,6 +272,49 @@ def run_lab_core(
         encoding="utf-8",
     )
     return normalized
+
+
+def _invoke(
+    runtime: LabCoreRuntime,
+    module: str,
+    arguments: tuple[str, ...],
+    *,
+    private_root: Path,
+    lab_root: Path,
+    phase: str,
+    timeout: float,
+    provider_env: tuple[str, ...],
+    gateway_session: LabCoreGatewaySession | None,
+) -> None:
+    """Invoke pinned LAB, optionally projecting the loopback gateway route."""
+
+    if gateway_session is None:
+        runtime.invoke(
+            module,
+            arguments,
+            private_root=private_root,
+            lab_root=lab_root,
+            phase=phase,
+            timeout=timeout,
+            provider_env=provider_env,
+        )
+        return
+    runtime.invoke(
+        module,
+        arguments,
+        private_root=private_root,
+        lab_root=lab_root,
+        phase=phase,
+        timeout=timeout,
+        provider_env=provider_env,
+        environment_overrides=gateway_session.environment,
+    )
+
+
+def _gateway_model_id(value: str) -> str:
+    """Map ``provider/model`` input to the ID sent by the upstream adapter."""
+
+    return value.partition("/")[2] if "/" in value else value
 
 
 def normalize_scores(

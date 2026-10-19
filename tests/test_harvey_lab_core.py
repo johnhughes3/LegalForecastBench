@@ -64,6 +64,8 @@ class RecordingRuntime(LabCoreRuntime):
 
     calls: list[tuple[str, tuple[str, ...]]]
     sabotage: str = ""
+    model = "openai/gpt-example"
+    judge_model = "judge-example"
 
     def verify(self, private_root: Path) -> dict[str, str]:
         return {"commit": UPSTREAM_COMMIT, "package_version": PACKAGE_VERSION}
@@ -96,7 +98,7 @@ class RecordingRuntime(LabCoreRuntime):
             (output / "answer.docx").write_bytes(b"fixture work product")
             record: dict[str, object] = {
                 "task": task,
-                "model": _request().model,
+                "model": self.model,
                 "run_id": run_id,
                 "finished_cleanly": True,
             }
@@ -111,12 +113,19 @@ class RecordingRuntime(LabCoreRuntime):
             write_json_object(root / "metrics.json", record)
         else:
             assert module == EVALUATE_MODULE
-            assert arguments[-4:] == ("--judges", "judge-example", "--parallel", "1")
+            assert arguments[-4:] == (
+                "--judges",
+                self.judge_model,
+                "--parallel",
+                "1",
+            )
             if self.sabotage == "mutation":
                 (root / "output" / "answer.docx").write_bytes(b"changed")
             if self.sabotage == "extra-output":
                 (root / "output" / "unexpected.txt").write_text("extra")
-            scores = _scores(_request())
+            scores = _scores(
+                replace(_request(), model=self.model, judge_model=self.judge_model)
+            )
             if self.sabotage == "malformed":
                 scores["criteria_results"] = []
             write_json_object(root / "scores.json", scores)

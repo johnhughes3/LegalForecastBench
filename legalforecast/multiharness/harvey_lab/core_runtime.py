@@ -7,6 +7,7 @@ import os
 import shutil
 import signal
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -30,6 +31,7 @@ UPSTREAM_TREE = "bc7e16d2b5b794b86624288506a5d0be17c1052b"
 PACKAGE_VERSION = "1.1.0"
 RUN_MODULE = "lab_core.harness.run"
 EVALUATE_MODULE = "lab_core.evaluation.run_eval"
+_GATEWAY_ENVIRONMENT_OVERRIDES = frozenset({"ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"})
 _PACKAGE_PROBE = """import importlib.metadata, importlib.util, json, pathlib
 print(json.dumps({"version": importlib.metadata.version("lab-core"),
 "root": str(pathlib.Path(importlib.util.find_spec("lab_core").origin).parent)}))
@@ -180,11 +182,22 @@ class LabCoreRuntime:
         phase: str,
         timeout: float,
         provider_env: tuple[str, ...] = (),
+        environment_overrides: Mapping[str, str] | None = None,
     ) -> None:
         """Execute one upstream command with shared process-group cleanup."""
         environment = self.environment(private_root, provider_env)
+        if environment_overrides is not None:
+            for name, value in environment_overrides.items():
+                if name not in _GATEWAY_ENVIRONMENT_OVERRIDES or not value:
+                    raise LabCoreError(
+                        "native LAB environment overrides are limited to the "
+                        "shared Anthropic gateway"
+                    )
+            environment.update(environment_overrides)
         if module == RUN_MODULE and arguments != ("--help",):
             environment.update(self.sandbox_environment(private_root))
+            if environment_overrides is not None:
+                environment.update(environment_overrides)
         environment["LAB_ROOT"] = str(lab_root.resolve(strict=True))
         argv = [
             str(self.python.absolute()),
