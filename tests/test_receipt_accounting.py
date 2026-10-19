@@ -115,6 +115,35 @@ def test_flex_reprices_only_from_explicit_frozen_basis() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("pricing_source", "expected"),
+    [("Standard published rates", 0.00052), ("Flex is 50% of Standard", 0.00104)],
+)
+def test_known_cache_writes_survive_missing_reads_through_publication(
+    pricing_source: str, expected: float
+) -> None:
+    record = receipt()
+    response = record["cost_evidence"]["response_usage_details"][0]
+    response.pop("cache_read_tokens")
+    response["cache_write_tokens"] = 40
+    entry = replace(
+        registry().entries[0],
+        cache_write_token_price=5,
+        pricing_source=pricing_source,
+    )
+    records = build_public_accounting([record], ModelRegistry(entries=(entry,)))
+    # 60 ordinary input at $2/M, 40 cache writes at $5/M, 20 output at $10/M.
+    # Missing read evidence must not erase the known write premium. Flex's
+    # frozen half-price rates are doubled only for the standard-rate column.
+    assert records[0]["standard_rate_cost"] == pytest.approx(expected)
+    assert records[0]["estimated_cost"] == 0.25
+    assert records[0]["missing_cache_read_response_count"] == 1
+    records[0]["model_id"] = "synthetic-model"
+    costs = build_site_export(synthetic_scores(), accounting=records).results[0].costs
+    assert costs.standard_rate_total_cost == pytest.approx(expected)
+    assert costs.total_cost == 0.25
+
+
 def test_module_cli_produces_accounting_consumable_by_export(tmp_path) -> None:
     import json
     import subprocess
