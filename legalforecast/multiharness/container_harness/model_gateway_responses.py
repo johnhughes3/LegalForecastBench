@@ -18,34 +18,32 @@ last event has already escaped the accounting boundary.
 from __future__ import annotations
 
 import json
-import math
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from http import HTTPStatus
-from http.client import HTTPConnection, HTTPSConnection
+from http.client import HTTPConnection, HTTPException, HTTPSConnection
 from pathlib import Path
 from typing import Final, Protocol, cast
 from urllib.parse import SplitResult, urlsplit
 
-from legalforecast.evals.model_registry import ModelRegistryEntry
-from legalforecast.multiharness.protected_terminal_paid import (
-    ProviderGatewaySpendController,
-    build_protected_gateway_spend_controller,
-)
-from legalforecast.runner.managed_cost import (
-    ManagedResponseUsage,
-    _managed_response_cost,  # pyright: ignore[reportPrivateUsage]
-)
-
 from .model_gateway_accounting import GatewayUsage
-from .model_gateway_paid import (
-    ProtectedPaidGatewayConfig,
-    load_paid_gateway_config,
-    worst_case_request_microusd,
-)
 from .model_gateway_protocol import (
     GatewaySpendController,
     error_response,
+)
+from .model_gateway_responses_paid import (
+    build_paid_responses_gateway_controller,
+    load_paid_responses_gateway_config,
+    openai_responses_registry_charge_extractor,
+    priced_service_tiers_for_registry_entry,
+)
+from .model_gateway_responses_protocol import (
+    OPENAI_PROVIDER,
+    ResponsesTerminal,
+    ResponsesUsage,
+    parse_responses_terminal,
+    parse_responses_usage,
+    validate_responses_request,
 )
 from .model_gateway_types import (
     GatewayAuthenticationError,
@@ -54,13 +52,11 @@ from .model_gateway_types import (
     GatewayResponse,
     GatewayUpstreamError,
     ModelGatewayError,
-    ObservedUsage,
     Reservation,
 )
 
 RESPONSES_ROUTE: Final[str] = "/v1/responses"
 OPENAI_RESPONSES_URL: Final[str] = "https://api.openai.com/v1/responses"
-OPENAI_PROVIDER: Final[str] = "openai"
 MAX_HTTP_HEADER_BYTES: Final[int] = 16 * 1024
 DEFAULT_REQUEST_BYTES: Final[int] = 4 * 1024 * 1024
 DEFAULT_RESPONSE_BYTES: Final[int] = 16 * 1024 * 1024
@@ -93,6 +89,7 @@ class ResponsesGatewayPolicy:
     run_request_id: str
     allowed_model_keys: frozenset[str]
     allowed_ingress_hosts: frozenset[str]
+    allowed_service_tiers: frozenset[str] = frozenset({"default"})
     max_request_bytes: int = DEFAULT_REQUEST_BYTES
     max_response_bytes: int = DEFAULT_RESPONSE_BYTES
     max_requests: int = 64
@@ -125,6 +122,12 @@ class ResponsesGatewayPolicy:
             raise ModelGatewayError(
                 "allowed_ingress_hosts must contain nonempty host names"
             )
+        if not self.allowed_service_tiers or any(
+            tier not in {"default", "flex"} for tier in self.allowed_service_tiers
+        ):
+            raise ModelGatewayError(
+                "allowed_service_tiers must contain priced OpenAI tiers"
+            )
         for name, value in (
             ("max_request_bytes", self.max_request_bytes),
             ("max_response_bytes", self.max_response_bytes),
@@ -146,21 +149,6 @@ class ResponsesGatewayPolicy:
         return frozenset(
             model_key.split(":", 1)[1] for model_key in self.allowed_model_keys
         )
-
-
-@dataclass(frozen=True, slots=True)
-class ResponsesUsage:
-    """Usage dimensions needed for settlement and cache-aware diagnostics."""
-
-    input_tokens: int
-    output_tokens: int
-    cache_read_tokens: int | None = None
-    reasoning_tokens: int | None = None
-
-    def as_observed(self) -> ObservedUsage:
-        """Project the provider usage onto the shared gateway accounting shape."""
-
-        return ObservedUsage(self.input_tokens, self.output_tokens)
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,7 +209,12 @@ class OpenAIResponsesGateway:
             payload = _decode_json_object(body, self.policy.max_request_bytes)
             if len(body) > self.policy.max_input_tokens:
                 raise GatewayBudgetExceeded("input-token limit exceeded")
-            model, max_output_tokens = _validate_request(payload, self.policy)
+            model, max_output_tokens = validate_responses_request(
+                payload,
+                allowed_models=self.policy.allowed_models,
+                max_output_tokens=self.policy.max_output_tokens,
+                allowed_service_tiers=self.policy.allowed_service_tiers,
+            )
             reservation = self.usage.reserve(
                 input_tokens=len(body),
                 output_tokens=max_output_tokens,
@@ -249,6 +242,12 @@ class OpenAIResponsesGateway:
                 )
                 if spend_lease is None:
                     raise RuntimeError("spend controller returned no lease")
+            except Exception:
+                self._reject_usage_after_authorization_failure(reservation)
+                return error_response(
+                    HTTPStatus.SERVICE_UNAVAILABLE, "spend authorization failed"
+                )
+            try:
                 self._spend_controller.mark_transport_started(spend_lease)
             except Exception:
                 self._settle_unknown(
@@ -270,7 +269,8 @@ class OpenAIResponsesGateway:
             if len(upstream.body) > self.policy.max_response_bytes:
                 raise GatewayUpstreamError("upstream response exceeds response limit")
             content_type = _safe_content_type(upstream.headers.get("content-type"))
-            observed = parse_responses_usage(upstream.body, content_type)
+            terminal = parse_responses_terminal(upstream.body, content_type)
+            observed = None if terminal is None else terminal.usage
             if not self._settle_usage(reservation, observed, spend_lease):
                 return error_response(
                     HTTPStatus.SERVICE_UNAVAILABLE, "usage accounting failed"
@@ -301,6 +301,10 @@ class OpenAIResponsesGateway:
                     )
             if upstream.status_code < 200 or upstream.status_code >= 300:
                 return error_response(HTTPStatus.BAD_GATEWAY, "upstream request failed")
+            if terminal is not None and terminal.kind != "completed":
+                return error_response(
+                    HTTPStatus.BAD_GATEWAY, "upstream response did not complete"
+                )
             if observed is None:
                 return error_response(
                     HTTPStatus.SERVICE_UNAVAILABLE, "provider usage unavailable"
@@ -312,7 +316,13 @@ class OpenAIResponsesGateway:
             return GatewayResponse(
                 upstream.status_code, response_headers, upstream.body
             )
-        except (GatewayUpstreamError, OSError, TimeoutError, ValueError):
+        except (
+            GatewayUpstreamError,
+            HTTPException,
+            OSError,
+            TimeoutError,
+            ValueError,
+        ):
             self._settle_unknown(reservation, spend_lease, "gateway_transport_error")
             return error_response(HTTPStatus.BAD_GATEWAY, "upstream request failed")
 
@@ -343,6 +353,16 @@ class OpenAIResponsesGateway:
         except GatewayEvidenceError:
             self._record_spend_failure(spend_lease, "gateway_accounting_error")
         self._record_spend_failure(spend_lease, failure_type)
+
+    def _reject_usage_after_authorization_failure(
+        self, reservation: Reservation
+    ) -> None:
+        try:
+            self.usage.reject(reservation)
+        except GatewayEvidenceError:
+            # No remote lease exists and no provider bytes were sent. The local
+            # evidence failure is already fail-closed at the request boundary.
+            pass
 
     def _record_spend_failure(self, lease: object | None, failure_type: str) -> None:
         if self._spend_controller is None or lease is None:
@@ -404,124 +424,6 @@ def responses_route_allowed(value: str) -> bool:
     )
 
 
-def parse_responses_usage(
-    body: bytes,
-    content_type: str | None,
-) -> ResponsesUsage | None:
-    """Extract only the completed Responses usage object needed for settlement."""
-
-    if content_type is not None and content_type.lower().startswith(
-        "text/event-stream"
-    ):
-        completed: Mapping[str, object] | None = None
-        for raw_event in _sse_data_objects(body):
-            if raw_event.get("type") != "response.completed":
-                continue
-            response = raw_event.get("response")
-            if isinstance(response, Mapping):
-                completed = cast(Mapping[str, object], response)
-        return None if completed is None else _usage_from_object(completed)
-    try:
-        payload: object = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return _usage_from_object(payload)
-
-
-def openai_responses_registry_charge_extractor(
-    entry: ModelRegistryEntry,
-) -> Callable[[bytes, int, str | None], int | None]:
-    """Build the existing protected-controller charge hook for OpenAI usage."""
-
-    if entry.provider.strip().lower() != OPENAI_PROVIDER:
-        raise ModelGatewayError(
-            "Responses gateway pricing requires an OpenAI registry entry"
-        )
-
-    def extract(
-        response_body: bytes,
-        response_status: int,
-        content_type: str | None,
-    ) -> int | None:
-        if response_status < 200 or response_status >= 300:
-            return None
-        usage = parse_responses_usage(response_body, content_type)
-        if usage is None:
-            return None
-        try:
-            amount_usd = _managed_response_cost(
-                entry,
-                ManagedResponseUsage(
-                    input_tokens=usage.input_tokens,
-                    output_tokens=usage.output_tokens,
-                    cache_read_tokens=usage.cache_read_tokens,
-                    cache_write_tokens=None,
-                    reasoning_tokens=usage.reasoning_tokens,
-                ),
-            )
-        except (TypeError, ValueError):
-            return None
-        if not math.isfinite(amount_usd) or amount_usd < 0:
-            return None
-        return math.ceil(amount_usd * 1_000_000)
-
-    return extract
-
-
-def build_paid_responses_gateway_controller(
-    config: ProtectedPaidGatewayConfig,
-) -> ProviderGatewaySpendController:
-    """Reuse the protected authority with Responses-specific charge evidence."""
-
-    if config.registry_entry.provider.strip().lower() != OPENAI_PROVIDER:
-        raise ModelGatewayError("paid Responses gateway requires an OpenAI model")
-    return build_protected_gateway_spend_controller(
-        config.spend,
-        reservation_microusd=worst_case_request_microusd(config.registry_entry),
-        charge_extractor=openai_responses_registry_charge_extractor(
-            config.registry_entry
-        ),
-    )
-
-
-def load_paid_responses_gateway_config(
-    config_path: str | Path,
-    *,
-    model_registry_path: str | Path,
-    environment: Mapping[str, str] | None = None,
-) -> ProtectedPaidGatewayConfig:
-    """Load the existing protected descriptor and require an OpenAI entry."""
-
-    config = load_paid_gateway_config(
-        config_path,
-        model_registry_path=model_registry_path,
-        environment=environment,
-    )
-    if config.registry_entry.provider.strip().lower() != OPENAI_PROVIDER:
-        raise ModelGatewayError("paid Responses gateway requires an OpenAI model")
-    return config
-
-
-def _validate_request(
-    payload: Mapping[str, object],
-    policy: ResponsesGatewayPolicy,
-) -> tuple[str, int]:
-    raw_model = payload.get("model")
-    if not isinstance(raw_model, str) or raw_model not in policy.allowed_models:
-        raise ModelGatewayError("model is not allowlisted")
-    raw_max_output = payload.get("max_output_tokens", policy.max_output_tokens)
-    if type(raw_max_output) is not int or raw_max_output <= 0:
-        raise ModelGatewayError("max_output_tokens must be a positive integer")
-    if raw_max_output > policy.max_output_tokens:
-        raise GatewayBudgetExceeded("max_output_tokens exceeds per-request limit")
-    stream = payload.get("stream")
-    if stream is not None and type(stream) is not bool:
-        raise ModelGatewayError("stream must be a boolean")
-    if payload.get("store") is True:
-        raise ModelGatewayError("stored Responses are disabled")
-    return raw_model, raw_max_output
-
-
 def _authorize_capability(authorization: str | None, capability_token: str) -> None:
     if authorization is None:
         raise GatewayAuthenticationError("invalid gateway authorization")
@@ -542,61 +444,6 @@ def _decode_json_object(body: bytes, max_bytes: int) -> Mapping[str, object]:
     return cast(Mapping[str, object], payload)
 
 
-def _usage_from_object(value: object) -> ResponsesUsage | None:
-    if not isinstance(value, Mapping):
-        return None
-    payload = cast(Mapping[str, object], value)
-    raw_usage_value = payload.get("usage")
-    if not isinstance(raw_usage_value, Mapping):
-        return None
-    raw_usage = cast(Mapping[str, object], raw_usage_value)
-    input_tokens = _nonnegative_int(raw_usage.get("input_tokens"))
-    output_tokens = _nonnegative_int(raw_usage.get("output_tokens"))
-    if input_tokens is None or output_tokens is None:
-        return None
-    cache_read_tokens: int | None = None
-    raw_input_details_value = raw_usage.get("input_tokens_details")
-    if raw_input_details_value is not None:
-        if not isinstance(raw_input_details_value, Mapping):
-            return None
-        raw_input_details = cast(Mapping[str, object], raw_input_details_value)
-        cache_read_tokens = _nonnegative_int(raw_input_details.get("cached_tokens"))
-        if cache_read_tokens is None or cache_read_tokens > input_tokens:
-            return None
-    reasoning_tokens: int | None = None
-    raw_output_details_value = raw_usage.get("output_tokens_details")
-    if raw_output_details_value is not None:
-        if not isinstance(raw_output_details_value, Mapping):
-            return None
-        raw_output_details = cast(Mapping[str, object], raw_output_details_value)
-        reasoning_tokens = _nonnegative_int(raw_output_details.get("reasoning_tokens"))
-        if reasoning_tokens is None:
-            return None
-    return ResponsesUsage(
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        cache_read_tokens=cache_read_tokens,
-        reasoning_tokens=reasoning_tokens,
-    )
-
-
-def _sse_data_objects(body: bytes) -> tuple[Mapping[str, object], ...]:
-    events: list[Mapping[str, object]] = []
-    for line in body.splitlines():
-        if not line.startswith(b"data:"):
-            continue
-        raw_data = line[5:].strip()
-        if not raw_data or raw_data == b"[DONE]":
-            continue
-        try:
-            event: object = json.loads(raw_data)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            continue
-        if isinstance(event, Mapping):
-            events.append(cast(Mapping[str, object], event))
-    return tuple(events)
-
-
 def _forward_headers(
     headers: Mapping[str, str], *, upstream_api_key: str
 ) -> dict[str, str]:
@@ -615,7 +462,7 @@ def _forward_headers(
             continue
         if normalized in {"content-type", "accept"}:
             forwarded[normalized] = value
-        elif normalized in {"openai-beta", "openai-organization", "openai-project"}:
+        elif normalized == "openai-beta":
             forwarded[normalized] = value
     return forwarded
 
@@ -647,12 +494,6 @@ def _safe_content_type(value: str | None) -> str | None:
     return value
 
 
-def _nonnegative_int(value: object) -> int | None:
-    if type(value) is not int or value < 0:
-        return None
-    return value
-
-
 def _is_openai_model_key(value: str) -> bool:
     provider, separator, model = value.partition(":")
     return provider == OPENAI_PROVIDER and bool(separator and model.strip())
@@ -678,12 +519,15 @@ __all__ = [
     "FixedOpenAIResponsesTransport",
     "OpenAIResponsesGateway",
     "ResponsesGatewayPolicy",
+    "ResponsesTerminal",
     "ResponsesUpstreamResponse",
     "ResponsesUpstreamTransport",
     "ResponsesUsage",
     "build_paid_responses_gateway_controller",
     "load_paid_responses_gateway_config",
     "openai_responses_registry_charge_extractor",
+    "parse_responses_terminal",
     "parse_responses_usage",
+    "priced_service_tiers_for_registry_entry",
     "responses_route_allowed",
 ]

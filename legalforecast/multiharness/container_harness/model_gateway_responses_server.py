@@ -25,6 +25,7 @@ from .model_gateway_responses import (
     ResponsesUpstreamTransport,
     build_paid_responses_gateway_controller,
     load_paid_responses_gateway_config,
+    priced_service_tiers_for_registry_entry,
     responses_route_allowed,
 )
 from .model_gateway_types import GatewayResponse, ModelGatewayError
@@ -186,6 +187,9 @@ def main(argv: list[str] | None = None) -> int:
             run_request_id=run_request_id,
             allowed_model_keys=frozenset(model_keys),
             allowed_ingress_hosts=frozenset({"127.0.0.1"}),
+            allowed_service_tiers=priced_service_tiers_for_registry_entry(
+                paid_config.registry_entry
+            ),
             max_request_bytes=DEFAULT_REQUEST_BYTES,
             max_response_bytes=DEFAULT_RESPONSE_BYTES,
             max_requests=max_requests,
@@ -200,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             usage_evidence_path=args.usage_evidence,
             spend_controller=spend_controller,
         )
-    except (ModelGatewayError, OSError, ValueError):
+    except (OSError, RuntimeError, ValueError):
         print("Responses gateway failed closed", file=sys.stderr)
         return 1
 

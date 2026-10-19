@@ -125,34 +125,46 @@ def _policy(
         allowed_ingress_hosts=frozenset({"127.0.0.1"}),
         max_input_tokens=max_input_tokens,
         max_output_tokens=max_output_tokens,
-        max_total_input_tokens=max_input_tokens,
-        max_total_output_tokens=max_output_tokens,
+        max_total_input_tokens=64 * max_input_tokens,
+        max_total_output_tokens=64 * max_output_tokens,
     )
 
 
-def _request(*, model: str = "gpt-test", max_output_tokens: int = 8) -> bytes:
-    return json.dumps(
-        {
-            "model": model,
-            "input": [{"role": "user", "content": "hello"}],
-            "max_output_tokens": max_output_tokens,
-            "store": False,
-            "stream": False,
-        },
-        separators=(",", ":"),
-    ).encode()
+def _request(
+    *,
+    model: str = "gpt-test",
+    max_output_tokens: int = 8,
+    **overrides: object,
+) -> bytes:
+    payload: dict[str, object] = {
+        "model": model,
+        "input": [{"role": "user", "content": "hello"}],
+        "max_output_tokens": max_output_tokens,
+        "store": False,
+        "stream": False,
+    }
+    payload.update(overrides)
+    return json.dumps(payload, separators=(",", ":")).encode()
 
 
-def _response_body(*, input_tokens: int = 32, output_tokens: int = 7) -> bytes:
+def _response_body(
+    *,
+    input_tokens: int = 32,
+    output_tokens: int = 7,
+    status: str = "completed",
+) -> bytes:
     return json.dumps(
         {
             "id": "resp-fixture",
             "object": "response",
-            "status": "completed",
+            "status": status,
             "usage": {
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
-                "input_tokens_details": {"cached_tokens": 12},
+                "input_tokens_details": {
+                    "cached_tokens": 12,
+                    "cache_write_tokens": 4,
+                },
                 "output_tokens_details": {"reasoning_tokens": 3},
             },
         },
@@ -167,7 +179,8 @@ def _sse_body() -> bytes:
         b"event: response.completed\n"
         b'data: {"type":"response.completed","response":{"usage":{'
         b'"input_tokens":32,"output_tokens":7,"input_tokens_details":{'
-        b'"cached_tokens":12},"output_tokens_details":{"reasoning_tokens":3}}}}\n\n'
+        b'"cached_tokens":12,"cache_write_tokens":4},'
+        b'"output_tokens_details":{"reasoning_tokens":3}}}}\n\n'
         b"data: [DONE]\n\n"
     )
 
@@ -219,7 +232,13 @@ def test_streaming_response_preserves_exact_sse_and_settles_cache_usage(
     assert controller.settled[0]["input_tokens"] == 32
     assert controller.settled[0]["output_tokens"] == 7
     usage = parse_responses_usage(body, "text/event-stream")
-    assert usage == ResponsesUsage(32, 7, cache_read_tokens=12, reasoning_tokens=3)
+    assert usage == ResponsesUsage(
+        32,
+        7,
+        cache_read_tokens=12,
+        cache_write_tokens=4,
+        reasoning_tokens=3,
+    )
 
 
 def test_wrong_model_and_capability_are_rejected_before_upstream(
@@ -373,18 +392,23 @@ def test_openai_charge_extractor_prices_cached_input_and_reasoning_output() -> N
         _response_body(input_tokens=32, output_tokens=7), 200, None
     )
 
-    # 12 cached input at 0.1/M, 20 uncached input at 1/M, and 7 output at 5/M.
-    assert actual_microusd == 57
+    # 12 cache reads at 0.1/M, 4 writes at 1.25/M, 16 uncached at 1/M,
+    # and 7 output at 5/M.
+    assert actual_microusd == 58
 
 
 def test_openai_charge_extractor_rejects_malformed_cache_dimensions() -> None:
     body = json.dumps(
         {
+            "status": "completed",
             "usage": {
                 "input_tokens": 10,
                 "output_tokens": 2,
-                "input_tokens_details": {"cached_tokens": 11},
-            }
+                "input_tokens_details": {
+                    "cached_tokens": 8,
+                    "cache_write_tokens": 3,
+                },
+            },
         }
     ).encode()
     extractor = openai_responses_registry_charge_extractor(_openai_entry())

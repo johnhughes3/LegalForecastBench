@@ -1,4 +1,4 @@
-"""Protected paid execution primitives for the Claude terminal treatment.
+"""Protected paid execution primitives for terminal model treatments.
 
 The public ``release-run`` command stays provider-free by default.  A future
 protected workflow may opt into this module after the native Claude sandbox
@@ -58,6 +58,7 @@ PROTECTED_AUTHORITY_REGION_ENV: Final[str] = "LFB_AWS_REGION"
 PROTECTED_AUTHORITY_RESOURCE_ENV: Final[str] = (
     "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256"
 )
+PROTECTED_TERMINAL_PROVIDERS: Final[frozenset[str]] = frozenset({"anthropic", "openai"})
 
 
 class ProtectedTerminalPaidError(RuntimeError):
@@ -180,9 +181,15 @@ class ProtectedTerminalSpendConfig:
     def __post_init__(self) -> None:
         _non_empty(self.cycle_id, "cycle_id")
         _non_empty(self.account, "account")
-        if not self.model_key.startswith("anthropic:"):
+        provider, separator, model_id = self.model_key.partition(":")
+        if (
+            separator != ":"
+            or provider not in PROTECTED_TERMINAL_PROVIDERS
+            or not model_id.strip()
+        ):
             raise ProtectedTerminalPaidError(
-                "protected terminal paid execution requires an Anthropic model key"
+                "protected terminal paid execution requires a supported "
+                "provider:model_id key"
             )
         _positive_int(self.ceiling_microusd, "ceiling_microusd")
         _sha256(self.authority_identity_sha256, "authority_identity_sha256")
@@ -197,12 +204,18 @@ class ProtectedTerminalSpendConfig:
         _non_empty(self.ablation, "ablation")
         _positive_int(self.repeat_index, "repeat_index")
 
+    @property
+    def provider(self) -> str:
+        """Return the provider bound by the canonical model key."""
+
+        return self.model_key.split(":", 1)[0]
+
     def key_for(self, spec: RunSpec) -> ProviderSpendKey:
         """Bind one CLI spec to a durable provider-spend logical cell."""
 
         return ProviderSpendKey(
             cycle_id=self.cycle_id,
-            provider="anthropic",
+            provider=self.provider,
             account=self.account,
             stage=self.stage,
             model_key=self.model_key,
@@ -222,7 +235,7 @@ class ProtectedTerminalSpendConfig:
         _positive_int(request_ordinal, "request_ordinal")
         return ProviderSpendKey(
             cycle_id=self.cycle_id,
-            provider="anthropic",
+            provider=self.provider,
             account=self.account,
             stage=self.stage,
             model_key=self.model_key,
@@ -267,7 +280,7 @@ def build_dynamodb_spend_authority(
         authority_identity_sha256=config.authority_identity_sha256,
         resource_identity_sha256=config.provider_authority_resource_identity_sha256,
         cycle_id=config.cycle_id,
-        provider="anthropic",
+        provider=config.provider,
         account=config.account,
         cap_microusd=config.ceiling_microusd,
         policy=policy,
@@ -562,11 +575,13 @@ class ProviderGatewaySpendController(GatewaySpendController):
                 ambiguous=True,
             )
             return False
-        # The protocol's generic observed usage exposes Anthropic's raw
-        # ``input_tokens`` field.  Reuse the same normalized usage parser that
-        # established the charge so the durable journal records the total
-        # input dimension, including cache reads and writes.
-        normalized_usage = anthropic_gateway_usage(response_body, content_type)
+        # Anthropic reports uncached input separately; OpenAI Responses reports
+        # total input directly. Normalize only the former before journaling.
+        normalized_usage = (
+            anthropic_gateway_usage(response_body, content_type)
+            if self.config.provider == "anthropic"
+            else None
+        )
         journal_input_tokens = (
             normalized_usage.input_tokens
             if normalized_usage is not None
@@ -681,6 +696,7 @@ __all__ = [
     "PROTECTED_AUTHORITY_REGION_ENV",
     "PROTECTED_AUTHORITY_RESOURCE_ENV",
     "PROTECTED_AUTHORITY_TABLE_ENV",
+    "PROTECTED_TERMINAL_PROVIDERS",
     "PROTECTED_WORKFLOW_MARKER",
     "PROTECTED_WORKFLOW_MARKER_VALUE",
     "UPSTREAM_API_KEY_ENV",

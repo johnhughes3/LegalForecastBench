@@ -41,12 +41,19 @@ from legalforecast.runner import (
 )
 
 TERMINAL_HARNESS_ID: Final[str] = "claude-code-terminal"
+CODEX_HARNESS_ID: Final[str] = "codex"
 TERMINAL_ABLATION: Final[str] = "none"
 TERMINAL_REPEAT_INDEX: Final[int] = 1
 # One sidecar is launched per case.  This fixed bound accommodates the
 # reviewed Claude Code tool loop while keeping the gateway request envelope
 # independent of the total release case count.
 PAID_GATEWAY_MAX_REQUESTS_PER_CASE: Final[int] = 8
+_HARNESS_PROVIDERS: Final[dict[str, str]] = {
+    TERMINAL_HARNESS_ID: "anthropic",
+    CODEX_HARNESS_ID: "openai",
+    GATEWAY_HARNESS_ID: "anthropic",
+    "hermes-agent": "anthropic",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,13 +126,15 @@ def issue_paid_gateway_descriptor(
     official workflow must never become a paid gateway launch input.
     """
 
-    if harness_id not in {TERMINAL_HARNESS_ID, GATEWAY_HARNESS_ID, "hermes-agent"}:
+    expected_provider = _HARNESS_PROVIDERS.get(harness_id)
+    if expected_provider is None:
         raise ProtectedTerminalPaidError("unsupported protected gateway harness")
     if not model_key.strip():
         raise ProtectedTerminalPaidError("model_key must be nonempty")
-    if not model_key.startswith("anthropic:"):
+    if not model_key.startswith(f"{expected_provider}:"):
         raise ProtectedTerminalPaidError(
-            "protected Claude Code terminal runs require an Anthropic model key"
+            f"protected {harness_id} runs require a canonical "
+            f"{expected_provider}:model_id key"
         )
     if type(ceiling_microusd) is not int or ceiling_microusd <= 0:
         raise ProtectedTerminalPaidError("ceiling_microusd must be a positive integer")
@@ -149,9 +158,9 @@ def issue_paid_gateway_descriptor(
         registry_sha256 = model_registry_sha256(registry_bytes)
         require_official_registry_entries(registry.entries)
         provider, separator, model_id = model_key.partition(":")
-        if separator != ":" or provider != "anthropic" or not model_id:
+        if separator != ":" or provider != expected_provider or not model_id:
             raise ProtectedTerminalPaidError(
-                "model_key must use the canonical anthropic:model_id form"
+                f"model_key must use the canonical {expected_provider}:model_id form"
             )
         try:
             entry = registry.get(provider, model_id)
@@ -165,7 +174,7 @@ def issue_paid_gateway_descriptor(
             )
         if not entry.network_disabled or not entry.search_disabled:
             raise ProtectedTerminalPaidError(
-                "locked Anthropic registry entry must disable network and search"
+                "locked registry entry must disable network and search"
             )
         try:
             validate_executable_packets(run_inputs.execution)
@@ -267,7 +276,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--harness",
-        choices=("claude-code-terminal", "hermes-agent", "openclaw"),
+        choices=("claude-code-terminal", "codex", "hermes-agent", "openclaw"),
         default="claude-code-terminal",
         help="Bind spend identity to the selected pinned release harness.",
     )
@@ -297,6 +306,7 @@ if __name__ == "__main__":  # pragma: no cover - exercised by the workflow comma
 
 
 __all__ = [
+    "CODEX_HARNESS_ID",
     "PAID_GATEWAY_MAX_REQUESTS_PER_CASE",
     "ProtectedPaidGatewayDescriptor",
     "issue_paid_gateway_descriptor",

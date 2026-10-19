@@ -23,6 +23,7 @@ from legalforecast.multiharness.protected_terminal_paid import (
     ProtectedTerminalSpendConfig,
     ProviderGatewaySpendController,
     anthropic_registry_charge_extractor,
+    build_dynamodb_spend_authority,
     build_protected_gateway_spend_controller,
     protected_authority_environment,
     uniform_case_reservation_microusd,
@@ -85,6 +86,20 @@ def _config() -> ProtectedTerminalSpendConfig:
         cycle_id="cycle-1",
         account="official",
         model_key="anthropic:claude-sonnet-4-5",
+        ceiling_microusd=100,
+        authority_identity_sha256="a" * 64,
+        reservation_ledger_sha256="b" * 64,
+        provider_authority_table="provider-spend",
+        provider_authority_region="us-east-1",
+        provider_authority_resource_identity_sha256="c" * 64,
+    )
+
+
+def _openai_config() -> ProtectedTerminalSpendConfig:
+    return ProtectedTerminalSpendConfig(
+        cycle_id="cycle-1",
+        account="official",
+        model_key="openai:gpt-test",
         ceiling_microusd=100,
         authority_identity_sha256="a" * 64,
         reservation_ledger_sha256="b" * 64,
@@ -202,6 +217,42 @@ def test_uniform_reservation_leaves_remainder_in_shared_cap() -> None:
     assert uniform_case_reservation_microusd(101, 4) == 25
     with pytest.raises(ProtectedTerminalPaidError, match="at least one"):
         uniform_case_reservation_microusd(3, 4)
+
+
+def test_protected_spend_keys_preserve_openai_provider_identity() -> None:
+    config = _openai_config()
+
+    key = config.key_for_gateway_request("case-1", 1)
+
+    assert config.provider == "openai"
+    assert key.provider == "openai"
+    assert key.model_key == "openai:gpt-test"
+
+
+def test_dynamodb_authority_preserves_openai_provider_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_authority(**kwargs: object) -> _FakeAuthority:
+        captured.update(kwargs)
+        return _FakeAuthority()
+
+    monkeypatch.setattr(
+        protected_terminal_paid,
+        "protected_authority_environment",
+        lambda: ("provider-spend", "us-east-1", "c" * 64),
+    )
+    monkeypatch.setattr(
+        protected_terminal_paid,
+        "DynamoDbProviderSpendAuthority",
+        fake_authority,
+    )
+
+    authority = build_dynamodb_spend_authority(_openai_config())
+
+    assert isinstance(authority, _FakeAuthority)
+    assert captured["provider"] == "openai"
 
 
 def test_protected_gateway_factory_uses_workflow_authority(
