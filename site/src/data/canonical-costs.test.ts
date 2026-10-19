@@ -72,6 +72,7 @@ test("canonical scoring evidence overrides legacy saved costs including missing 
 	const saved = structuredClone(receiptCosts);
 	const fallback = saved.find((cost) => cost.slug === first.source.slug);
 	assert.ok(fallback);
+	delete fallback.repricing_source_revision;
 	fallback.forecast_run_id = "stale";
 	let result = applyReceiptCosts(
 		extendSnapshot(historicalSnapshot, additions),
@@ -94,5 +95,41 @@ test("canonical scoring evidence overrides legacy saved costs including missing 
 	assert.equal(
 		result.models.find((model) => model.slug === first.source.slug)?.cost.usd,
 		null,
+	);
+});
+
+test("receipt repricing replaces historical canonical costs only for the selected complete run", () => {
+	const saved = receiptCosts.find((cost) => cost.slug === "mistral-large-4");
+	const native = recentResults.find(
+		({ source }) => source.slug === saved?.slug,
+	);
+	assert.ok(saved?.repricing_source_revision);
+	assert.ok(native);
+	const apply = (cost: typeof saved) =>
+		applyReceiptCosts(
+			extendSnapshot(historicalSnapshot, recentResults),
+			recentResults.map(({ source }) => source),
+			[cost],
+			recentResults,
+		);
+	assert.equal(
+		apply(saved).models.find((model) => model.slug === saved.slug)?.cost.usd,
+		16.6489902,
+	);
+	assert.equal(
+		native.data.results[0]?.costs.standard_rate_total_cost,
+		28.72776124,
+	);
+	assert.throws(
+		() => apply({ ...saved, forecast_run_id: "stale" }),
+		/selected run/,
+	);
+	assert.throws(
+		() => apply({ ...saved, score_run_id: "stale" }),
+		/selected run/,
+	);
+	assert.throws(
+		() => apply({ ...saved, covered_case_count: 90 }),
+		/selected run/,
 	);
 });

@@ -188,7 +188,7 @@ Figure~\ref{fig:pareto} plots each ranked configuration's standardized cost agai
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrrrr}\toprule
 Configuration & Micro Brier & Case Brier & Correct & Acc. (\%) & Cost (\$)\\\midrule
-GPT-6 Sol & 0.11763 & 0.12949 & 327/387 & 84.50 & 11.01 \\
+GPT-6 Sol & 0.11763 & 0.12949 & 327/387 & 84.50 & 11.10 \\
 Claude Fable 5.1 & 0.12877 & 0.13653 & 318/387 & 82.17 & 83.18 \\
 Grok 4.6 & 0.13368 & 0.13480 & 312/387 & 80.62 & 15.72 \\
 Claude Opus 5 & 0.13987 & 0.13548 & 310/387 & 80.10 & 45.89 \\
@@ -196,19 +196,19 @@ GPT-5.6 Sol & 0.14009 & 0.13319 & 313/387 & 80.88 & 24.91 \\
 Kimi K3 & 0.14130 & 0.15367 & 303/387 & 78.29 & 16.87 \\
 GPT-5.6 Luna & 0.14322 & 0.15084 & 313/387 & 80.88 & 1.48 \\
 Claude Opus 5.5 & 0.14540 & 0.14762 & 299/387 & 77.26 & 20.59 \\
-GPT-6.1 Sol & 0.14948 & 0.13885 & 304/387 & 78.55 & 10.68 \\
+GPT-6.1 Sol & 0.14948 & 0.13885 & 304/387 & 78.55 & 10.85 \\
 GPT-6 Astra & 0.15221 & 0.14275 & 305/387 & 78.81 & 59.74 \\
 Gemini 3.8 Flash & 0.15331 & 0.13900 & 310/387 & 80.10 & 35.61 \\
 Gemini 4 Argon & 0.15387 & 0.14824 & 298/387 & 77.00 & 25.02 \\
 Ultramarine 1 Flash & 0.15495 & 0.17211 & 292/387 & 75.45 & 1.35 \\
 Grok 4.7 & 0.15833 & 0.16454 & 298/387 & 77.00 & 33.00 \\
 Claude Sonnet 5 & 0.15848 & 0.15964 & 293/387 & 75.71 & 24.68 \\
-Mistral Large 4 & 0.15964 & 0.15608 & 294/387 & 75.97 & 28.73 \\
-GPT-6 Luna & 0.16368 & 0.17379 & 296/387 & 76.49 & 0.62 \\
-Muse Wonder & 0.16536 & 0.16901 & 299/387 & 77.26 & 57.59 \\
+Mistral Large 4 & 0.15964 & 0.15608 & 294/387 & 75.97 & 16.65 \\
+GPT-6 Luna & 0.16368 & 0.17379 & 296/387 & 76.49 & 0.63 \\
+Muse Wonder & 0.16536 & 0.16901 & 299/387 & 77.26 & 39.38 \\
 Claude Sonnet 5.5 & 0.17298 & 0.17183 & 295/387 & 76.23 & 6.99 \\
 Muse Spark 1.3 & 0.18121 & 0.17845 & 279/387 & 72.09 & 8.78 \\
-Gemini 3.1 Pro Preview & 0.18345 & 0.18080 & 302/387 & 78.04 & 59.04 \\
+Gemini 3.1 Pro Preview & 0.18345 & 0.18080 & 302/387 & 78.04 & 27.73 \\
 \midrule
 GPT-4.1 (unranked reference) & 0.60513 & 0.57522 & 151/387 & 39.02 & --- \\
 Cohort-rate reference & 0.19410 & --- & 285/387 & 73.64 & ---\\
@@ -350,9 +350,9 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \draw[gray!18] (-.2,0.77778)--(12.00000,0.77778);
 \node[anchor=east] at (-.3,0.77778) {0.19};
 \draw[dashed,gray!70] (-.2,0.45897)--(12.00000,0.45897);
-\draw[dashed,blue!65!black,line width=.8pt] (0.90203,2.82497)--(2.46147,3.50384)--(2.64893,4.41646)--(6.71189,6.40672);
-\fill[blue!65!black] (6.71189,6.40672) circle (2.2pt);
-\node[anchor=west,font=\scriptsize] at (6.87189,6.40672) {GPT-6 Sol};
+\draw[dashed,blue!65!black,line width=.8pt] (0.92983,2.82497)--(2.46147,3.50384)--(2.64893,4.41646)--(6.72754,6.40672);
+\fill[blue!65!black] (6.72754,6.40672) circle (2.2pt);
+\node[anchor=west,font=\scriptsize] at (6.88754,6.40672) {GPT-6 Sol};
 \draw[blue!65!black,fill=white,line width=.7pt] (10.80620,5.54007) circle (2pt);
 \node[anchor=east,font=\scriptsize] at (10.64620,5.54007) {Fable 5.1};
 \draw[blue!65!black,fill=white,line width=.7pt] (7.43298,5.15817) circle (2pt);
@@ -368,8 +368,8 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \node[anchor=east,font=\scriptsize] at (2.48893,4.41646) {GPT-5.6 Luna};
 \draw[blue!65!black,fill=white,line width=.7pt] (7.97904,4.24647) circle (2pt);
 \node[anchor=north,font=\scriptsize] at (7.97904,4.07647) {Opus 5.5};
-\draw[blue!65!black,fill=white,line width=.7pt] (6.64991,3.92944) circle (2pt);
-\node[anchor=east,font=\scriptsize] at (6.48991,3.92944) {GPT-6.1 Sol};
+\draw[blue!65!black,fill=white,line width=.7pt] (6.68265,3.92944) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (6.52265,3.92944) {GPT-6.1 Sol};
 \draw[blue!65!black,fill=white,line width=.7pt] (10.13603,3.71697) circle (2pt);
 \node[anchor=west,font=\scriptsize] at (10.29603,3.71697) {GPT-6 Astra};
 \draw[gray!60,line width=.4pt] (9.08852,3.63114)--(9.49652,3.24714);
@@ -382,20 +382,21 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \node[anchor=west,font=\scriptsize] at (2.62147,3.50384) {Ultramarine 1 Flash};
 \draw[blue!65!black,fill=white,line width=.7pt] (8.93440,3.24134) circle (2pt);
 \node[anchor=west,font=\scriptsize] at (9.09440,3.24134) {Grok 4.7};
+\draw[gray!60,line width=.4pt] (8.34622,3.22902)--(8.34622,2.68502);
 \draw[blue!65!black,fill=white,line width=.7pt] (8.34622,3.22902) circle (2pt);
-\node[anchor=east,font=\scriptsize] at (8.18622,3.22902) {Sonnet 5};
-\draw[blue!65!black,fill=white,line width=.7pt] (8.65370,3.13949) circle (2pt);
-\node[anchor=north,font=\scriptsize] at (8.65370,2.96949) {Mistral Large 4};
-\fill[blue!65!black] (0.90203,2.82497) circle (2.2pt);
-\node[anchor=north,font=\scriptsize] at (0.90203,2.65497) {GPT-6 Luna};
-\draw[blue!65!black,fill=white,line width=.7pt] (10.06194,2.69425) circle (2pt);
-\node[anchor=west,font=\scriptsize] at (10.22194,2.69425) {Muse Wonder};
-\draw[blue!65!black,fill=white,line width=.7pt] (5.79279,2.10173) circle (2pt);
-\node[anchor=west,font=\scriptsize] at (5.95279,2.10173) {Sonnet 5.5};
+\node[anchor=north,font=\scriptsize] at (8.34622,2.68502) {Sonnet 5};
+\draw[blue!65!black,fill=white,line width=.7pt] (7.54922,3.13949) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (7.38922,3.13949) {Mistral Large 4};
+\fill[blue!65!black] (0.92983,2.82497) circle (2.2pt);
+\node[anchor=north,font=\scriptsize] at (0.92983,2.65497) {GPT-6 Luna};
+\draw[blue!65!black,fill=white,line width=.7pt] (9.29224,2.69425) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (9.45224,2.69425) {Muse Wonder};
+\draw[blue!65!black,fill=white,line width=.7pt] (5.79278,2.10173) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (5.95278,2.10173) {Sonnet 5.5};
 \draw[blue!65!black,fill=white,line width=.7pt] (6.25370,1.46170) circle (2pt);
 \node[anchor=east,font=\scriptsize] at (6.09370,1.46170) {Muse Spark 1.3};
-\draw[blue!65!black,fill=white,line width=.7pt] (10.11231,1.28725) circle (2pt);
-\node[anchor=east,font=\scriptsize] at (9.95231,1.28725) {Gemini 3.1 Pro};
+\draw[blue!65!black,fill=white,line width=.7pt] (8.58249,1.28725) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (8.74249,1.28725) {Gemini 3.1 Pro};
 \node[anchor=north] at (6.00000,-.78) {Standard-rate cost for the 91-case cohort, USD (log scale)};
 \node[rotate=90,anchor=south] at (-1.05,3.50000) {Micro Brier (lower is better) $\uparrow$};
 \fill[blue!65!black] (.2,-1.5) circle(2.2pt);\node[anchor=west] at (.4,-1.5) {On the observed frontier};
@@ -691,9 +692,9 @@ Results retain per-model forecast and scoring run identifiers and repository-rel
 
 \subsection{Main Results Costs}
 % BEGIN AI-PREPARED (disclosed in the AI use statement; not sent to the Pangram check)
-Cost coverage and missing usage dimensions are retained in the per-model evidence. Successful-case workload charges exclude failed attempts and unresolved charges and are not provider invoice totals. Where cache dimensions are missing, standard-rate repricing uses ordinary-input estimates.
+Cost coverage and missing usage dimensions are retained in the per-model evidence. Successful-case workload charges exclude failed attempts and unresolved charges and are not provider invoice totals. Reported cache reads and writes use the frozen published cache rates even when the other cache dimension is missing. Unreported dimensions remain missing, and the remaining input uses ordinary-input prices. Historical scoring exports and recorded workload amounts are preserved; the selected cost estimates are repriced from their archived receipts.
 
-The normalized costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. Gemini 4 Argon is estimated at \$25.02 from the Google standard-rate pricing snapshot, with cache-read usage missing for 185 responses and cache-write usage missing for all 341 responses. Mistral Large 4 has a provider-reported workload total of \$8.32 but a standardized rate estimate of \$28.73; cache-read usage is missing for 193 responses and cache-write usage is missing for all 547 responses. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, Ultramarine 1 Flash, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
+The normalized costs range from \$0.63 for GPT-6 Luna to \$83.18 for Fable. Gemini 4 Argon is estimated at \$25.02 from the Google standard-rate pricing snapshot, with cache-read usage missing for 185 responses and cache-write usage missing for all 341 responses. Mistral Large 4 has a provider-reported workload total of \$8.32 but a standardized rate estimate of \$16.65; cache-read usage is missing for 193 responses and cache-write usage is missing for all 547 responses. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, Ultramarine 1 Flash, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
 % END AI-PREPARED
 
 \subsection{Jev Evaluation Costs}

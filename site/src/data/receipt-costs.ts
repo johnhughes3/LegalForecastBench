@@ -15,6 +15,8 @@ export interface ReceiptCost {
 	standard_rate_estimate_usd: number | null;
 	standard_rate_multiplier: number;
 	standard_rate_method: string;
+	/** Source used to reprice archived receipts after the original scoring run. */
+	repricing_source_revision?: string;
 	caveats: string[];
 }
 
@@ -33,7 +35,10 @@ export function applyReceiptCosts(
 		const native = canonicalResults.find(
 			({ source }) => source.slug === cost.slug,
 		);
-		if (native?.data.results.some((row) => hasCanonicalCosts(row.costs)))
+		if (
+			!cost.repricing_source_revision &&
+			native?.data.results.some((row) => hasCanonicalCosts(row.costs))
+		)
 			continue;
 		const model = models.get(cost.slug);
 		const source = sources.find((item) => item.slug === cost.slug);
@@ -50,19 +55,20 @@ export function applyReceiptCosts(
 			throw new Error("Cost evidence does not match the complete selected run");
 		seen.add(cost.slug);
 		const estimate = cost.standard_rate_estimate_usd;
-		if (estimate === null) continue;
-		if (!Number.isFinite(estimate) || estimate <= 0)
+		if (estimate === null && !cost.repricing_source_revision) continue;
+		if (estimate !== null && (!Number.isFinite(estimate) || estimate <= 0))
 			throw new Error("Chart cost must be a positive finite estimate");
-		const cacheNote =
-			cost.standard_rate_method.includes("conservative") ||
-			cost.standard_rate_method.includes("missing_cache")
+		const cacheNote = cost.repricing_source_revision
+			? "Reported cache reads and writes use frozen list prices; unreported dimensions and cache tokens without a frozen cache price use ordinary input prices."
+			: cost.standard_rate_method.includes("conservative") ||
+					cost.standard_rate_method.includes("missing_cache")
 				? "Incomplete cache usage or prices use ordinary-input estimates, which may overstate or understate cache-adjusted costs."
 				: "Retains reported cache usage and cache prices.";
 		models.set(cost.slug, {
 			...model,
 			cost: {
 				usd: estimate,
-				basis: "estimated",
+				basis: estimate === null ? "unavailable" : "estimated",
 				note: `Standard-rate estimate for ${cost.covered_case_count} successful cases. ${cacheNote} Successful workload ${cost.workload_cost_basis === "provider_reported" ? "charge" : "estimate"}: $${cost.workload_cost_usd.toFixed(4)}${cost.standard_rate_multiplier === 2 ? " at Flex rates" : ""}. Excludes failed attempts and unresolved charges.`,
 			},
 		});
