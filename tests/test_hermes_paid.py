@@ -57,7 +57,7 @@ def test_supported_release_cli_builds_protected_hermes_without_gateway_image(
         assert options.gateway_image_digest is None
         assert options.case_id == "case-001"
         seen.append(adapter.config)
-        return SimpleNamespace(interrupted=False)
+        return SimpleNamespace(interrupted=False, rows=())
 
     monkeypatch.setattr(terminal_release, "execute_terminal_release_only", execute)
     assert (
@@ -200,7 +200,10 @@ def test_gateway_runtime_projection_has_no_provider_credential(
     }
 
 
-@pytest.mark.parametrize("failure", [None, "unknown_charge", "exhausted", "no_calls"])
+@pytest.mark.parametrize(
+    "failure",
+    [None, "unknown_charge", "exhausted", "no_calls", "delegate_error"],
+)
 def test_paid_wrapper_requires_durable_settlement(
     tmp_path, monkeypatch, admitted, failure
 ):
@@ -242,6 +245,8 @@ def test_paid_wrapper_requires_durable_settlement(
     monkeypatch.setattr(AnthropicModelGateway, "_forward", forward)
 
     def run(delegate, req, workspace, tools):
+        if failure == "delegate_error":
+            raise RuntimeError("child command failed")
         route = json.loads(Path(delegate.manifest.command[-1]).read_bytes())
         assert "host-only-real-key-fixture" not in json.dumps(route)
         body = {
@@ -272,9 +277,21 @@ def test_paid_wrapper_requires_durable_settlement(
 
     monkeypatch.setattr(hermes_paid.CommandAdapter, "run_with_tools", run)
     if failure:
-        with pytest.raises(ValueError, match="fully settle"):
+        expected_error = (
+            pytest.raises(RuntimeError, match="child command failed")
+            if failure == "delegate_error"
+            else pytest.raises(ValueError, match="fully settle")
+        )
+        with expected_error:
             admitted.run_with_tools(paid_request(admitted), tmp_path, object())
-        assert not (tmp_path / "private-logs/gateway/settlement.json").exists()
+        accounting = json.loads(
+            (tmp_path / "private-logs/gateway/settlement.json").read_bytes()
+        )
+        assert accounting["settlement_status"] == "unsettled"
+        assert (
+            accounting["gateway_request_count"] == accounting["usage"]["request_count"]
+        )
+        assert accounting["settled_requests"] == 0
         if failure == "exhausted":
             assert forwarded == []
         if failure == "unknown_charge":
@@ -289,6 +306,8 @@ def test_paid_wrapper_requires_durable_settlement(
         artifact = result.artifacts[0]
         evidence = json.loads((tmp_path / artifact.path).read_bytes())
         assert evidence["request_sha256"] == paid_request(admitted).request_sha256
+        assert evidence["settlement_status"] == "settled"
+        assert evidence["gateway_request_count"] == 2
         assert evidence["settled_microusd"] == 320
         assert not artifact.public
         from legalforecast.multiharness.runner import _artifact_index

@@ -233,20 +233,26 @@ def test_paid_controller_authorizes_and_settles_each_request_with_run_id() -> No
     assert controller.failure_calls == []
 
 
-def test_paid_authorization_failure_blocks_upstream_and_settles_reservation() -> None:
+def test_paid_authorization_failure_drops_local_reservation_and_keeps_cap() -> None:
     with _upstream() as upstream:
-        policy = _policy(upstream)
+        policy = _policy(upstream, max_requests=1)
         controller = _FakeSpendController(authorize_error=RuntimeError("denied"))
         with _gateway(policy, controller) as gateway:
             status, response_body = _request(gateway, _message_body())
+            second_status, second_body = _request(gateway, _message_body())
             usage = gateway.gateway.usage.snapshot()
 
     assert status == 503
     assert b"spend authorization failed" in response_body
+    assert second_status == 429
+    assert b"request budget exhausted" in second_body
     assert upstream.requests == []
     assert usage.request_count == 1
+    assert usage.input_tokens == 0
+    assert usage.output_tokens == 0
     assert usage.reserved_input_tokens == 0
     assert usage.reserved_output_tokens == 0
+    assert usage.rejected_count == 2
     assert controller.settle_calls == []
     assert controller.failure_calls == []
 

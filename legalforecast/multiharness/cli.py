@@ -896,7 +896,11 @@ def _cmd_terminal_release_execute(args: argparse.Namespace) -> int:
         raise ValueError(str(exc)) from exc
     run = execute_terminal_release_only(options, adapter=adapter)
     _cli_note(f"Wrote scoreless run package to {options.output_dir}.")
-    return 1 if run.interrupted else 0
+    return (
+        1
+        if run.interrupted or any(row.result.status != "succeeded" for row in run.rows)
+        else 0
+    )
 
 
 def _cmd_terminal_release_score(args: argparse.Namespace) -> int:

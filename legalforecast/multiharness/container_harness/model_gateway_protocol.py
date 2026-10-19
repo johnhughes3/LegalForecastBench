@@ -335,7 +335,9 @@ class AnthropicModelGateway:
                     raise RuntimeError("spend controller returned no lease")
                 self._spend_controller.mark_transport_started(spend_lease)
             except Exception:
-                if self._settle_usage_after_failure(reservation, None, spend_lease):
+                if spend_lease is None:
+                    self._reject_usage_after_authorization_failure(reservation)
+                elif self._settle_usage_after_failure(reservation, None, spend_lease):
                     self._record_spend_failure(
                         spend_lease,
                         failure_type="gateway_transport_start_error",
@@ -416,6 +418,16 @@ class AnthropicModelGateway:
             )
             return False
         return True
+
+    def _reject_usage_after_authorization_failure(
+        self, reservation: Reservation
+    ) -> None:
+        try:
+            self.usage.reject(reservation)
+        except GatewayEvidenceError:
+            # The local accounting failure is itself fail-closed.  There is no
+            # spend lease to record because authorization did not return one.
+            pass
 
     def _record_spend_failure(self, lease: object | None, *, failure_type: str) -> None:
         if self._spend_controller is None or lease is None:
