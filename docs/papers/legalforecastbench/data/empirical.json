@@ -934,7 +934,7 @@
       "eligibility": "qualified",
       "eligibility_reason": "Mistral has not published a training-data or knowledge cutoff.",
       "forecast_run_id": "39193012515",
-      "scoring_run_id": "39193407784",
+      "scoring_run_id": "39195758917",
       "micro_brier": 0.15963514211886304,
       "equal_case_brier": 0.1560838716838717,
       "correct": 294,
@@ -968,7 +968,7 @@
       "cost_evidence": {
         "slug": "mistral-large-4",
         "forecast_run_id": "39193012515",
-        "score_run_id": "39193407784",
+        "score_run_id": "39195758917",
         "model_key": "vercel_ai_gateway:mistral/mistral-large-4",
         "covered_case_count": 91,
         "missing_case_count": 0,

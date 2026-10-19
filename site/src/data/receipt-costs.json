@@ -316,7 +316,7 @@
 	{
 		"slug": "mistral-large-4",
 		"forecast_run_id": "39193012515",
-		"score_run_id": "39193407784",
+		"score_run_id": "39195758917",
 		"model_key": "vercel_ai_gateway:mistral/mistral-large-4",
 		"covered_case_count": 91,
 		"missing_case_count": 0,

@@ -99,7 +99,7 @@ test("canonical scoring evidence overrides legacy saved costs including missing 
 });
 
 test("receipt repricing replaces historical canonical costs only for the selected complete run", () => {
-	const saved = receiptCosts.find((cost) => cost.slug === "mistral-large-4");
+	const saved = receiptCosts.find((cost) => cost.slug === "muse-wonder-1-0");
 	const native = recentResults.find(
 		({ source }) => source.slug === saved?.slug,
 	);
@@ -114,11 +114,11 @@ test("receipt repricing replaces historical canonical costs only for the selecte
 		);
 	assert.equal(
 		apply(saved).models.find((model) => model.slug === saved.slug)?.cost.usd,
-		16.6489902,
+		39.3793984,
 	);
 	assert.equal(
 		native.data.results[0]?.costs.standard_rate_total_cost,
-		28.72776124,
+		57.593452,
 	);
 	assert.throws(
 		() => apply({ ...saved, forecast_run_id: "stale" }),
