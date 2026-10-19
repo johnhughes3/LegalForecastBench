@@ -29,7 +29,7 @@ Provider purchases and budget consent for corpus construction belong to the priv
 
 ## Documentation placement
 
-Keep public-facing documentation under `docs/`: explain the benchmark, reproduction, public contracts, and how outsiders can contribute. Save private/internal operating instructions, deployment procedures, credential setup, and corpus administration in the private LegalForecastCorpus repository. Delete obsolete plans rather than archiving them in this repository. Keep the root README concise; the CLAUDE.md symlink points to these contributor instructions.
+Keep public-facing documentation under `docs/`: explain the benchmark, reproduction, public contracts, and how outsiders can contribute. Save private/internal operating instructions, deployment procedures, credential setup, and corpus administration in the private LegalForecastCorpus repository. The owner-requested public-site verification and promotion policy below is an exception and belongs in this root agent guidance; operational deployment runbooks remain private. Delete obsolete plans rather than archiving them in this repository. Keep the root README concise; the CLAUDE.md symlink points to these contributor instructions.
 
 ## Public Site Deployment and Promotion
 
