@@ -1,9 +1,9 @@
 {
-  "scope": "Eighteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-10-12.",
+  "scope": "Twenty-configuration ranked manuscript panel on the Cycle 1 release. Checked 2026-10-18.",
   "release": {
     "release": "cycle-1-91-2026-09-08-luna-r5",
     "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
-    "method": "Official scored results for the eighteen ranked configurations on this release: 91 cases and 387 scoreable units each."
+    "method": "Official scored results for the twenty ranked configurations on this release: 91 cases and 387 scoreable units each. GPT-4.1 is retained as an unranked reference in the 21-configuration comparison family."
   },
   "cohort": {
     "case_count": 91,
@@ -18,7 +18,7 @@
     "bootstrap": {
       "method": "Paired case-cluster percentile bootstrap",
       "replicates": 1000000,
-      "correction": "Bonferroni across 171 planned model pairs and three metrics (19-model family including the GPT-4.1 reference)",
+      "correction": "Bonferroni across 210 planned model pairs and three metrics (21-model family including the GPT-4.1 reference)",
       "caveat": "Exploratory. Cross-case dependence (for example, related cases in one MDL) has not yet been verified."
     }
   },
@@ -29,6 +29,8 @@
       "provider": "openai",
       "model_key": "openai:gpt-6-sol",
       "reasoning": "High",
+      "eligibility": "eligible",
+      "eligibility_reason": "An April 20, 2026 knowledge cutoff predates every scored decision.",
       "micro_brier": 0.11762790697674418,
       "equal_case_brier": 0.12949124213088498,
       "correct": 327,
@@ -152,8 +154,8 @@
       "reasoning": "High",
       "release_date": "2026-08-12",
       "training_cutoff": null,
-      "eligibility": "qualified",
-      "eligibility_reason": "Cutoff evidence is conflicting or unknown.",
+      "eligibility": "eligible",
+      "eligibility_reason": "A February 1, 2026 knowledge cutoff predates every scored decision.",
       "github_run_id": "34294236811",
       "micro_brier": 0.13368062015503876,
       "equal_case_brier": 0.13480444111444112,
@@ -611,11 +613,82 @@
       "log_loss_basis": null
     },
     {
+      "slug": "gemini-4-argon",
+      "display_name": "Gemini 4 Argon",
+      "provider": "Google",
+      "model_key": "google:gemini-4-argon",
+      "access": "Google API (managed document tools)",
+      "reasoning": "High thinking",
+      "release_date": "2026-10-13",
+      "training_cutoff": "March 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A March 2026 knowledge cutoff predates every scored decision.",
+      "forecast_run_id": "39155697923",
+      "scoring_run_id": "39189136234",
+      "micro_brier": 0.1538653746770026,
+      "equal_case_brier": 0.14824115642294214,
+      "correct": 298,
+      "high_confidence": {
+        "count": 225,
+        "wrong": 24,
+        "mean_confidence": 0.9507555555555555,
+        "accuracy": 0.8933333333333333,
+        "share": 0.5813953488372093
+      },
+      "cost": {
+        "usd": 25.0204571,
+        "basis": "estimated_from_pricing_snapshot",
+        "note": "Standard-rate estimate from provider-reported usage and the frozen Google rates. Cache-read dimensions are missing for 185 responses and cache-write dimensions for 341 responses; ordinary-input estimates are used where needed."
+      },
+      "accuracy": 0.7700258397932817,
+      "cutoff_evidence": {
+        "slug": "gemini-4-argon",
+        "model_ids": [
+          "gemini-4-argon"
+        ],
+        "cutoff": "2026-03",
+        "kind": "knowledge",
+        "source": "https://deepmind.google/models/model-cards/gemini-4-argon/",
+        "checked": "2026-10-15"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/gemini-4-argon.json",
+      "cost_evidence": {
+        "basis": "estimated_from_pricing_snapshot",
+        "forecast_run_id": "39155697923",
+        "score_run_id": "39189136234",
+        "model_key": "google:gemini-4-argon",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 25.020494,
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+        "standard_rate_estimate_usd": 25.0204571,
+        "standard_rate_method": "frozen_registry_repricing",
+        "pricing_reference": "https://ai.google.dev/gemini-api/docs/pricing: Standard introductory pricing through November 30, 2026: input USD 2/M, output including thinking USD 10/M, implicit cache read USD 0.10/M. Checked 2026-10-15.",
+        "response_count": 341,
+        "missing_cache_read_response_count": 185,
+        "missing_cache_write_response_count": 341,
+        "caveats": [
+          "Successful case receipts only; excludes failed attempts, retries, unresolved charges and summary preparation.",
+          "These are workload charges or usage estimates, not provider invoice totals.",
+          "Cache dimensions are incomplete; ordinary-input estimates are used where the frozen cache dimensions are unavailable."
+        ]
+      },
+      "unit_source": "site/src/data/significance/gemini-4-argon.jsonl",
+      "log_loss": 0.47297817048059776,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "grok-4-7",
       "display_name": "Grok 4.7",
       "provider": "vercel_ai_gateway",
       "model_key": "vercel_ai_gateway:spacexai/grok-4.7",
       "reasoning": "High",
+      "eligibility": "eligible",
+      "eligibility_reason": "A May 2026 knowledge cutoff predates every scored decision.",
       "micro_brier": 0.15832558139534883,
       "equal_case_brier": 0.16454140522176236,
       "correct": 298,
@@ -727,6 +800,76 @@
       },
       "unit_source": "site/src/data/significance/claude-sonnet-5.jsonl",
       "log_loss": 0.487058030961046,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "mistral-large-4",
+      "display_name": "Mistral Large 4",
+      "provider": "Mistral",
+      "model_key": "vercel_ai_gateway:mistral/mistral-large-4",
+      "access": "Vercel AI Gateway (served by Mistral)",
+      "reasoning": "High",
+      "release_date": "2026-10-06",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "Mistral has not published a training-data or knowledge cutoff.",
+      "forecast_run_id": "39193012515",
+      "scoring_run_id": "39193407784",
+      "micro_brier": 0.15963514211886304,
+      "equal_case_brier": 0.1560838716838717,
+      "correct": 294,
+      "high_confidence": {
+        "count": 128,
+        "wrong": 7,
+        "mean_confidence": 0.926484375,
+        "accuracy": 0.9453125,
+        "share": 0.330749354005168
+      },
+      "cost": {
+        "usd": 28.72776124,
+        "basis": "standard_rate",
+        "note": "Complete standard-rate repricing for 91 successful cases. The provider-reported successful workload charge was $8.324544; cache dimensions are missing for 193 read responses and 547 write responses, and the figures exclude failed attempts, retries and unresolved charges."
+      },
+      "accuracy": 0.7596899224806202,
+      "cutoff_evidence": {
+        "slug": "mistral-large-4",
+        "model_ids": [
+          "mistral/mistral-large-4"
+        ],
+        "cutoff": null,
+        "kind": null,
+        "source": "https://docs.mistral.ai/models/mistral-large-4-0",
+        "checked": "2026-10-12",
+        "note": "Mistral's model documentation does not report a training-data or knowledge cutoff."
+      },
+      "cutoff_status": "qualified",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/mistral-large-4.json",
+      "cost_evidence": {
+        "basis": "provider_reported",
+        "forecast_run_id": "39193012515",
+        "score_run_id": "39193407784",
+        "model_key": "vercel_ai_gateway:mistral/mistral-large-4",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 8.324544,
+        "workload_cost_basis": "provider_reported",
+        "workload_cost_method": "gateway_reported_charge",
+        "standard_rate_estimate_usd": 28.72776124,
+        "standard_rate_method": "frozen_registry_repricing",
+        "pricing_reference": "https://docs.mistral.ai/models/mistral-large-4-0 (standard USD 1.36/M input, 4.18/M output, 0.14/M cache read), checked 2026-10-12",
+        "response_count": 547,
+        "missing_cache_read_response_count": 193,
+        "missing_cache_write_response_count": 547,
+        "caveats": [
+          "Successful case receipts only; excludes failed attempts, retries, unresolved charges and summary preparation.",
+          "The provider-reported workload charge reflects a current Gateway promotion and is reported separately from the standard-rate repricing.",
+          "Cache dimensions are incomplete; the standard-rate estimate uses ordinary-input estimates where needed."
+        ]
+      },
+      "unit_source": "site/src/data/significance/mistral-large-4.jsonl",
+      "log_loss": 0.4871503496752392,
       "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
@@ -1463,7 +1606,7 @@
     "summary_catalog": "site/public/data/summary-comparison/catalog.json"
   },
   "analysis_limits": [
-    "No complete significance ordering is claimed for the eighteen-configuration panel; unavailable per-unit forecasts limit pairwise comparisons.",
+    "No complete significance ordering is claimed for the twenty-configuration ranked panel; paired evidence is available for 15 of the 21 comparison-family configurations, so unavailable per-unit forecasts limit pairwise comparisons.",
     "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
     "No human forecasting baseline was run.",
     "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
