@@ -84,8 +84,8 @@ jobs:
           done
           {
             printf 'Published and read back **%s** datasets.\n\n' "${#files[@]}"
-            printf 'Source revision: `%s`\n\n' "$GITHUB_SHA"
-            printf 'Destination: `s3://%s/%s/`\n\n' "$LFB_RESULTS_BUCKET" "$prefix"
+            printf "Source revision: \`%s\`\n\n" "$GITHUB_SHA"
+            printf "Destination: \`s3://%s/%s/\`\n\n" "$LFB_RESULTS_BUCKET" "$prefix"
             cat /tmp/published-site-data.txt
           } >> "$GITHUB_STEP_SUMMARY"
 
