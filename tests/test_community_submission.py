@@ -557,7 +557,7 @@ def test_deleting_scoped_selection_label_fails_claim_validation(tmp_path: Path) 
         validate_submission_file(submission_path)
 
 
-def test_missing_required_attestation_is_rejected(tmp_path: Path) -> None:
+def test_missing_required_contributor_declaration_is_rejected(tmp_path: Path) -> None:
     record = _valid_submission_record(tmp_path)
     record["attestations"] = [
         ATTEST_NOT_OFFICIAL,

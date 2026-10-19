@@ -16,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "README.md"
 PUBLICATION_GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.md"
 MULTIHARNESS_README_PATH = ROOT / "docs" / "multiharness" / "README.md"
+MULTIHARNESS_SUBMISSIONS_PATH = ROOT / "docs" / "multiharness" / "submissions.md"
+MULTIHARNESS_CONTRIBUTOR_GUIDE_PATH = (
+    ROOT / "docs" / "multiharness" / "contributor-guide.md"
+)
 PREPUBLICATION_MARKER = "<!-- result-publication-state: pre-publication -->"
 UNPUBLISHED_STATUS = "No official or community benchmark score is published yet"
 NON_AFFILIATION_TEXT = (
@@ -177,30 +181,59 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
     )
 
 
-def test_readme_points_to_the_planned_multiharness_track() -> None:
-    """The community track is planned, so the README only signposts its docs."""
+def test_readme_points_to_the_multiharness_track() -> None:
+    """The README signposts community evidence without claiming new baselines."""
     readme = _readme()
     start_here = readme.index("## Start Here")
-    community = readme.index("## Community Multi-Harness Comparisons (planned)")
+    community = readme.index("## Community Multi-Harness Comparisons")
     quickstart = readme.index("## Quickstart")
 
     assert start_here < community < quickstart
     assert "](docs/multiharness/README.md)" in readme
-    assert "not yet operational" in readme
+    assert "accepted historical provider smoke examples" in readme
+    assert "baselines remain unfinished" in readme
     assert "uv run legalforecast multiharness" not in readme
 
 
-def test_multiharness_landing_page_carries_status_labels_and_contributor_path() -> None:
+def test_multiharness_landing_page_evidence_descriptions() -> None:
     landing = _multiharness_readme()
 
-    assert "**Status: planned, not yet operational.**" in landing
+    assert "**Status: non-official community track.**" in landing
+    assert "## Evidence descriptions" in landing
+    assert "not result tiers" in landing
+    assert "Two result tiers" not in landing
+    assert (
+        "official, verified-community, community-unverified, or alpha-non-canonical"
+        in landing
+    )
     assert f"**{PRELIMINARY_LABEL}**" in landing
     assert f"**{REPRODUCIBLE_LABEL}**" in landing
+    assert "accepted through the community PR workflow" in landing
+    assert "official LegalForecast-MTD result publication" in landing
+    assert "attestation" not in landing.casefold()
     assert "uv run legalforecast multiharness --help" in landing
     for target in ("contributor-guide.md", "adapter-spec.md", "submissions.md"):
         assert f"]({target})" in landing
         assert (MULTIHARNESS_README_PATH.parent / target).is_file()
     assert NON_AFFILIATION_TEXT in landing
+
+
+def test_multiharness_docs_declarations_and_owner_approval() -> None:
+    submissions = MULTIHARNESS_SUBMISSIONS_PATH.read_text(encoding="utf-8")
+    guide = MULTIHARNESS_CONTRIBUTOR_GUIDE_PATH.read_text(encoding="utf-8")
+
+    assert "## Required Contributor Declarations" in submissions
+    assert "ordinary manifest fields" in submissions
+    assert "validator requires these contributor declarations" in submissions
+    assert "separate publication guardrail scans artifact contents" in submissions
+    assert "not signatures, certificates, separate approval artifacts" in submissions
+    assert "--acknowledge-required-attestations" in submissions
+    assert "stable `attestations` manifest field" in submissions
+
+    assert "recorded owner approval" in guide
+    assert "private JSON containing `spec_sha256`" in guide
+    assert "the owner's actual `owner_approval` words" in guide
+    assert "detached approval" not in guide.casefold()
 
 
 def test_all_repository_relative_markdown_links_resolve() -> None:

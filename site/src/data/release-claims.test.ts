@@ -8,24 +8,30 @@ test("release significance claim excludes the reference and untested models", ()
 	const tested = primarySnapshot.models.filter((model) =>
 		comparison.available_models.includes(model.slug),
 	);
-	assert.equal(tested.length, 12);
+	assert.equal(tested.length, 15);
 	assert.equal(primarySnapshot.significant_pairs.length, 0);
 	assert.equal(comparison.significant_pairs.length, tested.length * 3);
 	assert.ok(comparison.missing_models.includes("gpt-6-astra"));
 	assert.ok(comparison.available_models.includes("gpt-5-6-luna"));
 });
 
-test("cutoff claims follow the reported-cutoff rule: fifteen eligible, three qualified", () => {
+test("cutoff claims follow the reported-cutoff rule: sixteen eligible, five qualified", () => {
 	const eligible = primarySnapshot.models.filter(
 		(model) => model.eligibility === "eligible",
 	);
-	assert.equal(eligible.length, 15);
+	assert.equal(eligible.length, 16);
 	assert.deepEqual(
 		primarySnapshot.models
 			.filter((model) => model.eligibility !== "eligible")
 			.map((model) => model.slug)
 			.sort(),
-		["kimi-k3", "muse-spark-1-3", "muse-wonder-1-0"],
+		[
+			"kimi-k3",
+			"mistral-large-4",
+			"muse-spark-1-3",
+			"muse-wonder-1-0",
+			"ultramarine-1-flash",
+		],
 	);
 });
 

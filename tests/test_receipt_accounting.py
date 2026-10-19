@@ -60,8 +60,9 @@ def test_reported_charge_is_preserved_and_repricing_is_separate() -> None:
     records = build_public_accounting([receipt()], registry())
     assert records[0]["estimated_cost"] == 0.25
     assert records[0]["cost_basis"] == "provider_reported"
-    # Missing write dimension: conservative uncached pricing; reasoning not added.
-    assert records[0]["standard_rate_cost"] == pytest.approx(0.0004)
+    # Published rates with the reported cache read priced at the cache rate; the
+    # unreported write dimension is priced as ordinary input; reasoning not added.
+    assert records[0]["standard_rate_cost"] == pytest.approx(0.000328)
     assert records[0]["missing_cache_write_response_count"] == 1
     assert "raw_output" not in str(records)
     records[0]["model_id"] = "synthetic-model"
@@ -70,7 +71,7 @@ def test_reported_charge_is_preserved_and_repricing_is_separate() -> None:
     assert costs.missing_case_count == 1
     assert costs.standard_rate_status == "partial"
     assert costs.standard_rate_covered_case_count == 1
-    assert costs.standard_rate_total_cost == pytest.approx(0.0004)
+    assert costs.standard_rate_total_cost == pytest.approx(0.000328)
 
 
 def test_missing_historical_usage_preserves_cost_and_missing_repricing() -> None:
@@ -104,7 +105,7 @@ def test_join_refuses_duplicates_wrong_models_and_inconsistent_amounts() -> None
 def test_flex_reprices_only_from_explicit_frozen_basis() -> None:
     entry = replace(registry().entries[0], pricing_source="Flex is 50% of Standard")
     output = build_public_accounting([receipt()], ModelRegistry(entries=(entry,)))[0]
-    assert output["standard_rate_cost"] == pytest.approx(0.0008)
+    assert output["standard_rate_cost"] == pytest.approx(0.000656)
     entry = replace(entry, pricing_source="Unknown rate basis")
     assert (
         build_public_accounting([receipt()], ModelRegistry(entries=(entry,)))[0][
@@ -112,6 +113,35 @@ def test_flex_reprices_only_from_explicit_frozen_basis() -> None:
         ]
         is None
     )
+
+
+@pytest.mark.parametrize(
+    ("pricing_source", "expected"),
+    [("Standard published rates", 0.00052), ("Flex is 50% of Standard", 0.00104)],
+)
+def test_known_cache_writes_survive_missing_reads_through_publication(
+    pricing_source: str, expected: float
+) -> None:
+    record = receipt()
+    response = record["cost_evidence"]["response_usage_details"][0]
+    response.pop("cache_read_tokens")
+    response["cache_write_tokens"] = 40
+    entry = replace(
+        registry().entries[0],
+        cache_write_token_price=5,
+        pricing_source=pricing_source,
+    )
+    records = build_public_accounting([record], ModelRegistry(entries=(entry,)))
+    # 60 ordinary input at $2/M, 40 cache writes at $5/M, 20 output at $10/M.
+    # Missing read evidence must not erase the known write premium. Flex's
+    # frozen half-price rates are doubled only for the standard-rate column.
+    assert records[0]["standard_rate_cost"] == pytest.approx(expected)
+    assert records[0]["estimated_cost"] == 0.25
+    assert records[0]["missing_cache_read_response_count"] == 1
+    records[0]["model_id"] = "synthetic-model"
+    costs = build_site_export(synthetic_scores(), accounting=records).results[0].costs
+    assert costs.standard_rate_total_cost == pytest.approx(expected)
+    assert costs.total_cost == 0.25
 
 
 def test_module_cli_produces_accounting_consumable_by_export(tmp_path) -> None:
@@ -195,7 +225,7 @@ def test_report_command_accepts_receipt_costs_without_inventing_efficiency(
     cost = payload["cost_accounting"][0]
     assert cost["basis"] == "provider_reported"
     assert cost["total_cost"] == 0.25
-    assert cost["standard_rate_total_cost"] == pytest.approx(0.0004)
+    assert cost["standard_rate_total_cost"] == pytest.approx(0.000328)
     assert cost["standard_rate_status"] == "partial"
     model = next(row for row in payload["rows"] if row["row_type"] == "model")
     assert model["mean_latency_ms"] is None
@@ -401,7 +431,7 @@ def test_withdrawn_case_costs_do_not_enter_retained_workload_or_repricing() -> N
     assert costs.covered_case_count == 1
     assert costs.missing_case_count == 0
     assert costs.standard_rate_status == "complete"
-    assert costs.standard_rate_total_cost == pytest.approx(0.0004)
+    assert costs.standard_rate_total_cost == pytest.approx(0.000328)
     assert costs.response_count == 1
     assert "synthetic-case-b" not in output.model_dump_json()
 
@@ -476,3 +506,66 @@ def test_jev_older_cost_field_is_supported_without_rounding():
     record, frozen = jev_receipt_and_registry()
     record["jev_provider_metadata"]["gateway"].pop("gatewayCost")
     assert build_public_accounting([record], frozen)[0]["estimated_cost"] == 0.000281064
+
+
+def test_standard_rate_prices_reported_cache_reads_without_write_evidence() -> None:
+    """Gateway-routed Mistral reports cache reads but never cache writes."""
+    record = receipt()
+    record["usage"] = {
+        "input_tokens": 1000,
+        "output_tokens": 100,
+        "estimated_cost_microusd": 500,
+    }
+    record["cost_evidence"]["charged_cost_microusd"] = 500
+    record["cost_evidence"]["response_usage_details"] = [
+        {"input_tokens": 400, "output_tokens": 40},
+        {"input_tokens": 600, "output_tokens": 60, "cache_read_tokens": 300},
+    ]
+    output = build_public_accounting([record], registry())[0]
+    # (400 + 300) uncached at 2, 300 cache reads at 0.2, 100 output at 10.
+    assert output["standard_rate_cost"] == pytest.approx(0.00246)
+    assert output["missing_cache_read_response_count"] == 1
+    assert output["missing_cache_write_response_count"] == 2
+    assert output["missing_cache_rate_response_count"] == 0
+
+
+def test_standard_rate_without_frozen_cache_rate_prices_cache_as_input() -> None:
+    entry = replace(registry().entries[0], cache_read_token_price=None)
+    output = build_public_accounting([receipt()], ModelRegistry(entries=(entry,)))[0]
+    # No published cache rate: the 40 cache reads stay at the ordinary input rate.
+    assert output["standard_rate_cost"] == pytest.approx(0.0004)
+    assert output["missing_cache_rate_response_count"] == 1
+
+
+def test_standard_rate_applies_long_context_surcharge() -> None:
+    from legalforecast.evals.model_registry import LongContextSurcharge
+    from legalforecast.runner.managed_cost import (
+        ManagedResponseUsage,
+        standard_rate_usage_cost,
+    )
+
+    entry = replace(
+        registry().entries[0],
+        cache_write_token_price=0.5,
+        long_context_surcharge=LongContextSurcharge(
+            threshold_input_tokens=500,
+            input_price_multiplier=2.0,
+            output_price_multiplier=1.5,
+        ),
+    )
+    below = ManagedResponseUsage(
+        input_tokens=400, output_tokens=10, cache_read_tokens=100, cache_write_tokens=50
+    )
+    above = ManagedResponseUsage(
+        input_tokens=1000,
+        output_tokens=10,
+        cache_read_tokens=100,
+        cache_write_tokens=50,
+    )
+    # Below threshold: 250 uncached at 2, 100 reads at 0.2, 50 writes at 0.5,
+    # 10 output at 10.
+    assert standard_rate_usage_cost(entry, [below]) == pytest.approx(0.000645)
+    # Above threshold every input-side rate doubles and output is 1.5x.
+    assert standard_rate_usage_cost(entry, [above]) == pytest.approx(
+        (850 * 4 + 100 * 0.4 + 50 * 1.0 + 10 * 15) / 1_000_000
+    )

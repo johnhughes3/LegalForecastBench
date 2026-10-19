@@ -79,7 +79,7 @@ jobs:
           name: archived-recovery-inputs-${{ github.run_id }}-${{ github.run_attempt }}
           path: /tmp/lfb-recovery-archive
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 90
 
   recover:
     needs: restore-archive

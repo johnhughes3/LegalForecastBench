@@ -103,8 +103,8 @@ def test_worker_restore_has_frozen_inputs_for_invalid_output_classification() ->
 
 
 def test_result_artifacts_request_github_maximum_retention() -> None:
-    # Workflow artifacts are the only durable copy of per-unit predictions,
-    # receipts, and transcripts; 90 days is GitHub's public-repository cap.
+    # Keep accessible workflow copies alongside the protected durable archive;
+    # 90 days is GitHub's public-repository cap.
     workflows = ROOT / ".github/workflows"
     for name in (
         "run-benchmark.yaml",
@@ -114,7 +114,8 @@ def test_result_artifacts_request_github_maximum_retention() -> None:
         text = (workflows / name).read_text(encoding="utf-8")
         start = text.index("      artifact_retention_days:\n")
         assert '        default: "90"\n' in text[start : start + 200], name
-    assert RECOVERY.count("retention-days: 90\n") == 3
+    assert RECOVERY.count("retention-days: 90\n") == 4
+    assert "retention-days: 1\n" not in RECOVERY
     assert "retention-days: 14" not in RECOVERY
     assert '"artifact_retention_days": "90",' in RECOVERY
 

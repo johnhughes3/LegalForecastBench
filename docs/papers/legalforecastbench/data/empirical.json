@@ -1,9 +1,9 @@
 {
-  "scope": "Eighteen-configuration manuscript panel on the Cycle 1 release. Checked 2026-10-12.",
+  "scope": "Twenty-one-configuration ranked manuscript panel on the Cycle 1 release. Checked 2026-10-19.",
   "release": {
     "release": "cycle-1-91-2026-09-08-luna-r5",
     "release_digest": "4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
-    "method": "Official scored results for the eighteen ranked configurations on this release: 91 cases and 387 scoreable units each."
+    "method": "Official scored results for the twenty-one ranked configurations on this release: 91 cases and 387 scoreable units each. GPT-4.1 is retained as an unranked reference in the 22-configuration comparison family."
   },
   "cohort": {
     "case_count": 91,
@@ -18,7 +18,7 @@
     "bootstrap": {
       "method": "Paired case-cluster percentile bootstrap",
       "replicates": 1000000,
-      "correction": "Bonferroni across 171 planned model pairs and three metrics (19-model family including the GPT-4.1 reference)",
+      "correction": "Bonferroni across 231 planned model pairs and three metrics (22-model family including the GPT-4.1 reference)",
       "caveat": "Exploratory. Cross-case dependence (for example, related cases in one MDL) has not yet been verified."
     }
   },
@@ -29,6 +29,8 @@
       "provider": "openai",
       "model_key": "openai:gpt-6-sol",
       "reasoning": "High",
+      "eligibility": "eligible",
+      "eligibility_reason": "An April 20, 2026 knowledge cutoff predates every scored decision.",
       "micro_brier": 0.11762790697674418,
       "equal_case_brier": 0.12949124213088498,
       "correct": 327,
@@ -40,8 +42,8 @@
         "share": 0.43669250645994834
       },
       "cost": {
-        "usd": 11.0097835,
-        "basis": "managed_usage_reprice_with_conservative_uncached_fallback"
+        "usd": 11.0952015,
+        "basis": "published_list_prices_with_reported_cache_usage"
       },
       "aggregate_source": "site/src/data/exports/gpt-6-sol.json",
       "accuracy": 0.8449612403100775,
@@ -69,8 +71,8 @@
         "workload_cost_usd": 5.504933,
         "workload_cost_basis": "estimated_from_pricing_snapshot",
         "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
-        "standard_rate_estimate_usd": 11.0097835,
-        "standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+        "standard_rate_estimate_usd": 11.0952015,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
         "pricing_reference": "https://developers.openai.com/api/docs/models/gpt-6-sol: Flex is 50% of Standard; rates include cache read (0.1x) and write (1.25x). Above 272000 input tokens, input/cache rates double and output rates multiply by 1.5. Checked 2026-09-22.",
         "standard_rate_multiplier": 2,
         "response_count": 771,
@@ -82,12 +84,14 @@
         "cache_write_rate_available": true,
         "caveats": [
           "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
-          "Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
-          "Standard rates are twice the frozen Flex rates, as documented in the frozen registry.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
           "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
           "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
         ],
-        "pricing_url": "https://developers.openai.com/api/docs/models/gpt-6-sol"
+        "pricing_url": "https://developers.openai.com/api/docs/models/gpt-6-sol",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/gpt-6-sol.jsonl",
       "log_loss": 0.3766742854522973,
@@ -152,8 +156,8 @@
       "reasoning": "High",
       "release_date": "2026-08-12",
       "training_cutoff": null,
-      "eligibility": "qualified",
-      "eligibility_reason": "Cutoff evidence is conflicting or unknown.",
+      "eligibility": "eligible",
+      "eligibility_reason": "A February 1, 2026 knowledge cutoff predates every scored decision.",
       "github_run_id": "34294236811",
       "micro_brier": 0.13368062015503876,
       "equal_case_brier": 0.13480444111444112,
@@ -423,8 +427,7 @@
       },
       "cost": {
         "usd": 20.5866604,
-        "basis": "estimated_from_pricing_snapshot",
-        "note": "Standard-rate total from provider-reported token usage and the frozen rates, matching the leaderboard."
+        "basis": "anthropic_cache_aware_usage_reconstruction"
       },
       "accuracy": 0.772609819121447,
       "cutoff_evidence": {
@@ -443,12 +446,33 @@
       "unit_count": 387,
       "aggregate_source": "site/src/data/exports/claude-opus-5-5.json",
       "cost_evidence": {
-        "basis": "estimated_from_pricing_snapshot",
+        "slug": "claude-opus-5-5",
         "forecast_run_id": "35953489581",
         "score_run_id": "35954306953",
+        "model_key": "anthropic:claude-opus-5-5",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
         "workload_cost_usd": 20.586702,
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "anthropic_cache_aware_usage_reconstruction",
         "standard_rate_estimate_usd": 20.5866604,
-        "note": "Standard-rate estimate recorded for the 91 successful cases."
+        "standard_rate_method": "anthropic_cache_aware_usage_reconstruction",
+        "pricing_reference": "https://platform.claude.com/docs/en/about-claude/pricing: Opus 5.5 standard USD4/M input, USD20/M output, USD0.20/M cache read, USD5/M five-minute cache write; no long-context premium. Checked 2026-09-22.",
+        "standard_rate_multiplier": 1,
+        "response_count": 471,
+        "missing_cache_dimensions": {},
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": true,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/claude-opus-5-5.jsonl",
       "log_loss": 0.44685183628790554,
@@ -478,9 +502,8 @@
         "share": 0.5142118863049095
       },
       "cost": {
-        "usd": 10.677807,
-        "basis": "estimated_from_pricing_snapshot",
-        "note": "Total recorded on the run receipts from provider-reported token usage and the frozen rates. Some responses omit cache counts; those responses were priced as ordinary input when the call was made."
+        "usd": 10.8519246,
+        "basis": "published_list_prices_with_reported_cache_usage"
       },
       "accuracy": 0.7855297157622739,
       "cutoff_evidence": {
@@ -499,12 +522,36 @@
       "unit_count": 387,
       "aggregate_source": "site/src/data/exports/gpt-6-1-sol.json",
       "cost_evidence": {
-        "basis": "estimated_from_pricing_snapshot",
+        "slug": "gpt-6-1-sol",
         "forecast_run_id": "36673524599",
         "score_run_id": "36741462923",
+        "model_key": "openai:gpt-6.1-sol",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
         "workload_cost_usd": 10.677807,
-        "standard_rate_estimate_usd": 10.677807,
-        "note": "Sum of estimated_cost_microusd recorded on the 91 successful-case receipts."
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+        "standard_rate_estimate_usd": 10.8519246,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://developers.openai.com/api/docs/models/gpt-6.1-sol: Standard USD2/M input, USD10/M output, USD0.10/M cached input (5% of input), USD2.50/M cache write (1.25x). Above 272000 input tokens, input and cache rates double and output rates multiply by 1.5. Flex and Batch are 50% of Standard. Checked 2026-09-29.",
+        "standard_rate_multiplier": 1,
+        "response_count": 639,
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 128,
+          "cache_write_tokens": 37
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": true,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/gpt-6-1-sol.jsonl",
       "log_loss": 0.4640116130899528,
@@ -611,11 +658,155 @@
       "log_loss_basis": null
     },
     {
+      "slug": "gemini-4-argon",
+      "display_name": "Gemini 4 Argon",
+      "provider": "Google",
+      "model_key": "google:gemini-4-argon",
+      "access": "Google API (managed document tools)",
+      "reasoning": "High thinking",
+      "release_date": "2026-10-13",
+      "training_cutoff": "March 2026",
+      "eligibility": "eligible",
+      "eligibility_reason": "A March 2026 knowledge cutoff predates every scored decision.",
+      "forecast_run_id": "39155697923",
+      "scoring_run_id": "39189136234",
+      "micro_brier": 0.1538653746770026,
+      "equal_case_brier": 0.14824115642294214,
+      "correct": 298,
+      "high_confidence": {
+        "count": 225,
+        "wrong": 24,
+        "mean_confidence": 0.9507555555555555,
+        "accuracy": 0.8933333333333333,
+        "share": 0.5813953488372093
+      },
+      "cost": {
+        "usd": 25.0204571,
+        "basis": "published_list_prices_with_reported_cache_usage"
+      },
+      "accuracy": 0.7700258397932817,
+      "cutoff_evidence": {
+        "slug": "gemini-4-argon",
+        "model_ids": [
+          "gemini-4-argon"
+        ],
+        "cutoff": "2026-03",
+        "kind": "knowledge",
+        "source": "https://deepmind.google/models/model-cards/gemini-4-argon/",
+        "checked": "2026-10-15"
+      },
+      "cutoff_status": "eligible_under_2026-09-28_policy",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/gemini-4-argon.json",
+      "cost_evidence": {
+        "slug": "gemini-4-argon",
+        "forecast_run_id": "39155697923",
+        "score_run_id": "39189136234",
+        "model_key": "google:gemini-4-argon",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 25.020494,
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+        "standard_rate_estimate_usd": 25.0204571,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://ai.google.dev/gemini-api/docs/pricing: Standard introductory pricing through November 30, 2026: input USD 2/M, output including thinking USD 10/M, implicit cache read USD 0.10/M. From December 1, 2026: USD 4/M, 20/M, 0.20/M respectively. No context-length surcharge. Checked 2026-10-15.",
+        "standard_rate_multiplier": 1,
+        "response_count": 341,
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 185,
+          "cache_write_tokens": 341
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": false,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://ai.google.dev/gemini-api/docs/pricing",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
+      },
+      "unit_source": "site/src/data/significance/gemini-4-argon.jsonl",
+      "log_loss": 0.47297817048059776,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
+      "slug": "ultramarine-1-flash",
+      "display_name": "Ultramarine 1 Flash",
+      "provider": "Paper Instruments",
+      "model_key": "paperinstruments:ultramarine-1-flash",
+      "access": "Paper Instruments API",
+      "reasoning": "High",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "No published training or knowledge cutoff has been established.",
+      "forecast_run_id": "38897535768",
+      "scoring_run_id": "38992564711",
+      "micro_brier": 0.15495064599483205,
+      "equal_case_brier": 0.1721145385170385,
+      "correct": 292,
+      "accuracy": 0.7545219638242894,
+      "high_confidence": {
+        "count": 77,
+        "wrong": 1,
+        "mean_confidence": 0.9219480519480518,
+        "accuracy": 0.987012987012987,
+        "share": 0.19896640826873385
+      },
+      "cost": {
+        "usd": 1.34912112,
+        "basis": "published_list_prices_with_reported_cache_usage"
+      },
+      "cutoff_status": "qualified_unknown_cutoff",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/ultramarine-1-flash.json",
+      "cost_evidence": {
+        "slug": "ultramarine-1-flash",
+        "forecast_run_id": "38897535768",
+        "score_run_id": "38992564711",
+        "model_key": "paperinstruments:ultramarine-1-flash",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 1.349165,
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "cache_aware_usage_reconstruction",
+        "standard_rate_estimate_usd": 1.34912112,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://api.paperinstruments.com/v1/pricing and https://docs.paperinstruments.com/docs/ultramarine/billing; checked 2026-10-14: standard USD 0.15/M uncached input, 0.03/M cached input, 0.50/M output including reasoning; cache creation priced as uncached input.",
+        "standard_rate_multiplier": 1,
+        "response_count": 713,
+        "missing_cache_dimensions": {},
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": true,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://api.paperinstruments.com/v1/pricing",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
+      },
+      "unit_source": "site/src/data/significance/ultramarine-1-flash.jsonl",
+      "log_loss": 0.4703303574642433,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "grok-4-7",
       "display_name": "Grok 4.7",
       "provider": "vercel_ai_gateway",
       "model_key": "vercel_ai_gateway:spacexai/grok-4.7",
       "reasoning": "High",
+      "eligibility": "eligible",
+      "eligibility_reason": "A May 2026 knowledge cutoff predates every scored decision.",
       "micro_brier": 0.15832558139534883,
       "equal_case_brier": 0.16454140522176236,
       "correct": 298,
@@ -628,7 +819,7 @@
       },
       "cost": {
         "usd": 32.999826,
-        "basis": "managed_usage_reprice_with_conservative_uncached_fallback"
+        "basis": "published_list_prices_with_reported_cache_usage"
       },
       "aggregate_source": "site/src/data/exports/grok-4-7.json",
       "accuracy": 0.7700258397932817,
@@ -656,24 +847,26 @@
         "workload_cost_basis": "provider_reported",
         "workload_cost_method": "gateway_reported_charge",
         "standard_rate_estimate_usd": 32.999826,
-        "standard_rate_method": "managed_usage_reprice_with_conservative_uncached_fallback",
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
         "pricing_reference": "https://docs.x.ai/developers/grok-4-7 (USD 2/M input and USD 6/M output standard rates), checked 2026-09-21",
         "standard_rate_multiplier": 1,
         "response_count": 629,
         "missing_cache_dimensions": {
-          "cache_write_tokens": 629,
-          "cache_read_tokens": 3
+          "cache_read_tokens": 3,
+          "cache_write_tokens": 629
         },
         "cache_read_rate_available": false,
         "cache_write_rate_available": false,
         "caveats": [
           "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
-          "Missing cache dimensions remain missing; the shared pricing helper uses ordinary-input estimates for affected responses, which may overstate or understate cache-adjusted costs.",
-          "Frozen registry has no cache rates; standard estimate uses ordinary input rates despite reported cache reads, so it is not a cache-adjusted provider charge.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
           "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
           "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
         ],
-        "pricing_url": "https://docs.x.ai/developers/grok-4-7"
+        "pricing_url": "https://docs.x.ai/developers/grok-4-7",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/grok-4-7.jsonl",
       "log_loss": 0.48117072320483484,
@@ -730,6 +923,85 @@
       "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
     },
     {
+      "slug": "mistral-large-4",
+      "display_name": "Mistral Large 4",
+      "provider": "Mistral",
+      "model_key": "vercel_ai_gateway:mistral/mistral-large-4",
+      "access": "Vercel AI Gateway (served by Mistral)",
+      "reasoning": "High",
+      "release_date": "2026-10-06",
+      "training_cutoff": null,
+      "eligibility": "qualified",
+      "eligibility_reason": "Mistral has not published a training-data or knowledge cutoff.",
+      "forecast_run_id": "39193012515",
+      "scoring_run_id": "39195758917",
+      "micro_brier": 0.15963514211886304,
+      "equal_case_brier": 0.1560838716838717,
+      "correct": 294,
+      "high_confidence": {
+        "count": 128,
+        "wrong": 7,
+        "mean_confidence": 0.926484375,
+        "accuracy": 0.9453125,
+        "share": 0.330749354005168
+      },
+      "cost": {
+        "usd": 16.6489902,
+        "basis": "published_list_prices_with_reported_cache_usage"
+      },
+      "accuracy": 0.7596899224806202,
+      "cutoff_evidence": {
+        "slug": "mistral-large-4",
+        "model_ids": [
+          "mistral/mistral-large-4"
+        ],
+        "cutoff": null,
+        "kind": null,
+        "source": "https://docs.mistral.ai/models/mistral-large-4-0",
+        "checked": "2026-10-12",
+        "note": "Mistral's model documentation does not report a training-data or knowledge cutoff."
+      },
+      "cutoff_status": "qualified",
+      "case_count": 91,
+      "unit_count": 387,
+      "aggregate_source": "site/src/data/exports/mistral-large-4.json",
+      "cost_evidence": {
+        "slug": "mistral-large-4",
+        "forecast_run_id": "39193012515",
+        "score_run_id": "39195758917",
+        "model_key": "vercel_ai_gateway:mistral/mistral-large-4",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 8.324544,
+        "workload_cost_basis": "provider_reported",
+        "workload_cost_method": "gateway_reported_charge",
+        "standard_rate_estimate_usd": 16.6489902,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://docs.mistral.ai/models/mistral-large-4-0 (standard USD 1.36/M input, 4.18/M output, 0.14/M cache read), checked 2026-10-12",
+        "standard_rate_multiplier": 1,
+        "response_count": 547,
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 193,
+          "cache_write_tokens": 547
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": false,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://docs.mistral.ai/models/mistral-large-4-0",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
+      },
+      "unit_source": "site/src/data/significance/mistral-large-4.jsonl",
+      "log_loss": 0.4871503496752392,
+      "log_loss_basis": "recomputed natural-log loss from committed per-unit inputs; probabilities clipped to [1e-15, 1-1e-15] (no effect unless exact endpoints)"
+    },
+    {
       "slug": "gpt-6-luna",
       "display_name": "GPT-6 Luna",
       "provider": "openai",
@@ -753,9 +1025,8 @@
         "share": 0.4728682170542636
       },
       "cost": {
-        "usd": 0.62452294,
-        "basis": "standard_rate",
-        "note": "Standard-rate total shown on the leaderboard. The run receipts recorded a Flex-priced estimate of 0.312309."
+        "usd": 0.6331565650000001,
+        "basis": "published_list_prices_with_reported_cache_usage"
       },
       "accuracy": 0.7648578811369509,
       "cutoff_evidence": {
@@ -774,12 +1045,36 @@
       "unit_count": 387,
       "aggregate_source": "site/src/data/exports/gpt-6-luna.json",
       "cost_evidence": {
-        "basis": "estimated_from_pricing_snapshot",
+        "slug": "gpt-6-luna",
         "forecast_run_id": "35933696453",
         "score_run_id": "35940612024",
+        "model_key": "openai:gpt-6-luna",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
         "workload_cost_usd": 0.312309,
-        "standard_rate_estimate_usd": 0.62452294,
-        "note": "Leaderboard cost is the standard-rate estimate. Receipts stored the Flex-priced estimate."
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+        "standard_rate_estimate_usd": 0.6331565650000001,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://developers.openai.com/api/docs/models/gpt-6-luna: Flex is 50% of Standard; rates include cache read (0.1x) and write (1.25x). Above 272000 input tokens, input/cache rates double and output rates multiply by 1.5. Checked 2026-09-22.",
+        "standard_rate_multiplier": 2,
+        "response_count": 579,
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 128,
+          "cache_write_tokens": 39
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": true,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/gpt-6-luna.jsonl",
       "log_loss": 0.5028699880553794,
@@ -810,9 +1105,8 @@
         "share": 0.3049095607235142
       },
       "cost": {
-        "usd": 57.593452,
-        "basis": "standard_rate",
-        "note": "Standard-rate estimate from successful-case response usage and frozen rates; ordinary-input estimates are used where cache dimensions are missing."
+        "usd": 39.3793984,
+        "basis": "published_list_prices_with_reported_cache_usage"
       },
       "accuracy": 0.772609819121447,
       "cutoff_evidence": {
@@ -832,16 +1126,36 @@
       "unit_count": 387,
       "aggregate_source": "site/src/data/exports/muse-wonder-1-0.json",
       "cost_evidence": {
-        "basis": "provider_reported",
+        "slug": "muse-wonder-1-0",
         "forecast_run_id": "38300603621",
         "score_run_id": "38303872484",
-        "workload_cost_usd": 39.379438,
-        "standard_rate_estimate_usd": 57.593452,
+        "model_key": "vercel_ai_gateway:meta/muse-wonder-1.0",
         "covered_case_count": 91,
+        "missing_case_count": 0,
+        "workload_cost_usd": 39.379438,
+        "workload_cost_basis": "provider_reported",
+        "workload_cost_method": "gateway_reported_charge",
+        "standard_rate_estimate_usd": 39.3793984,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://dev.meta.ai/docs/pricing-rate-limits (Muse Wonder standard USD 4.00/M input, 20.00/M output, 0.20/M cache read), confirmed by https://vercel.com/ai-gateway/models/muse-wonder-1.0; checked 2026-10-12",
+        "standard_rate_multiplier": 1,
         "response_count": 605,
-        "missing_cache_read_response_count": 132,
-        "missing_cache_write_response_count": 605,
-        "note": "Successful-case workload charges only, not invoice totals. Excludes failed attempts and unresolved charges; cache dimensions are incomplete."
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 132,
+          "cache_write_tokens": 605
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": false,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://dev.meta.ai/docs/pricing-rate-limits",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/muse-wonder-1-0.jsonl",
       "log_loss": 0.5047576634876788,
@@ -871,9 +1185,8 @@
         "share": 0.16279069767441862
       },
       "cost": {
-        "usd": 6.992451,
-        "basis": "estimated_from_pricing_snapshot",
-        "note": "Total recorded on the run receipts from provider-reported token usage, including cache reads and five-minute cache writes, at the frozen rates."
+        "usd": 6.992409,
+        "basis": "anthropic_cache_aware_usage_reconstruction"
       },
       "accuracy": 0.7622739018087855,
       "cutoff_evidence": {
@@ -892,12 +1205,33 @@
       "unit_count": 387,
       "aggregate_source": "site/src/data/exports/claude-sonnet-5-5.json",
       "cost_evidence": {
-        "basis": "estimated_from_pricing_snapshot",
+        "slug": "claude-sonnet-5-5",
         "forecast_run_id": "36673527185",
         "score_run_id": "36741468019",
+        "model_key": "anthropic:claude-sonnet-5-5",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
         "workload_cost_usd": 6.992451,
-        "standard_rate_estimate_usd": 6.992451,
-        "note": "Sum of estimated_cost_microusd recorded on the 91 successful-case receipts."
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "anthropic_cache_aware_usage_reconstruction",
+        "standard_rate_estimate_usd": 6.992409,
+        "standard_rate_method": "anthropic_cache_aware_usage_reconstruction",
+        "pricing_reference": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview: Sonnet 5.5 standard USD2/M input, USD10/M output, USD0.20/M cache read, USD2.50/M five-minute cache write; no long-context premium. Checked 2026-09-29.",
+        "standard_rate_multiplier": 1,
+        "response_count": 310,
+        "missing_cache_dimensions": {},
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": true,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/claude-sonnet-5-5.jsonl",
       "log_loss": 0.5214918600734371,
@@ -980,9 +1314,8 @@
         "share": 0.8268733850129198
       },
       "cost": {
-        "usd": 59.044026,
-        "basis": "estimated_from_pricing_snapshot",
-        "note": "Standard-rate total from provider-reported token usage and the frozen rates, matching the leaderboard."
+        "usd": 27.734889,
+        "basis": "published_list_prices_with_reported_cache_usage"
       },
       "accuracy": 0.7803617571059431,
       "cutoff_evidence": {
@@ -1000,12 +1333,36 @@
       "unit_count": 387,
       "aggregate_source": "site/src/data/exports/gemini-3-1-pro-preview.json",
       "cost_evidence": {
-        "basis": "estimated_from_pricing_snapshot",
+        "slug": "gemini-3-1-pro-preview",
         "forecast_run_id": "36075557088",
         "score_run_id": "36169561374",
+        "model_key": "google:gemini-3.1-pro-preview",
+        "covered_case_count": 91,
+        "missing_case_count": 0,
         "workload_cost_usd": 59.044034,
-        "standard_rate_estimate_usd": 59.044026,
-        "note": "Standard-rate estimate recorded for the 91 successful cases."
+        "workload_cost_basis": "estimated_from_pricing_snapshot",
+        "workload_cost_method": "uncached_usage_estimate_missing_cache_usage",
+        "standard_rate_estimate_usd": 27.734889,
+        "standard_rate_method": "published_list_prices_with_reported_cache_usage",
+        "pricing_reference": "https://ai.google.dev/gemini-api/docs/pricing: Standard text input USD 2/M and output USD 12/M up to 200000 input tokens; USD 4/M and 18/M above that threshold. Cached input USD 0.20/M or 0.40/M above 200000 input tokens. Checked 2026-09-24.",
+        "standard_rate_multiplier": 1,
+        "response_count": 1369,
+        "missing_cache_dimensions": {
+          "cache_read_tokens": 529,
+          "cache_write_tokens": 1369
+        },
+        "cache_read_rate_available": true,
+        "cache_write_rate_available": false,
+        "caveats": [
+          "Successful case receipts only; excludes historical failed attempts, retries, and unresolved charges.",
+          "Standard-rate costs were repriced from archived receipts and the frozen registry; historical scoring exports and recorded workload amounts are unchanged.",
+          "Reported cache reads and writes retain their frozen prices even when the other dimension is missing; unreported dimensions remain missing and the remaining input uses ordinary input prices.",
+          "Reported cache tokens without a frozen cache price use ordinary input prices.",
+          "Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
+          "These prices are workload estimates or reported successful-call charges, not provider invoice totals."
+        ],
+        "pricing_url": "https://ai.google.dev/gemini-api/docs/pricing",
+        "repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
       },
       "unit_source": "site/src/data/significance/gemini-3-1-pro-preview.jsonl",
       "log_loss": 0.5928437470686482,
@@ -1463,7 +1820,7 @@
     "summary_catalog": "site/public/data/summary-comparison/catalog.json"
   },
   "analysis_limits": [
-    "No complete significance ordering is claimed for the eighteen-configuration panel; unavailable per-unit forecasts limit pairwise comparisons.",
+    "No complete significance ordering is claimed for the twenty-one-configuration ranked panel; paired evidence is available for 16 of the 22 comparison-family configurations, so unavailable per-unit forecasts limit pairwise comparisons.",
     "Current labeling protocol is implementation/documentation evidence, not a census of completed historical human adjudications.",
     "No human forecasting baseline was run.",
     "Original beta has one retained successful forecast per unit; run-to-run variation is not measured."
@@ -1475,6 +1832,6 @@
     "imported_on": "2026-09-30",
     "source_description": "Cleaned from the manuscript empirical aggregate. Public repository paths are repository-relative; numerical values and recorded caveats are preserved.",
     "private_protocol_limitation": "Historical labeling-protocol evidence remains in the private companion LegalForecastCorpus repository and is not redistributed here. The aggregate values are preserved, but the private protocol path and private corpus bytes are unavailable for independent reconstruction from this package.",
-    "updated_on": "2026-10-12"
+    "updated_on": "2026-10-19"
   }
 }

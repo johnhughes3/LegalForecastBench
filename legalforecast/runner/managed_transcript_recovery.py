@@ -129,6 +129,33 @@ def recover_managed_transcript(
                 )
                 if matches_legacy_payload:
                     accepted_compatibility_payload = prior_payload_bytes
+        if (
+            not matches_current_payload
+            and not matches_legacy_payload
+            and entry.provider.strip().lower() == "vercel_ai_gateway"
+        ):
+            # Older transcript replay stored the normalized frozen identity.
+            # Match that historical field in both supported Gateway shapes,
+            # while keeping the provider's raw identity for new payloads.
+            normalized_model = managed_execution.gateway_normalize_model_identity(
+                entry.model_version_or_snapshot,
+                result.served_model,
+                gateway_metadata=result.gateway_response_metadata,
+            )
+            for candidate in (
+                payload,
+                _prior_managed_replay_payload(result, entry=entry),
+            ):
+                normalized_payload = {**candidate, "served_model": normalized_model}
+                normalized_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(normalized_payload)
+                if (
+                    cell.response_payload_sha256
+                    == hashlib.sha256(normalized_bytes).hexdigest()
+                    and cell.response_payload == normalized_bytes
+                ):
+                    matches_legacy_payload = True
+                    accepted_compatibility_payload = normalized_bytes
+                    break
         if not matches_current_payload and not matches_legacy_payload:
             raise RunValidationError(
                 "existing durable response differs from transcript recovery"
@@ -137,13 +164,14 @@ def recover_managed_transcript(
             persisted_payload_sha256 = cell.response_payload_sha256
             assert accepted_compatibility_payload is not None
             accepted_payload_bytes = accepted_compatibility_payload
-    else:
-        ledger.restore_ambiguous_response_payload(
-            cell_id,
-            provider_attempt_id=cell.provider_attempt_id,
-            response_payload=payload_bytes,
-            response_payload_sha256=payload_sha256,
-        )
+    # Matching durable bytes still need the ambiguous-to-reserved transition
+    # before normal execution can replay them without another paid attempt.
+    ledger.restore_ambiguous_response_payload(
+        cell_id,
+        provider_attempt_id=cell.provider_attempt_id,
+        response_payload=accepted_payload_bytes,
+        response_payload_sha256=persisted_payload_sha256,
+    )
     accepted_cost = _payload_estimated_cost(accepted_payload_bytes)
     return ManagedTranscriptRecovery(
         cell_id=cell_id,
@@ -245,28 +273,6 @@ def managed_result_from_transcript(
         allowed_provider_names.update({"openai", expected_provider})
     if provider_names and not provider_names.issubset(allowed_provider_names):
         raise RunValidationError("managed transcript provider differs from registry")
-    served_model = next(iter(served_models))
-    if provider == "vercel_ai_gateway":
-        try:
-            served_model = managed_execution.gateway_normalize_model_identity(
-                entry.model_version_or_snapshot,
-                served_model,
-            )
-        except ValueError as exc:
-            raise RunValidationError(str(exc)) from exc
-    elif served_model != entry.model_version_or_snapshot:
-        raise RunValidationError(
-            "managed transcript served model differs from registry"
-        )
-    finish_reason = responses[-1].finish_reason
-    if not isinstance(finish_reason, str) or not finish_reason:
-        raise RunValidationError("managed transcript lacks finish reason")
-    verification = verify_provider_response(
-        {"finish_reason": finish_reason}, provider=provider
-    )
-    require_publishable_response_metadata(verification.to_metadata())
-    service_tier = _service_tier(responses, provider=provider)
-
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     if provider == "vercel_ai_gateway":
         assert expected_provider is not None
@@ -288,6 +294,32 @@ def managed_result_from_transcript(
             except ValueError as exc:
                 raise RunValidationError(str(exc)) from exc
         gateway_response_metadata = tuple(metadata_rows)
+
+    # Live execution stores the provider's reported served model verbatim and
+    # normalizes it at settlement, so validate here but keep the raw value for
+    # the byte-exact comparison against that durable payload.
+    served_model = next(iter(served_models))
+    if provider == "vercel_ai_gateway":
+        try:
+            managed_execution.gateway_normalize_model_identity(
+                entry.model_version_or_snapshot,
+                served_model,
+                gateway_metadata=gateway_response_metadata,
+            )
+        except ValueError as exc:
+            raise RunValidationError(str(exc)) from exc
+    elif served_model != entry.model_version_or_snapshot:
+        raise RunValidationError(
+            "managed transcript served model differs from registry"
+        )
+    finish_reason = responses[-1].finish_reason
+    if not isinstance(finish_reason, str) or not finish_reason:
+        raise RunValidationError("managed transcript lacks finish reason")
+    verification = verify_provider_response(
+        {"finish_reason": finish_reason}, provider=provider
+    )
+    require_publishable_response_metadata(verification.to_metadata())
+    service_tier = _service_tier(responses, provider=provider)
 
     response_usages: list[tuple[int, int]] = []
     response_usage_details: list[managed_execution.ManagedResponseUsage] = []

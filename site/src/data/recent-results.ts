@@ -6,13 +6,20 @@ import export7 from "./exports/claude-sonnet-5-5.json" with { type: "json" };
 import export5 from "./exports/gemini-3-1-pro-preview.json" with {
 	type: "json",
 };
+import geminiArgon from "./exports/gemini-4-argon.json" with { type: "json" };
 import export4 from "./exports/gpt-4-1.json" with { type: "json" };
 import sol56 from "./exports/gpt-5-6-sol.json" with { type: "json" };
 import export6 from "./exports/gpt-6-1-sol.json" with { type: "json" };
 import export1 from "./exports/gpt-6-luna.json" with { type: "json" };
 import export0 from "./exports/gpt-6-sol.json" with { type: "json" };
 import export3 from "./exports/grok-4-7.json" with { type: "json" };
+import mistralLarge4 from "./exports/mistral-large-4.json" with {
+	type: "json",
+};
 import museWonder from "./exports/muse-wonder-1-0.json" with { type: "json" };
+import ultramarine from "./exports/ultramarine-1-flash.json" with {
+	type: "json",
+};
 import type { ResultSource } from "./extend-snapshot.js";
 import { parseSiteExport } from "./site-export.js";
 
@@ -208,6 +215,54 @@ const originalResults = [
 				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
 		},
 		data: parseSiteExport(museWonder),
+	},
+	{
+		source: {
+			slug: "gemini-4-argon",
+			release_date: "2026-10-13",
+			forecast_run: "39155697923",
+			scoring_run: "39189136234",
+			access: "Google API (managed document tools)",
+			display_name: "Gemini 4 Argon",
+			reasoning: "High",
+			provider: "Google",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(geminiArgon),
+	},
+	{
+		source: {
+			slug: "mistral-large-4",
+			release_date: "2026-10-06",
+			forecast_run: "39193012515",
+			scoring_run: "39195758917",
+			access: "Vercel AI Gateway (served by Mistral)",
+			display_name: "Mistral Large 4",
+			reasoning: "High",
+			provider: "Mistral",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(mistralLarge4),
+	},
+	{
+		source: {
+			slug: "ultramarine-1-flash",
+			release_date: "2026-10-14",
+			forecast_run: "38897535768",
+			scoring_run: "38992564711",
+			access: "Paper Instruments API",
+			display_name: "Ultramarine 1 Flash",
+			reasoning: "High",
+			provider: "Paper Instruments",
+			release: "cycle-1-91-2026-09-08-luna-r5",
+			release_digest:
+				"4311a6ee59c3ae1fcb392f1dd768ab00d1d7a7c7ea135271f3e117746233ed8a",
+		},
+		data: parseSiteExport(ultramarine),
 	},
 ];
 

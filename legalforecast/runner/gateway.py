@@ -53,18 +53,33 @@ def gateway_model_is_allowlisted(model_id: str) -> bool:
 
 
 def gateway_normalize_model_identity(
-    expected_model_id: str, observed_model_id: str
+    expected_model_id: str,
+    observed_model_id: str,
+    *,
+    gateway_metadata: Sequence[Mapping[str, str]] = (),
 ) -> str:
     """Return the frozen id for one exact Gateway served-model identity.
 
     Gateway's request identity remains strict.  A small explicit alias table
     accounts for providers that report their canonical slug in Responses
     metadata while Gateway retains the requested model id separately.
+
+    Streamed Responses report the provider's bare API model id (for example
+    ``mistral-large-4``) where the buffered response reports the Gateway slug.
+    Accept that bare id only when every validated routing row attests that the
+    canonical slug equals the frozen id and that the bare id is that slug's
+    model component under the resolved provider.
     """
 
     expected = expected_model_id.casefold()
     observed = observed_model_id.casefold()
     if observed == expected or observed in _GATEWAY_MODEL_ALIASES.get(expected, ()):
+        return expected_model_id
+    if gateway_metadata and all(
+        row.get("canonical_slug", "").casefold() == expected
+        and f"{row.get('resolved_provider', '')}/{observed}".casefold() == expected
+        for row in gateway_metadata
+    ):
         return expected_model_id
     raise ValueError("Vercel AI Gateway response changed the served model")
 

@@ -67,7 +67,7 @@ This paper argues that the heavy reliance of existing legal benchmarks on human-
 
 LegalForecastBench illustrates one mechanism by which the signal from judicial decisions can be used to objectively evaluate the legal reasoning capabilities of frontier models. Models receive the same briefs that a federal judge received when ruling on a motion to dismiss, and are asked to estimate the probability that the judge dismissed each claim challenged by a defendant.
 
-The beta includes 91 cases and 387 scored claim--defendant units. Of the 18 frontier models tested, GPT-6 Sol has the lowest micro-Brier loss (0.118) and the highest accuracy (84.5\%). Notably, calibration had a large impact on the performance of models. Claude Fable 5.1 had no errors in its 81 high-confidence (at least 90\%) forecasts, while for Gemini 3.1 Pro Preview, 57 out of 320 high-confidence predictions it made were inaccurate. Several newer model versions scored below their predecessors on this cohort, although none of these differences was statistically significant where it could be tested.
+The beta includes 91 cases and 387 scored claim--defendant units. Of the 21 frontier models tested, GPT-6 Sol has the lowest micro-Brier loss (0.118) and the highest accuracy (84.5\%). Notably, calibration had a large impact on the performance of models. Claude Fable 5.1 had no errors in its 81 high-confidence (at least 90\%) forecasts, while for Gemini 3.1 Pro Preview, 57 out of 320 high-confidence predictions it made were inaccurate. Several newer model versions scored below their predecessors on this cohort, although none of these differences was statistically significant where it could be tested.
 \end{abstract}
 
 \section{Introduction}
@@ -132,9 +132,9 @@ The analyzed set consists of 91 U.S. federal cases with written decisions dated 
 
 The case construction and labeling pipeline used models as well as human legal oversight from me. The pipeline maintained separation between \emph{unitization} and \emph{outcome coding}. To avoid the possibility that the prediction units could leak information about the judge's ultimate outcome to the models that were performing prediction, AI models first were asked to identify the challenged claim-defendant units based only on the motion and the docket (without the decision). A later stage was given access to the judge's ruling, to interpret the disposition of each frozen claim-defendant unit. I resolved disputed units (where two models did not agree on the disposition) and corrected labels as necessary. The process of creating the pipeline was iterative, and we did not track a blinded human-audit error estimate.
 
-Models predicting outcomes were not given access to the judge's ruling. The pipeline also attempted to screen dockets and filing text to avoid outcome leakage. Models had access to the motion to dismiss papers (through document text tools) in a sandbox with no Internet access. Model API calls were made with provider-side web search disabled. Provider-specific reasoning settings are retained in the run registries. Appendix~\ref{app:protocol} lists the configuration settings. The study population is the eighteen configurations in Table~\ref{tab:main}.
+Models predicting outcomes were not given access to the judge's ruling. The pipeline also attempted to screen dockets and filing text to avoid outcome leakage. Models had access to the motion to dismiss papers (through document text tools) in a sandbox with no Internet access. Model API calls were made with provider-side web search disabled. Provider-specific reasoning settings are retained in the run registries. Appendix~\ref{app:protocol} lists the configuration settings. The study population is the twenty-one ranked configurations in Table~\ref{tab:main}; GPT-4.1 is shown there only as an unranked reference.
 
-The decisions used in the benchmark were decided by the federal judges and became public, only after the reported knowledge or training cutoffs for all of the models that disclose such cutoffs. Kimi K3, Muse Spark 1.3, and Muse Wonder do not publish training or knowledge cutoffs, so their temporal eligibility remains qualified. Release dates alone do not establish whether training included the scored decisions.
+The decisions used in the benchmark were decided by the federal judges and became public, only after the reported knowledge or training cutoffs for the sixteen eligible ranked configurations that disclose such cutoffs. Mistral Large 4, Kimi K3, Muse Spark 1.3, Muse Wonder, and Ultramarine 1 Flash do not publish usable training or knowledge cutoffs, so their temporal eligibility remains qualified. Release dates alone do not establish whether training included the scored decisions.
 
 The acquisition and labeling pipeline is designed to create new cohorts in the future, as new judicial decisions become available. This enables fresh comparisons even after models have been trained on the specific decisions at issue here. The downside of this approach is that refreshing the benchmark with a new cohort of cases changes the case mix and difficulty, so scores from different versions cannot be interpreted as a time series of model improvement.
 
@@ -177,18 +177,18 @@ Across the 387 scored units in 91 cases, the observed-scale outcome ICC was 0.76
 % BEGIN AI-PREPARED (disclosed in the AI use statement; not sent to the Pangram check)
 
 \subsection{Model performance and unconditional references}
-Table~\ref{tab:main} reports the eighteen configurations on the ranked leaderboard. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). All eighteen beat the retrospectively fitted constant micro-Brier of 0.19410; GPT-6 Sol's micro-Brier is lower than that constant by about 39.4\%.
+Table~\ref{tab:main} reports the twenty-one configurations on the ranked leaderboard and the GPT-4.1 unranked reference. GPT-6 Sol achieves the best observed micro-Brier (0.11763), equal-case Brier (0.12949), and accuracy (327/387, 84.50\%). All twenty-one ranked configurations beat the retrospectively fitted constant micro-Brier of 0.19410; GPT-6 Sol's micro-Brier is lower than that constant by about 39.4\%.
 
-Seventeen configurations also beat majority-class accuracy (the 73.64\% accuracy of predicting dismissal for every unit). Muse Spark 1.3 does not: 279/387 correct forecasts is 72.09\%. Gemini 3.1 Pro Preview has the highest micro-Brier in the panel (0.18345) and still beats that accuracy baseline (302/387, 78.04\%). Within model families, some newer versions scored worse than older versions of the models (GPT-6.1 Sol vs.\ GPT-6 Sol, Claude Opus 5.5 vs.\ Opus 5, Claude Sonnet 5.5 vs.\ Sonnet 5 on Brier score, Grok 4.7 vs.\ 4.6, and GPT-6 Luna vs.\ GPT-5.6 Luna). None of the differences that could be tested was significant after correction for multiple comparisons; the Grok pair could not be tested because unit-level forecasts for Grok 4.6 were not preserved. GPT-5.6 Luna's unit-level forecasts were recovered from the original scoring output after the run's stored artifacts expired; they reproduce its published scores exactly.
+Twenty ranked configurations also beat majority-class accuracy (the 73.64\% accuracy of predicting dismissal for every unit). Muse Spark 1.3 does not: 279/387 correct forecasts is 72.09\%. Gemini 3.1 Pro Preview has the highest micro-Brier in the panel (0.18345) and still beats that accuracy baseline (302/387, 78.04\%). Gemini 4 Argon records micro-Brier 0.15387, equal-case Brier 0.14824, and accuracy 298/387 (77.00\%); Mistral Large 4 records 0.15964, 0.15608, and 294/387 (75.97\%); Ultramarine 1 Flash records 0.15495, 0.17211, and 292/387 (75.45\%), respectively. Within model families, some newer versions scored worse than older versions of the models (GPT-6.1 Sol vs.\ GPT-6 Sol, Claude Opus 5.5 vs.\ Opus 5, Claude Sonnet 5.5 vs.\ Sonnet 5 on Brier score, Grok 4.7 vs.\ 4.6, and GPT-6 Luna vs.\ GPT-5.6 Luna). Among ranked configurations, none of the differences that could be tested was significant after correction for multiple comparisons. The paired analysis covered 16 of the 22 configurations: each of the 15 ranked configurations with unit-level evidence significantly outperformed the GPT-4.1 reference on all three reported metrics, while six ranked configurations lacked public unit-level forecasts. The Grok pair could not be tested because unit-level forecasts for Grok 4.6 were not preserved. GPT-5.6 Luna's unit-level forecasts were recovered from the original scoring output after the run's stored artifacts expired; they reproduce its published scores exactly.
 
-Figure~\ref{fig:pareto} plots each configuration's standardized cost against its micro-Brier. GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed frontier: no other configuration is both cheaper and better on these estimates.
+Figure~\ref{fig:pareto} plots each ranked configuration's standardized cost against its micro-Brier. GPT-6 Luna, Ultramarine 1 Flash, GPT-5.6 Luna, and GPT-6 Sol form the observed frontier: no other configuration is both cheaper and better on these estimates.
 
 \begin{table}[tb]
 \centering\small
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrrrr}\toprule
 Configuration & Micro Brier & Case Brier & Correct & Acc. (\%) & Cost (\$)\\\midrule
-GPT-6 Sol & 0.11763 & 0.12949 & 327/387 & 84.50 & 11.01 \\
+GPT-6 Sol & 0.11763 & 0.12949 & 327/387 & 84.50 & 11.10 \\
 Claude Fable 5.1 & 0.12877 & 0.13653 & 318/387 & 82.17 & 83.18 \\
 Grok 4.6 & 0.13368 & 0.13480 & 312/387 & 80.62 & 15.72 \\
 Claude Opus 5 & 0.13987 & 0.13548 & 310/387 & 80.10 & 45.89 \\
@@ -196,37 +196,41 @@ GPT-5.6 Sol & 0.14009 & 0.13319 & 313/387 & 80.88 & 24.91 \\
 Kimi K3 & 0.14130 & 0.15367 & 303/387 & 78.29 & 16.87 \\
 GPT-5.6 Luna & 0.14322 & 0.15084 & 313/387 & 80.88 & 1.48 \\
 Claude Opus 5.5 & 0.14540 & 0.14762 & 299/387 & 77.26 & 20.59 \\
-GPT-6.1 Sol & 0.14948 & 0.13885 & 304/387 & 78.55 & 10.68 \\
+GPT-6.1 Sol & 0.14948 & 0.13885 & 304/387 & 78.55 & 10.85 \\
 GPT-6 Astra & 0.15221 & 0.14275 & 305/387 & 78.81 & 59.74 \\
 Gemini 3.8 Flash & 0.15331 & 0.13900 & 310/387 & 80.10 & 35.61 \\
+Gemini 4 Argon & 0.15387 & 0.14824 & 298/387 & 77.00 & 25.02 \\
+Ultramarine 1 Flash & 0.15495 & 0.17211 & 292/387 & 75.45 & 1.35 \\
 Grok 4.7 & 0.15833 & 0.16454 & 298/387 & 77.00 & 33.00 \\
 Claude Sonnet 5 & 0.15848 & 0.15964 & 293/387 & 75.71 & 24.68 \\
-GPT-6 Luna & 0.16368 & 0.17379 & 296/387 & 76.49 & 0.62 \\
-Muse Wonder & 0.16536 & 0.16901 & 299/387 & 77.26 & 57.59 \\
+Mistral Large 4 & 0.15964 & 0.15608 & 294/387 & 75.97 & 16.65 \\
+GPT-6 Luna & 0.16368 & 0.17379 & 296/387 & 76.49 & 0.63 \\
+Muse Wonder & 0.16536 & 0.16901 & 299/387 & 77.26 & 39.38 \\
 Claude Sonnet 5.5 & 0.17298 & 0.17183 & 295/387 & 76.23 & 6.99 \\
 Muse Spark 1.3 & 0.18121 & 0.17845 & 279/387 & 72.09 & 8.78 \\
-Gemini 3.1 Pro Preview & 0.18345 & 0.18080 & 302/387 & 78.04 & 59.04 \\
+Gemini 3.1 Pro Preview & 0.18345 & 0.18080 & 302/387 & 78.04 & 27.73 \\
 \midrule
+GPT-4.1 (unranked reference) & 0.60513 & 0.57522 & 151/387 & 39.02 & --- \\
 Cohort-rate reference & 0.19410 & --- & 285/387 & 73.64 & ---\\
 Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \bottomrule\end{tabular}
-\caption{Benchmark results, sorted by micro-Brier loss.}
+\caption{Benchmark results, sorted by micro-Brier loss. The table contains twenty-one ranked configurations and the GPT-4.1 unranked reference.}
 \label{tab:main}
 \end{table}
 
 \begin{figure}[tb]\centering
 \begin{tikzpicture}[every node/.style={font=\small}]
-\draw[gray!18] (0.43500,-.2)--(0.43500,7.05000);
+\draw[gray!18] (0.43500,-.2)--(0.43500,8.25000);
 \node[anchor=north] at (0.43500,-.3) {0.11};
-\draw[gray!18] (2.17500,-.2)--(2.17500,7.05000);
+\draw[gray!18] (2.17500,-.2)--(2.17500,8.25000);
 \node[anchor=north] at (2.17500,-.3) {0.13};
-\draw[gray!18] (3.91500,-.2)--(3.91500,7.05000);
+\draw[gray!18] (3.91500,-.2)--(3.91500,8.25000);
 \node[anchor=north] at (3.91500,-.3) {0.15};
-\draw[gray!18] (5.65500,-.2)--(5.65500,7.05000);
+\draw[gray!18] (5.65500,-.2)--(5.65500,8.25000);
 \node[anchor=north] at (5.65500,-.3) {0.17};
-\draw[gray!18] (7.39500,-.2)--(7.39500,7.05000);
+\draw[gray!18] (7.39500,-.2)--(7.39500,8.25000);
 \node[anchor=north] at (7.39500,-.3) {0.19};
-\draw[dashed,gray!70] (7.75160,-.2)--(7.75160,7.05000);
+\draw[dashed,gray!70] (7.75160,-.2)--(7.75160,8.25000);
 \node[anchor=east] at (-.18,0.000) {Gemini 3.1 Pro};
 \draw[gray!50] (6.82512,0.000)--(6.59447,0.000);
 \fill[blue!65!black] (6.82512,0.000) circle (2pt);
@@ -247,63 +251,75 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \draw[gray!50] (5.10507,1.600)--(5.98509,1.600);
 \fill[blue!65!black] (5.10507,1.600) circle (2pt);
 \draw[blue!65!black,fill=white,line width=.7pt] (5.98509,1.600) circle (2pt);
-\node[anchor=east] at (-.18,2.000) {Sonnet 5};
-\draw[gray!50] (4.65311,2.000)--(4.75361,2.000);
-\fill[blue!65!black] (4.65311,2.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (4.75361,2.000) circle (2pt);
-\node[anchor=east] at (-.18,2.400) {Grok 4.7};
-\draw[gray!50] (4.63933,2.400)--(5.18010,2.400);
-\fill[blue!65!black] (4.63933,2.400) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (5.18010,2.400) circle (2pt);
-\node[anchor=east] at (-.18,2.800) {Gemini 3.8 Flash};
-\draw[gray!50] (4.20331,2.800)--(2.95760,2.800);
-\fill[blue!65!black] (4.20331,2.800) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.95760,2.800) circle (2pt);
-\node[anchor=east] at (-.18,3.200) {GPT-6 Astra};
-\draw[gray!50] (4.10730,3.200)--(3.28403,3.200);
-\fill[blue!65!black] (4.10730,3.200) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (3.28403,3.200) circle (2pt);
-\node[anchor=east] at (-.18,3.600) {GPT-6.1 Sol};
-\draw[gray!50] (3.86964,3.600)--(2.94516,3.600);
-\fill[blue!65!black] (3.86964,3.600) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.94516,3.600) circle (2pt);
-\node[anchor=east] at (-.18,4.000) {Opus 5.5};
-\draw[gray!50] (3.51502,4.000)--(3.70814,4.000);
-\fill[blue!65!black] (3.51502,4.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (3.70814,4.000) circle (2pt);
-\node[anchor=east] at (-.18,4.400) {GPT-5.6 Luna};
-\draw[gray!50] (3.32487,4.400)--(3.98765,4.400);
-\fill[blue!65!black] (3.32487,4.400) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (3.98765,4.400) circle (2pt);
-\node[anchor=east] at (-.18,4.800) {Kimi K3};
-\draw[gray!50] (3.15799,4.800)--(4.23419,4.800);
-\fill[blue!65!black] (3.15799,4.800) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (4.23419,4.800) circle (2pt);
-\node[anchor=east] at (-.18,5.200) {GPT-5.6 Sol};
-\draw[gray!50] (3.05295,5.200)--(2.45220,5.200);
-\fill[blue!65!black] (3.05295,5.200) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.45220,5.200) circle (2pt);
-\node[anchor=east] at (-.18,5.600) {Opus 5};
-\draw[gray!50] (3.03378,5.600)--(2.65210,5.600);
-\fill[blue!65!black] (3.03378,5.600) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.65210,5.600) circle (2pt);
-\node[anchor=east] at (-.18,6.000) {Grok 4.6};
-\draw[gray!50] (2.49521,6.000)--(2.59299,6.000);
-\fill[blue!65!black] (2.49521,6.000) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.59299,6.000) circle (2pt);
-\node[anchor=east] at (-.18,6.400) {Fable 5.1};
-\draw[gray!50] (2.06804,6.400)--(2.74354,6.400);
-\fill[blue!65!black] (2.06804,6.400) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.74354,6.400) circle (2pt);
-\node[anchor=east] at (-.18,6.800) {GPT-6 Sol};
-\draw[gray!50] (1.09863,6.800)--(2.13074,6.800);
-\fill[blue!65!black] (1.09863,6.800) circle (2pt);
-\draw[blue!65!black,fill=white,line width=.7pt] (2.13074,6.800) circle (2pt);
+\node[anchor=east] at (-.18,2.000) {Mistral Large 4};
+\draw[gray!50] (4.75326,2.000)--(4.44430,2.000);
+\fill[blue!65!black] (4.75326,2.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (4.44430,2.000) circle (2pt);
+\node[anchor=east] at (-.18,2.400) {Sonnet 5};
+\draw[gray!50] (4.65311,2.400)--(4.75361,2.400);
+\fill[blue!65!black] (4.65311,2.400) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (4.75361,2.400) circle (2pt);
+\node[anchor=east] at (-.18,2.800) {Grok 4.7};
+\draw[gray!50] (4.63933,2.800)--(5.18010,2.800);
+\fill[blue!65!black] (4.63933,2.800) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (5.18010,2.800) circle (2pt);
+\node[anchor=east] at (-.18,3.200) {Ultramarine 1 Flash};
+\draw[gray!50] (4.34571,3.200)--(5.83896,3.200);
+\fill[blue!65!black] (4.34571,3.200) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (5.83896,3.200) circle (2pt);
+\node[anchor=east] at (-.18,3.600) {Gemini 4 Argon};
+\draw[gray!50] (4.25129,3.600)--(3.76198,3.600);
+\fill[blue!65!black] (4.25129,3.600) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (3.76198,3.600) circle (2pt);
+\node[anchor=east] at (-.18,4.000) {Gemini 3.8 Flash};
+\draw[gray!50] (4.20331,4.000)--(2.95760,4.000);
+\fill[blue!65!black] (4.20331,4.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.95760,4.000) circle (2pt);
+\node[anchor=east] at (-.18,4.400) {GPT-6 Astra};
+\draw[gray!50] (4.10730,4.400)--(3.28403,4.400);
+\fill[blue!65!black] (4.10730,4.400) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (3.28403,4.400) circle (2pt);
+\node[anchor=east] at (-.18,4.800) {GPT-6.1 Sol};
+\draw[gray!50] (3.86964,4.800)--(2.94516,4.800);
+\fill[blue!65!black] (3.86964,4.800) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.94516,4.800) circle (2pt);
+\node[anchor=east] at (-.18,5.200) {Opus 5.5};
+\draw[gray!50] (3.51502,5.200)--(3.70814,5.200);
+\fill[blue!65!black] (3.51502,5.200) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (3.70814,5.200) circle (2pt);
+\node[anchor=east] at (-.18,5.600) {GPT-5.6 Luna};
+\draw[gray!50] (3.32487,5.600)--(3.98765,5.600);
+\fill[blue!65!black] (3.32487,5.600) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (3.98765,5.600) circle (2pt);
+\node[anchor=east] at (-.18,6.000) {Kimi K3};
+\draw[gray!50] (3.15799,6.000)--(4.23419,6.000);
+\fill[blue!65!black] (3.15799,6.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (4.23419,6.000) circle (2pt);
+\node[anchor=east] at (-.18,6.400) {GPT-5.6 Sol};
+\draw[gray!50] (3.05295,6.400)--(2.45220,6.400);
+\fill[blue!65!black] (3.05295,6.400) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.45220,6.400) circle (2pt);
+\node[anchor=east] at (-.18,6.800) {Opus 5};
+\draw[gray!50] (3.03378,6.800)--(2.65210,6.800);
+\fill[blue!65!black] (3.03378,6.800) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.65210,6.800) circle (2pt);
+\node[anchor=east] at (-.18,7.200) {Grok 4.6};
+\draw[gray!50] (2.49521,7.200)--(2.59299,7.200);
+\fill[blue!65!black] (2.49521,7.200) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.59299,7.200) circle (2pt);
+\node[anchor=east] at (-.18,7.600) {Fable 5.1};
+\draw[gray!50] (2.06804,7.600)--(2.74354,7.600);
+\fill[blue!65!black] (2.06804,7.600) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.74354,7.600) circle (2pt);
+\node[anchor=east] at (-.18,8.000) {GPT-6 Sol};
+\draw[gray!50] (1.09863,8.000)--(2.13074,8.000);
+\fill[blue!65!black] (1.09863,8.000) circle (2pt);
+\draw[blue!65!black,fill=white,line width=.7pt] (2.13074,8.000) circle (2pt);
 \node[anchor=north] at (4.35,-.78) {Brier loss (lower is better)};
 \fill[blue!65!black] (.2,-1.5) circle(2pt);\node[anchor=west] at (.4,-1.5) {Micro Brier};
 \draw[blue!65!black,fill=white] (4.0,-1.5) circle(2pt);\node[anchor=west] at (4.2,-1.5) {Equal-case Brier};
 \draw[dashed,gray!70] (.2,-2.05)--(.6,-2.05);\node[anchor=west,font=\scriptsize] at (.8,-2.05) {Cohort rate (micro only)};\end{tikzpicture}
-\caption{Micro- and equal-case Brier scores for the same eighteen configurations.}\label{fig:ranking}\end{figure}
+\caption{Micro- and equal-case Brier scores for the same twenty-one ranked configurations.}\label{fig:ranking}\end{figure}
 
 \begin{figure}[tb]\centering
 \begin{tikzpicture}[every node/.style={font=\small}]
@@ -334,9 +350,9 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \draw[gray!18] (-.2,0.77778)--(12.00000,0.77778);
 \node[anchor=east] at (-.3,0.77778) {0.19};
 \draw[dashed,gray!70] (-.2,0.45897)--(12.00000,0.45897);
-\draw[dashed,blue!65!black,line width=.8pt] (0.90203,2.82497)--(2.64893,4.41646)--(6.71189,6.40672);
-\fill[blue!65!black] (6.71189,6.40672) circle (2.2pt);
-\node[anchor=west,font=\scriptsize] at (6.87189,6.40672) {GPT-6 Sol};
+\draw[dashed,blue!65!black,line width=.8pt] (0.92983,2.82497)--(2.46147,3.50384)--(2.64893,4.41646)--(6.72754,6.40672);
+\fill[blue!65!black] (6.72754,6.40672) circle (2.2pt);
+\node[anchor=west,font=\scriptsize] at (6.88754,6.40672) {GPT-6 Sol};
 \draw[blue!65!black,fill=white,line width=.7pt] (10.80620,5.54007) circle (2pt);
 \node[anchor=east,font=\scriptsize] at (10.64620,5.54007) {Fable 5.1};
 \draw[blue!65!black,fill=white,line width=.7pt] (7.43298,5.15817) circle (2pt);
@@ -351,28 +367,36 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \fill[blue!65!black] (2.64893,4.41646) circle (2.2pt);
 \node[anchor=east,font=\scriptsize] at (2.48893,4.41646) {GPT-5.6 Luna};
 \draw[blue!65!black,fill=white,line width=.7pt] (7.97904,4.24647) circle (2pt);
-\node[anchor=west,font=\scriptsize] at (8.13904,4.24647) {Opus 5.5};
-\draw[blue!65!black,fill=white,line width=.7pt] (6.64991,3.92944) circle (2pt);
-\node[anchor=east,font=\scriptsize] at (6.48991,3.92944) {GPT-6.1 Sol};
+\node[anchor=north,font=\scriptsize] at (7.97904,4.07647) {Opus 5.5};
+\draw[blue!65!black,fill=white,line width=.7pt] (6.68265,3.92944) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (6.52265,3.92944) {GPT-6.1 Sol};
 \draw[blue!65!black,fill=white,line width=.7pt] (10.13603,3.71697) circle (2pt);
 \node[anchor=west,font=\scriptsize] at (10.29603,3.71697) {GPT-6 Astra};
-\draw[gray!60,line width=.4pt] (9.08852,3.63114)--(9.49652,4.01514);
+\draw[gray!60,line width=.4pt] (9.08852,3.63114)--(9.49652,3.24714);
 \draw[blue!65!black,fill=white,line width=.7pt] (9.08852,3.63114) circle (2pt);
-\node[anchor=south west,font=\scriptsize] at (9.49652,4.01514) {Gemini 3.8 Flash};
+\node[anchor=north west,font=\scriptsize] at (9.49652,3.24714) {Gemini 3.8 Flash};
+\draw[gray!60,line width=.4pt] (8.37396,3.58825)--(8.78196,3.97225);
+\draw[blue!65!black,fill=white,line width=.7pt] (8.37396,3.58825) circle (2pt);
+\node[anchor=south west,font=\scriptsize] at (8.78196,3.97225) {Gemini 4 Argon};
+\fill[blue!65!black] (2.46147,3.50384) circle (2.2pt);
+\node[anchor=west,font=\scriptsize] at (2.62147,3.50384) {Ultramarine 1 Flash};
 \draw[blue!65!black,fill=white,line width=.7pt] (8.93440,3.24134) circle (2pt);
 \node[anchor=west,font=\scriptsize] at (9.09440,3.24134) {Grok 4.7};
+\draw[gray!60,line width=.4pt] (8.34622,3.22902)--(8.34622,2.68502);
 \draw[blue!65!black,fill=white,line width=.7pt] (8.34622,3.22902) circle (2pt);
-\node[anchor=east,font=\scriptsize] at (8.18622,3.22902) {Sonnet 5};
-\fill[blue!65!black] (0.90203,2.82497) circle (2.2pt);
-\node[anchor=west,font=\scriptsize] at (1.06203,2.82497) {GPT-6 Luna};
-\draw[blue!65!black,fill=white,line width=.7pt] (10.06194,2.69425) circle (2pt);
-\node[anchor=west,font=\scriptsize] at (10.22194,2.69425) {Muse Wonder};
-\draw[blue!65!black,fill=white,line width=.7pt] (5.79279,2.10173) circle (2pt);
-\node[anchor=west,font=\scriptsize] at (5.95279,2.10173) {Sonnet 5.5};
+\node[anchor=north,font=\scriptsize] at (8.34622,2.68502) {Sonnet 5};
+\draw[blue!65!black,fill=white,line width=.7pt] (7.54922,3.13949) circle (2pt);
+\node[anchor=east,font=\scriptsize] at (7.38922,3.13949) {Mistral Large 4};
+\fill[blue!65!black] (0.92983,2.82497) circle (2.2pt);
+\node[anchor=north,font=\scriptsize] at (0.92983,2.65497) {GPT-6 Luna};
+\draw[blue!65!black,fill=white,line width=.7pt] (9.29224,2.69425) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (9.45224,2.69425) {Muse Wonder};
+\draw[blue!65!black,fill=white,line width=.7pt] (5.79278,2.10173) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (5.95278,2.10173) {Sonnet 5.5};
 \draw[blue!65!black,fill=white,line width=.7pt] (6.25370,1.46170) circle (2pt);
 \node[anchor=east,font=\scriptsize] at (6.09370,1.46170) {Muse Spark 1.3};
-\draw[blue!65!black,fill=white,line width=.7pt] (10.11231,1.28725) circle (2pt);
-\node[anchor=east,font=\scriptsize] at (9.95231,1.28725) {Gemini 3.1 Pro};
+\draw[blue!65!black,fill=white,line width=.7pt] (8.58249,1.28725) circle (2pt);
+\node[anchor=west,font=\scriptsize] at (8.74249,1.28725) {Gemini 3.1 Pro};
 \node[anchor=north] at (6.00000,-.78) {Standard-rate cost for the 91-case cohort, USD (log scale)};
 \node[rotate=90,anchor=south] at (-1.05,3.50000) {Micro Brier (lower is better) $\uparrow$};
 \fill[blue!65!black] (.2,-1.5) circle(2.2pt);\node[anchor=west] at (.4,-1.5) {On the observed frontier};
@@ -383,19 +407,19 @@ Constant $p=0.5$ & 0.25000 & 0.25000 & --- & --- & ---\\
 \subsection{Confidence and calibration}
 Define confidence $h_{cu}=\max(p_{cu},1-p_{cu})$ and the high-confidence subset $H_m=\{(c,u):h_{cu}\geq0.9\}$ for configuration $m$. Comparing the mean confidence in $H_m$ with classification accuracy in $H_m$ gives a useful conditional calibration diagnostic. Of course, this is not a full reliability curve; the subset differs by model, and its units remain clustered by case.
 
-OpenAI models appeared more likely than others to make high-confidence forecasts. GPT-5.6 Sol, GPT-5.6 Luna, and Astra make high-confidence forecasts on 58.9\%, 47.0\%, and 53.5\% of units respectively, compared with 20.9\% for Fable 5.1. Their mean confidence in those subsets is approximately 95--97\%, while realized accuracy is approximately 89--90\%, suggesting some overconfidence, particularly for Astra, which missed 21 of 207 such predictions. Gemini 3.8 Flash also had relatively high sharpness, making 276 high-confidence forecasts (71.3\% of units) and missing 35. Gemini 3.1 Pro Preview is sharper still, making 320 high-confidence forecasts and missing 57. GPT-6 Sol provides a useful counterexample within OpenAI, missing 8 of 169 high-confidence forecasts, for 95.3\% subset accuracy. GPT-6.1 Sol is sharper and less accurate in that subset, missing 18 of 199. GPT-6 Luna misses 19 of 183. Claude Opus 5.5 misses none of 65. 
+OpenAI models appeared more likely than others to make high-confidence forecasts. GPT-5.6 Sol, GPT-5.6 Luna, and Astra make high-confidence forecasts on 58.9\%, 47.0\%, and 53.5\% of units respectively, compared with 20.9\% for Fable 5.1. Their mean confidence in those subsets is approximately 95--97\%, while realized accuracy is approximately 89--90\%, suggesting some overconfidence, particularly for Astra, which missed 21 of 207 such predictions. Gemini 3.8 Flash also had relatively high sharpness, making 276 high-confidence forecasts (71.3\% of units) and missing 35. Gemini 4 Argon made 225 high-confidence forecasts (58.1\% of units) and missed 24; Mistral Large 4 made 128 (33.1\%) and missed 7. Gemini 3.1 Pro Preview is sharper still, making 320 high-confidence forecasts and missing 57. GPT-6 Sol provides a useful counterexample within OpenAI, missing 8 of 169 high-confidence forecasts, for 95.3\% subset accuracy. GPT-6.1 Sol is sharper and less accurate in that subset, missing 18 of 199. GPT-6 Luna misses 19 of 183. Claude Opus 5.5 misses none of 65.
 
 \begin{figure}[tb]\centering
 \begin{tikzpicture}[every node/.style={font=\small}]
-\draw[gray!18] (0.00000,-.2)--(0.00000,7.05000);
+\draw[gray!18] (0.00000,-.2)--(0.00000,8.25000);
 \node[anchor=north] at (0.00000,-.3) {0.80};
-\draw[gray!18] (2.03906,-.2)--(2.03906,7.05000);
+\draw[gray!18] (2.03906,-.2)--(2.03906,8.25000);
 \node[anchor=north] at (2.03906,-.3) {0.85};
-\draw[gray!18] (4.07812,-.2)--(4.07812,7.05000);
+\draw[gray!18] (4.07812,-.2)--(4.07812,8.25000);
 \node[anchor=north] at (4.07812,-.3) {0.90};
-\draw[gray!18] (6.11719,-.2)--(6.11719,7.05000);
+\draw[gray!18] (6.11719,-.2)--(6.11719,8.25000);
 \node[anchor=north] at (6.11719,-.3) {0.95};
-\draw[gray!18] (8.15625,-.2)--(8.15625,7.05000);
+\draw[gray!18] (8.15625,-.2)--(8.15625,8.25000);
 \node[anchor=north] at (8.15625,-.3) {1.00};
 \node[anchor=east] at (-.18,0.000) {Gemini 3.1 Pro};
 \draw[gray!50] (6.29815,0.000)--(0.89209,0.000);
@@ -417,62 +441,74 @@ OpenAI models appeared more likely than others to make high-confidence forecasts
 \draw[gray!50] (6.28544,1.600)--(3.92213,1.600);
 \fill[blue!65!black] (6.28544,1.600) circle (2pt);
 \fill[orange!80!black] (3.86713,1.545) rectangle (3.97713,1.655);
-\node[anchor=east] at (-.18,2.000) {Sonnet 5};
-\draw[gray!50] (5.12484,2.000)--(4.75781,2.000);
-\fill[blue!65!black] (5.12484,2.000) circle (2pt);
-\fill[orange!80!black] (4.70281,1.945) rectangle (4.81281,2.055);
-\node[anchor=east] at (-.18,2.400) {Grok 4.7};
-\draw[gray!50] (5.27659,2.400)--(6.49171,2.400);
-\fill[blue!65!black] (5.27659,2.400) circle (2pt);
-\fill[orange!80!black] (6.43671,2.345) rectangle (6.54671,2.455);
-\node[anchor=east] at (-.18,2.800) {Gemini 3.8 Flash};
-\draw[gray!50] (6.19254,2.800)--(2.98471,2.800);
-\fill[blue!65!black] (6.19254,2.800) circle (2pt);
-\fill[orange!80!black] (2.92971,2.745) rectangle (3.03971,2.855);
-\node[anchor=east] at (-.18,3.200) {GPT-6 Astra};
-\draw[gray!50] (6.31124,3.200)--(4.01902,3.200);
-\fill[blue!65!black] (6.31124,3.200) circle (2pt);
-\fill[orange!80!black] (3.96402,3.145) rectangle (4.07402,3.255);
-\node[anchor=east] at (-.18,3.600) {GPT-6.1 Sol};
-\draw[gray!50] (6.38462,3.600)--(4.46749,3.600);
-\fill[blue!65!black] (6.38462,3.600) circle (2pt);
-\fill[orange!80!black] (4.41249,3.545) rectangle (4.52249,3.655);
-\node[anchor=east] at (-.18,4.000) {Opus 5.5};
-\draw[gray!50] (5.21373,4.000)--(8.15625,4.000);
-\fill[blue!65!black] (5.21373,4.000) circle (2pt);
-\fill[orange!80!black] (8.10125,3.945) rectangle (8.21125,4.055);
-\node[anchor=east] at (-.18,4.400) {GPT-5.6 Luna};
-\draw[gray!50] (6.08582,4.400)--(3.67479,4.400);
-\fill[blue!65!black] (6.08582,4.400) circle (2pt);
-\fill[orange!80!black] (3.61979,4.345) rectangle (3.72979,4.455);
-\node[anchor=east] at (-.18,4.800) {Kimi K3};
-\draw[gray!50] (5.23950,4.800)--(7.71298,4.800);
-\fill[blue!65!black] (5.23950,4.800) circle (2pt);
-\fill[orange!80!black] (7.65798,4.745) rectangle (7.76798,4.855);
-\node[anchor=east] at (-.18,5.200) {GPT-5.6 Sol};
-\draw[gray!50] (6.93979,5.200)--(3.50576,5.200);
-\fill[blue!65!black] (6.93979,5.200) circle (2pt);
-\fill[orange!80!black] (3.45076,5.145) rectangle (3.56076,5.255);
-\node[anchor=east] at (-.18,5.600) {Opus 5};
-\draw[gray!50] (5.55434,5.600)--(6.80811,5.600);
-\fill[blue!65!black] (5.55434,5.600) circle (2pt);
-\fill[orange!80!black] (6.75311,5.545) rectangle (6.86311,5.655);
-\node[anchor=east] at (-.18,6.000) {Grok 4.6};
-\draw[gray!50] (5.31249,6.000)--(7.79213,6.000);
-\fill[blue!65!black] (5.31249,6.000) circle (2pt);
-\fill[orange!80!black] (7.73713,5.945) rectangle (7.84713,6.055);
-\node[anchor=east] at (-.18,6.400) {Fable 5.1};
-\draw[gray!50] (5.25625,6.400)--(8.15625,6.400);
-\fill[blue!65!black] (5.25625,6.400) circle (2pt);
-\fill[orange!80!black] (8.10125,6.345) rectangle (8.21125,6.455);
-\node[anchor=east] at (-.18,6.800) {GPT-6 Sol};
-\draw[gray!50] (6.35608,6.800)--(6.22578,6.800);
-\fill[blue!65!black] (6.35608,6.800) circle (2pt);
-\fill[orange!80!black] (6.17078,6.745) rectangle (6.28078,6.855);
+\node[anchor=east] at (-.18,2.000) {Mistral Large 4};
+\draw[gray!50] (5.15819,2.000)--(5.92603,2.000);
+\fill[blue!65!black] (5.15819,2.000) circle (2pt);
+\fill[orange!80!black] (5.87103,1.945) rectangle (5.98103,2.055);
+\node[anchor=east] at (-.18,2.400) {Sonnet 5};
+\draw[gray!50] (5.12484,2.400)--(4.75781,2.400);
+\fill[blue!65!black] (5.12484,2.400) circle (2pt);
+\fill[orange!80!black] (4.70281,2.345) rectangle (4.81281,2.455);
+\node[anchor=east] at (-.18,2.800) {Grok 4.7};
+\draw[gray!50] (5.27659,2.800)--(6.49171,2.800);
+\fill[blue!65!black] (5.27659,2.800) circle (2pt);
+\fill[orange!80!black] (6.43671,2.745) rectangle (6.54671,2.855);
+\node[anchor=east] at (-.18,3.200) {Ultramarine 1 Flash};
+\draw[gray!50] (4.97319,3.200)--(7.62662,3.200);
+\fill[blue!65!black] (4.97319,3.200) circle (2pt);
+\fill[orange!80!black] (7.57162,3.145) rectangle (7.68162,3.255);
+\node[anchor=east] at (-.18,3.600) {Gemini 4 Argon};
+\draw[gray!50] (6.14800,3.600)--(3.80625,3.600);
+\fill[blue!65!black] (6.14800,3.600) circle (2pt);
+\fill[orange!80!black] (3.75125,3.545) rectangle (3.86125,3.655);
+\node[anchor=east] at (-.18,4.000) {Gemini 3.8 Flash};
+\draw[gray!50] (6.19254,4.000)--(2.98471,4.000);
+\fill[blue!65!black] (6.19254,4.000) circle (2pt);
+\fill[orange!80!black] (2.92971,3.945) rectangle (3.03971,4.055);
+\node[anchor=east] at (-.18,4.400) {GPT-6 Astra};
+\draw[gray!50] (6.31124,4.400)--(4.01902,4.400);
+\fill[blue!65!black] (6.31124,4.400) circle (2pt);
+\fill[orange!80!black] (3.96402,4.345) rectangle (4.07402,4.455);
+\node[anchor=east] at (-.18,4.800) {GPT-6.1 Sol};
+\draw[gray!50] (6.38462,4.800)--(4.46749,4.800);
+\fill[blue!65!black] (6.38462,4.800) circle (2pt);
+\fill[orange!80!black] (4.41249,4.745) rectangle (4.52249,4.855);
+\node[anchor=east] at (-.18,5.200) {Opus 5.5};
+\draw[gray!50] (5.21373,5.200)--(8.15625,5.200);
+\fill[blue!65!black] (5.21373,5.200) circle (2pt);
+\fill[orange!80!black] (8.10125,5.145) rectangle (8.21125,5.255);
+\node[anchor=east] at (-.18,5.600) {GPT-5.6 Luna};
+\draw[gray!50] (6.08582,5.600)--(3.67479,5.600);
+\fill[blue!65!black] (6.08582,5.600) circle (2pt);
+\fill[orange!80!black] (3.61979,5.545) rectangle (3.72979,5.655);
+\node[anchor=east] at (-.18,6.000) {Kimi K3};
+\draw[gray!50] (5.23950,6.000)--(7.71298,6.000);
+\fill[blue!65!black] (5.23950,6.000) circle (2pt);
+\fill[orange!80!black] (7.65798,5.945) rectangle (7.76798,6.055);
+\node[anchor=east] at (-.18,6.400) {GPT-5.6 Sol};
+\draw[gray!50] (6.93979,6.400)--(3.50576,6.400);
+\fill[blue!65!black] (6.93979,6.400) circle (2pt);
+\fill[orange!80!black] (3.45076,6.345) rectangle (3.56076,6.455);
+\node[anchor=east] at (-.18,6.800) {Opus 5};
+\draw[gray!50] (5.55434,6.800)--(6.80811,6.800);
+\fill[blue!65!black] (5.55434,6.800) circle (2pt);
+\fill[orange!80!black] (6.75311,6.745) rectangle (6.86311,6.855);
+\node[anchor=east] at (-.18,7.200) {Grok 4.6};
+\draw[gray!50] (5.31249,7.200)--(7.79213,7.200);
+\fill[blue!65!black] (5.31249,7.200) circle (2pt);
+\fill[orange!80!black] (7.73713,7.145) rectangle (7.84713,7.255);
+\node[anchor=east] at (-.18,7.600) {Fable 5.1};
+\draw[gray!50] (5.25625,7.600)--(8.15625,7.600);
+\fill[blue!65!black] (5.25625,7.600) circle (2pt);
+\fill[orange!80!black] (8.10125,7.545) rectangle (8.21125,7.655);
+\node[anchor=east] at (-.18,8.000) {GPT-6 Sol};
+\draw[gray!50] (6.35608,8.000)--(6.22578,8.000);
+\fill[blue!65!black] (6.35608,8.000) circle (2pt);
+\fill[orange!80!black] (6.17078,7.945) rectangle (6.28078,8.055);
 \node[anchor=north] at (4.35,-.78) {Probability / empirical fraction};
 \fill[blue!65!black] (-.4,-1.5) circle(2pt);\node[anchor=west] at (-.2,-1.5) {Mean stated confidence};
 \fill[orange!80!black] (5.05,-1.555) rectangle(5.16,-1.445);\node[anchor=west] at (5.35,-1.5) {Empirical accuracy};\end{tikzpicture}
-\caption{Conditional confidence diagnostic on predictions with $\max(p,1-p)\geq0.9$. Each row uses the subset selected by that model, rather than a common set of units. Wrong/selected counts: GPT-6 Sol: 8/169; Fable 5.1: 0/81; Grok 4.6: 1/112; Opus 5: 4/121; GPT-5.6 Sol: 26/228; Kimi K3: 1/92; GPT-5.6 Luna: 20/182; Opus 5.5: 0/65; GPT-6.1 Sol: 18/199; GPT-6 Astra: 21/207; Gemini 3.8 Flash: 35/276; Grok 4.7: 4/98; Sonnet 5: 5/60; GPT-6 Luna: 19/183; Muse Wonder: 10/118; Sonnet 5.5: 5/63; Muse Spark 1.3: 15/135; Gemini 3.1 Pro: 57/320. This is not a full reliability diagram or an estimate of statistical significance.}\label{fig:confidence}\end{figure}
+\caption{Conditional confidence diagnostic on predictions with $\max(p,1-p)\geq0.9$. Each row uses the subset selected by that model, rather than a common set of units. Wrong/selected counts: GPT-6 Sol: 8/169; Fable 5.1: 0/81; Grok 4.6: 1/112; Opus 5: 4/121; GPT-5.6 Sol: 26/228; Kimi K3: 1/92; GPT-5.6 Luna: 20/182; Opus 5.5: 0/65; GPT-6.1 Sol: 18/199; GPT-6 Astra: 21/207; Gemini 3.8 Flash: 35/276; Gemini 4 Argon: 24/225; Grok 4.7: 4/98; Sonnet 5: 5/60; Mistral Large 4: 7/128; GPT-6 Luna: 19/183; Ultramarine 1 Flash: 1/77; Muse Wonder: 10/118; Sonnet 5.5: 5/63; Muse Spark 1.3: 15/135; Gemini 3.1 Pro: 57/320. This is not a full reliability diagram or an estimate of statistical significance.}\label{fig:confidence}\end{figure}
 
 Other high-performing models were less sharp. For example, Fable has no errors among 81 high-confidence units, while Kimi and Grok 4.6 each miss one. Claude Sonnet 5.5 makes 63 high-confidence forecasts and misses 5. The practical finding is that confidence varies substantially and it materially affects proper scores. Astra's underperformance relative to cheaper models like Sol, for example, appears largely due to several high-confidence misses, which resulted in large Brier losses.
 
@@ -620,7 +656,7 @@ As I am a practicing attorney and do not have any formal training in artificial 
 \appendix
 \section{Model configuration and temporal evidence}
 \label{app:cutoffs}\label{app:protocol}
-``K'' denotes a reported knowledge cutoff, ``T'' a reported training cutoff, and ``?'' no established cutoff. Month-only dates are compared as the first day of the reported month. The reported cutoffs for fifteen configurations precede June 30, 2026. Kimi K3, Muse Spark 1.3, and Muse Wonder have no established training or knowledge cutoff, so those three configurations remain qualified. Release dates alone do not establish training-data exclusion.
+``K'' denotes a reported knowledge cutoff, ``T'' a reported training cutoff, and ``?'' no established cutoff. Month-only dates are compared as the first day of the reported month. The reported cutoffs for sixteen configurations precede June 30, 2026. Mistral Large 4, Kimi K3, Muse Spark 1.3, Muse Wonder, and Ultramarine 1 Flash have no established training or knowledge cutoff, so those five configurations remain qualified. GPT-4.1 is an unranked reference and is not included in the ranked eligibility count. Release dates alone do not establish training-data exclusion.
 \begin{table}[ht]\centering\small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{llll}\toprule
 Configuration & Reasoning & Reported cutoff & Relation to window\\\midrule
@@ -635,6 +671,8 @@ Claude Opus 5.5 & High & 2026-06 (T) & Precedes window \\
 GPT-6.1 Sol & High & 2026-04-30 (K) & Precedes window \\
 GPT-6 Astra & High & 2026-04-30 (K) & Precedes window \\
 Gemini 3.8 Flash & High & 2026-03 (K) & Precedes window \\
+Gemini 4 Argon & High thinking & 2026-03 (K) & Precedes window \\
+Ultramarine 1 Flash & High & Unknown (?) & Qualified \\
 Grok 4.7 & High & 2026-05 (K) & Precedes window \\
 Claude Sonnet 5 & Adaptive/default & 2026-01 (T) & Precedes window \\
 GPT-6 Luna & High & 2026-05-18 (K) & Precedes window \\
@@ -642,6 +680,7 @@ Muse Wonder & High & Unknown (?) & Unknown \\
 Claude Sonnet 5.5 & High & 2026-06 (T) & Precedes window \\
 Muse Spark 1.3 & High & Unknown (?) & Unknown \\
 Gemini 3.1 Pro Preview & High & 2025-01 (K) & Precedes window \\
+Mistral Large 4 & High & Unknown (?) & Qualified \\
 \bottomrule\end{tabular}\caption{Model Configuration and Training Cutoff Dates}\label{tab:cutoffs}\end{table}
 
 Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 used adaptive thinking at provider defaults. Claude Opus 5.5 and Claude Sonnet 5.5 used high effort. The other configurations use the high reasoning or thinking setting.
@@ -653,9 +692,9 @@ Results retain per-model forecast and scoring run identifiers and repository-rel
 
 \subsection{Main Results Costs}
 % BEGIN AI-PREPARED (disclosed in the AI use statement; not sent to the Pangram check)
-Cost coverage and missing usage dimensions are retained in the per-model evidence. Successful-case workload charges exclude failed attempts and unresolved charges and are not provider invoice totals. Where cache dimensions are missing, standard-rate repricing uses ordinary-input estimates.
+Cost coverage and missing usage dimensions are retained in the per-model evidence. Successful-case workload charges exclude failed attempts and unresolved charges and are not provider invoice totals. Reported cache reads and writes use the frozen published cache rates even when the other cache dimension is missing. Unreported dimensions remain missing, and the remaining input uses ordinary-input prices. Historical scoring exports and recorded workload amounts are preserved; the selected cost estimates are repriced from their archived receipts.
 
-The normalized costs range from \$0.62 for GPT-6 Luna to \$83.18 for Fable. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
+The normalized costs range from \$0.63 for GPT-6 Luna to \$83.18 for Fable. Gemini 4 Argon is estimated at \$25.02 from the Google standard-rate pricing snapshot, with cache-read usage missing for 185 responses and cache-write usage missing for all 341 responses. Mistral Large 4 has a provider-reported workload total of \$8.32 but a standardized rate estimate of \$16.65; cache-read usage is missing for 193 responses and cache-write usage is missing for all 547 responses. These are not actual invoice charges. For example, Fable was initially run without caching, resulting in an actual cost of \$189.70. The normalized price was reconstructed after the fact using turn-by-turn token counts, with the reconstruction validated against real billing data from other Anthropic model runs. In several other cases, provider discounts that we received were normalized to standard API rates. On these standardized estimates, GPT-6 Luna, Ultramarine 1 Flash, GPT-5.6 Luna, and GPT-6 Sol form the observed micro-Brier cost--score frontier.
 % END AI-PREPARED
 
 \subsection{Jev Evaluation Costs}

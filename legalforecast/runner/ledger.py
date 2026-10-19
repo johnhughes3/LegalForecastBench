@@ -521,7 +521,7 @@ class RunnerLedger:
                     already_restored = True
                 else:
                     raise RunBlockedError("cell already contains a different response")
-            if already_restored:
+            if already_restored and record.status == "reserved":
                 self._connection.commit()
                 return
             if record.status != "ambiguous":
@@ -541,7 +541,7 @@ class RunnerLedger:
                 SET status = 'reserved', response_payload = ?,
                     response_payload_sha256 = ?, failure_type = NULL
                 WHERE cell_id = ? AND provider_attempt_id = ?
-                  AND status = 'ambiguous' AND response_payload IS NULL
+                  AND status = 'ambiguous'
                 """,
                 (
                     response_payload,

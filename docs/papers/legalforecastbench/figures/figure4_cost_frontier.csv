@@ -1,19 +1,22 @@
 slug,display_name,provider,cost_usd,cost_basis,micro_brier,on_frontier
-gpt-6-sol,GPT-6 Sol,OpenAI,11.009783,managed_usage_reprice_with_conservative_uncached_fallback,0.117627906977,true
+gpt-6-sol,GPT-6 Sol,OpenAI,11.095201,published_list_prices_with_reported_cache_usage,0.117627906977,true
 claude-fable-5-1,Claude Fable 5.1,Anthropic,83.180000,estimated,0.128770542636,false
 grok-4-6,Grok 4.6,SpaceXAI,15.720000,standard_rate,0.133680620155,false
 claude-opus-5,Claude Opus 5,Anthropic,45.890000,standard_rate,0.139871059432,false
 gpt-5-6-sol,GPT-5.6 Sol,OpenAI,24.910000,standard_rate,0.140091372093,false
 kimi-k3,Kimi K3,Moonshot,16.870000,standard_rate,0.141298708010,false
 gpt-5-6-luna,GPT-5.6 Luna,OpenAI,1.480000,standard_rate,0.143216925065,true
-claude-opus-5-5,Claude Opus 5.5,Anthropic,20.586660,estimated_from_pricing_snapshot,0.145402583979,false
-gpt-6-1-sol,GPT-6.1 Sol,OpenAI,10.677807,estimated_from_pricing_snapshot,0.149478617571,false
+claude-opus-5-5,Claude Opus 5.5,Anthropic,20.586660,anthropic_cache_aware_usage_reconstruction,0.145402583979,false
+gpt-6-1-sol,GPT-6.1 Sol,OpenAI,10.851925,published_list_prices_with_reported_cache_usage,0.149478617571,false
 gpt-6-astra,GPT-6 Astra,OpenAI,59.740000,standard_rate,0.152210400517,false
 gemini-3-8-flash,Gemini 3.8 Flash,Google,35.610000,standard_rate,0.153313953488,false
-grok-4-7,Grok 4.7,vercel_ai_gateway,32.999826,managed_usage_reprice_with_conservative_uncached_fallback,0.158325581395,false
+gemini-4-argon,Gemini 4 Argon,Google,25.020457,published_list_prices_with_reported_cache_usage,0.153865374677,false
+ultramarine-1-flash,Ultramarine 1 Flash,Paper Instruments,1.349121,published_list_prices_with_reported_cache_usage,0.154950645995,true
+grok-4-7,Grok 4.7,vercel_ai_gateway,32.999826,published_list_prices_with_reported_cache_usage,0.158325581395,false
 claude-sonnet-5,Claude Sonnet 5,Anthropic,24.680000,standard_rate,0.158483979328,false
-gpt-6-luna,GPT-6 Luna,OpenAI,0.624523,standard_rate,0.163679005168,true
-muse-wonder-1-0,Muse Wonder,Meta,57.593452,standard_rate,0.165359689922,false
-claude-sonnet-5-5,Claude Sonnet 5.5,Anthropic,6.992451,estimated_from_pricing_snapshot,0.172977777778,false
+mistral-large-4,Mistral Large 4,Mistral,16.648990,published_list_prices_with_reported_cache_usage,0.159635142119,false
+gpt-6-luna,GPT-6 Luna,OpenAI,0.633157,published_list_prices_with_reported_cache_usage,0.163679005168,true
+muse-wonder-1-0,Muse Wonder,Meta,39.379398,published_list_prices_with_reported_cache_usage,0.165359689922,false
+claude-sonnet-5-5,Claude Sonnet 5.5,Anthropic,6.992409,anthropic_cache_aware_usage_reconstruction,0.172977777778,false
 muse-spark-1-3,Muse Spark 1.3,Meta,8.780000,standard_rate,0.181206718346,false
-gemini-3-1-pro-preview,Gemini 3.1 Pro Preview,Google,59.044026,estimated_from_pricing_snapshot,0.183449612403,false
+gemini-3-1-pro-preview,Gemini 3.1 Pro Preview,Google,27.734889,published_list_prices_with_reported_cache_usage,0.183449612403,false

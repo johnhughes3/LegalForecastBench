@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/papers/**'
+      - 'site/public/paper/**'
       - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'docs/papers/**'
+      - 'site/public/paper/**'
       - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'

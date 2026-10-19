@@ -29,7 +29,15 @@ Provider purchases and budget consent for corpus construction belong to the priv
 
 ## Documentation placement
 
-Keep public-facing documentation under `docs/`: explain the benchmark, reproduction, public contracts, and how outsiders can contribute. Save private/internal operating instructions, deployment procedures, credential setup, and corpus administration in the private LegalForecastCorpus repository. Delete obsolete plans rather than archiving them in this repository. Keep the root README concise; the CLAUDE.md symlink points to these contributor instructions.
+Keep public-facing documentation under `docs/`: explain the benchmark, reproduction, public contracts, and how outsiders can contribute. Save private/internal operating instructions, deployment procedures, credential setup, and corpus administration in the private LegalForecastCorpus repository. The owner-requested public-site verification and promotion policy below is an exception and belongs in this root agent guidance; operational deployment runbooks remain private. Delete obsolete plans rather than archiving them in this repository. Keep the root README concise; the CLAUDE.md symlink points to these contributor instructions.
+
+## Public Site Deployment and Promotion
+
+After landing a PR that changes the public site, inspect the new Vercel deployment at its separate deployment URL. Confirm that it contains the merged commit, verify that the changes produce the intended result, and check the affected pages and flows for regressions before promoting it to production. A successful build or a Ready deployment alone does not establish that the changes work or that the public domain serves them.
+
+Promote the verified deployment to production manually only when John requests promotion. If John explicitly authorized deployment immediately after landing at the start of the task, that authorization is sufficient: inspect and verify the new deployment first, then promote it without asking again. A request to land or merge a PR alone does not authorize production promotion. If verification fails or is blocked, report the problem and leave production unchanged.
+
+After promotion, verify the changes again on the public domain before reporting them as live. When promotion has not been requested, report that the PR is merged, give the deployment's separate URL and verification status, and state that production awaits John's request.
 
 ## Public Repository Hygiene
 
@@ -61,7 +69,7 @@ Legacy references to those concepts have been removed from the supported tree; d
 
 The owner selected training-cutoff eligibility before benchmark runs and clarified it on September 28, 2026: a model is eligible when its provider-reported training-data or knowledge cutoff falls before the earliest scored decision (a month-only cutoff is compared as the first day of that month); public release date is provenance, not the eligibility test. Missing cutoffs, or cutoffs on or after the earliest decision, remain qualified. Record evidence in `legalforecast/data/model_cutoffs.json`, not by editing frozen registries. Preserve historical pre-/post-anchor fields and immutable artifacts; the existing release-arm reporting code needs alignment before automated publication claims this policy. Follow `docs/METHODS.md` and `docs/publication-governance.md`. Do not infer contamination from raw score differences across different cohorts or treat nonsignificance as proof of no contamination.
 
-Report both micro-Brier and equal-case Brier, retaining the methods' micro headline and case-weighted sensitivity. Report actual/reconstructed costs and standard-rate repricing with coverage and missing usage disclosed.
+Report both micro-Brier and equal-case Brier, retaining the methods' micro headline and case-weighted sensitivity. Report actual/reconstructed costs and standard-rate repricing with coverage and missing usage disclosed. Standard-rate repricing means the provider's published, undiscounted standard API list prices applied to the usage we actually recorded, with cache reads and cache writes priced at the published cache rates. Provider-reported charges usually equal standard pricing; they diverge when a run received a discounted rate (a gateway or reseller discount, a temporary promotion, flex or batch tier pricing) or when caching behaved unexpectedly, and the two columns are reported side by side so readers can see that gap.
 
 Private corpus acquisition and unitization belong to the companion LegalForecastCorpus repository and are not shipped in this public package. This repository consumes locked outcome-blinded manifests and releases, retains public evaluation and publication paths, and keeps withdrawal handling for sealed or redacted cases.
 

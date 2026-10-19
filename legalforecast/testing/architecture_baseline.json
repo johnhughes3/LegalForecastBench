@@ -382,8 +382,8 @@
         "largest_symbol": "complete_live_prompt",
         "largest_symbol_lines": 175,
         "layer": "application",
-        "line_count": 1978,
-        "nonblank_line_count": 1722,
+        "line_count": 1980,
+        "nonblank_line_count": 1724,
         "top_level_definition_count": 89
       },
       "legalforecast/evals/model_registry.py": {
@@ -708,8 +708,8 @@
         "largest_symbol": "add_multiharness_parser",
         "largest_symbol_lines": 418,
         "layer": "application",
-        "line_count": 1690,
-        "nonblank_line_count": 1551,
+        "line_count": 1694,
+        "nonblank_line_count": 1555,
         "top_level_definition_count": 49
       },
       "legalforecast/multiharness/codex_cli.py": {
@@ -1682,11 +1682,11 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "complete_managed_tool_cell",
-        "largest_symbol_lines": 319,
+        "largest_symbol_lines": 320,
         "layer": "application",
-        "line_count": 1111,
-        "nonblank_line_count": 1030,
-        "top_level_definition_count": 20
+        "line_count": 1234,
+        "nonblank_line_count": 1139,
+        "top_level_definition_count": 23
       },
       "legalforecast/runner/managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -1699,10 +1699,10 @@
         ],
         "lane_owner": "root",
         "largest_symbol": "managed_result_from_transcript",
-        "largest_symbol_lines": 199,
+        "largest_symbol_lines": 203,
         "layer": "application",
-        "line_count": 733,
-        "nonblank_line_count": 686,
+        "line_count": 738,
+        "nonblank_line_count": 691,
         "top_level_definition_count": 14
       },
       "legalforecast/runner/protected_recovery.py": {
@@ -2207,6 +2207,24 @@
         "nonblank_line_count": 729,
         "top_level_definition_count": 30
       },
+      "tests/test_hermes_paid.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_paid_wrapper_requires_durable_settlement",
+        "largest_symbol_lines": 119,
+        "layer": "test",
+        "line_count": 518,
+        "nonblank_line_count": 473,
+        "top_level_definition_count": 10
+      },
       "tests/test_integrated_fixture_pipeline.py": {
         "cycle_id": "",
         "disposition_kind": "watch",
@@ -2323,11 +2341,11 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools",
-        "largest_symbol_lines": 190,
+        "largest_symbol_lines": 193,
         "layer": "test",
-        "line_count": 1618,
-        "nonblank_line_count": 1483,
-        "top_level_definition_count": 31
+        "line_count": 1912,
+        "nonblank_line_count": 1761,
+        "top_level_definition_count": 35
       },
       "tests/test_managed_transcript_recovery.py": {
         "cycle_id": "",
@@ -2340,10 +2358,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
-        "largest_symbol_lines": 278,
+        "largest_symbol_lines": 296,
         "layer": "test",
-        "line_count": 883,
-        "nonblank_line_count": 826,
+        "line_count": 921,
+        "nonblank_line_count": 864,
         "top_level_definition_count": 20
       },
       "tests/test_model_registry.py": {
@@ -2776,8 +2794,8 @@
         "largest_symbol": "test_checked_out_model_registry_is_the_only_local_fan_in_input",
         "largest_symbol_lines": 209,
         "layer": "test",
-        "line_count": 830,
-        "nonblank_line_count": 776,
+        "line_count": 855,
+        "nonblank_line_count": 800,
         "top_level_definition_count": 17
       },
       "tests/test_official_provider_workflow.py": {
@@ -2879,10 +2897,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_runner_replays_remote_settlement_using_exact_attempt_id",
-        "largest_symbol_lines": 145,
+        "largest_symbol_lines": 162,
         "layer": "test",
-        "line_count": 2011,
-        "nonblank_line_count": 1750,
+        "line_count": 2030,
+        "nonblank_line_count": 1768,
         "top_level_definition_count": 51
       },
       "tests/test_publication_guardrails.py": {
@@ -2901,6 +2919,23 @@
         "line_count": 612,
         "nonblank_line_count": 538,
         "top_level_definition_count": 21
+      },
+      "tests/test_receipt_accounting.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_cost_only_report_renders_mixed_evidence_and_unknown_repricing",
+        "largest_symbol_lines": 61,
+        "layer": "test",
+        "line_count": 542,
+        "nonblank_line_count": 485,
+        "top_level_definition_count": 23
       },
       "tests/test_resume_cli.py": {
         "cycle_id": "",
@@ -2952,6 +2987,23 @@
         "line_count": 916,
         "nonblank_line_count": 848,
         "top_level_definition_count": 30
+      },
+      "tests/test_terminal_release_execute_score.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "_issue_unequal_case_release",
+        "largest_symbol_lines": 79,
+        "layer": "test",
+        "line_count": 534,
+        "nonblank_line_count": 484,
+        "top_level_definition_count": 12
       },
       "tests/test_tier0_operator_half.py": {
         "cycle_id": "",

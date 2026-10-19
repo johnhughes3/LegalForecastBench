@@ -519,7 +519,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         action="store_true",
         help=(
             "Include all required non-official/private-material/rights/terms "
-            "attestations."
+            "contributor declarations in the stable attestations field."
         ),
     )
     package.add_argument("--hf-upload-plan", action="store_true")
@@ -896,7 +896,11 @@ def _cmd_terminal_release_execute(args: argparse.Namespace) -> int:
         raise ValueError(str(exc)) from exc
     run = execute_terminal_release_only(options, adapter=adapter)
     _cli_note(f"Wrote scoreless run package to {options.output_dir}.")
-    return 1 if run.interrupted else 0
+    return (
+        1
+        if run.interrupted or any(row.result.status != "succeeded" for row in run.rows)
+        else 0
+    )
 
 
 def _cmd_terminal_release_score(args: argparse.Namespace) -> int:
@@ -1383,7 +1387,7 @@ def _required_optional_str_arg(args: argparse.Namespace, name: str) -> str:
 
 def _community_validation_checks() -> list[str]:
     return [
-        "required attestations",
+        "required contributor declarations",
         "artifact hashes",
         "safe public paths",
         "publication guardrails",

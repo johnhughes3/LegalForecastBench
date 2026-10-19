@@ -35,6 +35,6 @@ Corpus construction, private source bytes, selection, unitization, and quality c
 - [Rationale review export](rationale-audit.md): prepare private, model-blinded rationales from saved forecasts for qualitative lawyer review.
 - [AI-generated Harvey LAB litigation audits](harvey-lab-audit/litigation-dispute-resolution/README.md): unverified, human-steered analysis of rubric and grading drift by GPT-6 Sol and Claude Opus 5.5 across 52 tasks, with its own file index. Inclusion is not verification.
 
-## Community Multi-Harness (planned)
+## Community Multi-Harness
 
-- [Multi-harness overview](multiharness/README.md): a planned, non-official community track for comparing agent harnesses. It is not yet operational; its contracts, adapter specs, and contributor guides are indexed there.
+- [Multi-harness overview](multiharness/README.md): the non-official community track, including accepted historical provider smoke examples, current evidence limits, adapter contracts, and contributor guides. Claude Code, Codex, Hermes, and OpenClaw baselines remain unfinished.
