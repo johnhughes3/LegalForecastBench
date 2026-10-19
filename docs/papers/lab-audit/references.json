@@ -35,17 +35,6 @@
     "type": "dataset"
   },
   {
-    "key": "labciteaudit",
-    "title": "Attorney review of the AI citation check of Harvey LAB litigation task environments: protocol, sample, and worksheet",
-    "authors": [
-      "John Hughes"
-    ],
-    "year": 2026,
-    "venue": "Research artifact",
-    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check/attorney-review",
-    "type": "dataset"
-  },
-  {
     "key": "labtask",
     "title": "Pinned LAB task.json for analyze-counterparty-motion-to-dismiss",
     "authors": [
