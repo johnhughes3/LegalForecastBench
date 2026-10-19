@@ -324,7 +324,7 @@ def test_real_node_plugin_reads_authenticated_release_document(
     (root / "prompt.txt").write_text("Blinded task prompt")
     documents = root / "documents"
     documents.mkdir()
-    document_text = "\u3400" * 6000 + "DOCUMENT-TAIL"
+    document_text = "\u3400" * 6000 + "\U00020000" * 1000 + "DOCUMENT-TAIL"
     (documents / "record.txt").write_text(document_text)
     outside = tmp_path / "private-label.txt"
     outside.write_text("must never be returned")
@@ -431,6 +431,7 @@ console.log(JSON.stringify({{
     assert "".join(page["text"] for page in record["documents"]) == document_text
     assert "\\u3400" in record["rawDocuments"][0]
     assert "\u3400" not in record["rawDocuments"][0]
+    assert "\\ud840\\udc00" in "".join(record["rawDocuments"])
     assert record["promptComplete"] == {"complete": True}
     assert [request.operation for request in requests] == [
         "read",

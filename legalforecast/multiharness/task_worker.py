@@ -21,20 +21,24 @@ from legalforecast.multiharness.tool_protocol import (
     encode_tool_message,
 )
 
-# OpenClaw 2026.9.6 caps one result at 64,000 weighted characters for the
-# protected route's 200,000-token context. Count the ASCII-escaped JSON that
-# the native plugin actually returns, not the decoded document characters.
-DOCUMENT_PAGE_RESULT_CHAR_BUDGET = 64_000
+DOCUMENT_PAGE_RESULT_CHAR_BUDGET = 7_500
 
 
-def serialize_document_page(output: Mapping[str, object]) -> str:
-    """Return the exact ASCII JSON text exposed by the native document tool."""
+def serialize_document_page(
+    output: Mapping[str, object], *, ensure_ascii: bool = False
+) -> str:
+    """Return the exact JSON text exposed by a document-tool consumer."""
 
-    return json.dumps(dict(output), ensure_ascii=True)
+    return json.dumps(dict(output), ensure_ascii=ensure_ascii)
 
 
 def document_page(
-    root: Path, paths: tuple[str, ...], arguments: dict[str, object]
+    root: Path,
+    paths: tuple[str, ...],
+    arguments: dict[str, object],
+    *,
+    result_char_budget: int = DOCUMENT_PAGE_RESULT_CHAR_BUDGET,
+    ensure_ascii: bool = False,
 ) -> dict[str, object]:
     """Read only release-staged documents, with bounded model-visible pages."""
 
@@ -86,7 +90,10 @@ def document_page(
             "next_offset": end,
             "complete": end == len(text),
         }
-        if len(serialize_document_page(page)) <= DOCUMENT_PAGE_RESULT_CHAR_BUDGET:
+        if (
+            len(serialize_document_page(page, ensure_ascii=ensure_ascii))
+            <= result_char_budget
+        ):
             return page
         end = offset + (end - offset) // 2
 

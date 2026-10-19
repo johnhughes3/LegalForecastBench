@@ -55,6 +55,26 @@ def test_staged_document_catalog_and_complete_bounded_text(tmp_path):
     assert len(pieces) > 30
 
 
+def test_hermes_escape_heavy_document_pages_reconstruct_exactly(tmp_path):
+    documents = tmp_path / "documents"
+    documents.mkdir()
+    content = '"' * 6000 + "DOCUMENT-TAIL"
+    (documents / "0000-complaint.txt").write_text(content)
+
+    offset, pieces = 0, []
+    while True:
+        page = exchange(tmp_path, ("documents/0000-complaint.txt",), offset)
+        assert page.status == "succeeded"
+        assert len(json.dumps(dict(page.output), ensure_ascii=False)) <= 7500
+        pieces.append(page.output["text"])
+        offset = page.output["next_offset"]
+        if page.output["complete"]:
+            break
+
+    assert len(pieces) > 1
+    assert "".join(pieces) == content
+
+
 @pytest.mark.parametrize(
     "path",
     [

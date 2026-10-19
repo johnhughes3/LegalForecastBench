@@ -234,7 +234,8 @@ def bridge_documents(
                 output = response.output
                 delivery.observe(path=path, offset=offset, output=output)
                 encoded = json.dumps(
-                    {"text": serialize_document_page(output)}, ensure_ascii=True
+                    {"text": serialize_document_page(output, ensure_ascii=True)},
+                    ensure_ascii=True,
                 ).encode("utf-8")
                 if len(encoded) > 1_048_576:
                     raise OpenClawError("OpenClaw document response was too large")

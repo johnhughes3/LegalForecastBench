@@ -22,6 +22,10 @@ from legalforecast.multiharness.task_worker import document_page
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 
 CAPABILITY_ENV = "LFB_OPENCLAW_GATEWAY_CAPABILITY"
+# OpenClaw 2026.9.6 caps one result at 64,000 weighted characters for the
+# protected route's 200,000-token context. The native plugin projects ASCII
+# JSON, avoiding its larger CJK weights while preserving exact text.
+DOCUMENT_PAGE_RESULT_CHAR_BUDGET = 64_000
 
 
 class StagedPromptTransport:
@@ -39,6 +43,8 @@ class StagedPromptTransport:
                     self.document_root,
                     request.input_paths,
                     dict(request.arguments),
+                    result_char_budget=DOCUMENT_PAGE_RESULT_CHAR_BUDGET,
+                    ensure_ascii=True,
                 )
             except (OSError, PyPdfError, UnicodeError, ValueError):
                 return ToolResponse(
