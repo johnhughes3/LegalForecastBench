@@ -6,6 +6,13 @@ import { applyReceiptCosts, receiptCosts } from "./receipt-costs.js";
 import { recentResults } from "./recent-results.js";
 import { historicalSnapshot, snapshot } from "./results.js";
 
+test("public receipt pricing links contain only HTTPS URLs", () => {
+	for (const cost of receiptCosts) {
+		assert.equal(new URL(cost.pricing_url).protocol, "https:", cost.slug);
+		assert.doesNotMatch(cost.pricing_url, /\s/, cost.slug);
+	}
+});
+
 test("native agentic exports augment and replace rows in the unchanged beta snapshot", () => {
 	assert.equal(historicalSnapshot.models.length, 10);
 	assert.equal(snapshot.models.length, 22);

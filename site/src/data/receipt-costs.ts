@@ -15,6 +15,7 @@ export interface ReceiptCost {
 	standard_rate_estimate_usd: number | null;
 	standard_rate_multiplier: number;
 	standard_rate_method: string;
+	pricing_url: string;
 	/** Source used to reprice archived receipts after the original scoring run. */
 	repricing_source_revision?: string;
 	caveats: string[];

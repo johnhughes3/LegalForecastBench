@@ -121,7 +121,7 @@
 			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
 			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
 		],
-		"pricing_url": "https://docs.x.ai/developers/grok-4-7 (USD 2/M input and USD 6/M output standard rates), checked 2026-09-21",
+		"pricing_url": "https://docs.x.ai/developers/grok-4-7",
 		"repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
 	},
 	{
@@ -278,7 +278,7 @@
 			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
 			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
 		],
-		"pricing_url": "https://dev.meta.ai/docs/pricing-rate-limits (Muse Wonder standard USD 4.00/M input, 20.00/M output, 0.20/M cache read), confirmed by https://vercel.com/ai-gateway/models/muse-wonder-1.0; checked 2026-10-12",
+		"pricing_url": "https://dev.meta.ai/docs/pricing-rate-limits",
 		"repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
 	},
 	{
@@ -342,7 +342,7 @@
 			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
 			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
 		],
-		"pricing_url": "https://docs.mistral.ai/models/mistral-large-4-0 (standard USD 1.36/M input, 4.18/M output, 0.14/M cache read), checked 2026-10-12",
+		"pricing_url": "https://docs.mistral.ai/models/mistral-large-4-0",
 		"repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
 	},
 	{
@@ -371,7 +371,7 @@
 			"Receipt totals sum per-case rounded microUSD; standard repricing uses unrounded response costs, so tiny rounding differences remain.",
 			"These prices are workload estimates or reported successful-call charges, not provider invoice totals."
 		],
-		"pricing_url": "https://api.paperinstruments.com/v1/pricing and https://docs.paperinstruments.com/docs/ultramarine/billing; checked 2026-10-14",
+		"pricing_url": "https://api.paperinstruments.com/v1/pricing",
 		"repricing_source_revision": "6bdff8d37f2e39d10aee52430ab14edcef1a2905"
 	}
 ]
