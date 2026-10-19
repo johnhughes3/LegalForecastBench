@@ -66,6 +66,8 @@ EXPECTED_DELIVERABLE_NAME = "expected-deliverable.json"
 PINNED_REPOSITORY = "https://github.com/harveyai/harvey-labs"
 PINNED_COMMIT = "73feb91d63d53b1a44151d99329779c4defcdb72"
 PINNED_TREE = "944913ee8cdeaef4930a106e5e16d74aa93a29d7"
+HARVEY_LAB_V1_1_COMMIT = "1dd81403b2fbb60596f7aea3fcecafad7bf73143"
+HARVEY_LAB_V1_1_TREE = "bc7e16d2b5b794b86624288506a5d0be17c1052b"
 ISSUE_196_LAB_TASK_ID = "employment-labor/identify-issues-in-counterparty-motion-brief"
 PRIVATE_CONTENT_MARKERS = (
     "GOLD_ANSWER_PRIVATE",
@@ -331,6 +333,16 @@ def issue_196_pin() -> HarveyLabPin:
     )
 
 
+def harvey_lab_v1_1_pin() -> HarveyLabPin:
+    """Return the current v1.1.0 pin used by the real clean-native baseline."""
+
+    return HarveyLabPin(
+        repository=PINNED_REPOSITORY,
+        commit=HARVEY_LAB_V1_1_COMMIT,
+        tree=HARVEY_LAB_V1_1_TREE,
+    )
+
+
 def harvey_lab_layout_map() -> dict[str, dict[str, str]]:
     """Return the versioned native/external path map for solver-visible bytes."""
 
@@ -543,7 +555,7 @@ def project_harvey_lab_suite(
     source = _existing_directory(source_root, "LAB source root")
     applied_pin = pin or issue_196_pin()
     snapshot_root: Path | None = None
-    if applied_pin == issue_196_pin():
+    if applied_pin in {issue_196_pin(), harvey_lab_v1_1_pin()}:
         _verify_source_pin(source, applied_pin)
         snapshot_root = _archive_pinned_source(source, applied_pin)
         source = snapshot_root
@@ -1141,7 +1153,7 @@ def _archive_pinned_source(source: Path, pin: HarveyLabPin) -> Path:
 
 
 def _verify_source_pin(source: Path, pin: HarveyLabPin) -> None:
-    if pin != issue_196_pin():
+    if pin not in {issue_196_pin(), harvey_lab_v1_1_pin()}:
         return
     try:
         inside = _git_output(source, "rev-parse", "--is-inside-work-tree").strip()

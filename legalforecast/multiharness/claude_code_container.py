@@ -33,6 +33,9 @@ from legalforecast.multiharness.claude_code import (
     claude_code_local_manifest,
 )
 from legalforecast.multiharness.claude_code_container_inputs import (
+    CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION,
+)
+from legalforecast.multiharness.claude_code_container_inputs import (
     stage_visible_solver_input as _stage_visible_solver_input,
 )
 from legalforecast.multiharness.claude_code_container_inputs import (
@@ -100,11 +103,9 @@ CLAUDE_CODE_CONTAINER_ADAPTER_ID: Final[str] = "claude-code-container"
 CLAUDE_CODE_CONTAINER_DISPLAY_NAME: Final[str] = "Claude Code container"
 CLAUDE_CODE_CONTAINER_ADAPTER_VERSION: Final[str] = CLAUDE_CODE_ADAPTER_VERSION
 CLAUDE_CODE_IMAGE_VERSION: Final[str] = "2.1.282 (Claude Code)"
-_STAGED_PROMPT_INSTRUCTION: Final[str] = (
-    "Read the complete authenticated solver input from /workspace/prompt.txt "
-    "with Bash before answering. Follow that input exactly, use only the "
-    "workspace files it identifies, and return the requested structured answer."
-)
+CLAUDE_CODE_TERMINAL_HARNESS_ID: Final[str] = "claude-code-terminal"
+CLAUDE_CODE_HARVEY_LAB_HARNESS_ID: Final[str] = "claude-code-harvey-lab"
+_STAGED_PROMPT_INSTRUCTION: Final[str] = CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION
 
 
 class ClaudeCodeContainerAdapterError(ClaudeCodeCliAdapterError):
@@ -252,6 +253,7 @@ def build_claude_code_container_adapter(
     gateway_image_digest: str | None = None,
     paid_config_path: Path | None = None,
     model_registry_path: Path | None = None,
+    harness_id: str = CLAUDE_CODE_TERMINAL_HARNESS_ID,
 ) -> ClaudeCodeContainerAdapter:
     """Build the ``claude-code-container`` adapter without starting a run.
 
@@ -269,6 +271,13 @@ def build_claude_code_container_adapter(
         )
     if len(image_digest) != len("sha256:") + 64:
         raise ClaudeCodeContainerAdapterError("image_digest must be a full SHA-256")
+    if harness_id not in {
+        CLAUDE_CODE_TERMINAL_HARNESS_ID,
+        CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
+    }:
+        raise ClaudeCodeContainerAdapterError(
+            "unsupported protected Claude Code harness identity"
+        )
     profile = require_auth_profile_id(auth_profile)
     if profile not in {FIXTURE_NONE, PUBLISHED_API_KEY}:
         raise ClaudeCodeContainerAdapterError(
@@ -328,7 +337,12 @@ def build_claude_code_container_adapter(
             ) from exc
         # Schema-v1 descriptors predating harness selection were Claude-only.
         # An explicit identity must never borrow a different runtime's budget.
-        if paid_config.harness_id not in {None, "claude-code-terminal"}:
+        accepted_harness_ids = (
+            {None, CLAUDE_CODE_TERMINAL_HARNESS_ID}
+            if harness_id == CLAUDE_CODE_TERMINAL_HARNESS_ID
+            else {CLAUDE_CODE_HARVEY_LAB_HARNESS_ID}
+        )
+        if paid_config.harness_id not in accepted_harness_ids:
             raise ClaudeCodeContainerAdapterError(
                 "protected paid gateway harness does not match Claude Code"
             )

@@ -81,6 +81,15 @@ class _CriterionObservation:
 
 
 @dataclass(frozen=True, slots=True)
+class HarveyLabVerdictSummary:
+    """Canonical signature-independent normalization of LAB verdict bytes."""
+
+    score_value: int
+    n_passed: int
+    n_criteria: int
+
+
+@dataclass(frozen=True, slots=True)
 class MetricDefinition:
     """A complete deterministic scoring definition."""
 
@@ -363,49 +372,59 @@ def normalize_harvey_lab_score(
     for name, actual, expected in bindings:
         if actual != expected:
             raise ScoreNormalizationError(f"{name} does not match authorized receipt")
-    try:
-        observations, supplied_score, supplied_passed, supplied_count = (
-            _parse_lab_verdicts(raw_result)
-        )
-    except (TypeError, ValueError) as exc:
-        raise ScoreNormalizationError(str(exc)) from exc
-    if len(observations) != canonical_metric.criterion_count:
-        raise ScoreNormalizationError("verdict count does not match criterion_count")
-    n_passed = sum(item.raw_value for item in observations)
-    score_value = 1 if n_passed == len(observations) else 0
-    if (
-        supplied_count != len(observations)
-        or supplied_passed != n_passed
-        or supplied_score != score_value
-    ):
-        raise ScoreNormalizationError("raw score/count diagnostics are inconsistent")
+    summary = normalize_harvey_lab_verdicts(
+        raw_result,
+        expected_criterion_count=canonical_metric.criterion_count,
+    )
     content: dict[str, object] = {
         "schema_version": SCORE_ARTIFACT_SCHEMA_VERSION,
         "evaluation_receipt_sha256": canonical_receipt.receipt_sha256,
         "evaluation_spec_sha256": canonical_receipt.evaluation_spec_sha256,
         "raw_result_sha256": canonical_receipt.raw_result_sha256,
         "metric_definition_sha256": canonical_metric.definition_sha256,
-        "score_value": score_value,
+        "score_value": summary.score_value,
         "unit": "binary",
-        "n_passed": n_passed,
-        "n_criteria": len(observations),
+        "n_passed": summary.n_passed,
+        "n_criteria": summary.n_criteria,
     }
     return ScoreArtifact(
         evaluation_receipt_sha256=canonical_receipt.receipt_sha256,
         evaluation_spec_sha256=canonical_receipt.evaluation_spec_sha256,
         raw_result_sha256=canonical_receipt.raw_result_sha256,
         metric_definition_sha256=canonical_metric.definition_sha256,
-        score_value=score_value,
+        score_value=summary.score_value,
         unit="binary",
-        n_passed=n_passed,
-        n_criteria=len(observations),
+        n_passed=summary.n_passed,
+        n_criteria=summary.n_criteria,
         score_sha256=_hash(content),
     )
 
 
-def _parse_lab_verdicts(
+def normalize_harvey_lab_verdicts(
     raw_result: bytes,
-) -> tuple[tuple[_CriterionObservation, ...], int, int, int]:
+    *,
+    expected_criterion_count: int | None = None,
+) -> HarveyLabVerdictSummary:
+    """Validate canonical LAB verdict bytes and their aggregate diagnostics."""
+
+    try:
+        return _normalize_harvey_lab_verdicts(
+            raw_result,
+            expected_criterion_count=expected_criterion_count,
+        )
+    except ScoreNormalizationError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise ScoreNormalizationError(str(exc)) from exc
+
+
+def _normalize_harvey_lab_verdicts(
+    raw_result: bytes,
+    *,
+    expected_criterion_count: int | None,
+) -> HarveyLabVerdictSummary:
+    """Implementation for the public signature-independent normalizer."""
+
     try:
         decoded = json.loads(raw_result, object_pairs_hook=_reject_duplicate_keys)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -459,11 +478,27 @@ def _parse_lab_verdicts(
                 raw_value=1 if verdict == "pass" else 0,
             )
         )
-    return (
-        tuple(observations),
-        _required_binary(record, "score"),
-        _required_non_negative(record, "n_passed"),
-        _required_positive(record, "n_criteria"),
+    normalized = tuple(observations)
+    supplied_score = _required_binary(record, "score")
+    supplied_passed = _required_non_negative(record, "n_passed")
+    supplied_count = _required_positive(record, "n_criteria")
+    if (
+        expected_criterion_count is not None
+        and len(normalized) != expected_criterion_count
+    ):
+        raise ScoreNormalizationError("verdict count does not match criterion_count")
+    n_passed = sum(item.raw_value for item in normalized)
+    score_value = 1 if n_passed == len(normalized) else 0
+    if (
+        supplied_count != len(normalized)
+        or supplied_passed != n_passed
+        or supplied_score != score_value
+    ):
+        raise ScoreNormalizationError("raw score/count diagnostics are inconsistent")
+    return HarveyLabVerdictSummary(
+        score_value=score_value,
+        n_passed=n_passed,
+        n_criteria=len(normalized),
     )
 
 

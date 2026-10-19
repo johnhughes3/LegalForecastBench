@@ -121,12 +121,13 @@ def prepare_clean_native_runner(
         },
     }
     if isinstance(adapter, ClaudeCodeCliAdapter):
+        runner = partial(
+            run_claude_code_clean_native_harvey_lab,
+            adapter=adapter,
+            max_budget_usd=max_budget_usd,
+        )
         return (
-            partial(
-                run_claude_code_clean_native_harvey_lab,
-                adapter=adapter,
-                max_budget_usd=max_budget_usd,
-            ),
+            cast(partial[ClaudeCodeHarveyLabPipelineResult], runner),
             capability,
         )
     return (

@@ -1,10 +1,6 @@
 # pyright: reportPrivateUsage=false
 
-"""Offline clean-native Claude Code Harvey LAB composition.
-
-Fake CLI plays the solver over a real projected fixture task. Zero live LAB
-runs and zero provider spend. Required fail-closed mutations are named.
-"""
+"""Offline clean-native Claude Code Harvey LAB composition tests."""
 
 from __future__ import annotations
 
@@ -27,6 +23,7 @@ from legalforecast.multiharness.claude_code import (
     encode_claude_code_tools_argv_token,
 )
 from legalforecast.multiharness.claude_code_harvey_lab import (
+    ClaudeCodeHarveyLabPipelineResult,
     run_claude_code_clean_native_harvey_lab,
 )
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
@@ -84,6 +81,7 @@ def test_fake_cli_lab_pipeline_binds_projection_receipt_discovery_and_score(
             attempt_nonce="nonce-g1a",
             **hosts,
         )
+        assert isinstance(result, ClaudeCodeHarveyLabPipelineResult)
     finally:
         _make_writable(tmp_path)
 
@@ -134,6 +132,7 @@ def test_selected_multi_output_task_runs_through_projection_and_scoring(
             lab_task_id=MULTI_TASK_ID,
             **hosts,
         )
+        assert isinstance(result, ClaudeCodeHarveyLabPipelineResult)
     finally:
         _make_writable(tmp_path)
 
@@ -163,6 +162,7 @@ def test_selected_undeclared_output_task_scores_all_bounded_docx_outputs(
             lab_task_id=UNDECLARED_TASK_ID,
             **hosts,
         )
+        assert isinstance(result, ClaudeCodeHarveyLabPipelineResult)
     finally:
         _make_writable(tmp_path)
 
@@ -187,6 +187,7 @@ def test_pipeline_selects_only_the_frozen_issue_196_task(tmp_path: Path) -> None
             issuer_public_key=KEY.public_key(),
             **hosts,
         )
+        assert isinstance(result, ClaudeCodeHarveyLabPipelineResult)
     finally:
         _make_writable(tmp_path)
 
@@ -322,6 +323,7 @@ def test_swapped_scoring_input_digest_is_named(tmp_path: Path) -> None:
             attempt_nonce="nonce-digest",
             **hosts,
         )
+        assert isinstance(result, ClaudeCodeHarveyLabPipelineResult)
         swapped = "sha256:" + "9" * 64
         assert swapped != result.discovery.sealed.manifest_sha256
         metric = build_harvey_lab_metric_definition(

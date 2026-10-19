@@ -40,6 +40,7 @@ from legalforecast.multiharness.local_cli_contracts import (
     RunSpec,
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.scoring import LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION
 from legalforecast.multiharness.spend import PricingSnapshot, UsageObservation
 
 # Compatibility export for the retained issue-196 task. Runtime cardinality is
@@ -236,32 +237,32 @@ class ProductionHarveyLabEvaluatorRunner:
                     attempt_index=attempt_index,
                 )
                 reservation = boundary.before_judge_call(request)
-                response = self._provider_call(
-                    ProductionJudgeCall(
-                        request=request,
-                        run_spec=spec,
-                        criterion=criterion,
-                        deliverable=deliverable,
-                    )
+                call = ProductionJudgeCall(
+                    request=request,
+                    run_spec=spec,
+                    criterion=criterion,
+                    deliverable=deliverable,
                 )
-                if type(response) is not ProductionJudgeResponse:
-                    raise ProductionEvaluatorRunnerError(
-                        "provider adapter returned an invalid judge response"
-                    )
-                # Retain the billed response before settlement removes the
-                # reservation. If retention fails, the outer boundary can
-                # still terminalize the outstanding reservation fail-closed.
-                self._attempt_writer(
-                    ProductionJudgeCall(
-                        request=request,
-                        run_spec=spec,
-                        criterion=criterion,
-                        deliverable=deliverable,
-                    ),
-                    response,
-                )
-                observation = response.usage
-                boundary.after_judge_call(request, reservation, observation)
+                try:
+                    response = self._provider_call(call)
+                    if type(response) is not ProductionJudgeResponse:
+                        raise ProductionEvaluatorRunnerError(
+                            "provider adapter returned an invalid judge response"
+                        )
+                    # Retain the billed response before settlement removes the
+                    # reservation. If retention fails, the outer boundary can
+                    # still terminalize the outstanding reservation fail-closed.
+                    self._attempt_writer(call, response)
+                except Exception:
+                    record_failure = getattr(boundary, "record_judge_failure", None)
+                    if callable(record_failure):
+                        record_failure(request, reservation)
+                    raise
+                after_response = getattr(boundary, "after_judge_response", None)
+                if callable(after_response):
+                    after_response(request, reservation, response)
+                else:
+                    boundary.after_judge_call(request, reservation, response.usage)
                 all_responses.append(response)
                 if resolved_identity is None:
                     resolved_identity = response.judge_resolved_identity
@@ -323,11 +324,14 @@ def _scores_record(
         raise ProductionEvaluatorRunnerError("all final judge responses need verdicts")
     passed = sum(verdict == "pass" for verdict in verdicts)
     return {
-        "score": 1.0 if passed == len(verdicts) else 0.0,
+        "schema_version": LAB_VERDICT_DERIVATIVE_SCHEMA_VERSION,
+        "score": 1 if passed == len(verdicts) else 0,
         "n_passed": passed,
         "n_criteria": len(verdicts),
-        "verdicts": list(verdicts),
-        "entrypoint": "evaluation.run_eval.evaluate_run",
+        "verdicts": [
+            {"ordinal": ordinal, "verdict": verdict}
+            for ordinal, verdict in enumerate(verdicts, start=1)
+        ],
     }
 
 
@@ -574,7 +578,7 @@ def _scores_path(spec: RunSpec) -> Path:
 
 
 def _write_new_json(path: Path, record: Mapping[str, object]) -> None:
-    payload = _canonical_json(record) + b"\n"
+    payload = _canonical_json(record)
     path.parent.mkdir(parents=True, exist_ok=True)
     flags = (
         os.O_WRONLY

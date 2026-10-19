@@ -294,6 +294,8 @@ class ClaudeCodeContainerExecutionService:
             read_only_workspace_paths = ["prompt.txt"]
             if (spec.working_directory / "documents").is_dir():
                 read_only_workspace_paths.append("documents")
+            if (spec.working_directory / "task").is_dir():
+                read_only_workspace_paths.append("task")
             allow_hosts = (upstream_host,)
             if paid_mode:
                 region = os.environ.get(PROTECTED_AUTHORITY_REGION_ENV)

@@ -298,11 +298,20 @@ def anthropic_messages_transport(
 class AnthropicMessagesJudgeAdapter:
     """One reviewed provider call per criterion, with allocable accounting."""
 
-    pricing_snapshot: PricingSnapshot
+    pricing_snapshot: PricingSnapshot | None
     secret_loader: Callable[[str, str, str], str]
     transport: JudgeTransport
     max_prompt_bytes: int
     requested_model: str = JUDGE_REQUESTED_MODEL
+    usage_pricing_sha256: str | None = None
+    cost_microusd: Callable[[int, int], int] | None = None
+    before_transport: Callable[[ProductionJudgeCall], None] | None = None
+
+    def __post_init__(self) -> None:
+        if self.pricing_snapshot is None and self.usage_pricing_sha256 is None:
+            raise ProductionFactoryError(
+                "judge adapter requires a pricing snapshot identity"
+            )
 
     def __call__(self, call: ProductionJudgeCall) -> ProductionJudgeResponse:
         criterion = call.criterion
@@ -328,6 +337,8 @@ class AnthropicMessagesJudgeAdapter:
         )
         if not api_key.strip():
             raise ProductionFactoryError("Tier-0 judge credential is empty")
+        if self.before_transport is not None:
+            self.before_transport(call)
         result = self.transport(
             api_key=api_key,
             model=self.requested_model,
@@ -338,11 +349,26 @@ class AnthropicMessagesJudgeAdapter:
         )
         if type(result) is not JudgeTransportResult:
             raise ProductionFactoryError("judge transport returned an invalid result")
+        settled_input_tokens = result.settled_input_tokens
+        pricing_sha256 = (
+            self.usage_pricing_sha256
+            or cast(PricingSnapshot, self.pricing_snapshot).snapshot_sha256
+        )
+        cost_microusd = (
+            None
+            if self.cost_microusd is None
+            else self.cost_microusd(settled_input_tokens, result.output_tokens)
+        )
         usage = UsageObservation(
             basis="estimated_from_pricing_snapshot",
-            pricing_snapshot_sha256=self.pricing_snapshot.snapshot_sha256,
-            input_tokens=result.settled_input_tokens,
+            pricing_snapshot_sha256=pricing_sha256,
+            input_tokens=settled_input_tokens,
             output_tokens=result.output_tokens,
+            reported_cost_usd=(
+                None
+                if cost_microusd is None
+                else format(Decimal(cost_microusd) / Decimal(1_000_000), "f")
+            ),
         )
         verdict = result.verdict_text.strip().lower()
         if verdict not in {_PASS, _FAIL}:
