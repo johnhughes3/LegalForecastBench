@@ -6,6 +6,13 @@ import { applyReceiptCosts, receiptCosts } from "./receipt-costs.js";
 import { recentResults } from "./recent-results.js";
 import { historicalSnapshot, snapshot } from "./results.js";
 
+test("public receipt pricing links contain only HTTPS URLs", () => {
+	for (const cost of receiptCosts) {
+		assert.equal(new URL(cost.pricing_url).protocol, "https:", cost.slug);
+		assert.doesNotMatch(cost.pricing_url, /\s/, cost.slug);
+	}
+});
+
 test("native agentic exports augment and replace rows in the unchanged beta snapshot", () => {
 	assert.equal(historicalSnapshot.models.length, 10);
 	assert.equal(snapshot.models.length, 22);
@@ -36,10 +43,14 @@ test("native agentic exports augment and replace rows in the unchanged beta snap
 				["claude-sonnet-5", 24.68],
 				["gpt-5-6-sol", 24.91],
 			]).get(source.slug) ??
-				(hasCanonicalCosts(row.costs)
-					? canonicalCost(row.costs, row.case_count).usd
-					: (receiptCosts.find((cost) => cost.slug === source.slug)
-							?.standard_rate_estimate_usd ?? null)),
+				(receiptCosts.find((cost) => cost.slug === source.slug)
+					?.repricing_source_revision
+					? receiptCosts.find((cost) => cost.slug === source.slug)
+							?.standard_rate_estimate_usd
+					: hasCanonicalCosts(row.costs)
+						? canonicalCost(row.costs, row.case_count).usd
+						: (receiptCosts.find((cost) => cost.slug === source.slug)
+								?.standard_rate_estimate_usd ?? null)),
 		);
 	}
 });
@@ -47,7 +58,7 @@ test("native agentic exports augment and replace rows in the unchanged beta snap
 test("Gemini and Mistral metrics use their selected complete native exports", () => {
 	for (const [slug, correct, high, wrong, cost] of [
 		["gemini-4-argon", 298, 225, 24, 25.0204571],
-		["mistral-large-4", 294, 128, 7, 28.72776124],
+		["mistral-large-4", 294, 128, 7, 16.6489902],
 	] as const) {
 		const model = snapshot.models.find((row) => row.slug === slug);
 		assert.ok(model, slug);

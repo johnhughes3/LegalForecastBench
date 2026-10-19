@@ -79,7 +79,7 @@
 			"costs": {
 				"basis": "provider_reported",
 				"caveats": [
-					"Successful case receipts only; excludes failed attempts, retries, unresolved charges and summary preparation. These are workload charges or usage estimates, not provider invoice totals. Standard repricing uses ordinary input estimates when cache dimensions or frozen cache rates are missing."
+					"Successful case receipts only; excludes failed attempts, retries, unresolved charges and summary preparation. These are workload charges or usage estimates, not provider invoice totals. Standard-rate repricing restates the same usage at the provider's published standard API prices, with reported cache reads and writes at the published cache rates; an unreported cache dimension is priced as ordinary input."
 				],
 				"cost_methods": ["gateway_reported_charge"],
 				"cost_per_case": 0.0914785054945055,
@@ -95,7 +95,7 @@
 				"response_count": 547,
 				"standard_rate_covered_case_count": 91,
 				"standard_rate_status": "complete",
-				"standard_rate_total_cost": 28.72776124,
+				"standard_rate_total_cost": 16.6489902,
 				"total_cost": 8.324544
 			},
 			"equal_case_brier": 0.1560838716838717,
