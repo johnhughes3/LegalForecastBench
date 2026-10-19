@@ -674,7 +674,12 @@ class CommunitySubmissionShard:
 
 @dataclass(frozen=True, slots=True)
 class CommunitySubmissionManifest:
-    """PR-reviewed community submission manifest."""
+    """PR-reviewed community submission manifest.
+
+    The stable ``attestations`` JSON field stores required contributor
+    declarations consumed by the validator and publication guardrails. It is
+    not a signature or approval artifact.
+    """
 
     submission_id: str
     submitter: ContributorCredit
@@ -709,7 +714,7 @@ class CommunitySubmissionManifest:
         if missing:
             formatted = ", ".join(sorted(missing))
             raise MultiHarnessValidationError(
-                f"attestations missing required value(s): {formatted}"
+                f"required contributor declarations missing value(s): {formatted}"
             )
         validate_public_record(self.to_record(), "community_submission_manifest")
 

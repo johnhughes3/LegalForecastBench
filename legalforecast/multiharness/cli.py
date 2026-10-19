@@ -519,7 +519,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         action="store_true",
         help=(
             "Include all required non-official/private-material/rights/terms "
-            "attestations."
+            "contributor declarations in the stable attestations field."
         ),
     )
     package.add_argument("--hf-upload-plan", action="store_true")
@@ -1383,7 +1383,7 @@ def _required_optional_str_arg(args: argparse.Namespace, name: str) -> str:
 
 def _community_validation_checks() -> list[str]:
     return [
-        "required attestations",
+        "required contributor declarations",
         "artifact hashes",
         "safe public paths",
         "publication guardrails",

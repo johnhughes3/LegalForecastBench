@@ -24,7 +24,9 @@ uv run legalforecast multiharness community package \
   --hf-upload-plan
 ```
 
-The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `run-compatibility.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, `canonical-runs.jsonl`, and optionally `hf-upload-plan.json`. If the source run contains projected public artifacts such as `lfb/runs.jsonl` or `lab/task-results.jsonl`, those are copied into the package and referenced from `artifact-manifest.json`. Receipt-backed efficiency observations (`efficiency-observation.json`), public execution receipts, evaluation receipts, and score artifacts are copied when present. New run summaries use `legalforecast.multiharness.community_run_summary.v2` and must bind the hashes of those artifacts; the v1 reader remains characterization-exact. Aggregate and site pages reconstruct displayed figures from those hashes. Claim policy refuses full-suite language from a scoped or partial run, a contamination-resistant claim from a preliminary (#715) result, and ranking language below the repeat threshold. See [harness-efficiency-observations.md](harness-efficiency-observations.md).
+The existing CLI option `--acknowledge-required-attestations` populates the stable `attestations` manifest field with these required contributor declarations. The field name and option remain for compatibility; they record validator-consumed publication and safety declarations, not a signature, certificate, or separate approval artifact.
+
+The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `run-compatibility.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, `canonical-runs.jsonl`, and optionally `hf-upload-plan.json`. If the source run contains projected public artifacts such as `lfb/runs.jsonl` or `lab/task-results.jsonl`, those are copied into the package and referenced from `artifact-manifest.json`. Receipt-backed efficiency observations (`efficiency-observation.json`), public execution receipts, evaluation receipts, and score artifacts are copied when present. New run summaries use `legalforecast.multiharness.community_run_summary.v2` and must bind the hashes of those artifacts; the v1 reader remains characterization-exact. Aggregate and site pages reconstruct displayed figures from those hashes. Claim policy refuses full-suite language from a scoped or partial run, a contamination-resistant claim from a preliminary contamination assessment (#715), and ranking language below the repeat threshold. Here, preliminary is an evidence/claim-control description, not a community result tier. See [harness-efficiency-observations.md](harness-efficiency-observations.md).
 
 Checked-in historical provider smoke examples live under `community/submissions/2026/`. They cover the dated OpenAI Responses and Claude Agent SDK provider rows. These are historical community examples, not official LegalForecastBench results. No-network adapter fixture packages used by the test suite live under `tests/fixtures/community_submissions/2026/` and are not publication inputs.
 
@@ -38,16 +40,16 @@ uv run legalforecast multiharness community validate-submission \
   --output tmp/community-validation.json
 ```
 
-## Required Attestations
+## Required Contributor Declarations
 
-Every submission must attest to all of the following values:
+Every `submission.json` must include the following required contributor declarations:
 
 - `not_official_legalforecastbench_result`
 - `no_private_or_sealed_material_in_public_artifacts`
 - `right_to_submit_artifacts`
 - `provider_terms_acknowledged`
 
-These attestations are public statements. They are not a substitute for legal review of provider terms, court-file handling rules, or third-party dataset licenses.
+The validator and publication guardrails consume these values as ordinary manifest fields for the non-official boundary, public-material screening, rights, and provider-terms checks. They are not signatures, certificates, separate approval artifacts, or a result-tier classification, and they do not substitute for legal review of provider terms, court-file handling rules, or third-party dataset licenses.
 
 ## Required Credits
 

@@ -1,15 +1,15 @@
 # Community Multi-Harness Comparisons
 
-> **Status: planned, not yet operational.** The multi-harness layer is a future community track. The code, adapter contracts, and no-network fixtures exist in this repository, but no community comparison has been accepted or published; the checked-in submissions are provider smoke examples only. Nothing on this page is part of the official LegalForecast-MTD results, and the published Cycle 1 results do not depend on it.
+> **Status: non-official community track.** The code, adapter contracts, and no-network fixtures exist in this repository, and the checked-in registry includes historical provider smoke examples accepted through the community PR workflow. The workflow validates checked-in metadata and builds a separate community static-site artifact on `main`; that artifact is not the official LegalForecast-MTD result publication, and the published Cycle 1 results do not depend on it.
 
 The multi-harness layer is meant to compare agent harnesses — LegalForecastBench fixture or subset tasks, Harvey LAB tasks, and contributor adapters — without weakening the official benchmark's boundaries. Its results would never rank alongside official results, and a LegalForecast-MTD Brier score is never combined with a Harvey LAB rubric score. See [publication governance](../publication-governance.md) for the track-separation rules.
 
-## Result labels
+## Evidence descriptions
 
-Two result tiers are reserved for the community track. Neither has an entry yet.
+These are ordinary descriptions of the evidence available for a community submission, not result tiers. They do not create official, verified-community, community-unverified, or alpha-non-canonical classifications, and they do not determine whether a submission is accepted or published. Acceptance and publication follow the reviewed metadata and workflow contract in [Submissions](submissions.md).
 
-- **Preliminary — one task pair, operator-run, not independently reproducible**: no validated result is linked yet.
-- **Reproducible community result — contributor-grade, non-official**: no row is accepted yet.
+- **Preliminary — one task pair, operator-run, not independently reproducible**: describes a limited observation whose evidence is not independently reproducible.
+- **Reproducible community result — contributor-grade, non-official**: describes a contributor-grade observation with reproducibility evidence while retaining its non-official status.
 
 ## Contributor path
 
@@ -23,7 +23,7 @@ Then read, in order:
 
 - [Contributor guide](contributor-guide.md): install, probe, select, run, interrupt, resume, validate, and package from a dedicated environment.
 - [Adapter spec](adapter-spec.md): the community adapter contract.
-- [Submissions](submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
+- [Submissions](submissions.md): submission packaging, required contributor declarations, credits, funding policy, and PR intake.
 
 Community submissions live under [`community/submissions/`](../../community/submissions/) and are rebuilt into a separate community registry and site. No-network fixture manifests for the adapter tracks live under [`examples/adapters/`](../../examples/adapters/).
 
