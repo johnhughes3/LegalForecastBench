@@ -137,13 +137,14 @@ def recover_managed_transcript(
             persisted_payload_sha256 = cell.response_payload_sha256
             assert accepted_compatibility_payload is not None
             accepted_payload_bytes = accepted_compatibility_payload
-    else:
-        ledger.restore_ambiguous_response_payload(
-            cell_id,
-            provider_attempt_id=cell.provider_attempt_id,
-            response_payload=payload_bytes,
-            response_payload_sha256=payload_sha256,
-        )
+    # Matching durable bytes still need the ambiguous-to-reserved transition
+    # before normal execution can replay them without another paid attempt.
+    ledger.restore_ambiguous_response_payload(
+        cell_id,
+        provider_attempt_id=cell.provider_attempt_id,
+        response_payload=accepted_payload_bytes,
+        response_payload_sha256=persisted_payload_sha256,
+    )
     accepted_cost = _payload_estimated_cost(accepted_payload_bytes)
     return ManagedTranscriptRecovery(
         cell_id=cell_id,
