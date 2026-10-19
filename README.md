@@ -44,9 +44,9 @@ Cutoff evidence lives in [`legalforecast/data/model_cutoffs.json`](legalforecast
 
 The [working paper](https://www.legalforecastbench.org/paper/) reports micro-Brier and equal-case Brier scores, uncertainty, accuracy, and actual and standard-rate inference costs. The [results site](https://www.legalforecastbench.org/) provides the ranked comparison and downloadable data, with coverage and missing usage disclosed.
 
-## Community Multi-Harness Comparisons (planned)
+## Community Multi-Harness Comparisons
 
-A separate, non-official community track for comparing agent harnesses is planned but not yet operational: no community result has been accepted or published. Its design, contracts, and contributor docs live in [docs/multiharness/](docs/multiharness/README.md).
+A separate, non-official community track for comparing agent harnesses includes accepted historical provider smoke examples. The Claude Code, Codex, Hermes, and OpenClaw baselines remain unfinished. Its contracts, evidence limits, and contributor docs live in [docs/multiharness/](docs/multiharness/README.md).
 
 LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
@@ -118,8 +118,8 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 
 ## Repository Map
 
-- `legalforecast/`: Python package for public release validation, manifest/run execution, scoring, reporting, and publication, plus the planned community multi-harness tooling.
-- `examples/adapters/`, `community/submissions/`: adapter fixtures and submission examples for the planned [community multi-harness track](docs/multiharness/README.md).
+- `legalforecast/`: Python package for public release validation, manifest/run execution, scoring, reporting, and publication, plus community multi-harness tooling.
+- `examples/adapters/`, `community/submissions/`: adapter fixtures and submission examples for the [community multi-harness track](docs/multiharness/README.md).
 - `docs/`: methods, reproduction/audit guide, publication rules, release contracts, papers, and the multi-harness docs — start at [docs/README.md](docs/README.md). Corpus construction and acquisition live in the companion LegalForecastCorpus repository.
 - `tests/`: synthetic fixtures and regression coverage.
 - `scripts/`: release checks, deterministic fixture input preparation, and provider/runtime validation utilities.

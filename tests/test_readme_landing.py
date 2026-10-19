@@ -181,16 +181,17 @@ def test_published_result_fixture_rejects_a_stale_prepublication_readme(
     )
 
 
-def test_readme_points_to_the_planned_multiharness_track() -> None:
-    """The community track is planned, so the README only signposts its docs."""
+def test_readme_points_to_the_multiharness_track() -> None:
+    """The README signposts community evidence without claiming new baselines."""
     readme = _readme()
     start_here = readme.index("## Start Here")
-    community = readme.index("## Community Multi-Harness Comparisons (planned)")
+    community = readme.index("## Community Multi-Harness Comparisons")
     quickstart = readme.index("## Quickstart")
 
     assert start_here < community < quickstart
     assert "](docs/multiharness/README.md)" in readme
-    assert "not yet operational" in readme
+    assert "accepted historical provider smoke examples" in readme
+    assert "baselines remain unfinished" in readme
     assert "uv run legalforecast multiharness" not in readme
 
 
