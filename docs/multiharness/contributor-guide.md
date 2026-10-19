@@ -50,7 +50,7 @@ Canonical profile IDs are hyphenated. Underscore aliases are refused.
 | Profile | When to use it | Credentials |
 | --- | --- | --- |
 | `fixture-none` | Default for this walkthrough | None. The profile never reads keys. |
-| `published-api-key` | Plan a live provider configuration | `multiharness run --dry-run` records this selection, but direct execution is refused. Paid execution requires the guarded Tier-0 spend-control path and its detached approval. |
+| `published-api-key` | Plan a live provider configuration | `multiharness run --dry-run` records this selection, but direct execution is refused. Paid execution requires the guarded Tier-0 spend-control path and its recorded owner approval. |
 | `contributor-subscription` | Reserved local subscription profile | Not runnable yet: there is no production local-login presence probe. The CLI refuses it before writing a run plan. |
 
 Write `fixture-none`, never `fixture_none`. Do not put keys in the shell profile, in git, or in public JSON. This contributor command does not execute paid profiles; use the separately reviewed Tier-0 specification and approval path for paid work.
@@ -252,13 +252,15 @@ Stderr reports each `Wrote …` path. `tmp/community-validation.json` has `"stat
 
 `--task-source-credit-name` names whoever the tasks came from, which is **not** always this project: for a Harvey LAB run it is `Harvey LAB`. `--benchmark-credit-name` stays `LegalForecastBench`. Only the submitter, operator, and adapter-author names are yours to fill in.
 
-Open a pull request that adds only that submission directory. Details, attestations, and credits: [submissions](submissions.md). Adapter contract: [the adapter spec](adapter-spec.md).
+The current CLI keeps the option name `--acknowledge-required-attestations` for compatibility. It writes the validator-required contributor declarations described in [submissions](submissions.md) as ordinary manifest fields. The artifact-content scan is a separate publication guardrail; the declarations do not establish rights or provider-terms compliance and do not create a signature, certificate, or separate approval artifact.
+
+Open a pull request that adds only that submission directory. Details, contributor declarations, and credits: [submissions](submissions.md). Adapter contract: [the adapter spec](adapter-spec.md).
 
 ## 7. Costs
 
 `fixture-none` conformance and fixture runs do not call a provider. They should cost nothing beyond your machine.
 
-Paid execution is contributor-funded and does not run through the ordinary `multiharness run` path. It requires the immutable Tier-0 specification, spend sidecars, and detached approval consumed by `multiharness tier0 run`. LegalForecastBench does not pay community API bills.
+Paid execution is contributor-funded and does not run through the ordinary `multiharness run` path. It requires the immutable Tier-0 specification, spend sidecars, and a recorded owner approval consumed by `multiharness tier0 run`. The supported `--approval` input is private JSON containing `spec_sha256`, the owner's actual `owner_approval` words, and `max_cost_usd`; an ordinary owner approval does not require a signing key, certificate, or separate signature. LegalForecastBench does not pay community API bills.
 
 The paired Tier-0 runner also dispatches the existing Codex LAB composition as its clean-native arm (`codex-cli-offline`), using the frozen model, executable digest, timeout, and optional `settings.reasoning_effort` (`low`, `medium`, or `high`; default `medium`). This path currently accepts only `fixture-none` provider-free execution. Paid Codex is refused because the supported CLI contract has no enforceable monetary cap; contributor-subscription execution is also unavailable. Fake-binary tests are not a live Codex baseline. The credential handshake, frozen live specification, and Claude-first checkpoint remain prerequisites for issue #204.
 
@@ -290,7 +292,7 @@ Public JSON is scanned for secrets and path leakage. If a command’s output con
 | `--lab-root` fails on a raw Harvey LAB clone | The raw path reads evaluator `criteria`; it is not a contributor input. Project the corpus first. |
 | Folder mode refuses a projected layout | Re-index the same projected root and do not modify its sealed files; folder mode refuses projection or index digest drift. |
 | Ctrl-C does nothing on the fixture walkthrough | The one-task fixture finishes in about a second. That is expected. Use a large LAB category to exercise interrupt and resume. |
-| I want a live provider run instead of `fixture-none` | `--auth-profile published-api-key --dry-run` records the intended profile, but this command refuses paid execution. Use the guarded Tier-0 specification, spend policy, and detached approval path instead. |
+| I want a live provider run instead of `fixture-none` | `--auth-profile published-api-key --dry-run` records the intended profile, but this command refuses paid execution. Use the guarded Tier-0 specification, spend policy, and recorded owner approval path instead. |
 | Resume says solver, config, policy, or selection identity drifted | Re-run with the original adapter, model key, sandbox flags, and selectors. |
 | Resume says the progress journal is corrupt | Do not hand-edit `run-progress.json`. Start a new `--output-dir`. |
 | Exit `130` after Ctrl-C | Expected. Resume with the same command plus `--resume`. |
