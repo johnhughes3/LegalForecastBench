@@ -324,7 +324,8 @@ def test_real_node_plugin_reads_authenticated_release_document(
     (root / "prompt.txt").write_text("Blinded task prompt")
     documents = root / "documents"
     documents.mkdir()
-    (documents / "record.txt").write_text("Authenticated document bytes")
+    document_text = "\u3400" * 6000 + "DOCUMENT-TAIL"
+    (documents / "record.txt").write_text(document_text)
     outside = tmp_path / "private-label.txt"
     outside.write_text("must never be returned")
     (documents / "link.txt").symlink_to(outside)
@@ -382,11 +383,24 @@ const promptComplete = await promptTool.execute(
 const catalog = await documentTool.execute("catalog", {{}});
 const catalogPage = JSON.parse(catalog.content[0].text);
 const paths = JSON.parse(catalogPage.text);
-const document = await documentTool.execute("document", {{path: paths[0], offset: 0}});
+const documents = [];
+const rawDocuments = [];
+let documentOffset = 0;
+while (true) {{
+  const document = await documentTool.execute(
+    "document", {{path: paths[0], offset: documentOffset}},
+  );
+  rawDocuments.push(document.content[0].text);
+  const page = JSON.parse(document.content[0].text);
+  documents.push(page);
+  if (page.complete) break;
+  documentOffset = page.next_offset;
+}}
 console.log(JSON.stringify({{
   toolRegistered: Boolean(documentTool),
   paths,
-  document: JSON.parse(document.content[0].text),
+  documents,
+  rawDocuments,
   promptComplete: JSON.parse(promptComplete.content[0].text),
 }}));
 """
@@ -413,11 +427,14 @@ console.log(JSON.stringify({{
     record = json.loads(completed.stdout)
     assert record["toolRegistered"] is True
     assert record["paths"] == ["documents/record.txt"]
-    assert record["document"]["text"] == "Authenticated document bytes"
-    assert record["document"]["complete"] is True
+    assert [page["complete"] for page in record["documents"]] == [False, True]
+    assert "".join(page["text"] for page in record["documents"]) == document_text
+    assert "\\u3400" in record["rawDocuments"][0]
+    assert "\u3400" not in record["rawDocuments"][0]
     assert record["promptComplete"] == {"complete": True}
     assert [request.operation for request in requests] == [
         "read",
+        "read_release_document",
         "read_release_document",
         "read_release_document",
     ]

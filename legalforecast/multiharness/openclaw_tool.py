@@ -11,6 +11,7 @@ from typing import cast
 
 from legalforecast.multiharness.openclaw import OpenClawError, ToolTransport
 from legalforecast.multiharness.solver_inputs import SOLVER_INPUT_ENTRY_PATH
+from legalforecast.multiharness.task_worker import serialize_document_page
 from legalforecast.multiharness.tool_protocol import ToolRequest
 
 # Pinned OpenClaw's smallest automatic per-result cap is 16,000 weighted chars.
@@ -107,7 +108,10 @@ def prompt_pages(content: str) -> list[str]:
     offset = 0
     while offset < len(content):
         size = min(6000, len(content) - offset)
-        while len(json.dumps(content[offset : offset + size])) > PAGE_TEXT_BUDGET:
+        while (
+            len(json.dumps(content[offset : offset + size], ensure_ascii=True))
+            > PAGE_TEXT_BUDGET
+        ):
             size //= 2
         pages.append(content[offset : offset + size])
         offset += size
@@ -173,9 +177,12 @@ def bridge_read(
                         "content": pages[expected],
                         "next_page": expected + 1,
                         "receipt": receipt,
-                    }
+                    },
+                    ensure_ascii=True,
                 )
-                channel.sendall((json.dumps({"text": text}) + "\n").encode())
+                channel.sendall(
+                    (json.dumps({"text": text}, ensure_ascii=True) + "\n").encode()
+                )
                 expected += 1
     except (OSError, ValueError, RuntimeError) as exc:
         failures.append(exc)
@@ -227,7 +234,7 @@ def bridge_documents(
                 output = response.output
                 delivery.observe(path=path, offset=offset, output=output)
                 encoded = json.dumps(
-                    {"text": json.dumps(dict(output), ensure_ascii=False)}
+                    {"text": serialize_document_page(output)}, ensure_ascii=True
                 ).encode("utf-8")
                 if len(encoded) > 1_048_576:
                     raise OpenClawError("OpenClaw document response was too large")

@@ -60,9 +60,8 @@ def test_pinned_worker_gateway_and_real_container_isolation(tmp_path: Path) -> N
     prompt = "BEGIN " + "x" * 45000 + " MIDDLE " + "y" * 45000 + " END"
     (workspace / "prompt.txt").write_text(prompt)
     (workspace / "documents").mkdir()
-    (workspace / "documents" / "record.txt").write_text(
-        "Authenticated document fixture"
-    )
+    document_text = "\u3400" * 6000 + "DOCUMENT-TAIL"
+    (workspace / "documents" / "record.txt").write_text(document_text)
     (workspace / "openclaw-request.json").write_text(json.dumps(req.to_record()))
     (workspace / "openclaw-model.json").write_text(
         json.dumps(
@@ -236,7 +235,7 @@ print('isolation-probes-passed')
             ).stdout
         )
         assert "".join(stats["pages"]) == prompt
-        assert stats["documents"] == ["Authenticated document fixture"]
+        assert "".join(stats["documents"]) == document_text
         assert set(stats["headers"]) == {"provider-sentinel-only-gateway"}
         output = json.loads(
             (workspace / "private-logs/openclaw-forecast.json").read_text()

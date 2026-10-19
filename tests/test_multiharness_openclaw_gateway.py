@@ -67,6 +67,7 @@ class AnthropicFixture:
         self.headers: list[str | None] = []
         self.pages: list[str] = []
         self.documents: list[str] = []
+        self.document_completeness: list[bool] = []
         self.phase = "prompt"
         self.document_path = ""
         self.released = threading.Event()
@@ -84,6 +85,7 @@ class AnthropicFixture:
                         "headers": owner.headers,
                         "pages": owner.pages,
                         "documents": owner.documents,
+                        "document_completeness": owner.document_completeness,
                     }
                 ).encode()
                 self.send_response(200)
@@ -150,6 +152,7 @@ class AnthropicFixture:
                     stop = "tool_use"
                 elif owner.phase == "document" and page and page.get("complete"):
                     owner.documents.append(page["text"])
+                    owner.document_completeness.append(page["complete"])
                     owner.phase = "done"
                     block = {"type": "text", "text": ""}
                     delta = {
@@ -169,6 +172,7 @@ class AnthropicFixture:
                     stop = "end_turn"
                 elif owner.phase == "document":
                     owner.documents.append(page["text"])
+                    owner.document_completeness.append(page["complete"])
                     block = {
                         "type": "tool_use",
                         "id": f"read_document_{len(owner.requests)}",
@@ -286,7 +290,8 @@ def test_native_anthropic_loop_through_real_gateway(
     )
     prompt = "BEGIN " + "m" * 45000 + " MIDDLE " + "n" * 45000 + " END"
     (tmp_path / "documents").mkdir()
-    (tmp_path / "documents" / "record.txt").write_text("Authenticated document fixture")
+    document_text = "\u3400" * 6000 + "DOCUMENT-TAIL"
+    (tmp_path / "documents" / "record.txt").write_text(document_text)
     (tmp_path / "prompt.txt").write_text(prompt)
     (tmp_path / "openclaw-request.json").write_text(json.dumps(req.to_record()))
     (tmp_path / "openclaw-model.json").write_text(
@@ -319,7 +324,8 @@ def test_native_anthropic_loop_through_real_gateway(
     assert result.public_summary["auth_mode"] == "protected-gateway-capability"
     assert result.public_summary["provider"] == "anthropic"
     assert result.public_summary["documents_delivery_complete"] is True
-    assert upstream.documents == ["Authenticated document fixture"]
+    assert upstream.document_completeness == [False, True]
+    assert "".join(upstream.documents) == document_text
     assert gateway.gateway.usage.snapshot().rejected_count == 0
     output = json.loads((tmp_path / result.artifacts[0].path).read_text())
     assert output["predictions"][0]["probability_fully_dismissed"] == 0.37

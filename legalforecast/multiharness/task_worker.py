@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
@@ -19,6 +20,17 @@ from legalforecast.multiharness.tool_protocol import (
     decode_tool_request,
     encode_tool_message,
 )
+
+# OpenClaw 2026.9.6 caps one result at 64,000 weighted characters for the
+# protected route's 200,000-token context. Count the ASCII-escaped JSON that
+# the native plugin actually returns, not the decoded document characters.
+DOCUMENT_PAGE_RESULT_CHAR_BUDGET = 64_000
+
+
+def serialize_document_page(output: Mapping[str, object]) -> str:
+    """Return the exact ASCII JSON text exposed by the native document tool."""
+
+    return json.dumps(dict(output), ensure_ascii=True)
 
 
 def document_page(
@@ -74,7 +86,7 @@ def document_page(
             "next_offset": end,
             "complete": end == len(text),
         }
-        if len(json.dumps(page, ensure_ascii=False)) <= 7500:
+        if len(serialize_document_page(page)) <= DOCUMENT_PAGE_RESULT_CHAR_BUDGET:
             return page
         end = offset + (end - offset) // 2
 
