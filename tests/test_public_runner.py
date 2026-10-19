@@ -37,6 +37,7 @@ from legalforecast.runner import (
     issue_runner_fixture,
 )
 from legalforecast.runner.fixture import FIXTURE_MODEL_KEY, FixtureModelTransport
+from legalforecast.runner.ledger import RunnerLedger
 from tests.test_executable_packets import executable_packet_bytes
 from tests.test_provider_spend_dynamodb import InMemoryDynamoRunner
 
@@ -1286,9 +1287,11 @@ def test_runner_recovers_remote_pretransport_reservation_without_duplicate_trans
         ).fetchone() == (3,)
 
 
+@pytest.mark.parametrize("restore_ambiguous_response", [False, True])
 def test_runner_replays_remote_settlement_using_exact_attempt_id(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    restore_ambiguous_response: bool,
 ) -> None:
     """A state-only local ordinal cannot select a different remote attempt."""
 
@@ -1413,6 +1416,22 @@ def test_runner_replays_remote_settlement_using_exact_attempt_id(
             (second_lease.attempt_id, cell_id),
         )
         connection.commit()
+
+    if restore_ambiguous_response:
+        with RunnerLedger(
+            config.ledger_path, state_only_provider_attempts=True
+        ) as ledger:
+            ledger.mark_ambiguous(
+                cell_id,
+                provider_attempt_id=second_lease.attempt_id,
+                failure_type="RunValidationError",
+            )
+            ledger.restore_ambiguous_response_payload(
+                cell_id,
+                provider_attempt_id=second_lease.attempt_id,
+                response_payload=response_payload,
+                response_payload_sha256=hashlib.sha256(response_payload).hexdigest(),
+            )
 
     retry = CountingTransport(error=AssertionError("remote replay called transport"))
     summary = execute_release_run(

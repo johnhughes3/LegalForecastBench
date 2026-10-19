@@ -1701,8 +1701,8 @@
         "largest_symbol": "managed_result_from_transcript",
         "largest_symbol_lines": 203,
         "layer": "application",
-        "line_count": 737,
-        "nonblank_line_count": 690,
+        "line_count": 738,
+        "nonblank_line_count": 691,
         "top_level_definition_count": 14
       },
       "legalforecast/runner/protected_recovery.py": {
@@ -2340,10 +2340,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_successful_transcript_restores_typed_replay_payload_without_transport",
-        "largest_symbol_lines": 278,
+        "largest_symbol_lines": 296,
         "layer": "test",
-        "line_count": 902,
-        "nonblank_line_count": 845,
+        "line_count": 921,
+        "nonblank_line_count": 864,
         "top_level_definition_count": 20
       },
       "tests/test_model_registry.py": {
@@ -2879,10 +2879,10 @@
         ],
         "lane_owner": "tests",
         "largest_symbol": "test_runner_replays_remote_settlement_using_exact_attempt_id",
-        "largest_symbol_lines": 145,
+        "largest_symbol_lines": 162,
         "layer": "test",
-        "line_count": 2011,
-        "nonblank_line_count": 1750,
+        "line_count": 2030,
+        "nonblank_line_count": 1768,
         "top_level_definition_count": 51
       },
       "tests/test_publication_guardrails.py": {
