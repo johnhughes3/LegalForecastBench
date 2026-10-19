@@ -644,6 +644,9 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         ),
     ],
 )
+@pytest.mark.parametrize(
+    "durable_format", ["new", "normalized", "normalized-prior", "changed"]
+)
 def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -652,6 +655,7 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
     metadata: dict[str, str],
     agent_status: str,
     expected_cost: float,
+    durable_format: str,
 ) -> None:
     prompt = _prompt()
     turns = [
@@ -735,12 +739,52 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
         ledger.mark_ambiguous(
             "cell-1", provider_attempt_id="attempt-1", failure_type="SettlementError"
         )
+        seeded_bytes = None
+        if durable_format != "new":
+            result = transcript_recovery.managed_result_from_transcript(
+                transcript_path,
+                entry=entry,
+                cell=ledger.read_cell_for_recovery("cell-1"),
+            )
+            encoder = (
+                transcript_recovery._prior_managed_replay_payload
+                if durable_format == "normalized-prior"
+                else transcript_recovery.managed_replay_payload
+            )
+            seeded_payload = encoder(result, entry=entry)
+            seeded_payload["served_model"] = entry.model_version_or_snapshot
+            if durable_format == "changed":
+                seeded_payload["output_tokens"] = 999
+            seeded_bytes = ARTIFACT_CANONICAL_JSON_V1.encode(seeded_payload)
+            ledger.restore_ambiguous_response_payload(
+                "cell-1",
+                provider_attempt_id="attempt-1",
+                response_payload=seeded_bytes,
+                response_payload_sha256=hashlib.sha256(seeded_bytes).hexdigest(),
+            )
+            ledger.mark_ambiguous(
+                "cell-1",
+                provider_attempt_id="attempt-1",
+                failure_type="SettlementError",
+            )
+        if durable_format == "changed":
+            with pytest.raises(
+                RunValidationError, match="existing durable response differs"
+            ):
+                recover_managed_transcript(
+                    ledger,
+                    entry=entry,
+                    transcript_path=transcript_path,
+                    cell_id="cell-1",
+                )
+            return
         recovered = recover_managed_transcript(
             ledger,
             entry=entry,
             transcript_path=transcript_path,
             cell_id="cell-1",
         )
+        assert recovered.result.served_model == model_name
         assert recovered.result.gateway_response_metadata == (metadata, metadata)
         assert recovered.estimated_cost_usd == pytest.approx(expected_cost)
         assert live_result.input_tokens == recovered.result.input_tokens == 250
@@ -752,7 +796,17 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
         assert payload["estimated_cost_usd"] == pytest.approx(expected_cost)
         # Live execution stores the reported served model verbatim; replay must
         # reproduce those bytes rather than the normalized frozen id.
-        assert payload["served_model"] == model_name
+        assert payload["served_model"] == (
+            model_name if durable_format == "new" else entry.model_version_or_snapshot
+        )
+        if seeded_bytes is not None:
+            assert record.response_payload == seeded_bytes
+            assert recovered.payload_sha256 == hashlib.sha256(seeded_bytes).hexdigest()
+        assert record.status == "reserved"
+        repeated = recover_managed_transcript(
+            ledger, entry=entry, transcript_path=transcript_path, cell_id="cell-1"
+        )
+        assert repeated.payload_sha256 == recovered.payload_sha256
 
 
 def test_failed_transcript_without_messages_is_rejected_before_restore(
