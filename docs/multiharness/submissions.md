@@ -49,7 +49,7 @@ Every `submission.json` must include the following required contributor declarat
 - `right_to_submit_artifacts`
 - `provider_terms_acknowledged`
 
-The validator and publication guardrails consume these values as ordinary manifest fields for the non-official boundary, public-material screening, rights, and provider-terms checks. They are not signatures, certificates, separate approval artifacts, or a result-tier classification, and they do not substitute for legal review of provider terms, court-file handling rules, or third-party dataset licenses.
+The validator requires these contributor declarations as ordinary manifest fields. A separate publication guardrail scans artifact contents for prohibited material. The declarations do not establish rights, provider-terms compliance, or the absence of private material. They are not signatures, certificates, separate approval artifacts, or a result-tier classification, and they do not substitute for legal review of provider terms, court-file handling rules, or third-party dataset licenses.
 
 ## Required Credits
 

@@ -224,7 +224,8 @@ def test_multiharness_docs_declarations_and_owner_approval() -> None:
 
     assert "## Required Contributor Declarations" in submissions
     assert "ordinary manifest fields" in submissions
-    assert "validator and publication guardrails consume" in submissions
+    assert "validator requires these contributor declarations" in submissions
+    assert "separate publication guardrail scans artifact contents" in submissions
     assert "not signatures, certificates, separate approval artifacts" in submissions
     assert "--acknowledge-required-attestations" in submissions
     assert "stable `attestations` manifest field" in submissions

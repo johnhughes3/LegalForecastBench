@@ -674,12 +674,7 @@ class CommunitySubmissionShard:
 
 @dataclass(frozen=True, slots=True)
 class CommunitySubmissionManifest:
-    """PR-reviewed community submission manifest.
-
-    The stable ``attestations`` JSON field stores required contributor
-    declarations consumed by the validator and publication guardrails. It is
-    not a signature or approval artifact.
-    """
+    """PR-reviewed community submission manifest."""
 
     submission_id: str
     submitter: ContributorCredit

@@ -252,7 +252,7 @@ Stderr reports each `Wrote …` path. `tmp/community-validation.json` has `"stat
 
 `--task-source-credit-name` names whoever the tasks came from, which is **not** always this project: for a Harvey LAB run it is `Harvey LAB`. `--benchmark-credit-name` stays `LegalForecastBench`. Only the submitter, operator, and adapter-author names are yours to fill in.
 
-The current CLI keeps the option name `--acknowledge-required-attestations` for compatibility. It writes the required contributor declarations described in [submissions](submissions.md), which the validator and publication guardrails consume as ordinary manifest fields; it does not create a signature, certificate, or separate approval artifact.
+The current CLI keeps the option name `--acknowledge-required-attestations` for compatibility. It writes the validator-required contributor declarations described in [submissions](submissions.md) as ordinary manifest fields. The artifact-content scan is a separate publication guardrail; the declarations do not establish rights or provider-terms compliance and do not create a signature, certificate, or separate approval artifact.
 
 Open a pull request that adds only that submission directory. Details, contributor declarations, and credits: [submissions](submissions.md). Adapter contract: [the adapter spec](adapter-spec.md).
 
