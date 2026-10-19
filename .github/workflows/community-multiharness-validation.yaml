@@ -4,20 +4,28 @@ on:
   pull_request:
     paths:
       - community/submissions/**
+      - examples/adapters/**
       - docs/**
       - legalforecast/multiharness/**
       - legalforecast/publication/community_aggregate.py
       - tests/test_community_*.py
+      - tests/fixtures/claude_code/**
+      - tests/fixtures/codex_cli_adapter/**
+      - tests/fixtures/local_cli_adapters/**
       - tests/test_multiharness_*.py
       - .github/workflows/community-multiharness-validation.yaml
   push:
     branches: [main]
     paths:
       - community/submissions/**
+      - examples/adapters/**
       - docs/**
       - legalforecast/multiharness/**
       - legalforecast/publication/community_aggregate.py
       - tests/test_community_*.py
+      - tests/fixtures/claude_code/**
+      - tests/fixtures/codex_cli_adapter/**
+      - tests/fixtures/local_cli_adapters/**
       - tests/test_multiharness_*.py
       - .github/workflows/community-multiharness-validation.yaml
   workflow_dispatch:
@@ -73,9 +81,14 @@ jobs:
             tests/test_multiharness_lfb_native.py \
             tests/test_multiharness_harvey_lab_adapter.py \
             tests/test_multiharness_cli.py \
+            tests/test_community_examples.py \
             tests/test_community_submission.py \
             tests/test_community_publication.py \
-            tests/test_community_multiharness_workflow.py
+            tests/test_community_multiharness_workflow.py \
+            tests/test_local_cli_adapter_manifest.py \
+            tests/test_local_cli_contracts.py \
+            tests/test_multiharness_claude_code_adapter.py \
+            tests/test_multiharness_codex_cli.py
 
       - name: Validate reviewed community submissions
         run: |
