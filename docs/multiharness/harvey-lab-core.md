@@ -63,6 +63,14 @@ python -B -I -m lab_core.evaluation.run_eval --task ... --run-id ... --judges ..
 
 The judge runs only after complete solver metadata and bounded regular output files pass validation. Declared deliverables must be present; tasks without a deliverables map use discovered output files. Symlinks, changed source/package/input/output bytes, changed output membership, wrong task/model/run identities, incomplete solver runs, and malformed or inconsistent score rows are rejected. The optional reasoning effort is passed directly to the native solver.
 
+## Protected shared-gateway route
+
+The pinned LAB checkout has no monetary-cap or alternate-sandbox flag. A protected caller that already has the existing Anthropic gateway and spend journal may instead construct `LabCoreGateway` and pass it on `LabCoreRequest` to `run_lab_core`. The bridge starts the loopback gateway only for the solver and judge phases, projects a synthetic capability token plus `ANTHROPIC_BASE_URL`, and never projects the upstream provider key. Both exact model IDs must be allowlisted by the gateway; direct provider environment grants are refused when this route is selected.
+
+The existing gateway performs request reservation, response-usage extraction, and journal settlement for both phases. The bridge refuses a run with no solver request, no judge request, rejected requests, incomplete usage, outstanding reservations, or disagreement between gateway usage and the existing spend journal. It records only settled request and token counts in the normalized result and exposes no credential or rubric material in the public score. This arrangement leaves the pinned LAB source and its local Podman sandbox unchanged; it does not make the canonical restricted nested-Podman environment executable when that host capability is absent.
+
+The public `legalforecast harvey-lab run` command remains the explicit contributor-funded direct-provider path documented above. A protected workflow must supply the already-approved gateway policy, existing journal/controller, evaluator authority, and host containment capability before calling the shared-gateway composition. This code path is an executable preparation seam, not evidence of a paid baseline or evaluator provisioning.
+
 ## Results and evidence limits
 
 Only `public/` is intended for sharing. `public/scores.json` contains the exact source and interpreter identity, solver/judge/settings, safe task/run IDs, per-criterion boolean verdicts, artifact digests, the native binary all-pass score, and a separately labeled criterion pass rate. `public/NOTICE.txt` includes upstream license credit. Raw task rubrics, model transcripts, generated documents, evaluator reasoning, and stdout/stderr remain under `private/`; do not submit that directory as a public package.
