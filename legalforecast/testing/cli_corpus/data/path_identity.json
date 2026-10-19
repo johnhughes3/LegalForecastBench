@@ -120,6 +120,7 @@
     "tests/test_docs_index_coverage.py",
     "tests/test_fake_codex_cli.py",
     "tests/test_gateway_provider_workflow.py",
+    "tests/test_harvey_citation_sample.py",
     "tests/test_harvey_lab_authorized_scoring.py",
     "tests/test_harvey_lab_core.py",
     "tests/test_harvey_lab_evaluator.py",
