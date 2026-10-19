@@ -6,6 +6,7 @@ import shutil
 import socket
 import subprocess
 import threading
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from legalforecast.multiharness.conformance import run_adapter_conformance
 from legalforecast.multiharness.harvey_tools import HarveyToolExecutor
 from legalforecast.multiharness.openclaw import (
     ADAPTER_ID,
+    DOCUMENT_TOOL_NAME,
     OPENCLAW_COMMIT,
     OPENCLAW_VERSION,
     OpenClawError,
@@ -28,10 +30,13 @@ from legalforecast.multiharness.openclaw_runtime import (
     verify_runtime,
 )
 from legalforecast.multiharness.openclaw_tool import (
+    DocumentDelivery,
     PromptDelivery,
+    bridge_documents,
     bridge_read,
     prompt_pages,
 )
+from legalforecast.multiharness.openclaw_worker import StagedPromptTransport
 from legalforecast.multiharness.runner import validate_provider_environment_scope
 from legalforecast.multiharness.sandbox import PROVIDER_EGRESS_HOST_ONLY
 from legalforecast.multiharness.spec import (
@@ -41,6 +46,7 @@ from legalforecast.multiharness.spec import (
     SandboxPolicy,
 )
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
+from legalforecast.multiharness.validation import MultiHarnessValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "examples/adapters/openclaw-pinned/adapter-manifest.json"
@@ -165,6 +171,26 @@ def test_requires_complete_acknowledged_delivery(
         )
 
 
+def test_protected_normalization_requires_complete_document_delivery(
+    tmp_path: Path,
+) -> None:
+    original = request()
+    protected_request = replace(
+        original,
+        model_key="anthropic:claude-opus-5-5",
+        sandbox_policy=replace(original.sandbox_policy, allowed_provider_env_vars=()),
+    )
+    with pytest.raises(OpenClawError, match="complete authenticated release"):
+        normalize_result(
+            protected_request,
+            tmp_path,
+            envelope() | {"provider": "anthropic", "model": "claude-opus-5-5"},
+            tool_reads=2,
+            prompt_complete=True,
+            gateway_auth=True,
+        )
+
+
 @pytest.mark.parametrize(
     "version,commit", [("0.0.0", OPENCLAW_COMMIT), (OPENCLAW_VERSION, "0" * 40)]
 )
@@ -260,6 +286,136 @@ console.log(JSON.stringify({result, ack, denied}));
     assert json.loads(record["ack"]["content"][0]["text"]) == {"complete": True}
     assert transport.requests[0].operation == "read"
     assert transport.requests[0].input_paths == ("prompt.txt",)
+
+
+def test_real_node_plugin_reads_authenticated_release_document(
+    tmp_path: Path,
+) -> None:
+    """The registered OpenClaw document tool reaches the bounded host reader."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node is needed for the actual plugin transport test")
+    root = tmp_path / "staged"
+    root.mkdir()
+    (root / "prompt.txt").write_text("Blinded task prompt")
+    documents = root / "documents"
+    documents.mkdir()
+    (documents / "record.txt").write_text("Authenticated document bytes")
+    outside = tmp_path / "private-label.txt"
+    outside.write_text("must never be returned")
+    (documents / "link.txt").symlink_to(outside)
+
+    requests: list[ToolRequest] = []
+
+    class RecordingTransport(StagedPromptTransport):
+        def execute(self, value: ToolRequest) -> ToolResponse:
+            requests.append(value)
+            return super().execute(value)
+
+    transport = RecordingTransport(root)
+    prompt_host, prompt_child = socket.socketpair()
+    document_host, document_child = socket.socketpair()
+    prompt_delivery = PromptDelivery()
+    document_delivery = DocumentDelivery()
+    failures: list[BaseException] = []
+    document_failures: list[BaseException] = []
+    prompt_worker = threading.Thread(
+        target=bridge_read,
+        args=(prompt_host, transport, "test", prompt_delivery, failures),
+    )
+    document_worker = threading.Thread(
+        target=bridge_documents,
+        args=(
+            document_host,
+            transport,
+            "test",
+            document_delivery,
+            document_failures,
+        ),
+    )
+    prompt_worker.start()
+    document_worker.start()
+    plugin_uri = json.dumps(
+        (ROOT / "legalforecast/multiharness/openclaw_plugin/index.mjs").as_uri()
+    )
+    source = f"""
+import plugin from {plugin_uri};
+const promptFd = {prompt_child.fileno()};
+const documentFd = {document_child.fileno()};
+const tools = new Map();
+plugin.register({{
+  pluginConfig: {{descriptor: promptFd, documentDescriptor: documentFd}},
+  registerTool: value => tools.set(value.name, value),
+}});
+const promptTool = tools.get("lfb_read_task");
+const documentTool = tools.get({json.dumps(DOCUMENT_TOOL_NAME)});
+const prompt = await promptTool.execute("prompt", {{page: 0, receipt: ""}});
+const promptPage = JSON.parse(prompt.content[0].text);
+const promptComplete = await promptTool.execute(
+  "prompt-complete",
+  {{page: promptPage.next_page, receipt: promptPage.receipt}},
+);
+const catalog = await documentTool.execute("catalog", {{}});
+const catalogPage = JSON.parse(catalog.content[0].text);
+const paths = JSON.parse(catalogPage.text);
+const document = await documentTool.execute("document", {{path: paths[0], offset: 0}});
+console.log(JSON.stringify({{
+  toolRegistered: Boolean(documentTool),
+  paths,
+  document: JSON.parse(document.content[0].text),
+  promptComplete: JSON.parse(promptComplete.content[0].text),
+}}));
+"""
+    try:
+        completed = subprocess.run(
+            [node, "--input-type=module", "-e", source],
+            pass_fds=(prompt_child.fileno(), document_child.fileno()),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+    finally:
+        prompt_child.close()
+        document_child.close()
+        prompt_worker.join(timeout=2)
+        document_worker.join(timeout=2)
+    assert not prompt_worker.is_alive()
+    assert not document_worker.is_alive()
+    assert failures == []
+    assert document_failures == []
+    assert prompt_delivery.complete
+    assert document_delivery.complete
+    record = json.loads(completed.stdout)
+    assert record["toolRegistered"] is True
+    assert record["paths"] == ["documents/record.txt"]
+    assert record["document"]["text"] == "Authenticated document bytes"
+    assert record["document"]["complete"] is True
+    assert record["promptComplete"] == {"complete": True}
+    assert [request.operation for request in requests] == [
+        "read",
+        "read_release_document",
+        "read_release_document",
+    ]
+
+    with pytest.raises(MultiHarnessValidationError):
+        ToolRequest(
+            request_id="negative-traversal",
+            operation="read_release_document",
+            arguments={"offset": 0},
+            input_paths=("documents/../private-label.txt",),
+        )
+    response = transport.execute(
+        ToolRequest(
+            request_id="negative-symlink",
+            operation="read_release_document",
+            arguments={"offset": 0},
+            input_paths=("documents/link.txt",),
+        )
+    )
+    assert response.status == "failed"
+    assert response.error_code == "invalid_release_document_request"
+    assert "must never be returned" not in repr(response.output)
 
 
 def test_unsupported_tool_operation_never_reaches_host(tmp_path: Path) -> None:
@@ -411,8 +567,19 @@ def test_real_openclaw_turn_with_local_provider_double(
     thread.start()
     original_config = build_config
 
-    def fixture_config(model: str, descriptor: int) -> dict[str, object]:
-        config = original_config(model, descriptor)
+    def fixture_config(
+        model: str,
+        descriptor: int,
+        *,
+        gateway: object = None,
+        document_descriptor: int | None = None,
+    ) -> dict[str, object]:
+        config = original_config(
+            model,
+            descriptor,
+            gateway=gateway,
+            document_descriptor=document_descriptor,
+        )
         config["models"] = {
             "providers": {
                 "openai": {
