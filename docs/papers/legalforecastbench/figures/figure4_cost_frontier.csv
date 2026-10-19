@@ -11,6 +11,7 @@ gpt-6-1-sol,GPT-6.1 Sol,OpenAI,10.677807,estimated_from_pricing_snapshot,0.14947
 gpt-6-astra,GPT-6 Astra,OpenAI,59.740000,standard_rate,0.152210400517,false
 gemini-3-8-flash,Gemini 3.8 Flash,Google,35.610000,standard_rate,0.153313953488,false
 gemini-4-argon,Gemini 4 Argon,Google,25.020457,estimated_from_pricing_snapshot,0.153865374677,false
+ultramarine-1-flash,Ultramarine 1 Flash,Paper Instruments,1.349121,standard_rate,0.154950645995,true
 grok-4-7,Grok 4.7,vercel_ai_gateway,32.999826,managed_usage_reprice_with_conservative_uncached_fallback,0.158325581395,false
 claude-sonnet-5,Claude Sonnet 5,Anthropic,24.680000,standard_rate,0.158483979328,false
 mistral-large-4,Mistral Large 4,Mistral,28.727761,standard_rate,0.159635142119,false

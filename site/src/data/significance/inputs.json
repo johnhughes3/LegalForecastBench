@@ -14,9 +14,10 @@
 		"gpt-5-6-luna": "gpt-5-6-luna.jsonl",
 		"muse-wonder-1-0": "muse-wonder-1-0.jsonl",
 		"gemini-4-argon": "gemini-4-argon.jsonl",
-		"mistral-large-4": "mistral-large-4.jsonl"
+		"mistral-large-4": "mistral-large-4.jsonl",
+		"ultramarine-1-flash": "ultramarine-1-flash.jsonl"
 	},
-	"family_model_count": 21,
+	"family_model_count": 22,
 	"missing_models": [
 		"claude-fable-5-1",
 		"grok-4-6",
@@ -91,11 +92,16 @@
 				"score_run": "39193407784",
 				"forecast_run": "39193012515",
 				"source": "native_unit_scores"
+			},
+			"ultramarine-1-flash": {
+				"forecast_run": "38897535768",
+				"score_run": "38992564711",
+				"source": "native_unit_scores"
 			}
 		},
 		"label_source_score_run": "36169561374",
 		"cohort_validation": "All native score sources agree on 387 case/unit/outcome keys across 91 cases. Historical receipts bind to the same release and reproduce their prior published aggregates.",
-		"coverage": "Fifteen of twenty-one model configurations have recoverable unit-level evidence. The other six models and their pairs are not tested.",
+		"coverage": "Sixteen of twenty-two model configurations have recoverable unit-level evidence. The other six models and their pairs are not tested.",
 		"recovered_note": "GPT-5.6 Luna's units are the native unit_scores output of its September 8, 2026 local scoring of run 34222142006, recovered from the operator's session record after the run's GitHub artifacts expired. They include a raw_output_sha256 per unit in the source record and reproduce the published aggregates exactly (micro Brier 0.143217, equal-case Brier 0.150835, 313 correct)."
 	}
 }

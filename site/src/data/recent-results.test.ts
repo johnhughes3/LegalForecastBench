@@ -8,7 +8,7 @@ import { historicalSnapshot, snapshot } from "./results.js";
 
 test("native agentic exports augment and replace rows in the unchanged beta snapshot", () => {
 	assert.equal(historicalSnapshot.models.length, 10);
-	assert.equal(snapshot.models.length, 21);
+	assert.equal(snapshot.models.length, 22);
 	for (const slug of [
 		"gpt-6-sol",
 		"gpt-6-luna",
@@ -21,6 +21,7 @@ test("native agentic exports augment and replace rows in the unchanged beta snap
 		"muse-wonder-1-0",
 		"gemini-4-argon",
 		"mistral-large-4",
+		"ultramarine-1-flash",
 	])
 		assert.ok(snapshot.models.some((m) => m.slug === slug));
 	for (const { source, data } of recentResults) {
@@ -55,6 +56,17 @@ test("Gemini and Mistral metrics use their selected complete native exports", ()
 		assert.equal(model.high_confidence.wrong, wrong);
 		assert.equal(model.cost.usd, cost);
 	}
+});
+
+test("Ultramarine metrics use its selected complete native export", () => {
+	const model = snapshot.models.find(
+		(row) => row.slug === "ultramarine-1-flash",
+	);
+	assert.ok(model);
+	assert.equal(model.correct, 292);
+	assert.equal(model.high_confidence.count, 77);
+	assert.equal(model.high_confidence.wrong, 1);
+	assert.equal(model.cost.usd, 1.34912112);
 });
 
 test("cost evidence must belong to the selected complete forecast and scoring run", () => {
@@ -120,13 +132,13 @@ test("release mismatch fails before combining metrics", () => {
 
 test("updated significance replaces the historical family and excludes untested models", () => {
 	assert.equal(historicalSnapshot.significant_pairs.length, 3);
-	assert.equal(snapshot.significant_pairs.length, 42);
+	assert.equal(snapshot.significant_pairs.length, 45);
 	for (const pair of snapshot.significant_pairs) {
 		assert.equal(pair.worse, "gpt-4-1");
 		assert.notEqual(pair.better, "gpt-4-1");
 	}
-	assert.match(snapshot.cohort.bootstrap.correction, /210 model pairs/);
-	assert.match(snapshot.cohort.bootstrap.caveat, /15 of 21/);
+	assert.match(snapshot.cohort.bootstrap.correction, /231 model pairs/);
+	assert.match(snapshot.cohort.bootstrap.caveat, /16 of 22/);
 	assert.ok(
 		!snapshot.significant_pairs.some(
 			(pair) => pair.better === "grok-4-6" || pair.worse === "muse-spark-1-3",

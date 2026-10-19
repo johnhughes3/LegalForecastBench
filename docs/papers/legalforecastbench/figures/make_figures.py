@@ -41,6 +41,7 @@ SHORT = {
     "gpt-6-astra": "GPT-6 Astra",
     "gemini-3-8-flash": "Gemini 3.8 Flash",
     "gemini-4-argon": "Gemini 4 Argon",
+    "ultramarine-1-flash": "Ultramarine 1 Flash",
     "grok-4-7": "Grok 4.7",
     "claude-sonnet-5": "Sonnet 5",
     "mistral-large-4": "Mistral Large 4",
