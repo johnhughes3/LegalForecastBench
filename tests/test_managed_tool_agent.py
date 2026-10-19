@@ -159,6 +159,54 @@ def _grok_gateway_response_metadata(model_version: str = "4.6") -> dict[str, str
     }
 
 
+def _mistral_gateway_response_metadata() -> dict[str, str]:
+    # Gateway omits resolved_provider_api_model_id on this route; the slug and
+    # resolved provider are the only served-identity evidence it returns.
+    return {
+        "original_model_id": "mistral/mistral-large-4",
+        "resolved_provider": "mistral",
+        "canonical_slug": "mistral/mistral-large-4",
+        "final_provider": "mistral",
+        "generation_id": "redacted-mistral-generation-id",
+        "cost_usd": "0.069",
+        "market_cost_usd": "0.069",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
+
+
+def test_gateway_streamed_bare_model_id_needs_attesting_route_metadata() -> None:
+    """Streamed Responses report ``mistral-large-4`` where the buffered response
+    reported ``mistral/mistral-large-4``; the routing rows must attest the slug."""
+    normalize = managed_execution.gateway_normalize_model_identity
+    metadata = _mistral_gateway_response_metadata()
+    assert (
+        normalize(
+            "mistral/mistral-large-4",
+            "mistral-large-4",
+            gateway_metadata=(metadata, metadata),
+        )
+        == "mistral/mistral-large-4"
+    )
+    with pytest.raises(ValueError, match="changed the served model"):
+        normalize("mistral/mistral-large-4", "mistral-large-4")
+    with pytest.raises(ValueError, match="changed the served model"):
+        normalize(
+            "mistral/mistral-large-4",
+            "mistral-large-4",
+            gateway_metadata=(
+                metadata,
+                {**metadata, "resolved_provider": "deepinfra"},
+            ),
+        )
+    with pytest.raises(ValueError, match="changed the served model"):
+        normalize(
+            "mistral/mistral-large-4",
+            "mistral-medium-4",
+            gateway_metadata=(metadata,),
+        )
+
+
 def test_gateway_response_metadata_is_extracted_from_openai_compatible_envelope() -> (
     None
 ):
@@ -294,6 +342,7 @@ def test_managed_agent_uses_native_tool_loop_and_returns_one_case_envelope(
     ]
 
     async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
+        assert _info.model_settings["timeout"] == 1200.0
         return turns.pop(0)
 
     workspace = tmp_path / "workspace"
@@ -396,7 +445,7 @@ def test_gateway_managed_agent_roundtrips_tools_usage_and_route_metadata(
     async def scripted(_messages: list[Any], _info: Any) -> ModelResponse:
         if model_id == "openai/gpt-5.6-sol":
             assert _info.model_settings["openai_service_tier"] == "flex"
-            assert _info.model_settings["timeout"] == 900.0
+            assert _info.model_settings["timeout"] == 1200.0
         return turns.pop(0)
 
     workspace = tmp_path / "workspace"
@@ -579,16 +628,70 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
         ),
     ]
 
-    async def scripted(_messages: list[Any], info: Any) -> ModelResponse:
-        seen.extend(sorted(tool.name for tool in info.function_tools))
-        captured["settings"] = info.model_settings
-        return turns.pop(0)
+    import httpx2
+    from pydantic_ai.models.google import GoogleModel
+    from pydantic_ai.providers.google import GoogleProvider
 
     captured: dict[str, Any] = {}
 
-    def google_model(model_id: str, *, provider: Any) -> FunctionModel:
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        assert "streamGenerateContent" in request.url.path
+        assert request.extensions["timeout"]["read"] == 1200
+        body = json.loads(request.content)
+        seen.extend(
+            sorted(
+                tool["name"]
+                for group in body["tools"]
+                for tool in group.get("functionDeclarations", [])
+                if tool["name"] != "final_result"
+            )
+        )
+        captured["settings"] = body["generationConfig"]
+        turn = turns.pop(0)
+        part = turn.parts[0]
+        assert isinstance(part, ToolCallPart)
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            {
+                                "functionCall": {
+                                    "name": part.tool_name,
+                                    "args": part.args_as_dict(),
+                                }
+                            }
+                        ],
+                    },
+                    "finishReason": "STOP",
+                }
+            ],
+            "modelVersion": model_id,
+            "usageMetadata": {
+                "promptTokenCount": turn.usage.input_tokens,
+                "cachedContentTokenCount": 10,
+                "candidatesTokenCount": turn.usage.output_tokens
+                - turn.usage.details["thoughts_tokens"],
+                "thoughtsTokenCount": turn.usage.details["thoughts_tokens"],
+                "totalTokenCount": turn.usage.input_tokens + turn.usage.output_tokens,
+            },
+        }
+        return httpx2.Response(
+            200,
+            text="data: " + json.dumps(payload) + "\n\n",
+            headers={"content-type": "text/event-stream"},
+        )
+
+    def google_model(model_id: str, *, provider: Any) -> GoogleModel:
         captured.update(model_id=model_id, provider=provider)
-        return FunctionModel(scripted)
+        return GoogleModel(
+            model_id,
+            provider=GoogleProvider(
+                api_key="fixture-key",
+                http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)),
+            ),
+        )
 
     monkeypatch.setattr(managed_execution, "GoogleModel", google_model)
 
@@ -605,22 +708,31 @@ def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
         workspace=workspace,
         request_id="cell-1",
         api_key="fixture-key",
+        transcript_path=tmp_path / "transcript.json",
     )
 
     assert captured["model_id"] == model_id
-    assert captured["settings"]["google_thinking_config"]["thinking_level"] == "HIGH"
-    assert captured["settings"].get("timeout") == (
-        900.0 if model_id == "gemini-4-argon" else None
-    )
+    assert captured["settings"]["thinkingConfig"]["thinking_level"] == "HIGH"
     assert captured["provider"].__class__.__name__ == "GoogleProvider"
     assert managed_execution.uses_managed_document_tools(_google_entry())
-    assert result.served_model == "function:scripted:"
+    assert result.served_model == model_id
     assert result.service_tier == "unreported"
     assert result.input_tokens == 250
     assert result.output_tokens == 100
     assert result.thoughts_tokens == 70
     assert result.response_usages == ((100, 40), (150, 60))
     assert seen == ["bash", "edit", "glob", "grep", "read", "write"] * 2
+
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
+    assert transcript["agent_status"] == "succeeded"
+    assert [m["kind"] for m in transcript["messages"]] == [
+        "request",
+        "response",
+        "request",
+        "response",
+        "request",
+    ]
+    assert transcript["messages"][1]["usage"]["cache_read_tokens"] == 10
 
 
 @pytest.mark.parametrize(
@@ -711,6 +823,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
         "api_key": "fixture-key",
         "settings": {
             "max_tokens": 16000,
+            "timeout": 1200.0,
             "anthropic_thinking": {"type": "adaptive"},
             "anthropic_cache": True,
             "parallel_tool_calls": False,
@@ -792,6 +905,7 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     requests: list[dict[str, Any]] = []
 
     async def handler(request: Any) -> Any:
+        assert request.extensions["timeout"]["read"] == 1200.0
         requests.append(json.loads((await request.aread()).decode("utf-8")))
         response = responses[len(requests) - 1]
         if requests[-1].get("stream"):
@@ -902,7 +1016,9 @@ def test_fable_native_anthropic_request_uses_adaptive_thinking_and_auto_tools(
     assert len(requests) == 2
     for request in requests:
         assert request["max_tokens"] == max_tokens
-        assert bool(request.get("stream")) is (max_tokens == 128000)
+        # The explicit timeout lets the SDK accept non-streaming requests even
+        # at 128K output; it no longer invokes its default-timeout fallback.
+        assert not request.get("stream")
         assert request["thinking"] == {"type": "adaptive"}
         assert request["cache_control"] == {"type": "ephemeral", "ttl": "5m"}
         assert request["tool_choice"] == {
@@ -1309,6 +1425,48 @@ def test_gateway_cell_normalizes_grok_served_alias_before_settlement() -> None:
     assert handler.settlement == (80, 10, 0.002, raw_output)
 
 
+def test_gateway_cell_settles_streamed_bare_model_id_with_route_metadata() -> None:
+    raw_output = (
+        '{"case_assessment":"Assessment","predictions":['
+        '{"unit_id":"unit-a","probability_fully_dismissed":0.5}]}'
+    )
+    metadata = _mistral_gateway_response_metadata()
+    handler = _ReplayHandler(
+        {
+            "raw_output": raw_output,
+            "request_count": 2,
+            "input_tokens": 80,
+            "output_tokens": 10,
+            "served_model": "mistral-large-4",
+            "finish_reason": "stop",
+            "service_tier": "auto",
+            "called_tools": ["read"],
+            "gateway_response_metadata": [metadata, metadata],
+            "estimated_cost_usd": 0.138,
+        }
+    )
+
+    response = managed_execution.complete_managed_tool_cell(
+        _gateway_entry("mistral/mistral-large-4"),
+        handler=cast(Any, handler),
+        managed_case=ManagedCaseInput(
+            case_id="case-1",
+            required_unit_ids=("unit-a",),
+            documents={},
+            unit_descriptions=(),
+            document_descriptions=(),
+            cell_id="cell-1",
+        ),
+        request_body_observer=lambda _body: None,
+        environ={"AI_GATEWAY_API_KEY": "fixture-key"},
+        registry_sha256="sha256:" + "b" * 64,
+    )
+
+    assert response.metadata is not None
+    assert response.metadata["served_model_version"] == "mistral/mistral-large-4"
+    assert handler.settlement == (80, 10, 0.138, raw_output)
+
+
 class _FailureHandler(_AttemptHandler):
     def __init__(self) -> None:
         super().__init__()
@@ -1432,7 +1590,7 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
         assert body["service_tier"] == tier
         if tier == "default":
             assert "reasoning" not in body
-        assert request.extensions["timeout"]["read"] == 900.0
+        assert request.extensions["timeout"]["read"] == 1200.0
         if len(requests) <= unavailable_responses:
             return httpx2.Response(
                 429,
@@ -1526,85 +1684,147 @@ def test_flex_sdk_retries_unavailable_with_long_timeout(
         asyncio.run(client.close())
 
 
-def test_gateway_agent_turns_get_a_long_read_timeout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_gateway_agent_turns_stream_with_a_long_read_timeout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A non-Flex Gateway model's non-streaming turn must outlast a long
-    final reasoning turn; the default 600 s read timeout stranded a cell."""
+    """A non-Flex Gateway turn streams, so the Gateway's 789 s buffered-response
+    ceiling cannot drop a long reasoning turn, and the SDK read timeout stays
+    long enough for a slow chunk. The terminal stream event must still supply
+    the Gateway routing and cost envelope that settlement requires."""
     import httpx2
     from openai import AsyncOpenAI
     from pydantic_ai.providers.openai import OpenAIProvider
 
     model_id = "mistral/mistral-large-4"
     requests: list[httpx2.Request] = []
+    output_item: dict[str, Any] = {
+        "type": "function_call",
+        "id": "fc_fixture",
+        "call_id": "call_fixture",
+        "name": "final_result",
+        "arguments": json.dumps(
+            {
+                "case_assessment": "Fixture",
+                "predictions": [
+                    {
+                        "unit_id": "unit-a",
+                        "probability_fully_dismissed": 0.5,
+                    }
+                ],
+            }
+        ),
+        "status": "completed",
+    }
+    reasoning_item: dict[str, Any] = {
+        "type": "reasoning",
+        "id": "rs_fixture",
+        "status": "completed",
+        "summary": [],
+        "content": [{"type": "reasoning_text", "text": "Weigh the motion."}],
+    }
+    response_json: dict[str, Any] = {
+        "id": "resp_fixture",
+        "object": "response",
+        "created_at": 1,
+        "status": "completed",
+        "model": model_id,
+        "output": [reasoning_item, output_item],
+        "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+        "parallel_tool_calls": False,
+        "tools": [],
+        "tool_choice": "auto",
+        "service_tier": "auto",
+        "providerMetadata": {
+            "gateway": {
+                "routing": {
+                    "originalModelId": model_id,
+                    "resolvedProvider": "mistral",
+                    "resolvedProviderApiModelId": "mistral-large-4",
+                    "canonicalSlug": model_id,
+                    "finalProvider": "mistral",
+                    "modelAttemptCount": 1,
+                    "totalProviderAttemptCount": 1,
+                },
+                "generationId": "gen_fixture",
+                "cost": 0.001,
+                "gatewayCost": 0.0011,
+                "marketCost": 0.001,
+            }
+        },
+    }
+    created: dict[str, Any] = {
+        **response_json,
+        "status": "in_progress",
+        "output": [],
+        "usage": None,
+        "providerMetadata": None,
+    }
+    # The Gateway streams Mistral's raw reasoning through nonstandard
+    # ``response.reasoning.*`` events and only the completed item carries it.
+    events: list[tuple[str, dict[str, Any]]] = [
+        ("response.created", {"response": created, "sequence_number": 0}),
+        (
+            "response.output_item.added",
+            {
+                "item": {**reasoning_item, "content": None, "status": "in_progress"},
+                "output_index": 0,
+                "sequence_number": 1,
+            },
+        ),
+        (
+            "response.reasoning.delta",
+            {
+                "item_id": "rs_fixture",
+                "output_index": 0,
+                "content_index": 0,
+                "delta": "Weigh the motion.",
+                "sequence_number": 2,
+            },
+        ),
+        (
+            "response.output_item.done",
+            {"item": reasoning_item, "output_index": 0, "sequence_number": 3},
+        ),
+        (
+            "response.output_item.added",
+            {"item": output_item, "output_index": 1, "sequence_number": 4},
+        ),
+        (
+            "response.output_item.done",
+            {"item": output_item, "output_index": 1, "sequence_number": 5},
+        ),
+        ("response.completed", {"response": response_json, "sequence_number": 6}),
+    ]
+    body_text = "".join(
+        f"event: {name}\ndata: {json.dumps({'type': name, **payload})}\n\n"
+        for name, payload in events
+    )
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
         body = json.loads(request.content)
+        assert body["stream"] is True
         assert request.extensions["timeout"]["read"] == 1800.0
         assert body.get("service_tier") in (None, "default", "auto")
         assert body["providerOptions"] == {"gateway": {"only": ["mistral"]}}
         return httpx2.Response(
             200,
-            json={
-                "id": "resp_fixture",
-                "object": "response",
-                "created_at": 1,
-                "status": "completed",
-                "model": model_id,
-                "output": [
-                    {
-                        "type": "function_call",
-                        "id": "fc_fixture",
-                        "call_id": "call_fixture",
-                        "name": "final_result",
-                        "arguments": json.dumps(
-                            {
-                                "case_assessment": "Fixture",
-                                "predictions": [
-                                    {
-                                        "unit_id": "unit-a",
-                                        "probability_fully_dismissed": 0.5,
-                                    }
-                                ],
-                            }
-                        ),
-                    }
-                ],
-                "usage": {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
-                "parallel_tool_calls": False,
-                "tools": [],
-                "tool_choice": "auto",
-                "providerMetadata": {
-                    "gateway": {
-                        "routing": {
-                            "originalModelId": model_id,
-                            "resolvedProvider": "mistral",
-                            "resolvedProviderApiModelId": "mistral-large-4",
-                            "canonicalSlug": model_id,
-                            "finalProvider": "mistral",
-                            "modelAttemptCount": 1,
-                            "totalProviderAttemptCount": 1,
-                        },
-                        "generationId": "gen_fixture",
-                        "cost": 0.001,
-                        "marketCost": 0.001,
-                    }
-                },
-            },
+            headers={"content-type": "text/event-stream"},
+            content=body_text.encode(),
         )
 
     client = AsyncOpenAI(
         api_key="fixture",
         http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)),
     )
-    monkeypatch.setattr(
-        managed_execution,
-        "OpenAIProvider",
-        lambda **_kwargs: OpenAIProvider(openai_client=client),
-    )
+
+    def provider(**_kwargs: Any) -> OpenAIProvider:
+        return OpenAIProvider(openai_client=client)
+
+    monkeypatch.setattr(managed_execution, "OpenAIProvider", provider)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    transcript_path = tmp_path / "transcript.json"
     result = run_managed_tool_agent(
         _gateway_entry(model_id),
         initial_prompt="Forecast fixture",
@@ -1613,6 +1833,80 @@ def test_gateway_agent_turns_get_a_long_read_timeout(
         workspace=workspace,
         request_id="cell-gateway",
         api_key="fixture",
+        transcript_path=transcript_path,
     )
     assert result.request_count == 1
     assert len(requests) == 1
+    assert result.response_usages == ((20, 10),)
+    assert result.finish_reason == "stop"
+    # Pydantic AI copies the terminal event's service tier itself; keep proving it.
+    assert result.service_tier == "auto"
+    transcript = json.loads(transcript_path.read_text())
+    response_parts = [
+        [part["part_kind"] for part in message["parts"]]
+        for message in transcript["messages"]
+        if message["kind"] == "response"
+    ]
+    assert response_parts == [["thinking", "tool-call"]]
+    thinking = transcript["messages"][1]["parts"][0]
+    assert thinking["id"] == "rs_fixture"
+    assert thinking["provider_details"] == {"raw_content": ["Weigh the motion."]}
+    assert result.gateway_response_metadata == (
+        {
+            "original_model_id": model_id,
+            "resolved_provider": "mistral",
+            "resolved_provider_api_model_id": "mistral-large-4",
+            "canonical_slug": model_id,
+            "final_provider": "mistral",
+            "model_attempt_count": "1",
+            "total_provider_attempt_count": "1",
+            "generation_id": "gen_fixture",
+            "cost_usd": "0.0011",
+            "market_cost_usd": "0.001",
+        },
+    )
+
+
+def test_scripted_gateway_models_without_a_stream_function_stay_unstreamed(
+    tmp_path: Path,
+) -> None:
+    """Pydantic AI's scripted model only streams when given a stream function,
+    so the Gateway streaming switch must not break scripted non-streaming runs."""
+
+    def scripted(messages: list[Any], info: Any) -> ModelResponse:
+        return replace(
+            _response(
+                [
+                    ToolCallPart(
+                        tool_name="final_result",
+                        args={
+                            "case_assessment": "Fixture",
+                            "predictions": [
+                                {
+                                    "unit_id": "unit-a",
+                                    "probability_fully_dismissed": 0.5,
+                                }
+                            ],
+                        },
+                    )
+                ],
+                inputs=20,
+                outputs=10,
+            ),
+            model_name="moonshotai/kimi-k3",
+            provider_details={"gateway_metadata": _gateway_response_metadata()},
+        )
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_managed_tool_agent(
+        _gateway_entry(),
+        initial_prompt="Forecast fixture",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-gateway",
+        api_key="fixture",
+        model=FunctionModel(scripted),
+    )
+    assert result.request_count == 1

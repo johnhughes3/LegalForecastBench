@@ -82,6 +82,7 @@ def test_ultramarine_managed_wire_and_cache_cost(
     }
 
     async def handler(request):
+        assert request.extensions["timeout"]["read"] == 1200.0
         assert request.url.host == "api.paperinstruments.com"
         assert request.headers["x-api-key"] == "fixture-key"
         body = json.loads(await request.aread())

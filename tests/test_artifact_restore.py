@@ -160,16 +160,16 @@ def test_restore_jobs_use_existing_fanin_environment_and_no_provider_credentials
     None
 ):
     root = Path(__file__).resolve().parents[1]
-    for filename, job, next_job in (
-        ("recover-benchmark.yaml", "restore-archive:", "recover:"),
-        ("prepare-jev-summaries.yaml", "restore-inputs:", "prepare:"),
+    for filename, job, next_job, retention_days in (
+        ("recover-benchmark.yaml", "restore-archive:", "recover:", 90),
+        ("prepare-jev-summaries.yaml", "restore-inputs:", "prepare:", 1),
     ):
         workflow = (root / ".github/workflows" / filename).read_text()
         section = workflow.split(f"  {job}", 1)[1].split(f"  {next_job}", 1)[0]
         assert "environment: legalforecastbench-official-eval-fan-in" in section
         assert "legalforecast.artifact_restore" in section
         assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in section
-        assert "retention-days: 1" in section
+        assert f"retention-days: {retention_days}\n" in section
         assert "infisical" not in section.lower()
 
 

@@ -620,7 +620,8 @@ jobs:
           CYCLE_ID: ${{ inputs.cycle_id }}
         run: |
           set -euo pipefail
-          destination="reports/${CYCLE_ID}/multi-ablation"
+          # Scoring revisions and different model runs must not share immutable keys.
+          destination="reports/${CYCLE_ID}/multi-ablation/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
           put_once() {
             local source="$1" key="$2"
             bash .github/scripts/reconcile-s3-object.sh \

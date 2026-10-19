@@ -397,12 +397,12 @@ def test_openai_solver_keeps_caller_timeout_above_flex_floor() -> None:
         registry_entry=_registry_entry("openai", "gpt-test"),
         transport=transport,
         environ={"OPENAI_API_KEY": "openai-secret"},
-        timeout_seconds=1_200.0,
+        timeout_seconds=1_800.0,
     )
 
     solver.solve(_request("Predict the case outcome."))
 
-    assert transport.timeouts == [1_200.0]
+    assert transport.timeouts == [1_800.0]
 
 
 def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
@@ -577,7 +577,7 @@ def test_anthropic_solver_raises_a_named_refusal_error_for_a_safety_decline() ->
     ("caller_timeout", "expected"),
     (
         (None, ANTHROPIC_LARGE_OUTPUT_TIMEOUT_SECONDS),
-        (1_200.0, 1_200.0),
+        (1_800.0, 1_800.0),
     ),
 )
 def test_anthropic_solver_raises_the_default_timeout_to_the_large_output_floor(
@@ -943,7 +943,7 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
         model="gemini-test"
     )
     assert captured.headers["X-goog-api-key"] == "gemini-secret"
-    assert transport.timeouts == [120.0]
+    assert transport.timeouts == [1200.0]
     assert "service_tier" not in response.metadata
     body = _json_body(captured)
     assert body == {

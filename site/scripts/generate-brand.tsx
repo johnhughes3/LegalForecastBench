@@ -27,6 +27,7 @@ const raster = (source: string, width: number): Buffer =>
 		.render()
 		.asPng();
 save("favicon-32.png", raster(favicon, 32));
+save("favicon-96.png", raster(favicon, 96));
 save(
 	"apple-touch-icon.png",
 	raster(

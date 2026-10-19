@@ -275,6 +275,7 @@ def _reserve_cell(ledger: RunnerLedger, entry: ModelRegistryEntry, prompt: str) 
 
 @pytest.mark.parametrize("provider", ["google", "openai"])
 @pytest.mark.parametrize("with_authentication", [False, True])
+@pytest.mark.parametrize("existing_response_ambiguous", [False, True])
 @pytest.mark.parametrize(
     "mutation",
     [
@@ -290,6 +291,7 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
     provider: str,
     mutation: str,
     with_authentication: bool,
+    existing_response_ambiguous: bool,
 ) -> None:
     from legalforecast.runner.provider_auth import ProviderAuthentication
 
@@ -482,6 +484,12 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         assert payload["gateway_response_metadata"] == []
 
         # A repeated operator invocation is idempotent and still provider-free.
+        if existing_response_ambiguous:
+            ledger.mark_ambiguous(
+                "cell-1",
+                provider_attempt_id="attempt-1",
+                failure_type="RunValidationError",
+            )
         repeated = recover_managed_transcript(
             ledger,
             entry=entry,
@@ -489,6 +497,9 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             cell_id="cell-1",
         )
         assert repeated.payload_sha256 == recovered.payload_sha256
+        record = ledger.read_cell_for_recovery("cell-1")
+        assert record.status == "reserved"
+        assert record.provider_attempt_status == "reserved"
 
     # Responses persisted before Gateway metadata was introduced omit the
     # optional field. Recovery must reproduce the existing bytes and digest
@@ -517,6 +528,12 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             response_payload=legacy_payload_bytes,
             response_payload_sha256=legacy_payload_sha256,
         )
+        if existing_response_ambiguous:
+            ledger.mark_ambiguous(
+                "cell-1",
+                provider_attempt_id="attempt-1",
+                failure_type="RunValidationError",
+            )
         recovered = recover_managed_transcript(
             ledger,
             entry=entry,
@@ -527,6 +544,8 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
         record = ledger.read_cell_for_recovery("cell-1")
         assert record.response_payload == legacy_payload_bytes
         assert record.response_payload_sha256 == legacy_payload_sha256
+        assert record.status == "reserved"
+        assert record.provider_attempt_status == "reserved"
 
     changed_content = dict(legacy_payload)
     changed_content["raw_output"] = str(changed_content["raw_output"]).replace(
@@ -590,6 +609,22 @@ def test_successful_transcript_restores_typed_replay_payload_without_transport(
             "succeeded",
             0.0003314,
             id="sol-standard-served-after-flex-request",
+        ),
+        pytest.param(
+            _gateway_entry("mistral/mistral-large-4"),
+            # Streamed Responses report the provider's bare API model id; the
+            # routing rows attest the slug. Gateway omits the API model id here.
+            "mistral-large-4",
+            {
+                **_gateway_metadata(),
+                "original_model_id": "mistral/mistral-large-4",
+                "canonical_slug": "mistral/mistral-large-4",
+                "resolved_provider": "mistral",
+                "final_provider": "mistral",
+            },
+            "succeeded",
+            0.0003314,
+            id="mistral-streamed-bare-served-id",
         ),
         pytest.param(
             _grok_gateway_entry(),
@@ -715,6 +750,9 @@ def test_gateway_transcript_recovery_preserves_route_metadata_and_charged_cost(
         payload = json.loads(record.response_payload)
         assert payload["gateway_response_metadata"] == [metadata, metadata]
         assert payload["estimated_cost_usd"] == pytest.approx(expected_cost)
+        # Live execution stores the reported served model verbatim; replay must
+        # reproduce those bytes rather than the normalized frozen id.
+        assert payload["served_model"] == model_name
 
 
 def test_failed_transcript_without_messages_is_rejected_before_restore(

@@ -43,12 +43,18 @@ def verify(
         assert b"synthetic-case-b" not in data, relative
         assert b"synthetic-unit-b1" not in data, relative
     current = json.loads((built / "current.json").read_text())
-    assert len(current["models"]) == 12
+    assert len(current["models"]) == 15
     sources = json.loads((built / "sources.json").read_text())
     current_slugs = {model["slug"] for model in current["models"]}
     assert current_slugs == {source["slug"] for source in sources}
-    assert "muse-wonder-1-0" in current_slugs
-    assert (ROOT / "site/dist/models/muse-wonder-1-0/index.html").exists()
+    for slug in (
+        "muse-wonder-1-0",
+        "gemini-4-argon",
+        "mistral-large-4",
+        "ultramarine-1-flash",
+    ):
+        assert slug in current_slugs
+        assert (ROOT / f"site/dist/models/{slug}/index.html").exists()
     assert (current["cohort"]["case_count"], current["cohort"]["unit_count"]) == (1, 2)
     assert all(math.isclose(row["micro_brier"], 0.1) for row in current["models"])
     if reproduced is not None:
@@ -78,7 +84,7 @@ def verify(
     assert historical["status"] == "superseded" and len(historical["models"]) == 7
     historical_slugs = {model["slug"] for model in historical["models"]}
     assert current_slugs.isdisjoint(historical_slugs)
-    assert len(current_slugs | historical_slugs) == 19
+    assert len(current_slugs | historical_slugs) == 22
     index = (built / "index.html").read_text()
     assert "historical-aggregates.json" in index
     home = (ROOT / "site/dist/index.html").read_text()
