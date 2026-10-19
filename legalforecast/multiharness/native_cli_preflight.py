@@ -59,9 +59,16 @@ def preflight_native_cli(
 
     Only ``--version`` and Claude ``--help`` / Codex ``exec --help`` run.
     This checks parser-advertised options, not provider behavior or terms.
+    Paid Codex is rejected before launch because its native CLI does not expose
+    an enforceable monetary cap.
     """
 
     manifest = _manifest(pin.basename)
+    if paid and pin.basename == "codex":
+        raise LocalCliProbeError(
+            "paid Codex preflight is unsupported: the native CLI has no "
+            "enforceable monetary spend boundary"
+        )
     parent = os.environ if parent_env is None else parent_env
     # Refuse substituted bytes before launching even a credential-free probe.
     verify_executable_digest(
@@ -154,8 +161,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--paid",
         action="store_true",
         help=(
-            "Also require Claude's monetary budget flag. Does not authorize "
-            "spending or validate Codex spending support."
+            "Require Claude's monetary budget flag; Codex fails closed because "
+            "its native CLI has no supported monetary spend boundary."
         ),
     )
     args = parser.parse_args(argv)

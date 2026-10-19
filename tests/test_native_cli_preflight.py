@@ -68,7 +68,7 @@ def test_native_probe_accepts_vendor_text_and_only_runs_safe_commands(
             "PATH": f"{tmp_path}{os.pathsep}/usr/bin",
             "OPENAI_API_KEY": "canary",
         },
-        paid=True,
+        paid=cli == "claude",
     )
     assert probe.pin_version_match and probe.pin_digest_match
     calls = [
@@ -101,8 +101,22 @@ def test_missing_required_invocation_flag_refuses(
             executable_pin_for(path, version=version),
             scratch_root=tmp_path / "scratch",
             parent_env={"PATH": f"{tmp_path}{os.pathsep}/usr/bin"},
+            paid=cli == "claude",
+        )
+
+
+def test_paid_codex_preflight_refuses_before_binary_launch(tmp_path: Path) -> None:
+    """Codex help compatibility is not a monetary spend boundary."""
+
+    path, version = _binary(tmp_path, "codex")
+    with pytest.raises(LocalCliProbeError, match=r"paid Codex.*unsupported"):
+        preflight_native_cli(
+            executable_pin_for(path, version=version),
+            scratch_root=tmp_path / "scratch",
+            parent_env={"PATH": f"{tmp_path}{os.pathsep}/usr/bin"},
             paid=True,
         )
+    assert not (tmp_path / "calls.jsonl").exists()
 
 
 @pytest.mark.parametrize("drift", ["version", "digest"])
