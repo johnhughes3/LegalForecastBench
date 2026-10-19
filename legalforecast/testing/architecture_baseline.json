@@ -2915,9 +2915,9 @@
         "largest_symbol": "test_cost_only_report_renders_mixed_evidence_and_unknown_repricing",
         "largest_symbol_lines": 61,
         "layer": "test",
-        "line_count": 508,
-        "nonblank_line_count": 454,
-        "top_level_definition_count": 22
+        "line_count": 542,
+        "nonblank_line_count": 485,
+        "top_level_definition_count": 23
       },
       "tests/test_resume_cli.py": {
         "cycle_id": "",

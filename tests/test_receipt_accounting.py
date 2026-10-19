@@ -506,3 +506,37 @@ def test_standard_rate_without_frozen_cache_rate_prices_cache_as_input() -> None
     # No published cache rate: the 40 cache reads stay at the ordinary input rate.
     assert output["standard_rate_cost"] == pytest.approx(0.0004)
     assert output["missing_cache_rate_response_count"] == 1
+
+
+def test_standard_rate_applies_long_context_surcharge() -> None:
+    from legalforecast.evals.model_registry import LongContextSurcharge
+    from legalforecast.runner.managed_cost import (
+        ManagedResponseUsage,
+        standard_rate_usage_cost,
+    )
+
+    entry = replace(
+        registry().entries[0],
+        cache_write_token_price=0.5,
+        long_context_surcharge=LongContextSurcharge(
+            threshold_input_tokens=500,
+            input_price_multiplier=2.0,
+            output_price_multiplier=1.5,
+        ),
+    )
+    below = ManagedResponseUsage(
+        input_tokens=400, output_tokens=10, cache_read_tokens=100, cache_write_tokens=50
+    )
+    above = ManagedResponseUsage(
+        input_tokens=1000,
+        output_tokens=10,
+        cache_read_tokens=100,
+        cache_write_tokens=50,
+    )
+    # Below threshold: 250 uncached at 2, 100 reads at 0.2, 50 writes at 0.5,
+    # 10 output at 10.
+    assert standard_rate_usage_cost(entry, [below]) == pytest.approx(0.000645)
+    # Above threshold every input-side rate doubles and output is 1.5x.
+    assert standard_rate_usage_cost(entry, [above]) == pytest.approx(
+        (850 * 4 + 100 * 0.4 + 50 * 1.0 + 10 * 15) / 1_000_000
+    )
