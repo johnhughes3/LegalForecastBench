@@ -656,7 +656,7 @@ As I am a practicing attorney and do not have any formal training in artificial 
 \appendix
 \section{Model configuration and temporal evidence}
 \label{app:cutoffs}\label{app:protocol}
-``K'' denotes a reported knowledge cutoff, ``T'' a reported training cutoff, and ``?'' no established cutoff. Month-only dates are compared as the first day of the reported month. The reported cutoffs for sixteen configurations precede June 30, 2026. Mistral Large 4, Kimi K3, Muse Spark 1.3, Muse Wonder, and Ultramarine 1 Flash have no established training or knowledge cutoff, so those five configurations remain qualified. GPT-4.1 is an unranked reference and is not included in the ranked eligibility count. Release dates alone do not establish training-data exclusion.
+We classify the models by what kind of training cutoff is reported; K refers to a knowledge cutoff; T to a training cutoff; and ? means we have not been able to identify a publicly reported cutoff for the model. Sixteen models have cutoffs before June 30, 2026 (which is the earliest decision we evaluated them on). Mistral Large 4, Kimi K3, Muse Spark 1.3, Muse Wonder, and Ultramarine 1 Flash did not have a publicly reported training or knowledge cutoff.
 \begin{table}[ht]\centering\small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{llll}\toprule
 Configuration & Reasoning & Reported cutoff & Relation to window\\\midrule
@@ -687,7 +687,5 @@ Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 used adaptive thinking at p
 
 \section{Result provenance}
 We standardized costs in the table based on the recorded token usage and standard API rates. To calculate the costs for Fable (which was inadvertently run without cache enabled), we calculated cached execution based on the turn-by-turn token usage data, rather than the original uncached usage.
-
-Results retain per-model forecast and scoring run identifiers and repository-relative sources in \texttt{data/empirical.json}. The model runs used the source revisions recorded with their respective workflows; the panel was not produced by a single repository revision.
 
 \end{document}
