@@ -220,4 +220,4 @@ def test_absent_subscription_presence_refuses_without_fallback() -> None:
         require_local_subscription_presence(parent_env={"CI": "true"})
     with pytest.raises(AuthProfileError, match="CI"):
         require_local_subscription_presence(parent_env={"GITHUB_ACTIONS": "1"})
-    FixtureSubscriptionPresence().prove({})
+    assert FixtureSubscriptionPresence().prove({}).environment == ()

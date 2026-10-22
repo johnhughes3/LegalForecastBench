@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import shlex
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
 from legalforecast.multiharness.container_harness.anthropic_usage import (
     anthropic_gateway_usage,
 )
+from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt
 
 
 def normalize_claude_stream(
@@ -199,6 +201,15 @@ def served_model(envelope: dict[str, object] | None) -> str | None:
     return None
 
 
+def normalize_served_model_receipt(receipt: ExecutionReceipt) -> ExecutionReceipt:
+    """Fill a missing receipt identity from Claude's terminal envelope."""
+
+    if receipt.served_model is not None:
+        return receipt
+    observed = served_model(_json_object(receipt.stdout))
+    return replace(receipt, served_model=observed) if observed is not None else receipt
+
+
 def terminal_success(envelope: dict[str, object] | None) -> bool:
     return bool(
         envelope is not None
@@ -263,6 +274,7 @@ def _json_object(stdout: str) -> dict[str, object] | None:
 __all__ = [
     "cost",
     "normalize_claude_stream",
+    "normalize_served_model_receipt",
     "served_model",
     "staged_workspace_paths",
     "terminal_success",

@@ -126,9 +126,10 @@ class ProductionJudgeResponse:
             raise ProductionEvaluatorRunnerError(
                 "a retryable judge response cannot contain a final verdict"
             )
-        if self.usage.basis in {"unknown", "subscription_unallocable"}:
+        if self.usage.basis == "unknown":
             raise ProductionEvaluatorRunnerError(
-                "production judge response must carry allocable usage"
+                "production judge response must carry allocable usage or "
+                "subscription-unallocable accounting"
             )
 
 
@@ -156,6 +157,7 @@ class ProductionHarveyLabEvaluatorRunner:
         max_attempts: int = 3,
         expected_judge_identity: str | None = None,
         evaluator_executable_version: str = "production",
+        allow_subscription_unallocable: bool = False,
     ) -> None:
         if not callable(provider_call):
             raise ProductionEvaluatorRunnerError(
@@ -195,6 +197,7 @@ class ProductionHarveyLabEvaluatorRunner:
         self._max_attempts = max_attempts
         self._expected_judge_identity = expected_judge_identity
         self._evaluator_executable_version = evaluator_executable_version
+        self._allow_subscription_unallocable = allow_subscription_unallocable
 
     def __call__(
         self,
@@ -248,6 +251,13 @@ class ProductionHarveyLabEvaluatorRunner:
                     if type(response) is not ProductionJudgeResponse:
                         raise ProductionEvaluatorRunnerError(
                             "provider adapter returned an invalid judge response"
+                        )
+                    if (
+                        response.usage.basis == "subscription_unallocable"
+                        and not self._allow_subscription_unallocable
+                    ):
+                        raise ProductionEvaluatorRunnerError(
+                            "subscription-unallocable usage is disabled for this runner"
                         )
                     # Retain the billed response before settlement removes the
                     # reservation. If retention fails, the outer boundary can
@@ -312,7 +322,11 @@ class ProductionHarveyLabEvaluatorRunner:
             served_model=resolved_identity,
             executable_version=self._evaluator_executable_version,
             usage=usage,
-            cost_usd=float(Decimal(cost_microusd) / Decimal(1_000_000)),
+            cost_usd=(
+                None
+                if cost_microusd is None
+                else float(Decimal(cost_microusd) / Decimal(1_000_000))
+            ),
         )
 
 
@@ -604,16 +618,27 @@ def _write_new_json(path: Path, record: Mapping[str, object]) -> None:
 def _aggregate_usage(
     responses: Sequence[ProductionJudgeResponse],
 ) -> dict[str, int]:
+    bases = {response.usage.basis for response in responses}
+    allow_missing = bases == {"subscription_unallocable"}
     input_tokens = [response.usage.input_tokens for response in responses]
     output_tokens = [response.usage.output_tokens for response in responses]
-    if any(value is None for value in (*input_tokens, *output_tokens)):
-        raise ProductionEvaluatorRunnerError(
-            "production judge responses must report input and output tokens"
-        )
-    return {
-        "input_tokens": sum(value for value in input_tokens if value is not None),
-        "output_tokens": sum(value for value in output_tokens if value is not None),
-    }
+    result: dict[str, int] = {}
+    for name, values in (
+        ("input_tokens", input_tokens),
+        ("output_tokens", output_tokens),
+    ):
+        if all(value is None for value in values):
+            if allow_missing:
+                continue
+            raise ProductionEvaluatorRunnerError(
+                f"paid production judge responses did not report {name}"
+            )
+        if any(value is None for value in values):
+            raise ProductionEvaluatorRunnerError(
+                f"production judge responses inconsistently report {name}"
+            )
+        result[name] = sum(value for value in values if value is not None)
+    return result
 
 
 def _aggregate_cost_microusd(
@@ -622,7 +647,14 @@ def _aggregate_cost_microusd(
     pricing: PricingSnapshot | None,
     pricing_provider: str | None,
     pricing_model: str | None,
-) -> int:
+) -> int | None:
+    bases = {response.usage.basis for response in responses}
+    if "subscription_unallocable" in bases:
+        if bases != {"subscription_unallocable"}:
+            raise ProductionEvaluatorRunnerError(
+                "judge responses cannot mix subscription and metered accounting"
+            )
+        return None
     amounts: list[int] = []
     for response in responses:
         usage = response.usage

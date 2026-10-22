@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import sys
 import time
@@ -12,9 +13,12 @@ from pathlib import Path
 
 import pytest
 from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
     PUBLISHED_API_KEY,
+    SubscriptionRuntimeAccess,
 )
+from legalforecast.multiharness.contributor_boundary import LINUX_LANDLOCK_FS_SCOPE
 from legalforecast.multiharness.local_cli_environment import (
     InfisicalSandboxCredentialSource,
     expected_child_environment_names,
@@ -44,6 +48,78 @@ _CANARY_ENV = {
     "PATH": os.environ.get("PATH", "/usr/bin"),
     "LC_CTYPE": "C.UTF-8",
 }
+
+
+def _write_path_cli(path: Path, body: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!{sys.executable}\n{body.strip()}\n", encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return path
+
+
+def test_subscription_boundary_hides_host_private_and_counterpart_role(
+    tmp_path: Path,
+) -> None:
+    own_config = tmp_path / "solver-auth"
+    counterpart = tmp_path / "judge-auth"
+    host_config = tmp_path / "host-config"
+    private = tmp_path / "evaluator-private"
+    for directory in (own_config, counterpart, host_config, private):
+        directory.mkdir()
+        (directory / "sentinel.txt").write_text(directory.name, encoding="utf-8")
+    script = _write_path_cli(
+        tmp_path / "tooling" / "bin" / "scope-probe",
+        """
+import json, sys
+from pathlib import Path
+
+def readable(value):
+    try:
+        Path(value).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+result = {
+    str(index): readable(value)
+    for index, value in enumerate(sys.argv[1:])
+}
+print(json.dumps(result))
+""",
+    )
+
+    class SolverPresence:
+        def prove(self, parent_env: object) -> SubscriptionRuntimeAccess:
+            del parent_env
+            return SubscriptionRuntimeAccess(
+                environment=(("CLAUDE_CONFIG_DIR", str(own_config.resolve())),),
+                read_paths=(own_config.resolve(),),
+                write_paths=(own_config.resolve(),),
+            )
+
+    result = execute_local_cli(
+        LocalCliRunSpec(
+            spec_id="subscription-scope",
+            manifest=_manifest(script, (CONTRIBUTOR_SUBSCRIPTION,)),
+            auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+            extra_args=tuple(
+                str(path / "sentinel.txt")
+                for path in (own_config, host_config, private, counterpart)
+            ),
+            filesystem_scope=LINUX_LANDLOCK_FS_SCOPE,
+        ),
+        tmp_path / "scratch",
+        parent_env={"HOME": str(tmp_path / "home"), "PATH": "/usr/bin"},
+        subscription_presence=SolverPresence(),
+    )
+
+    assert result.status == "completed"
+    assert json.loads(result.stdout) == {
+        "0": True,
+        "1": False,
+        "2": False,
+        "3": False,
+    }
 
 
 def _polluted_parent_env() -> dict[str, str]:

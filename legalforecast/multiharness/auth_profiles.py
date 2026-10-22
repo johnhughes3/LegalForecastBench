@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final, Protocol
 
 from legalforecast.multiharness.validation import (
@@ -127,17 +128,51 @@ class ResolvedAuthProfile:
 class SubscriptionPresence(Protocol):
     """Prove a local CLI subscription without copying durable auth state."""
 
-    def prove(self, parent_env: Mapping[str, str]) -> None:
-        """Accept the host login or fail closed."""
+    def prove(self, parent_env: Mapping[str, str]) -> SubscriptionRuntimeAccess:
+        """Accept the host login and return its narrowly scoped runtime access."""
 
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class SubscriptionRuntimeAccess:
+    """Ephemeral path projection needed by a vendor CLI's own local login.
+
+    The values are process configuration, not public provenance. Callers must
+    neither serialize them nor copy the referenced directory into run output.
+    """
+
+    environment: tuple[tuple[str, str], ...] = ()
+    read_paths: tuple[Path, ...] = ()
+    write_paths: tuple[Path, ...] = ()
+
+    def __post_init__(self) -> None:
+        allowed_names = {"CLAUDE_CONFIG_DIR", "CODEX_HOME"}
+        names = [name for name, _value in self.environment]
+        if len(names) != len(set(names)) or set(names) - allowed_names:
+            raise AuthProfileError(
+                "subscription runtime access contains unsupported environment names"
+            )
+        for name, value in self.environment:
+            path = Path(value)
+            if not path.is_absolute() or not path.is_dir():
+                raise AuthProfileError(
+                    "subscription runtime access "
+                    f"{name} must name an existing directory"
+                )
+        for path in (*self.read_paths, *self.write_paths):
+            if not path.is_absolute() or not path.exists():
+                raise AuthProfileError(
+                    "subscription runtime access paths must exist and be absolute"
+                )
 
 
 class FixtureSubscriptionPresence:
     """Test double that never reads host subscription files or tokens."""
 
-    def prove(self, parent_env: Mapping[str, str]) -> None:
+    def prove(self, parent_env: Mapping[str, str]) -> SubscriptionRuntimeAccess:
         del parent_env
+        return SubscriptionRuntimeAccess()
 
 
 def require_auth_profile_id(value: object, field_name: str = "auth_profile") -> str:
@@ -227,18 +262,17 @@ def require_local_subscription_presence(
     *,
     parent_env: Mapping[str, str],
     presence: SubscriptionPresence | None = None,
-) -> None:
+) -> SubscriptionRuntimeAccess:
     """Refuse CI, noninteractive, and absent local-subscription proofs."""
 
-    if presence is not None:
-        presence.prove(parent_env)
-        return
     for name in ("CI", "GITHUB_ACTIONS"):
         value = str(parent_env.get(name, "")).strip().lower()
         if value in {"1", "true", "yes"}:
             raise AuthProfileError(
                 "contributor-subscription is unsupported in CI/noninteractive"
             )
+    if presence is not None:
+        return presence.prove(parent_env)
     raise AuthProfileError(
         "contributor-subscription local login is absent; no fallback"
     )

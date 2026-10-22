@@ -219,17 +219,18 @@ class HarveyLabEvaluatorProvenance:
                 raise HarveyLabEvaluationError(
                     "production evaluator token usage must come from the provider"
                 )
-            if (
-                self.cost.basis
-                not in {
-                    "metered",
-                    "provider_reported",
-                    "estimated_from_pricing_snapshot",
-                }
-                or self.cost.amount_microusd is None
+            if self.cost.basis not in {
+                "metered",
+                "provider_reported",
+                "estimated_from_pricing_snapshot",
+                "subscription_unallocable",
+            } or (
+                self.cost.basis != "subscription_unallocable"
+                and self.cost.amount_microusd is None
             ):
                 raise HarveyLabEvaluationError(
-                    "production evaluator cost must be an observed or priced amount"
+                    "production evaluator cost must be observed, priced, or "
+                    "subscription-unallocable"
                 )
 
 
@@ -796,15 +797,19 @@ def _verify_production_execution_accounting(
     expected_output = provenance.token_usage.output_tokens.value
     observed_input = execution.usage.get("input_tokens")
     observed_output = execution.usage.get("output_tokens")
-    if (
-        expected_input is None
-        or expected_output is None
-        or observed_input != expected_input
-        or observed_output != expected_output
-    ):
+    if observed_input != expected_input or observed_output != expected_output:
         raise HarveyLabEvaluationError(
             "production evaluator token provenance does not match provider receipt"
         )
+    if provenance.cost.basis == "subscription_unallocable":
+        if (
+            provenance.cost.amount_microusd is not None
+            or execution.cost_usd is not None
+        ):
+            raise HarveyLabEvaluationError(
+                "subscription evaluator cost must remain null"
+            )
+        return
     if provenance.cost.amount_microusd is None or execution.cost_usd is None:
         raise HarveyLabEvaluationError(
             "production evaluator cost provenance is missing from provider receipt"

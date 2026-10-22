@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from importlib import import_module
 from pathlib import Path
 
 from legalforecast.multiharness.harvey_lab.core_bridge import (
@@ -18,10 +17,6 @@ from legalforecast.multiharness.harvey_lab_projection import (
     harvey_lab_v1_1_pin,
     project_harvey_lab_suite,
     remove_projected_tree,
-)
-
-_PROTECTED_OPERATOR_MODULE = ".".join(
-    ("legalforecast", "multiharness", "harvey_lab_protected_operator")
 )
 
 
@@ -46,25 +41,52 @@ def register(
     prepare.add_argument("--output-dir", type=Path, required=True)
     prepare.add_argument("--evaluator-private-dir", type=Path, required=True)
     prepare.set_defaults(handler=_prepare_clean_native)
-    protected = commands.add_parser(
-        "run-clean-native",
+    community = commands.add_parser(
+        "run-community-subscription",
         help=(
-            "Run the prepared Claude Code LAB arm with the protected solver "
-            "gateway and a separately metered production judge."
+            "Run the prepared Claude Code LAB arm through the contributor's "
+            "local Claude subscription with a separate native CLI judge."
         ),
     )
-    protected.add_argument("--source-root", type=Path, required=True)
-    protected.add_argument("--projection-dir", type=Path, required=True)
-    protected.add_argument("--evaluator-private-dir", type=Path, required=True)
-    protected.add_argument("--run-dir", type=Path, required=True)
-    protected.add_argument("--evaluator-bin-dir", type=Path, required=True)
-    protected.add_argument("--paid-config", type=Path, required=True)
-    protected.add_argument("--model-registry", type=Path, required=True)
-    protected.add_argument("--solver-image", required=True)
-    protected.add_argument("--gateway-image", required=True)
-    protected.add_argument("--model-key", required=True)
-    protected.add_argument("--timeout-seconds", type=int, default=900)
-    protected.set_defaults(handler=_run_clean_native)
+    community.add_argument("--source-root", type=Path, required=True)
+    community.add_argument("--projection-dir", type=Path, required=True)
+    community.add_argument("--evaluator-private-dir", type=Path, required=True)
+    community.add_argument("--run-dir", type=Path, required=True)
+    community.add_argument("--evaluator-bin-dir", type=Path, required=True)
+    community.add_argument(
+        "--solver-config-dir",
+        type=Path,
+        required=True,
+        help="Owner-only Claude config prepared solely for the solver login.",
+    )
+    community.add_argument(
+        "--judge-config-dir",
+        type=Path,
+        required=True,
+        help="Distinct owner-only Claude config prepared solely for the judge login.",
+    )
+    community.add_argument(
+        "--claude-version",
+        required=True,
+        help="Exact output of the installed `claude --version` command.",
+    )
+    community.add_argument(
+        "--claude-sha256",
+        required=True,
+        help="Unprefixed SHA-256 of the installed Claude executable.",
+    )
+    community.add_argument(
+        "--solver-model",
+        required=True,
+        help="Claude CLI model or supported family alias requested for the solver.",
+    )
+    community.add_argument(
+        "--judge-model",
+        required=True,
+        help="Claude CLI model or supported family alias requested for the judge.",
+    )
+    community.add_argument("--timeout-seconds", type=int, default=900)
+    community.set_defaults(handler=_run_community_subscription)
     for name in ("probe", "run"):
         command = commands.add_parser(
             name,
@@ -197,35 +219,57 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_clean_native(args: argparse.Namespace) -> int:
-    # The provider adapter is an optional paid-runtime dependency. Load it only
-    # when this protected command is selected, after CLI registration completes.
-    operator = import_module(_PROTECTED_OPERATOR_MODULE)
-    request_type = operator.ProtectedHarveyLabOperatorRequest
-    run_operator = operator.run_protected_harvey_lab_operator
-    result = run_operator(
-        request_type(
+def _run_community_subscription(args: argparse.Namespace) -> int:
+    from legalforecast.multiharness.harvey_lab_subscription_operator import (
+        CommunitySubscriptionOperatorRequest,
+        observed_model_from_receipt,
+        run_community_subscription_harvey_lab,
+    )
+
+    result = run_community_subscription_harvey_lab(
+        CommunitySubscriptionOperatorRequest(
             source_root=args.source_root,
             projection_root=args.projection_dir,
             evaluator_private_root=args.evaluator_private_dir,
             run_root=args.run_dir,
             evaluator_bin_dir=args.evaluator_bin_dir,
-            paid_config_path=args.paid_config,
-            model_registry_path=args.model_registry,
-            solver_image_digest=args.solver_image,
-            gateway_image_digest=args.gateway_image,
-            model_key=args.model_key,
+            solver_config_dir=args.solver_config_dir,
+            judge_config_dir=args.judge_config_dir,
+            claude_version=args.claude_version,
+            claude_sha256=args.claude_sha256,
+            solver_model=args.solver_model,
+            judge_model=args.judge_model,
             timeout_seconds=args.timeout_seconds,
         )
     )
+    provenance = result.evaluation.provenance
+    if provenance is None:
+        raise RuntimeError("community subscription evaluator provenance is missing")
     print(
         json.dumps(
             {
-                "execution_mode": result.execution_mode,
+                "auth_profile": "contributor-subscription",
+                "cost": {
+                    "amount_usd": None,
+                    "basis": "subscription_unallocable",
+                    "unknown_reason": ("flat_subscription_has_no_per_call_allocation"),
+                },
+                "execution_mode": "community-subscription",
+                "judge_model_observed": (
+                    None
+                    if "unreported@requested-" in provenance.judge_resolved_identity
+                    else provenance.judge_resolved_identity
+                ),
+                "judge_model_requested": args.judge_model,
                 "n_criteria": result.score.n_criteria,
                 "n_passed": result.score.n_passed,
                 "score": result.baseline_score_value,
+                "solver_model_observed": observed_model_from_receipt(
+                    result.solver_execution
+                ),
+                "solver_model_requested": args.solver_model,
                 "task_id": result.task.lab_task_id,
+                "token_usage": provenance.token_usage.to_record(),
             },
             sort_keys=True,
         )

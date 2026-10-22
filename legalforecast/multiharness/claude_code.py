@@ -36,6 +36,7 @@ from legalforecast.multiharness.auth_binding import (
     require_execution_service_profile,
 )
 from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
     FIXTURE_NONE,
     PUBLISHED_API_KEY,
     AuthProfileError,
@@ -143,6 +144,7 @@ _ALLOWED_VALUE_FLAGS = frozenset(
 )
 _ALLOWED_BARE_FLAGS = frozenset(
     {
+        "--safe-mode",
         "--strict-mcp-config",
         "--no-session-persistence",
     }
@@ -206,6 +208,13 @@ class ClaudeInvocationPlan:
             raise ClaudeCodeCliAdapterError("invocation must declare --tools")
         if "--strict-mcp-config" not in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must set --strict-mcp-config")
+        if (
+            self.auth_profile == CONTRIBUTOR_SUBSCRIPTION
+            and "--safe-mode" not in self.argv
+        ):
+            raise ClaudeCodeCliAdapterError(
+                "subscription invocation must enable --safe-mode"
+            )
         if "sh" in self.argv or "bash" in self.argv or "-c" in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must not invoke a shell")
         _reject_unallowlisted_argv(
@@ -376,6 +385,8 @@ def build_claude_invocation_plan(
         (local_manifest.executable.basename, *rendered),
         tools,
     )
+    if bound.profile_id == CONTRIBUTOR_SUBSCRIPTION:
+        argv = (*argv, "--safe-mode")
     if output_format != "json":
         try:
             output_index = argv.index("--output-format")
@@ -559,6 +570,7 @@ def classify_claude_completion_execution(
     receipt: ExecutionReceipt,
     *,
     requested_model: str,
+    allow_model_alias: bool = False,
 ) -> LocalCliFailureClass | None:
     """Classify a non-forecast Claude completion into the shared taxonomy.
 
@@ -595,9 +607,11 @@ def classify_claude_completion_execution(
     has_receipt_model = isinstance(receipt.served_model, str) and bool(
         receipt.served_model.strip()
     )
-    if not has_envelope_model and not has_receipt_model:
+    if not has_envelope_model and not has_receipt_model and not allow_model_alias:
         return LocalCliFailureClass.IDENTITY_DRIFT
-    if _served_model_drifted(envelope, receipt, requested_model):
+    if not allow_model_alias and _served_model_drifted(
+        envelope, receipt, requested_model
+    ):
         return LocalCliFailureClass.IDENTITY_DRIFT
     return None
 

@@ -33,6 +33,7 @@ from legalforecast.multiharness.claude_code_harvey_lab_guards import (
 from legalforecast.multiharness.claude_code_harvey_lab_guards import (
     require_solver_success as _require_solver_success,
 )
+from legalforecast.multiharness.claude_code_stream import normalize_served_model_receipt
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
     harvey_lab_issuer_policy_sha256,
@@ -81,10 +82,7 @@ from legalforecast.multiharness.scoring import (
 
 HARVEY_LAB_COMPLETION_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
-    "properties": {
-        "deliverable": {"type": "string"},
-        "status": {"type": "string"},
-    },
+    "properties": {"deliverable": {"type": "string"}, "status": {"type": "string"}},
     "required": ["deliverable", "status"],
     "type": "object",
 }
@@ -158,6 +156,7 @@ def run_claude_code_clean_native_harvey_lab(
     evaluator_execution_service: LocalCliExecutionService | None = None,
     container_workspace: bool = False,
     use_prepared_projection: bool = False,
+    allow_model_alias: bool = False,
 ) -> ClaudeCodeHarveyLabPipelineResult | ClaudeCodeHarveyLabMeasurementResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
@@ -299,7 +298,13 @@ def run_claude_code_clean_native_harvey_lab(
     execution = service.execute(spec)
     if after_solver is not None:
         execution = after_solver(spec, execution)
-    _require_solver_success(spec, execution, requested_model=model)
+    execution = normalize_served_model_receipt(execution)
+    _require_solver_success(
+        spec,
+        execution,
+        requested_model=model,
+        allow_model_alias=allow_model_alias,
+    )
     task_digest = _prefixed_digest_text(task.task_sha256)
     run_digest = spec.spec_sha256
     config_digest = spec.spec_sha256

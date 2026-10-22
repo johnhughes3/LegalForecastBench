@@ -32,7 +32,7 @@ Community submissions live under [`community/submissions/`](../../community/subm
 - [Contracts](contracts.md): sealed-deliverable, evaluation, scoring, identity, compatibility, and Harvey LAB source boundaries.
 - [Harness efficiency observations](harness-efficiency-observations.md): receipt-backed duration, cost, and token accounting published as peer columns.
 - [Native Harvey LAB bridge](harvey-lab-core.md): pinned lab-core 1.1.0 probing, native solver/judge execution, and public-safe results.
-- [Claude Code clean-native Harvey LAB baseline](claude-code-harvey-lab-baseline.md): prepared LAB inputs, the standalone protected operator command, and the remaining protected-descriptor integration.
+- [Claude Code clean-native Harvey LAB baseline](claude-code-harvey-lab-baseline.md): prepared LAB inputs and the local contributor-subscription solver/judge route; official benchmark runs remain API-backed.
 - [Evaluator receipt authority](receipt-authority.md): the Ed25519 evaluator-issuer seam (not yet provisioned) and the credential-free executable probe.
 - [Claude Code terminal release run](terminal-release.md): running an outcome-blinded forecast release through the headless Claude Code CLI, with a provider-free fixture path. The protected benchmark workflow accepts this and the Hermes and OpenClaw harnesses as alternative execution modes, but the published Cycle 1 results use the native document-tool runner.
 - [Local CLI adapter manifest](local-cli-adapter-manifest-v1.md): the generic manifest contract for local agentic CLI adapters.

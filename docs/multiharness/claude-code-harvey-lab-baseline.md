@@ -1,8 +1,10 @@
-# Claude Code clean-native Harvey LAB baseline
+# Claude Code clean-native Harvey LAB community baseline
 
-This source path composes the managed Claude Code document-tool runtime with the pinned Harvey LAB task and a separately executed evaluator. It is the standalone clean-native treatment for community issue #196, not the blocked native-thin comparison and not an official LegalForecastBench result.
+This is a community baseline, not an official LegalForecastBench run. Official benchmark models use the API-backed benchmark workflows. This route instead uses a contributor's existing Claude subscription through the vendor-supported native Claude Code CLI for both the solver and the separate judge. It does not use an API key, paid gateway descriptor, hosted spend authority, or DynamoDB journal.
 
-## Produce the exact offline inputs
+Subscription charges cannot be allocated per call. Results therefore record cost as `subscription_unallocable` with a null amount, never as `$0`. They retain token counts only when the CLI reports them.
+
+## Prepare the outcome-blinded inputs
 
 Clone the public upstream source and check out the recorded v1.1.0 commit:
 
@@ -13,56 +15,55 @@ uv run legalforecast harvey-lab prepare-clean-native \
   --source-root harvey-labs \
   --output-dir run-input/projected \
   --evaluator-private-dir run-input/evaluator-private
+mkdir -p run-input/bin
 uv run legalforecast multiharness tier0 install-evaluator-wrapper \
   --bin-dir run-input/bin \
   --scratch-root run-input/wrapper-scratch \
   --output run-input/wrapper-install.json
 ```
 
-The prepare command verifies the clean commit and tree, selects only `employment-labor/identify-issues-in-counterparty-motion-brief`, and separates solver-visible files from the private rubric. It performs no model or evaluator request. The clean-native composer stages the selected solver files and authenticated `prompt.txt` below the mounted workspace. Claude receives a fixed instruction to read `/workspace/prompt.txt` with Bash, and the run is accepted only when the real stream parser observes the successful read. The task and prompt are read-only inside the outer container; generated deliverables remain writable under `/workspace/output`.
+The prepare command verifies the clean upstream commit and tree, selects only `employment-labor/identify-issues-in-counterparty-motion-brief`, and separates solver-visible files from the private rubric. It performs no model or evaluator request. Keep both prepared directories private until evaluation finishes.
 
-## Protected operator command
+## Log in with the vendor CLI
 
-The dedicated issuer authenticates the upstream pin, solver projection, and a freshly reproduced copy of the evaluator-private bytes before it emits the existing paid-gateway descriptor shape:
+Install Claude Code through a supported vendor distribution, then prepare two fresh, owner-only config directories and use the vendor's normal interactive login once for each role. Do not copy an existing `~/.claude` directory or credential file:
 
 ```bash
-uv run python -m legalforecast.multiharness.harvey_lab_paid_gateway_descriptor \
-  --source-root harvey-labs \
-  --projection-dir run-input/projected \
-  --evaluator-private-dir run-input/evaluator-private \
-  --model-registry path/to/locked-model-registry.json \
-  --model-key 'anthropic:<model-id>' \
-  --ceiling-microusd '<approved-ceiling>' \
-  --account '<account>' \
-  --output run-input/harvey-lab-paid-gateway.json
+install -d -m 700 "$PWD/run-auth/solver" "$PWD/run-auth/judge"
+CLAUDE_CONFIG_DIR="$PWD/run-auth/solver" claude auth login
+CLAUDE_CONFIG_DIR="$PWD/run-auth/judge" claude auth login
 ```
 
-The command is valid only inside the configured protected environment. It performs no AWS or provider call, and it does not accept a forecast-release descriptor, approval reference, signing key, or synthetic production identity.
+Each role directory must contain only the vendor-created `.credentials.json` file, with no histories, settings, plugins, skills, commands, memory, or project instructions. The runner checks that census and owner-only permissions without reading credential bytes, rejects shared/nested role directories and overlap with benchmark paths, and runs vendor status under the same filesystem boundary. It accepts only a `claude.ai` login whose status names a subscription. It rejects CI and does not accept `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` as a fallback.
 
-The standalone caller then consumes those prepared directories rather than projecting the upstream checkout again:
+Record the exact executable identity without reading credentials:
 
 ```bash
-uv run legalforecast harvey-lab run-clean-native \
+claude --version
+sha256sum "$(command -v claude)"
+```
+
+## Run the local community baseline
+
+Use the exact version string and unprefixed digest observed above. Model family aliases such as `sonnet` are allowed because the native CLI supports them; requested aliases and observed model identities are reported separately. If the CLI does not report an actual model identity, the result says it was unreported rather than asserting an exact judge model.
+
+```bash
+uv run legalforecast harvey-lab run-community-subscription \
   --source-root harvey-labs \
   --projection-dir run-input/projected \
   --evaluator-private-dir run-input/evaluator-private \
   --run-dir run-output/claude-code-harvey-lab \
   --evaluator-bin-dir run-input/bin \
-  --paid-config run-input/harvey-lab-paid-gateway.json \
-  --model-registry path/to/locked-model-registry.json \
-  --solver-image 'repository/claude-code@sha256:<digest>' \
-  --gateway-image 'repository/model-gateway@sha256:<digest>' \
-  --model-key 'anthropic:<model-id>'
+  --solver-config-dir "$PWD/run-auth/solver" \
+  --judge-config-dir "$PWD/run-auth/judge" \
+  --claude-version '2.x.y (Claude Code)' \
+  --claude-sha256 '<sha256>' \
+  --solver-model sonnet \
+  --judge-model sonnet
 ```
 
-The command re-authenticates all descriptor-bound LAB inputs before it constructs the DynamoDB authority or resolves credentials. It uses the descriptor's single approved ceiling and DynamoDB journal for both the solver gateway and every criterion-level judge request, requires pinned solver and gateway images, uses a distinct evaluator execution service, and refuses fixture provenance as a reportable baseline. A fixture run can still return a diagnostic score through the source join, but its result is explicitly `execution_mode=fixture` and has no `baseline_score_value`.
+The solver and judge use distinct contained execution services, config roots, and working directories. The declared CLI version/digest and required suppression flags (`--safe-mode`, `--setting-sources`, strict MCP configuration, no session persistence, and explicit tools) are checked before subscription status or model execution. Safe mode disables host instructions, skills, plugins, hooks, output styles, workflows, and auto-memory while preserving the selected role's subscription login and the explicitly declared built-in tools and permissions. The solver sees only the projected task, not the private rubric. Its output is discovered from the same working directory used by the native subprocess, quarantined when unexpected, and sealed before the judge receives the sealed deliverable plus one private criterion at a time. Each judge call receives only its current judge workspace plus its own auth-only config directory. Run output contains the sealed deliverables, private judge attempts, observed usage, and source-grounded evaluation records; it never contains a copied home directory or subscription credential.
 
-The protected producer/consumer is [`.github/workflows/run-harvey-lab-clean-native.yaml`](../../.github/workflows/run-harvey-lab-clean-native.yaml). It checks out an exact main-reachable LegalForecastBench commit and Harvey LAB v1.1.0 commit/tree, builds the repository-pinned solver and gateway images, prepares the projection and evaluator wrapper, issues the native LAB descriptor, and calls the real `run-clean-native` operator. Its uploaded artifact deliberately excludes the authority-bearing descriptor, evaluator-private bytes, evaluator overlays, raw judge attempts, evaluator work directories, and raw solver logs; it retains only the aggregate score summary, public-safe wrapper record, sanitized container package (including cache-usage counts), and sealed solver deliverables.
+No GitHub Actions workflow is supplied for this route because contributor subscription login is deliberately local and interactive. Do not move a durable CLI login into CI secrets or convert this community command into an API gateway workaround. Use the official API-backed benchmark workflows for official benchmark runs.
 
-## Execution status
-
-The callable source join is `run_claude_code_clean_native_harvey_lab`; the installed operator entry point above calls it directly. The source path and protected producer are complete, but no paid workflow has been dispatched from this implementation change. A real baseline therefore still requires an owner-approved ceiling, a compatible locked Anthropic registry entry, configured protected-environment variables and secret, an exact main release SHA, and inspection of the first run's solver transcript cache usage plus shared spend-journal settlement. Do not claim a live baseline from configuration or fixture tests.
-
-This integration adds no new authority schema or approval format. It does not implement the separate Codex clean-native producer requested in #204, and it does not change the native-thin nested-Podman path whose rootless `unshare` failure remains a separate blocker. Do not reuse a forecast descriptor, an old dollar approval, the native-thin sandbox, or a host container socket for either gap.
-
-Any eventual one-task result must remain labeled `Preliminary — one task pair, operator-run, not independently reproducible.` until a real protected solver and separate evaluator execution has completed and its artifacts have been inspected.
+Any one-task result remains labeled `Preliminary — one task pair, operator-run, not independently reproducible.` until a real local solver and separate judge execution has completed and its artifacts have been inspected.

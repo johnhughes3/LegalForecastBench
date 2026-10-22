@@ -36,8 +36,6 @@ from legalforecast.multiharness.protected_terminal_paid import (
 
 PAID_GATEWAY_CONFIG_SCHEMA: Final[int] = 1
 CODEX_HARNESS_ID: Final[str] = "codex"
-CLAUDE_CODE_HARVEY_LAB_HARNESS_ID: Final[str] = "claude-code-harvey-lab"
-HARVEY_LAB_MAX_BILLABLE_ATTEMPTS: Final[int] = 3
 PAID_GATEWAY_WORKFLOW_MARKER: Final[str] = (
     f"{PROTECTED_WORKFLOW_MARKER}={PROTECTED_WORKFLOW_MARKER_VALUE}"
 )
@@ -68,11 +66,6 @@ _OPTIONAL_FIELDS: Final[frozenset[str]] = frozenset(
         "harness_id",
         "forecast_release_digest",
         "pricing_service_tier",
-        "harvey_lab_projection_manifest_sha256",
-        "harvey_lab_private_material_sha256",
-        "harvey_lab_task_id",
-        "harvey_lab_source_commit",
-        "harvey_lab_source_tree",
     }
 )
 
@@ -90,11 +83,6 @@ class ProtectedPaidGatewayConfig:
     harness_id: str | None = None
     forecast_release_digest: str | None = None
     pricing_service_tier: str | None = None
-    harvey_lab_projection_manifest_sha256: str | None = None
-    harvey_lab_private_material_sha256: str | None = None
-    harvey_lab_task_id: str | None = None
-    harvey_lab_source_commit: str | None = None
-    harvey_lab_source_tree: str | None = None
 
     @property
     def model_key(self) -> str:
@@ -203,33 +191,6 @@ def load_paid_gateway_config(
         raise ProtectedTerminalPaidError(
             "pricing_service_tier is supported only for Codex descriptors"
         )
-    lab_fields = {
-        "harvey_lab_projection_manifest_sha256": _optional_sha256(
-            payload, "harvey_lab_projection_manifest_sha256"
-        ),
-        "harvey_lab_private_material_sha256": _optional_sha256(
-            payload, "harvey_lab_private_material_sha256"
-        ),
-        "harvey_lab_task_id": _optional_nonempty(payload, "harvey_lab_task_id"),
-        "harvey_lab_source_commit": _optional_git_sha(
-            payload, "harvey_lab_source_commit"
-        ),
-        "harvey_lab_source_tree": _optional_git_sha(payload, "harvey_lab_source_tree"),
-    }
-    populated_lab_fields = {name for name, value in lab_fields.items() if value}
-    if harness_id == CLAUDE_CODE_HARVEY_LAB_HARNESS_ID:
-        if len(populated_lab_fields) != len(lab_fields):
-            raise ProtectedTerminalPaidError(
-                "Harvey LAB paid gateway config requires complete input identity"
-            )
-        if "forecast_release_digest" in payload:
-            raise ProtectedTerminalPaidError(
-                "Harvey LAB paid gateway config cannot bind a forecast release"
-            )
-    elif populated_lab_fields:
-        raise ProtectedTerminalPaidError(
-            "Harvey LAB input identity is supported only for the Harvey LAB harness"
-        )
     return ProtectedPaidGatewayConfig(
         spend=config,
         model_registry_sha256=registry_sha256,
@@ -242,15 +203,6 @@ def load_paid_gateway_config(
         if "forecast_release_digest" in payload
         else None,
         pricing_service_tier=pricing_service_tier,
-        harvey_lab_projection_manifest_sha256=lab_fields[
-            "harvey_lab_projection_manifest_sha256"
-        ],
-        harvey_lab_private_material_sha256=lab_fields[
-            "harvey_lab_private_material_sha256"
-        ],
-        harvey_lab_task_id=lab_fields["harvey_lab_task_id"],
-        harvey_lab_source_commit=lab_fields["harvey_lab_source_commit"],
-        harvey_lab_source_tree=lab_fields["harvey_lab_source_tree"],
     )
 
 
@@ -263,11 +215,7 @@ def build_paid_gateway_controller(
         config.spend,
         reservation_microusd=config.reservation_microusd,
         charge_extractor=anthropic_registry_charge_extractor(config.registry_entry),
-        max_billable_attempts=(
-            HARVEY_LAB_MAX_BILLABLE_ATTEMPTS
-            if config.harness_id == CLAUDE_CODE_HARVEY_LAB_HARNESS_ID
-            else 1
-        ),
+        max_billable_attempts=1,
     )
 
 
@@ -380,25 +328,6 @@ def _required_sha256(payload: Mapping[str, Any], name: str) -> str:
     return value
 
 
-def _optional_nonempty(payload: Mapping[str, Any], name: str) -> str | None:
-    return _required_str(payload, name) if name in payload else None
-
-
-def _optional_sha256(payload: Mapping[str, Any], name: str) -> str | None:
-    return _required_sha256(payload, name) if name in payload else None
-
-
-def _optional_git_sha(payload: Mapping[str, Any], name: str) -> str | None:
-    if name not in payload:
-        return None
-    value = _required_str(payload, name)
-    if len(value) != 40 or any(char not in "0123456789abcdef" for char in value):
-        raise ProtectedTerminalPaidError(
-            f"paid gateway config {name} must be a lowercase Git SHA"
-        )
-    return value
-
-
 def _split_model_key(model_key: str) -> tuple[str, str]:
     provider, separator, model_id = model_key.partition(":")
     if not separator or not provider.strip() or not model_id.strip():
@@ -409,9 +338,7 @@ def _split_model_key(model_key: str) -> tuple[str, str]:
 
 
 __all__ = [
-    "CLAUDE_CODE_HARVEY_LAB_HARNESS_ID",
     "CODEX_HARNESS_ID",
-    "HARVEY_LAB_MAX_BILLABLE_ATTEMPTS",
     "PAID_GATEWAY_CONFIG_SCHEMA",
     "PAID_GATEWAY_WORKFLOW_MARKER",
     "ProtectedPaidGatewayConfig",

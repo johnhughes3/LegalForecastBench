@@ -255,6 +255,39 @@ def test_stdin_task_input_is_delivered(tmp_path: Path) -> None:
     assert result.stdout == b'{"task":"fixture"}'
 
 
+def test_service_can_launch_in_declared_workspace_for_output_discovery(
+    tmp_path: Path,
+) -> None:
+    executable = _write_path_cli(
+        tmp_path / "bin" / "workspace-writer",
+        """
+from pathlib import Path
+Path("output").mkdir()
+Path("output/result.txt").write_text("found", encoding="utf-8")
+print('{"type":"result","subtype":"success","is_error":false}')
+""",
+    )
+    workspace = tmp_path / "solver-workspace"
+    workspace.mkdir()
+    spec = RunSpec(
+        spec_id="workspace-output",
+        argv=(executable.name,),
+        working_directory=workspace,
+        environment={},
+        timeout_seconds=30,
+    )
+    receipt = LocalCliExecutionService(
+        auth_profile=FIXTURE_NONE,
+        parent_env={"PATH": str(executable.parent), "LC_CTYPE": "C.UTF-8"},
+        executable_pin=executable_pin_for(executable),
+        run_in_working_directory=True,
+    ).execute(spec)
+
+    assert receipt.status == "succeeded"
+    assert (workspace / "output" / "result.txt").read_text() == "found"
+    assert not (workspace / "local-cli-scratch" / "output").exists()
+
+
 def test_missing_profile_stops_before_spawn(tmp_path: Path) -> None:
     class ExplodingSource(StaticCredentialSource):
         def fetch_projected_env(self, profile: object) -> dict[str, str]:

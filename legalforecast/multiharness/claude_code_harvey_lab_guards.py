@@ -142,6 +142,7 @@ def require_solver_success(
     execution: ExecutionReceipt,
     *,
     requested_model: str,
+    allow_model_alias: bool = False,
 ) -> None:
     """Require a clean completion served by the selected Claude model."""
 
@@ -150,6 +151,7 @@ def require_solver_success(
     failure_class = classify_claude_completion_execution(
         execution,
         requested_model=requested_model,
+        allow_model_alias=allow_model_alias,
     )
     if failure_class is None and is_local_cli_sandbox_denial(
         "\n".join((execution.stdout, execution.stderr))
