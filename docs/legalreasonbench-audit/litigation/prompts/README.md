@@ -4,7 +4,7 @@ The [recovered task instructions](audit-prompts.md) preserve the common blind pr
 
 This documents the initial task prompts, not identical complete runtime contexts. Workers read different assigned matters, made their own tool calls, and received source material as extraction and visual transcription proceeded. The blind instructions explicitly asked them to read the Harvey audit README, its human-review definitions, and a sample Harvey Opus finding schema: they were blind to the other LegalReasonBench pass, not to the prior Harvey audit. The [main method](../README.md#review-method) records actual reading limits and a source-quote exposure between the two Opus matter lanes. Reconciliation was not blind and did not overwrite either initial report.
 
-The [Harvey recovery](../../../harvey-lab-audit/litigation-dispute-resolution/prompts/README.md) preserves the original Opus blind and reconciliation templates; its exact Sol task prompts could not be recovered from the surviving encrypted records. We therefore cannot certify that the two audits used substantively identical prompts. The recovered instructions show these differences:
+The [Harvey recovery](../../../harvey-lab-audit/litigation-dispute-resolution/prompts/README.md) preserves the original Opus blind and reconciliation templates; its exact Sol task prompts remain unrecovered after checking both the original session files and separate raw backups on October 22. The checked backups also contain encrypted task bodies. We therefore cannot certify that the two audits used substantively identical prompts. The recovered instructions show these differences:
 
 | Dimension | Harvey Opus template | LegalReasonBench initial instruction |
 | --- | --- | --- |

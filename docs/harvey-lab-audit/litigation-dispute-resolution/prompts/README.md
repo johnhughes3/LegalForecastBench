@@ -1,6 +1,6 @@
 # Audit prompt recovery
 
-These are the reviewer instructions used to critique Harvey LAB, distinct from the benchmark prompts given to solvers and judges. The recovery was performed on October 19, 2026 from saved local session history and workflow source. Machine-specific source locations are not published.
+These are the reviewer instructions used to critique Harvey LAB, distinct from the benchmark prompts given to solvers and judges. The initial recovery was performed on October 19, 2026 from saved local session history and workflow source; a further session and backup search was performed on October 22. Machine-specific source locations are not published.
 
 | Model and stage | Recovery | Saved evidence |
 | --- | --- | --- |
@@ -9,6 +9,10 @@ These are the reviewer instructions used to critique Harvey LAB, distinct from t
 | Claude Opus 5.5, reconciliation | Recovered workflow template | Same source preserves reconciliation instructions, schema, and optional earlier-notes wording for two tasks. |
 
 The recovery checked the original Sol coordinator and six worker records, searched indexed session history, and inspected the surviving local audit source directory. No plaintext copy of the Sol task bodies was found. Their reports and batch summaries establish what they produced, but do not substitute for the instructions they received. We have not reconstructed a prompt from those outputs or inferred that its wording matched Opus's.
+
+The October 22 search checked the original Codex session files, now compressed, and separate raw session backups captured on September 27, 2026 at approximately 07:05 UTC. Backups exist for the coordinator and all six initial Sol workers. These backups have no outer encryption, so their contents could be read directly: the coordinator's six dispatches still contain encrypted task bodies, and each worker's initial task contains a readable routing header followed by an `encrypted_content` field. The searchable session archive preserves only those routing headers; the six local thread metadata records contain no separate task text. This establishes that the checked backups preserve the same recovery gap, not that every possible historical copy has been exhausted.
+
+A separate offsite session-backup mechanism is configured to archive original files with additional encryption. It was identified but no remote archive was restored or decrypted in this search. Restoring that outer archive would not itself decrypt task bodies already encrypted inside the original Codex records. The exact Sol wording therefore remains unrecovered from the copies inspected; a different historical copy could still change that conclusion.
 
 The Opus source was checked against the coordinator's initial two-task workflow definition and its subsequent 50-task invocation. The archived text uses portable placeholders for runtime values; those substitutions and the limits of the recovery are explained with the prompt. This is not a complete record of every runtime message, tool interaction, or earlier human steering. The [main audit method](../README.md#claude-opus-55-audit-method) describes those limits and the distinction between blind and reconciled findings.
 
