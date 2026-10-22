@@ -149,7 +149,7 @@ These selected follow-up reports were prepared after the blind rubric pass. They
 
 Batch summaries: [1](gpt-6-sol/batch-summaries/batch-1-summary.md), [2](gpt-6-sol/batch-summaries/batch-2-summary.md), [3](gpt-6-sol/batch-summaries/batch-3-summary.md), [4](gpt-6-sol/batch-summaries/batch-4-summary.md), [5](gpt-6-sol/batch-summaries/batch-5-summary.md), [6](gpt-6-sol/batch-summaries/batch-6-summary.md).
 
-The [prompt recovery](prompts/README.md) documents the unavailable original Sol task bodies and links the [recovered Opus blind and reconciliation prompts](prompts/opus-audit.md), including their output schemas. These are auditor instructions, distinct from the upstream solver and judge prompts.
+The [instruction archive](prompts/README.md) preserves the human request for the Sol audit. Sol generated the six worker prompts; we did not control their exact wording, and OpenAI's encrypted agent-to-agent delivery leaves them unavailable to us from the saved records. The archive also links the [saved Opus blind and reconciliation prompts](prompts/opus-audit.md), including their output schemas. These are auditor instructions, distinct from the upstream solver and judge prompts.
 
 ## Claude Opus 5.5 audit method
 

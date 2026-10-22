@@ -25,7 +25,7 @@ Source conversion uses pandoc for DOCX, displaying tracked changes, and a PDF te
 
 This is an independent critique, not an assessment endorsed by micro1. The sample includes public court records and adapted matter documents; opposing advocacy, hypothetical scenario instructions, planted mistakes the rubric asks a solver to identify, and genuine grading defects must be distinguished. Neither this audit nor the Harvey audit supplies a verified error rate. The full LegalReasonBench sample has only 221 criteria, fewer in litigation scope, clustered in a few sequential matters. No full-benchmark extrapolation, causal comparison, score correction, or claim of human verification is warranted.
 
-The [prompt recovery and comparison](prompts/README.md) explains what was recovered and how the instructions differ from Harvey. The [saved blind and reconciliation task prompts](prompts/audit-prompts.md) retain both models' common instruction, all four scope suffixes, and the later reconciliation instruction, with machine-specific paths replaced by portable placeholders.
+The [instruction archive and comparison](prompts/README.md) explains which instructions are available and how they differ from Harvey. The [saved blind and reconciliation task prompts](prompts/audit-prompts.md) retain both models' common instruction, all four scope suffixes, and the later reconciliation instruction, with machine-specific paths replaced by portable placeholders.
 
 ## Review method
 
