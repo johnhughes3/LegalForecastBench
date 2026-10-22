@@ -4,9 +4,9 @@ import { parse } from "yaml";
 export interface Citation {
 	title: string;
 	version: string | null;
-	year: string;
-	/** ISO `date-released`; parseCitation rejects a file without one. */
-	date: string;
+	year: string | null;
+	/** ISO software release date; absent for an unreleased candidate. */
+	date: string | null;
 	url: string | null;
 	authors: CitationAuthor[];
 }
@@ -41,15 +41,13 @@ export function parseCitation(text: string): Citation {
 	const title = str(cff.title);
 	const date = str(cff["date-released"]);
 	const authors = parseAuthors(cff.authors);
-	if (!title || !date || authors.length === 0) {
-		throw new Error(
-			"CITATION.cff must declare title, date-released, and authors",
-		);
+	if (!title || authors.length === 0) {
+		throw new Error("CITATION.cff must declare title and authors");
 	}
 	return {
 		title,
 		version: str(cff.version),
-		year: date.slice(0, 4),
+		year: date?.slice(0, 4) ?? null,
 		date,
 		url: str(cff.url) ?? str(cff["repository-code"]),
 		authors,
@@ -120,7 +118,7 @@ const slug = (text: string): string =>
 
 export function toBibtex(c: Citation): string {
 	const first = c.authors[0];
-	const key = `${slug(first?.family ?? "anon")}${c.year}${slug(c.title)}`;
+	const key = `${slug(first?.family ?? "anon")}${c.year ?? ""}${slug(c.title)}`;
 	return bibEntry("software", key, [
 		["author", c.authors.map(bibName).join(" and ")],
 		["title", `{${c.title}}`],
@@ -150,7 +148,7 @@ export function toPaperBibtex(c: PaperCitation): string {
 /** APA 7 reference for software: `Family, G. G., Suffix. (Year). Title (Version v) [Computer software]. URL` */
 export function toApa(c: Citation): string {
 	const version = c.version ? ` (Version ${c.version})` : "";
-	return `${apaAuthors(c.authors)} (${c.year}). ${c.title}${version} [Computer software].${c.url ? ` ${c.url}` : ""}`;
+	return `${apaAuthors(c.authors)} (${c.year ?? "n.d."}). ${c.title}${version} [Computer software].${c.url ? ` ${c.url}` : ""}`;
 }
 
 /** APA 7 reference for an unpublished paper; a DOI replaces the URL. */
