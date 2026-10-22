@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import importlib.util
 import json
+import re
 import shutil
 from pathlib import Path
 from types import ModuleType
@@ -95,6 +96,19 @@ def test_disclosed_sections_are_left_out_and_shown_as_omitted() -> None:
     assert "3. LegalForecastBench: Dataset and evaluation protocol\n\n[...]" in paper
     assert "4. Results\n\n[...]\n\n5. " in paper
     assert "micro-Brier" not in paper.split("4. Results")[1].split("5. ")[0]
+
+
+def test_ai_prose_exclusions_are_limited_to_benchmark_sections_three_and_four() -> None:
+    benchmark = MANUSCRIPT.read_text(encoding="utf-8")
+    sections = list(re.finditer(r"(?m)^\\section\{", benchmark))
+    exclusions = list(pangram_check.AI_PREPARED.finditer(benchmark))
+    assert len(exclusions) == 2
+    for exclusion, section_index in zip(exclusions, (2, 3), strict=True):
+        assert sections[section_index].end() < exclusion.start()
+        assert exclusion.end() < sections[section_index + 1].start()
+    assert not pangram_check.AI_PREPARED.search(
+        LAB_MANUSCRIPT.read_text(encoding="utf-8")
+    )
 
 
 def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
@@ -302,3 +316,39 @@ def test_saved_response_is_reported_and_gated_without_a_key(
     response.write_text(json.dumps(assisted), encoding="utf-8")
     assert pangram_check.main([*arguments, "--fail-above", "0.03"]) == 1
     assert "FAIL: Pangram classifies 0.04" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [
+        (["Human Written", "Human Written"], 0),
+        (["Human Written", "AI-Generated"], 1),
+        (["Human Written", "AI-Assisted"], 1),
+        (["Human Written", ""], 1),
+        ([], 1),
+    ],
+)
+def test_zero_gate_uses_segment_verdicts(
+    tmp_path: Path, labels: list[str], expected: int
+) -> None:
+    response = tmp_path / "response.json"
+    response.write_text(
+        json.dumps(
+            {
+                "fraction_ai": 1.9617878014351747e-13,
+                "fraction_ai_assisted": 4.8758807863653886e-15,
+                "windows": [{"text": "Prose.", "label": label} for label in labels],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        pangram_check.score(
+            [pangram_check.Unit("1", "Introduction", "Prose.")],
+            out=tmp_path / "out",
+            client=None,
+            response=response,
+            fail_above=0,
+        )
+        == expected
+    )

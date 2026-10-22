@@ -1,6 +1,6 @@
 # Attorney review of the AI citation check: protocol
 
-This protocol was committed before any sampled finding was reviewed. It estimates how many of the citation check's problem findings are real errors.
+The sampling and stopping rules below were committed before any sampled finding was reviewed. The confidence calculation was corrected after review to account for both possible analyses; the original fixed-sample calculation did not provide 95% coverage under this stopping rule. It estimates how many of the citation check's problem findings are real errors.
 
 ## Question
 
@@ -29,16 +29,16 @@ Only "Confirmed error" counts as confirmed.
 
 ## What this estimates
 
-The sample estimates the share of the 436 AI findings that are real errors. The exact one-sided 95% lower bounds (hypergeometric, population 436) are:
+The sample estimates the share of the 436 AI findings that are real errors. The conservative one-sided 95% lower bounds below invert exact hypergeometric tails (population 436), using a 2.5% error allowance at each of the two possible analyses. By the Bonferroni inequality, the probability that either bound exceeds the true count is at most 5%, including when the first ten results determine whether review continues. This correction changes neither the draw nor the recorded verdicts.
 
 | Result | At least this many of 436 are real errors |
 |---|---|
-| 10 of 10 confirmed (stop) | 325 (74.5%) |
-| 19 of 20 | 344 (78.9%) |
-| 18 of 20 | 315 (72.2%) |
-| 17 of 20 | 288 (66.1%) |
-| 16 of 20 | 263 (60.3%) |
-| 15 of 20 | 240 (55.0%) |
+| 10 of 10 confirmed (stop) | 303 (69.5%) |
+| 19 of 20 | 330 (75.7%) |
+| 18 of 20 | 300 (68.8%) |
+| 17 of 20 | 273 (62.6%) |
+| 16 of 20 | 248 (56.9%) |
+| 15 of 20 | 225 (51.6%) |
 
 It does not estimate errors the AI missed among the citations it marked verified, and it does not re-check whether an error was planted.
 

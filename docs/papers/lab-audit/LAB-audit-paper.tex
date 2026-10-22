@@ -127,7 +127,8 @@ Total checked & 3{,}618 & 590\\
 \label{tab:citecheck}
 \end{table}
 
-\draft{[[Placeholder: To add results of attorney audit of the results, the hallucinated cases issue was identified only on 10/4/2026, the day before our original intended publication date. We delayed publication to understand how widespread the issue was, and initial spot checks suggest there are a meaningful number of hallucinated citations in the task environments so we need to present that with some validation so the issue is properly quantified.]]}
+I reviewed a simple random sample of the 436 errors personally. Before I reviewed any sampled finding, I drew 20 citation findings and pre-committed to a stopping rule that if the first ten were all confirmed errors, I would stop; otherwise I'd review 10 more. I reviewed each citation finding and agreed that all ten involved errors a careful lawyer would correct before filing. The AI had correctly classified seven as cited for propositions they do not support and three as real authorities cited by the wrong number or subsection. Three of the ten involved miscitations to the Eleventh Circuit's pattern civil jury instructions. With ten of ten confirmed, a conservative one-sided 95\% lower confidence bound is 303 of the 436 flagged errors (69.5\%). I did not attempt to review or identify errors the AI may have missed among citations it marked as verified.
+
 
 \section{A motion-to-dismiss case study}
 \label{app:lab}
@@ -151,7 +152,7 @@ There are valid reasons to prefer rubric-based reinforcement learning approaches
 This audit illustrated that AI research has a long way to go to bridge the gap between current training and evaluation environments used to train models, and the messy real-world tasks that models are asked to perform. LAB is notable as the first large-scale, open-source set of legal task environments that try to test high-level legal judgment tasks where there is often no objective ground truth. But LAB illustrates the challenges of creating effective environments, because even leading data vendors that took on the responsibility of expert verification of the LAB tasks were unable to create realistic task environments or accurate rubrics. Harvey has explicitly invited practicing attorneys to help collaborate on improving LAB, and building models that can automate more of the high-level legal work that lawyers do clearly will require careful collaboration to obtain training signal that can reliably improve the capabilities of, and distinguish between the performance of, increasingly capable frontier models.
 
 \section*{Reproducibility, access, and AI use disclosure}
-Code and audit materials are maintained in the \href{https://github.com/johnhughes3/LegalForecastBench}{LegalForecastBench repository}.
+Code and audit materials are maintained in the \href{https://github.com/johnhughes3/LegalForecastBench}{LegalForecastBench repository}. The sampling protocol, sampled findings, and completed attorney-review worksheet for the citation check are available in the \href{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check/attorney-review}{accompanying review materials}.
 
 As I am a practicing attorney and do not have any formal training in artificial intelligence or machine learning, the use of AI models was essential to allow me to make a research contribution in this space that otherwise would have been beyond my capabilities. My personal contribution included auditing a sample of the LAB rubrics by hand to statistically validate the AI audit findings, conducting a deep dive into one of LAB's litigation tasks, and orchestrating AI coding agents that helped write and execute the code that ran the audit. I wrote most of this paper personally, but discussed the results at several points with AI agents and considered AI-generated analysis as an input into my thinking as I drafted. The major exception to this was the AI audit findings, the citation check in Section~\ref{sec:citecheck}, and other places where numerical results are included; I relied on AI agents to produce those findings, to write code that performs the necessary calculations, and to prepare the LaTeX source summarizing those results. I used several different models from Anthropic, OpenAI, SpaceXAI, and Google to check the work. I also met with experienced researchers in the space to validate the experimental design and results, and obtain feedback on the draft. I am grateful to several AI researchers in industry positions for helpful discussions. This version of the paper is intended as a working draft, and feedback from researchers, lawyers, and others on how to improve this audit or make our findings more useful is welcome.
 
@@ -165,6 +166,7 @@ As I am a practicing attorney and do not have any formal training in artificial 
 \bibitem{labreview} John Hughes. Human review of AI-flagged Harvey LAB litigation criteria: protocol, sample, and worksheet. \emph{Research artifact}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/human-review}.
 
 \bibitem{labcitecheck} Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author. Citation check of the Harvey LAB litigation and dispute resolution task environments. \emph{AI-generated research artifact, not attorney-reviewed}, 2026. \url{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check}.
+
 
 \bibitem{labtask} Harvey AI task authors; upstream authorship not individually listed. Pinned LAB task.json for analyze-counterparty-motion-to-dismiss. \emph{Primary online source}, 2026. \url{https://github.com/harveyai/harvey-labs/blob/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution/analyze-counterparty-motion-to-dismiss/task.json}.
 
@@ -185,8 +187,7 @@ As I am a practicing attorney and do not have any formal training in artificial 
 \appendix
 \section{Model outputs and native LAB judging}
 \label{app:nativejudging}
-% BEGIN AI-PREPARED (numerical results and methods prepared with AI, as disclosed above)
-To examine how the rubrics operated on model-generated work product, we ran GPT-6 Luna with xhigh reasoning and Claude Opus 5.5 with low reasoning on all 52 public litigation and dispute resolution tasks at Harvey commit \texttt{1dd81403}, using the original task instructions, documents, and rubrics. Each solver produced 52 task outputs, for 104 outputs in total. LAB's standard judge pair, Claude Sonnet 4.6 and GPT-5.5, graded every output, producing 208 judge records. The human-review examples in Appendix~\ref{app:labreview} draw on these outputs and verdicts. The \href{https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/model-runs}{task-level results and deliverables} include both judges' criterion-level verdicts and reasoning.
+To understand how the rubrics evaluated actual AI-generated work product, we ran LAB using GPT-6 Luna (xhigh thinking) and Claude Opus 5.5 (low thinking) on the litigation tasks (Harvey commit \texttt{1dd81403}). LAB's standard judge pair, Claude Sonnet 4.6 and GPT-5.5, graded those outputs. The examples in Appendix~\ref{app:labreview} that I reviewed include these outputs, so I could consider how actual model outputs are being graded in evaluating the rubrics.
 
 \begin{table}[ht]\centering\small
 \begin{tabular}{llrr}\toprule
@@ -197,8 +198,8 @@ Claude Opus 5.5 & low & 52 & 90.81\%\\
 \caption{Native LAB AI-judge grades on the 52 public litigation tasks. For each task, we calculate each judge's fraction of criteria passed, average the two judges' fractions, and then average across tasks with equal task weights. These are criterion pass rates, not the fraction of tasks passing every criterion.}
 \label{tab:nativejudging}\end{table}
 
-These grades describe how LAB's own AI judges applied the original rubrics; they are not human assessments of legal correctness or grades corrected for the defects identified in this audit. The solvers used different reasoning settings, so the difference is not a controlled comparison of model capability. The aggregate rates provide context for the criterion-level examples, rather than independent validation of the rubrics.
-% END AI-PREPARED
+These grades reflect how LAB's standard pair of AI judges (Claude Sonnet 4.6 and GPT-5.5) applied the original rubrics. Since the models that prepared these outputs used different reasoning settings, the difference in their scores here is not a controlled comparison of model capability; instead, it was merely used as a diagnostic.
+
 
 \clearpage
 \section{Human review of AI-flagged LAB criteria}
