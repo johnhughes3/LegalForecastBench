@@ -293,6 +293,7 @@ def build_protected_gateway_spend_controller(
     *,
     reservation_microusd: int,
     charge_extractor: GatewayChargeExtractor,
+    max_billable_attempts: int = 1,
 ) -> ProviderGatewaySpendController:
     """Build the paid gateway controller inside the protected workflow.
 
@@ -304,7 +305,10 @@ def build_protected_gateway_spend_controller(
     request before forwarding upstream.
     """
 
-    authority = build_dynamodb_spend_authority(config)
+    authority = build_dynamodb_spend_authority(
+        config,
+        max_billable_attempts=max_billable_attempts,
+    )
     return ProviderGatewaySpendController(
         authority=authority,
         config=config,

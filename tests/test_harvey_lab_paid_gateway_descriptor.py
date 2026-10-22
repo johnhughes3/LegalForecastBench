@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import legalforecast.multiharness.container_harness.model_gateway_paid as paid_gateway
 import legalforecast.multiharness.harvey_lab_paid_gateway_descriptor as issuer
 import legalforecast.multiharness.harvey_lab_protected_operator as protected_operator
+import legalforecast.multiharness.protected_terminal_paid as protected_paid
 import pytest
+from legalforecast.evals.provider_spend_dynamodb import (
+    DynamoDbProviderSpendAuthority,
+)
 from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapter
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
     CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
@@ -35,6 +41,7 @@ from test_paid_gateway_descriptor import (
     _ENVIRONMENT,
     _registry_bytes,
 )
+from test_provider_spend_dynamodb import InMemoryDynamoRunner
 
 
 def test_issuer_binds_authentic_lab_inputs_and_loads_for_production(
@@ -109,6 +116,12 @@ def test_protected_runtime_consumes_descriptor_issued_from_authentic_lab_inputs(
 ) -> None:
     source, projection, private, registry = _prepared_inputs(tmp_path)
     monkeypatch.setattr(issuer, "harvey_lab_v1_1_pin", lambda: FIXTURE_PIN)
+    dynamodb = InMemoryDynamoRunner()
+    authority_resource = hashlib.sha256(dynamodb.table_arn.encode()).hexdigest()
+    environment = {
+        **_ENVIRONMENT,
+        "LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256": authority_resource,
+    }
     descriptor = issuer.issue_harvey_lab_paid_gateway_descriptor(
         source_root=source,
         projection_root=projection,
@@ -117,11 +130,11 @@ def test_protected_runtime_consumes_descriptor_issued_from_authentic_lab_inputs(
         model_key="anthropic:claude-sonnet-4-5",
         ceiling_microusd=_CEILING_MICROUSD,
         account="official",
-        environment=_ENVIRONMENT,
+        environment=environment,
     )
     paid_config = tmp_path / "paid-gateway.json"
     write_paid_gateway_descriptor(paid_config, descriptor)
-    for name, value in _ENVIRONMENT.items():
+    for name, value in environment.items():
         monkeypatch.setenv(name, value)
 
     adapter = ClaudeCodeCliAdapter(
@@ -143,10 +156,14 @@ def test_protected_runtime_consumes_descriptor_issued_from_authentic_lab_inputs(
         "build_claude_code_container_adapter",
         build_adapter,
     )
+
+    def build_authority(**kwargs: object) -> DynamoDbProviderSpendAuthority:
+        return DynamoDbProviderSpendAuthority(**kwargs, runner=dynamodb)  # type: ignore[arg-type]
+
     monkeypatch.setattr(
-        protected_operator,
-        "build_dynamodb_spend_authority",
-        lambda *_args, **_kwargs: object(),
+        protected_paid,
+        "DynamoDbProviderSpendAuthority",
+        build_authority,
     )
     request = ProtectedHarveyLabOperatorRequest(
         source_root=source,
@@ -163,6 +180,12 @@ def test_protected_runtime_consumes_descriptor_issued_from_authentic_lab_inputs(
     )
 
     runtime = protected_operator.build_protected_harvey_lab_runtime(request)
+    loaded = load_paid_gateway_config(
+        paid_config,
+        model_registry_path=registry,
+        environment=environment,
+    )
+    gateway = paid_gateway.build_paid_gateway_controller(loaded)
 
     assert runtime.model == "claude-sonnet-4-5"
     assert runtime.ceiling_microusd == _CEILING_MICROUSD
@@ -170,6 +193,7 @@ def test_protected_runtime_consumes_descriptor_issued_from_authentic_lab_inputs(
     assert observed_factory["paid_config_path"] == paid_config.resolve()
     assert observed_factory["model_registry_path"] == registry.resolve()
     assert observed_factory["harness_id"] == "claude-code-harvey-lab"
+    assert gateway.authority.policy.max_billable_attempts == 3  # type: ignore[attr-defined]
 
 
 def _prepared_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:

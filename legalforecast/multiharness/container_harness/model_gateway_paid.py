@@ -37,6 +37,7 @@ from legalforecast.multiharness.protected_terminal_paid import (
 PAID_GATEWAY_CONFIG_SCHEMA: Final[int] = 1
 CODEX_HARNESS_ID: Final[str] = "codex"
 CLAUDE_CODE_HARVEY_LAB_HARNESS_ID: Final[str] = "claude-code-harvey-lab"
+HARVEY_LAB_MAX_BILLABLE_ATTEMPTS: Final[int] = 3
 PAID_GATEWAY_WORKFLOW_MARKER: Final[str] = (
     f"{PROTECTED_WORKFLOW_MARKER}={PROTECTED_WORKFLOW_MARKER_VALUE}"
 )
@@ -262,6 +263,11 @@ def build_paid_gateway_controller(
         config.spend,
         reservation_microusd=config.reservation_microusd,
         charge_extractor=anthropic_registry_charge_extractor(config.registry_entry),
+        max_billable_attempts=(
+            HARVEY_LAB_MAX_BILLABLE_ATTEMPTS
+            if config.harness_id == CLAUDE_CODE_HARVEY_LAB_HARNESS_ID
+            else 1
+        ),
     )
 
 
@@ -405,6 +411,7 @@ def _split_model_key(model_key: str) -> tuple[str, str]:
 __all__ = [
     "CLAUDE_CODE_HARVEY_LAB_HARNESS_ID",
     "CODEX_HARNESS_ID",
+    "HARVEY_LAB_MAX_BILLABLE_ATTEMPTS",
     "PAID_GATEWAY_CONFIG_SCHEMA",
     "PAID_GATEWAY_WORKFLOW_MARKER",
     "ProtectedPaidGatewayConfig",
