@@ -9,9 +9,10 @@ import zipfile
 from functools import partial
 from pathlib import Path
 
-import legalforecast.multiharness.harvey_lab_protected_operator as protected_operator
 import pytest
-from legalforecast.evals.provider_spend_control import AttemptLease, ProviderSpendKey
+from legalforecast.multiharness import (
+    harvey_lab_subscription_operator as subscription_operator,
+)
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapter,
@@ -31,131 +32,70 @@ from legalforecast.multiharness.harvey_lab_projection import (
     ISSUE_196_LAB_TASK_ID,
     project_harvey_lab_suite,
 )
-from legalforecast.multiharness.harvey_lab_protected_operator import (
-    ProtectedHarveyLabOperatorRequest,
-    ProtectedHarveyLabRuntime,
-    _evaluator_configuration,
-    _protected_evaluator_policy_inputs,
-    run_protected_harvey_lab_operator,
+from legalforecast.multiharness.harvey_lab_subscription_judge import (
+    SubscriptionJudgeBoundary,
+    SubscriptionProvenanceProvider,
 )
-from legalforecast.multiharness.harvey_lab_protected_spend import (
-    ProtectedHarveyLabJudgeBoundary,
+from legalforecast.multiharness.harvey_lab_subscription_operator import (
+    CommunitySubscriptionOperatorRequest,
+    CommunitySubscriptionRuntime,
+    build_community_subscription_runtime,
+    run_community_subscription_harvey_lab,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.spend import UsageObservation
-from legalforecast.multiharness.tier0_production_factory import (
-    JUDGE_SETTINGS,
-    RUNTIME_POLICY,
-    policy_digest,
-)
 
 from test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
-from test_model_gateway_paid import _ENVIRONMENT, _files
 from test_multiharness_claude_clean_native_lab_e2e import (
     _install_binaries,
     _make_writable,
 )
 
-PRICING_SHA256 = "sha256:" + "9" * 64
 
-
-def test_protected_evaluator_policy_inputs_follow_selected_runtime() -> None:
-    judge_settings, runtime_policy = _protected_evaluator_policy_inputs(
-        "claude-sonnet-4-5"
+def test_subscription_judge_boundary_accepts_only_unallocable_usage() -> None:
+    boundary = SubscriptionJudgeBoundary()
+    request = HarveyLabJudgeRequest(ordinal=1, criterion_id="c01")
+    reservation = boundary.before_judge_call(request)
+    observation = UsageObservation(
+        basis="subscription_unallocable",
+        input_tokens=10,
+        output_tokens=1,
+        unknown_reason="flat_subscription_has_no_per_call_allocation",
     )
-
-    assert judge_settings == {
-        **JUDGE_SETTINGS,
-        "model": "claude-sonnet-4-5",
-    }
-    assert runtime_policy == {
-        **RUNTIME_POLICY,
-        "credential_backend": "github-environment",
-        "credential_environment": "legalforecastbench-official-eval",
-        "credential_path": "secrets",
-        "credential_name": "ANTHROPIC_API_KEY",
-    }
-    configuration = _evaluator_configuration(
-        FIXTURE_PIN,
-        model_id="claude-sonnet-4-5",
-        pricing_sha256=PRICING_SHA256,
-    )
-    assert configuration.judge_settings_sha256 == policy_digest(judge_settings)
-    assert configuration.runtime_policy_sha256 == policy_digest(runtime_policy)
+    boundary.after_judge_call(request, reservation, observation)
 
 
-class _AuthorityDouble:
-    def __init__(self) -> None:
-        self.key: ProviderSpendKey | None = None
-        self.marked: AttemptLease | None = None
-        self.response: dict[str, object] | None = None
-
-    def authorize_attempt(
-        self,
-        key: ProviderSpendKey,
-        *,
-        reservation_microusd: int,
-    ) -> AttemptLease:
-        self.key = key
-        return AttemptLease(
-            attempt_id="1" * 64,
-            authority_identity_sha256="2" * 64,
-            logical_call_key=key.logical_call_key,
-            attempt_ordinal=1,
-            reservation_microusd=reservation_microusd,
-        )
-
-    def mark_transport_started(self, lease: AttemptLease) -> None:
-        self.marked = lease
-
-    def record_response(self, lease: AttemptLease, **values: object) -> None:
-        self.response = {"lease": lease, **values}
-
-
-def test_protected_judge_boundary_uses_descriptor_authority_and_settles_response(
+def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
     tmp_path: Path,
 ) -> None:
-    from legalforecast.multiharness.container_harness.model_gateway_paid import (
-        load_paid_gateway_config,
+    request = CommunitySubscriptionOperatorRequest(
+        source_root=tmp_path / "source",
+        projection_root=tmp_path / "projection",
+        evaluator_private_root=tmp_path / "private",
+        run_root=tmp_path / "run",
+        evaluator_bin_dir=tmp_path / "bin",
+        claude_version="fixture-version",
+        claude_sha256="a" * 64,
+        solver_model="sonnet",
+        judge_model="sonnet",
+        pin=FIXTURE_PIN,
     )
 
-    config_path, registry_path, _record = _files(tmp_path)
-    config = load_paid_gateway_config(
-        config_path,
-        model_registry_path=registry_path,
-        environment=_ENVIRONMENT,
-    )
-    authority = _AuthorityDouble()
-    boundary = ProtectedHarveyLabJudgeBoundary(
-        authority=authority,  # type: ignore[arg-type]
-        config=config,
-    )
-    request = HarveyLabJudgeRequest(ordinal=1, criterion_id="c01")
-    lease = boundary.before_judge_call(request)
-    boundary.mark_transport_started(request)
-    response = ProductionJudgeResponse(
-        verdict="pass",
-        judge_resolved_identity=config.registry_entry.model_id,
-        usage=UsageObservation(
-            basis="estimated_from_pricing_snapshot",
-            pricing_snapshot_sha256=PRICING_SHA256,
-            input_tokens=10,
-            output_tokens=1,
-            reported_cost_usd="0.000123",
-        ),
-        raw_response=b"provider response",
-    )
-    boundary.after_judge_response(request, lease, response)
+    runtime = build_community_subscription_runtime(request)
+    solver_service = runtime.adapter.execution_service
 
-    assert authority.key is not None
-    assert authority.key.cycle_id == config.spend.cycle_id
-    assert authority.key.case_id == "harvey-lab-judge-1:gateway:1"
-    assert authority.marked == lease
-    assert authority.response is not None
-    assert authority.response["actual_microusd"] == 123
-    assert authority.response["input_tokens"] == 10
-    assert authority.response["output_tokens"] == 1
+    assert solver_service is not runtime.judge_service
+    assert solver_service.auth_profile == "contributor-subscription"
+    assert runtime.judge_service.auth_profile == "contributor-subscription"
+    assert solver_service.credential_source is None
+    assert runtime.judge_service.credential_source is None
+    assert solver_service.filesystem_read_paths == (request.projection_root,)
+    assert request.evaluator_private_root not in solver_service.filesystem_read_paths
+    assert solver_service.filesystem_write_paths == (
+        request.run_root / "solver-workspace",
+    )
+    assert runtime.judge_service.filesystem_read_paths == ()
 
 
 class _SolverDouble:
@@ -209,7 +149,7 @@ class _JudgeBoundaryDouble(HarveyLabJudgeRequestBoundary):
         self.after.append(identity)
 
 
-def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
+def test_run_community_subscription_cli_seals_then_judges_with_null_cost(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -226,9 +166,9 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
     env = _install_binaries(tmp_path)
     solver = _SolverDouble()
     boundary = _JudgeBoundaryDouble()
-    runtime = _protected_runtime(solver=solver, boundary=boundary, env=env)
+    runtime = _subscription_runtime(solver=solver, boundary=boundary, env=env)
     run_root = tmp_path / "run"
-    args = _run_clean_native_args(
+    args = _run_subscription_args(
         tmp_path=tmp_path,
         source=source,
         projection=projection,
@@ -242,13 +182,18 @@ def test_run_clean_native_cli_consumes_prepared_inputs_and_calls_join(
         _make_writable(tmp_path)
 
     report = json.loads(capsys.readouterr().out)
-    assert report == {
-        "execution_mode": "production",
-        "n_criteria": 23,
-        "n_passed": 23,
-        "score": 1,
-        "task_id": "employment-labor/identify-issues-in-counterparty-motion-brief",
+    assert report["auth_profile"] == "contributor-subscription"
+    assert report["cost"] == {
+        "amount_usd": None,
+        "basis": "subscription_unallocable",
+        "unknown_reason": "flat_subscription_has_no_per_call_allocation",
     }
+    assert report["execution_mode"] == "community-subscription"
+    assert report["score"] == 1
+    assert report["solver_model_requested"] == "sonnet"
+    assert report["solver_model_observed"] == "claude-sonnet-4-6"
+    assert report["judge_model_requested"] == "sonnet"
+    assert report["judge_model_observed"] == "anthropic/claude-sonnet-4-6"
     assert len(boundary.before) == len(boundary.after) == 23
     assert solver.calls == 1
     assert (run_root / "sealed" / "issue-identification-memo.docx").is_file()
@@ -275,12 +220,12 @@ def test_run_clean_native_cli_rejects_modified_private_criterion_pretransport(
 
     solver = _SolverDouble()
     boundary = _JudgeBoundaryDouble()
-    runtime = _protected_runtime(
+    runtime = _subscription_runtime(
         solver=solver,
         boundary=boundary,
         env=_install_binaries(tmp_path),
     )
-    args = _run_clean_native_args(
+    args = _run_subscription_args(
         tmp_path=tmp_path,
         source=source,
         projection=projection,
@@ -336,12 +281,12 @@ def test_run_clean_native_cli_rejects_invalid_private_tree_pretransport(
 
     solver = _SolverDouble()
     boundary = _JudgeBoundaryDouble()
-    runtime = _protected_runtime(
+    runtime = _subscription_runtime(
         solver=solver,
         boundary=boundary,
         env=_install_binaries(tmp_path),
     )
-    args = _run_clean_native_args(
+    args = _run_subscription_args(
         tmp_path=tmp_path,
         source=source,
         projection=projection,
@@ -357,42 +302,41 @@ def test_run_clean_native_cli_rejects_invalid_private_tree_pretransport(
     assert boundary.before == []
 
 
-def _protected_runtime(
+def _subscription_runtime(
     *,
     solver: _SolverDouble,
     boundary: _JudgeBoundaryDouble,
     env: dict[str, str],
-) -> ProtectedHarveyLabRuntime:
+) -> CommunitySubscriptionRuntime:
+    solver.parent_env = env
     runner = ProductionHarveyLabEvaluatorRunner(
         provider_call=_judge_call,
         attempt_writer=lambda _call, _response: None,
         max_attempts=1,
-        expected_judge_identity="claude-sonnet-4-6",
+        allow_subscription_unallocable=True,
     )
-    provenance = _evaluator_configuration(
-        FIXTURE_PIN,
-        model_id="claude-sonnet-4-6",
-        pricing_sha256=PRICING_SHA256,
+    provenance = SubscriptionProvenanceProvider(
+        pin=FIXTURE_PIN,
+        requested_model="sonnet",
+        claude_sha256="a" * 64,
     )
-    return ProtectedHarveyLabRuntime(
+    return CommunitySubscriptionRuntime(
         adapter=ClaudeCodeCliAdapter(
             execution_service=solver,  # type: ignore[arg-type]
             output_format="stream-json",
             verbose=True,
         ),
-        evaluator_service=LocalCliExecutionService(
+        judge_service=LocalCliExecutionService(
             auth_profile=FIXTURE_NONE,
             parent_env=env,
         ),
         evaluator_runner=runner,
         judge_boundary=boundary,
-        evaluator_provenance_provider=provenance.provenance_for_execution,
-        model="claude-sonnet-4-6",
-        ceiling_microusd=1_000_000,
+        evaluator_provenance_provider=provenance,
     )
 
 
-def _run_clean_native_args(
+def _run_subscription_args(
     *,
     tmp_path: Path,
     source: Path,
@@ -405,7 +349,7 @@ def _run_clean_native_args(
     return parser.parse_args(
         [
             "harvey-lab",
-            "run-clean-native",
+            "run-community-subscription",
             "--source-root",
             str(source),
             "--projection-dir",
@@ -416,36 +360,34 @@ def _run_clean_native_args(
             str(run_root),
             "--evaluator-bin-dir",
             str(tmp_path / "bin"),
-            "--paid-config",
-            str(tmp_path / "paid.json"),
-            "--model-registry",
-            str(tmp_path / "registry.json"),
-            "--solver-image",
-            "sha256:" + "a" * 64,
-            "--gateway-image",
-            "sha256:" + "b" * 64,
-            "--model-key",
-            "anthropic:claude-sonnet-4-6",
+            "--claude-version",
+            "fixture-version",
+            "--claude-sha256",
+            "a" * 64,
+            "--solver-model",
+            "sonnet",
+            "--judge-model",
+            "sonnet",
         ]
     )
 
 
 def _install_runtime_double(
     monkeypatch: pytest.MonkeyPatch,
-    runtime: ProtectedHarveyLabRuntime,
+    runtime: CommunitySubscriptionRuntime,
 ) -> None:
-    def run_double(request: ProtectedHarveyLabOperatorRequest):
-        return run_protected_harvey_lab_operator(request, runtime=runtime)
+    def run_double(request: CommunitySubscriptionOperatorRequest):
+        return run_community_subscription_harvey_lab(request, runtime=runtime)
 
     monkeypatch.setattr(
-        protected_operator,
-        "run_protected_harvey_lab_operator",
+        subscription_operator,
+        "run_community_subscription_harvey_lab",
         run_double,
     )
-    request_type = ProtectedHarveyLabOperatorRequest
+    request_type = CommunitySubscriptionOperatorRequest
     monkeypatch.setattr(
-        protected_operator,
-        "ProtectedHarveyLabOperatorRequest",
+        subscription_operator,
+        "CommunitySubscriptionOperatorRequest",
         partial(request_type, pin=FIXTURE_PIN),
     )
 
@@ -453,13 +395,12 @@ def _install_runtime_double(
 def _judge_call(call: ProductionJudgeCall) -> ProductionJudgeResponse:
     return ProductionJudgeResponse(
         verdict="pass",
-        judge_resolved_identity="claude-sonnet-4-6",
+        judge_resolved_identity="anthropic/claude-sonnet-4-6",
         usage=UsageObservation(
-            basis="estimated_from_pricing_snapshot",
-            pricing_snapshot_sha256=PRICING_SHA256,
+            basis="subscription_unallocable",
             input_tokens=10,
             output_tokens=1,
-            reported_cost_usd="0.000001",
+            unknown_reason="flat_subscription_has_no_per_call_allocation",
         ),
         raw_response=f"judge-{call.request.ordinal}".encode(),
     )

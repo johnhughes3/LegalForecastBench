@@ -5563,10 +5563,10 @@
       "group_dest": "lab_command",
       "handler": {
         "module": "legalforecast.multiharness.harvey_lab.core_cli",
-        "name": "_run_clean_native",
-        "qualname": "_run_clean_native"
+        "name": "_run_community_subscription",
+        "qualname": "_run_community_subscription"
       },
-      "logical_handler_id": "harvey-lab.run-clean-native",
+      "logical_handler_id": "harvey-lab.run-community-subscription",
       "options": [
         {
           "action": "help",
@@ -5653,37 +5653,11 @@
           "action": "store",
           "choices": null,
           "default": null,
-          "dest": "paid_config",
+          "dest": "claude_version",
           "metavar": null,
           "nargs": null,
           "option_strings": [
-            "--paid-config"
-          ],
-          "required": true,
-          "type": "pathlib.Path"
-        },
-        {
-          "action": "store",
-          "choices": null,
-          "default": null,
-          "dest": "model_registry",
-          "metavar": null,
-          "nargs": null,
-          "option_strings": [
-            "--model-registry"
-          ],
-          "required": true,
-          "type": "pathlib.Path"
-        },
-        {
-          "action": "store",
-          "choices": null,
-          "default": null,
-          "dest": "solver_image",
-          "metavar": null,
-          "nargs": null,
-          "option_strings": [
-            "--solver-image"
+            "--claude-version"
           ],
           "required": true,
           "type": null
@@ -5692,11 +5666,11 @@
           "action": "store",
           "choices": null,
           "default": null,
-          "dest": "gateway_image",
+          "dest": "claude_sha256",
           "metavar": null,
           "nargs": null,
           "option_strings": [
-            "--gateway-image"
+            "--claude-sha256"
           ],
           "required": true,
           "type": null
@@ -5705,11 +5679,24 @@
           "action": "store",
           "choices": null,
           "default": null,
-          "dest": "model_key",
+          "dest": "solver_model",
           "metavar": null,
           "nargs": null,
           "option_strings": [
-            "--model-key"
+            "--solver-model"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "judge_model",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--judge-model"
           ],
           "required": true,
           "type": null
@@ -5730,7 +5717,7 @@
       ],
       "path": [
         "harvey-lab",
-        "run-clean-native"
+        "run-community-subscription"
       ],
       "registration_index": 51
     },

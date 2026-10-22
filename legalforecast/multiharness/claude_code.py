@@ -559,6 +559,7 @@ def classify_claude_completion_execution(
     receipt: ExecutionReceipt,
     *,
     requested_model: str,
+    allow_model_alias: bool = False,
 ) -> LocalCliFailureClass | None:
     """Classify a non-forecast Claude completion into the shared taxonomy.
 
@@ -597,7 +598,9 @@ def classify_claude_completion_execution(
     )
     if not has_envelope_model and not has_receipt_model:
         return LocalCliFailureClass.IDENTITY_DRIFT
-    if _served_model_drifted(envelope, receipt, requested_model):
+    if not allow_model_alias and _served_model_drifted(
+        envelope, receipt, requested_model
+    ):
         return LocalCliFailureClass.IDENTITY_DRIFT
     return None
 

@@ -25,7 +25,6 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
-    CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
     CODEX_HARNESS_ID,
     PAID_GATEWAY_CONFIG_SCHEMA,
     PAID_GATEWAY_WORKFLOW_MARKER,
@@ -52,7 +51,6 @@ TERMINAL_REPEAT_INDEX: Final[int] = 1
 PAID_GATEWAY_MAX_REQUESTS_PER_CASE: Final[int] = 8
 _HARNESS_PROVIDERS: Final[dict[str, str]] = {
     TERMINAL_HARNESS_ID: "anthropic",
-    CLAUDE_CODE_HARVEY_LAB_HARNESS_ID: "anthropic",
     CODEX_HARNESS_ID: "openai",
     GATEWAY_HARNESS_ID: "anthropic",
     "hermes-agent": "anthropic",
@@ -78,11 +76,6 @@ class ProtectedPaidGatewayDescriptor:
     harness_id: str = TERMINAL_HARNESS_ID
     forecast_release_digest: str | None = None
     pricing_service_tier: str | None = None
-    harvey_lab_projection_manifest_sha256: str | None = None
-    harvey_lab_private_material_sha256: str | None = None
-    harvey_lab_task_id: str | None = None
-    harvey_lab_source_commit: str | None = None
-    harvey_lab_source_tree: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the exact loader-facing descriptor fields."""
@@ -115,23 +108,6 @@ class ProtectedPaidGatewayDescriptor:
             )
         if self.pricing_service_tier is not None:
             record["pricing_service_tier"] = self.pricing_service_tier
-        lab_identity = {
-            "harvey_lab_projection_manifest_sha256": (
-                self.harvey_lab_projection_manifest_sha256
-            ),
-            "harvey_lab_private_material_sha256": (
-                self.harvey_lab_private_material_sha256
-            ),
-            "harvey_lab_task_id": self.harvey_lab_task_id,
-            "harvey_lab_source_commit": self.harvey_lab_source_commit,
-            "harvey_lab_source_tree": self.harvey_lab_source_tree,
-        }
-        if any(value is not None for value in lab_identity.values()):
-            if any(value is None for value in lab_identity.values()):
-                raise ProtectedTerminalPaidError(
-                    "Harvey LAB descriptor identity must be complete"
-                )
-            record.update(lab_identity)
         return record
 
 
@@ -247,11 +223,6 @@ def issue_paid_gateway_descriptor(
     environment check is still required because a descriptor outside the
     official workflow must never become a paid gateway launch input.
     """
-
-    if harness_id == CLAUDE_CODE_HARVEY_LAB_HARNESS_ID:
-        raise ProtectedTerminalPaidError(
-            "Harvey LAB descriptors require the authenticated LAB issuer"
-        )
 
     context = load_paid_gateway_issuance_context(
         model_registry_path=model_registry_path,

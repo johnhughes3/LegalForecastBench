@@ -64,7 +64,6 @@ from legalforecast.multiharness.container_harness.images import (
     resolve_rootless_backend,
 )
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
-    CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
     load_paid_gateway_config,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
@@ -253,7 +252,6 @@ def build_claude_code_container_adapter(
     gateway_image_digest: str | None = None,
     paid_config_path: Path | None = None,
     model_registry_path: Path | None = None,
-    harness_id: str = CLAUDE_CODE_TERMINAL_HARNESS_ID,
 ) -> ClaudeCodeContainerAdapter:
     """Build the ``claude-code-container`` adapter without starting a run.
 
@@ -271,13 +269,6 @@ def build_claude_code_container_adapter(
         )
     if len(image_digest) != len("sha256:") + 64:
         raise ClaudeCodeContainerAdapterError("image_digest must be a full SHA-256")
-    if harness_id not in {
-        CLAUDE_CODE_TERMINAL_HARNESS_ID,
-        CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
-    }:
-        raise ClaudeCodeContainerAdapterError(
-            "unsupported protected Claude Code harness identity"
-        )
     profile = require_auth_profile_id(auth_profile)
     if profile not in {FIXTURE_NONE, PUBLISHED_API_KEY}:
         raise ClaudeCodeContainerAdapterError(
@@ -337,11 +328,7 @@ def build_claude_code_container_adapter(
             ) from exc
         # Schema-v1 descriptors predating harness selection were Claude-only.
         # An explicit identity must never borrow a different runtime's budget.
-        accepted_harness_ids = (
-            {None, CLAUDE_CODE_TERMINAL_HARNESS_ID}
-            if harness_id == CLAUDE_CODE_TERMINAL_HARNESS_ID
-            else {CLAUDE_CODE_HARVEY_LAB_HARNESS_ID}
-        )
+        accepted_harness_ids = {None, CLAUDE_CODE_TERMINAL_HARNESS_ID}
         if paid_config.harness_id not in accepted_harness_ids:
             raise ClaudeCodeContainerAdapterError(
                 "protected paid gateway harness does not match Claude Code"

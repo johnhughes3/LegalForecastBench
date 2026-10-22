@@ -123,10 +123,11 @@ def test_unknown_absent_and_ci_presence_fail_closed_without_fallback() -> None:
         require_local_subscription_presence(parent_env={"GITHUB_ACTIONS": "1"})
     with pytest.raises(AuthProfileError, match="absent; no fallback"):
         require_local_subscription_presence(parent_env={"PATH": "/usr/bin"})
-    require_local_subscription_presence(
-        parent_env={"CI": "true"},
-        presence=FixtureSubscriptionPresence(),
-    )
+    with pytest.raises(AuthProfileError, match="unsupported in CI"):
+        require_local_subscription_presence(
+            parent_env={"CI": "true"},
+            presence=FixtureSubscriptionPresence(),
+        )
 
 
 def test_official_runs_cannot_select_contributor_subscription() -> None:
@@ -235,6 +236,20 @@ def test_execute_refuses_absent_login_and_never_projects_subscription_token(
     assert public["auth_profile"] == CONTRIBUTOR_SUBSCRIPTION
     assert public["auth_category"] == LOCAL_CLI_SUBSCRIPTION_CATEGORY
     assert "ambient-subscription-canary" not in json.dumps(public)
+
+
+def test_subscription_cli_cost_field_is_never_reported_as_zero(
+    tmp_path: Path,
+) -> None:
+    result = execute_local_cli(
+        _subscription_spec("succeed-json"),
+        tmp_path / "subscription-cost",
+        parent_env=_CANARY_ENV,
+        subscription_presence=FixtureSubscriptionPresence(),
+    )
+
+    assert result.cost_usd is None
+    assert result.to_public_record()["cost_usd"] is None
 
 
 def _subscription_spec(mode: str) -> LocalCliRunSpec:

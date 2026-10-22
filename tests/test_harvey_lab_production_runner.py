@@ -97,6 +97,20 @@ def _response(
     )
 
 
+def _subscription_response() -> ProductionJudgeResponse:
+    return ProductionJudgeResponse(
+        verdict="pass",
+        judge_resolved_identity="anthropic/claude-sonnet-4-6",
+        usage=UsageObservation(
+            basis="subscription_unallocable",
+            input_tokens=10,
+            output_tokens=5,
+            unknown_reason="flat_subscription_has_no_per_call_allocation",
+        ),
+        raw_response=b"native-cli-response",
+    )
+
+
 def _run_spec(
     tmp_path: Path,
     *,
@@ -211,6 +225,41 @@ def test_production_runner_calls_provider_per_criterion_and_retains_retries(
     assert scores["n_criteria"] == 23
     assert scores["n_passed"] == 23
     assert receipt.usage == {"input_tokens": 240, "output_tokens": 120}
+
+
+def test_subscription_runner_keeps_cost_null_and_reports_observed_tokens(
+    tmp_path: Path,
+) -> None:
+    spec, _scores_path = _run_spec(tmp_path, criterion_count=2)
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda _call: _subscription_response(),
+        attempt_writer=lambda _call, _response: None,
+        max_attempts=1,
+        allow_subscription_unallocable=True,
+    )
+
+    receipt = runner(LocalCliExecutionService(), spec, _Boundary())
+
+    assert receipt.cost_usd is None
+    assert receipt.usage == {"input_tokens": 20, "output_tokens": 10}
+    assert receipt.served_model == "anthropic/claude-sonnet-4-6"
+
+
+def test_paid_runner_rejects_subscription_accounting_by_default(
+    tmp_path: Path,
+) -> None:
+    spec, _scores_path = _run_spec(tmp_path, criterion_count=1)
+    runner = ProductionHarveyLabEvaluatorRunner(
+        provider_call=lambda _call: _subscription_response(),
+        attempt_writer=lambda _call, _response: None,
+        max_attempts=1,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="subscription-unallocable usage is disabled",
+    ):
+        runner(LocalCliExecutionService(), spec, _Boundary())
 
 
 def test_production_runner_authenticates_multi_output_and_task_cardinality(

@@ -304,6 +304,7 @@ def build_local_cli_environment(
     projected_credentials: Mapping[str, str] | None = None,
     parent_env: Mapping[str, str] | None = None,
     extra_allowlist: Sequence[str] = (),
+    runtime_overrides: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Build a solver environment that does not inherit ambient shell state."""
 
@@ -321,6 +322,20 @@ def build_local_cli_environment(
             "projected credentials must match the declared profile exactly"
         )
     extra = _validated_extra_allowlist(extra_allowlist)
+    overrides = dict(runtime_overrides or {})
+    allowed_overrides: set[str] = (
+        {"CLAUDE_CONFIG_DIR", "CODEX_HOME"}
+        if profile.profile_id == CONTRIBUTOR_SUBSCRIPTION
+        else set()
+    )
+    if set(overrides) - allowed_overrides:
+        raise AuthProfileError("runtime environment overrides are not allowed")
+    for name, value in overrides.items():
+        path = Path(value)
+        if not path.is_absolute() or not path.is_dir():
+            raise AuthProfileError(
+                f"runtime environment override {name} must name an existing directory"
+            )
     overlap = extra.intersection(credentials)
     if overlap:
         raise AuthProfileError(
@@ -354,6 +369,7 @@ def build_local_cli_environment(
         environment[name] = str(
             _ensure_private_subdirectory(scratch_root, relative_path)
         )
+    environment.update(overrides)
     environment.update(credentials)
     _assert_no_undeclared_provider_names(
         environment,

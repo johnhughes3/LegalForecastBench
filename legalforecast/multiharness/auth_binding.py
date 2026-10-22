@@ -272,6 +272,8 @@ def contained_execution_service(
     adapter_version: str = "1.0.0",
     executable_pin: ExecutableIdentityPin | None = None,
     subscription_presence: SubscriptionPresence | None = None,
+    filesystem_read_paths: tuple[Path, ...] = (),
+    filesystem_write_paths: tuple[Path, ...] = (),
 ) -> LocalCliExecutionService:
     """Return a contained service whose auth_profile matches this binding."""
 
@@ -310,4 +312,6 @@ def contained_execution_service(
             else None
         ),
         subscription_presence=subscription_presence,
+        filesystem_read_paths=filesystem_read_paths,
+        filesystem_write_paths=filesystem_write_paths,
     )

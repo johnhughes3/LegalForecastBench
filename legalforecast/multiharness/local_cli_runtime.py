@@ -36,6 +36,7 @@ from legalforecast.multiharness.auth_profiles import (
     AuthProfileError,
     ResolvedAuthProfile,
     SubscriptionPresence,
+    SubscriptionRuntimeAccess,
     require_auth_profile_id,
     require_local_subscription_presence,
     resolve_auth_profile,
@@ -339,6 +340,8 @@ def execute_local_cli(
     termination_grace_seconds: float = _DEFAULT_GRACE_SECONDS,
     max_capture_bytes: int = _MAX_CAPTURE_BYTES,
     subscription_presence: SubscriptionPresence | None = None,
+    filesystem_read_paths: Sequence[Path] = (),
+    filesystem_write_paths: Sequence[Path] = (),
 ) -> LocalCliExecutionResult:
     """Run one CLI under the declared profile's sanitized environment."""
 
@@ -370,6 +373,8 @@ def execute_local_cli(
             termination_grace_seconds=termination_grace_seconds,
             max_capture_bytes=max_capture_bytes,
             subscription_presence=subscription_presence,
+            filesystem_read_paths=filesystem_read_paths,
+            filesystem_write_paths=filesystem_write_paths,
         )
     except LocalCliRuntimeError as exc:
         message = redact_text(str(exc), secret_values)
@@ -405,6 +410,8 @@ def _execute_local_cli_bound(
     termination_grace_seconds: float,
     max_capture_bytes: int,
     subscription_presence: SubscriptionPresence | None,
+    filesystem_read_paths: Sequence[Path],
+    filesystem_write_paths: Sequence[Path],
 ) -> LocalCliExecutionResult:
     try:
         spec_sha256 = spec.spec_sha256()
@@ -416,9 +423,10 @@ def _execute_local_cli_bound(
         profile = spec.resolved_profile()
     except AuthProfileError as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
+    subscription_access = SubscriptionRuntimeAccess()
     if profile.profile_id == CONTRIBUTOR_SUBSCRIPTION:
         try:
-            require_local_subscription_presence(
+            subscription_access = require_local_subscription_presence(
                 parent_env=parent,
                 presence=subscription_presence,
             )
@@ -456,6 +464,7 @@ def _execute_local_cli_bound(
             scratch_root,
             projected_credentials=projected,
             parent_env=parent,
+            runtime_overrides=dict(subscription_access.environment),
         )
     except AuthProfileError as exc:
         raise LocalCliRuntimeError(str(exc)) from exc
@@ -481,7 +490,12 @@ def _execute_local_cli_bound(
             termination_grace_seconds=termination_grace_seconds,
             max_capture_bytes=max_capture_bytes,
             observed=observed,
+            subscription_access=subscription_access,
+            filesystem_read_paths=filesystem_read_paths,
+            filesystem_write_paths=filesystem_write_paths,
         )
+        if profile.profile_id == CONTRIBUTOR_SUBSCRIPTION:
+            result = replace(result, cost_usd=None)
     finally:
         dummy = _scheduler_release_result(
             spec,
@@ -540,6 +554,8 @@ class LocalCliExecutionService:
     max_capture_bytes: int = _MAX_CAPTURE_BYTES
     filesystem_scope: str | None = None
     subscription_presence: SubscriptionPresence | None = None
+    filesystem_read_paths: tuple[Path, ...] = ()
+    filesystem_write_paths: tuple[Path, ...] = ()
 
     def env_vars_for_profile(self, profile_id: str) -> tuple[str, ...]:
         """Return projected names this service will export for one profile."""
@@ -606,6 +622,8 @@ class LocalCliExecutionService:
                 termination_grace_seconds=self.termination_grace_seconds,
                 max_capture_bytes=self.max_capture_bytes,
                 subscription_presence=self.subscription_presence,
+                filesystem_read_paths=self.filesystem_read_paths,
+                filesystem_write_paths=self.filesystem_write_paths,
             )
         except LocalCliRuntimeError as exc:
             return ExecutionReceipt.from_transcript(
@@ -723,7 +741,9 @@ def execution_receipt_from_runtime(
         returncode=returncode,
         status=status,
         duration_ms=result.duration_ms,
-        cost_usd=result.cost_usd,
+        cost_usd=(
+            None if result.auth_profile == CONTRIBUTOR_SUBSCRIPTION else result.cost_usd
+        ),
     )
 
 
@@ -742,6 +762,9 @@ def _run_contained_cli(
     termination_grace_seconds: float,
     max_capture_bytes: int,
     observed: ObservedExecutableIdentity,
+    subscription_access: SubscriptionRuntimeAccess,
+    filesystem_read_paths: Sequence[Path],
+    filesystem_write_paths: Sequence[Path],
 ) -> LocalCliExecutionResult:
     ensure_private_scratch_directory(scratch_root)
     argv = observed.resolved_argv
@@ -759,6 +782,14 @@ def _run_contained_cli(
             argv, boundary_identity = wrap_argv_for_contributor_boundary(
                 argv,
                 scratch_root=scratch_root,
+                extra_read_paths=(
+                    *subscription_access.read_paths,
+                    *filesystem_read_paths,
+                ),
+                extra_write_paths=(
+                    *subscription_access.write_paths,
+                    *filesystem_write_paths,
+                ),
             )
         except ContributorBoundaryError as exc:
             raise LocalCliRuntimeError(str(exc)) from exc
