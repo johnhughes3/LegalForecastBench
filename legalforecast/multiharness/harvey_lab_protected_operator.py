@@ -24,6 +24,7 @@ from legalforecast.multiharness.claude_code_harvey_lab import (
     run_claude_code_clean_native_harvey_lab,
 )
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    ProtectedPaidGatewayConfig,
     load_paid_gateway_config,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
@@ -32,6 +33,9 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
     HarveyLabJudgeRequestBoundary,
+)
+from legalforecast.multiharness.harvey_lab_paid_gateway_descriptor import (
+    authenticate_harvey_lab_paid_inputs,
 )
 from legalforecast.multiharness.harvey_lab_production_runner import (
     ProductionHarveyLabEvaluatorRunner,
@@ -48,6 +52,7 @@ from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionServic
 from legalforecast.multiharness.protected_terminal_paid import (
     UPSTREAM_API_KEY_ENV,
     GitHubEnvironmentGatewayCredentialSource,
+    ProtectedTerminalPaidError,
     build_dynamodb_spend_authority,
 )
 from legalforecast.multiharness.tier0_evaluator_wrapper import wrapper_source_sha256
@@ -126,6 +131,7 @@ def build_protected_harvey_lab_runtime(
         raise ProtectedHarveyLabOperatorError(
             "operator model key does not match the paid descriptor"
         )
+    _require_descriptor_inputs(config, request)
     ceiling_usd = Decimal(config.spend.ceiling_microusd) / Decimal(1_000_000)
     container = build_claude_code_container_adapter(
         image_digest=request.solver_image_digest,
@@ -248,6 +254,43 @@ def run_protected_harvey_lab_operator(
 def _protected_judge_secret(_environment: str, _path: str, _name: str) -> str:
     values = GitHubEnvironmentGatewayCredentialSource().upstream_environment()
     return values[UPSTREAM_API_KEY_ENV]
+
+
+def _require_descriptor_inputs(
+    config: ProtectedPaidGatewayConfig,
+    request: ProtectedHarveyLabOperatorRequest,
+) -> None:
+    """Authenticate the prepared LAB roots before authority or credential use."""
+
+    try:
+        identity = authenticate_harvey_lab_paid_inputs(
+            source_root=request.source_root,
+            projection_root=request.projection_root,
+            evaluator_private_root=request.evaluator_private_root,
+            pin=request.pin,
+        )
+    except (OSError, ProtectedTerminalPaidError, ValueError) as exc:
+        raise ProtectedHarveyLabOperatorError(
+            f"prepared Harvey LAB inputs are invalid: {exc}"
+        ) from exc
+    observed = (
+        identity.projection_manifest_sha256,
+        identity.private_material_sha256,
+        identity.task_id,
+        identity.source_commit,
+        identity.source_tree,
+    )
+    expected = (
+        config.harvey_lab_projection_manifest_sha256,
+        config.harvey_lab_private_material_sha256,
+        config.harvey_lab_task_id,
+        config.harvey_lab_source_commit,
+        config.harvey_lab_source_tree,
+    )
+    if observed != expected:
+        raise ProtectedHarveyLabOperatorError(
+            "prepared Harvey LAB inputs do not match the paid descriptor"
+        )
 
 
 def _evaluator_configuration(

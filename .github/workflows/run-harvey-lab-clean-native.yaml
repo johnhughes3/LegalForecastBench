@@ -1,0 +1,195 @@
+name: Run clean-native Harvey LAB
+run-name: Run clean-native Harvey LAB ${{ inputs.model_key }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact public-repository commit to run; it must be reachable from origin/main.
+        required: true
+        type: string
+      model_registry_path:
+        description: Repo-relative model_registries JSON path at release_sha.
+        required: true
+        type: string
+      model_key:
+        description: Exact anthropic:model_id key from the selected registry.
+        required: true
+        type: string
+      ceiling_microusd:
+        description: Positive shared solver-and-judge ceiling in millionths of one US dollar.
+        required: true
+        type: string
+      account:
+        description: Stable provider-account identity for the shared spend journal.
+        required: false
+        default: default
+        type: string
+      artifact_retention_days:
+        description: Non-rubric run-evidence retention in days.
+        required: false
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harvey-lab-clean-native-${{ inputs.model_key }}-${{ inputs.account }}
+  cancel-in-progress: false
+
+jobs:
+  run-clean-native:
+    name: Protected clean-native solver and judge
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    environment: legalforecastbench-official-eval
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      LFB_AWS_REGION: ${{ vars.LFB_AWS_REGION }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PROVIDER_AUTHORITY_TABLE: ${{ vars.LFB_PROVIDER_AUTHORITY_TABLE }}
+      LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256: ${{ vars.LFB_PROVIDER_AUTHORITY_RESOURCE_IDENTITY_SHA256 }}
+      LFB_PROTECTED_TERMINAL_RELEASE: "1"
+    steps:
+      - name: Checkout and verify trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require exact main-reachable source and bounded inputs
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          MODEL_REGISTRY_PATH: ${{ inputs.model_registry_path }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          ACCOUNT: ${{ inputs.account }}
+          RETENTION_DAYS: ${{ inputs.artifact_retention_days }}
+        run: |
+          set -euo pipefail
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
+          git merge-base --is-ancestor HEAD origin/main
+          [[ "${MODEL_REGISTRY_PATH}" =~ ^model_registries/[A-Za-z0-9._-]+\.json$ ]]
+          test "$(git ls-tree HEAD -- "${MODEL_REGISTRY_PATH}" | cut -d ' ' -f 1)" = 100644
+          test -f "${MODEL_REGISTRY_PATH}"
+          test ! -L "${MODEL_REGISTRY_PATH}"
+          [[ "${MODEL_KEY}" =~ ^anthropic:[^:[:space:]]+$ ]]
+          [[ "${CEILING_MICROUSD}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${ACCOUNT}" =~ ^[A-Za-z0-9._-]+$ ]]
+          [[ "${RETENTION_DAYS}" =~ ^[1-9][0-9]*$ && "${RETENTION_DAYS}" -le 90 ]]
+          echo "LFB_HARVEY_LAB_MODEL_REGISTRY=${GITHUB_WORKSPACE}/${MODEL_REGISTRY_PATH}" >> "${GITHUB_ENV}"
+      - name: Checkout pinned Harvey LAB v1.1.0 source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: harveyai/harvey-labs
+          ref: 1dd81403b2fbb60596f7aea3fcecafad7bf73143
+          path: harvey-labs
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify pinned Harvey LAB commit and tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C harvey-labs rev-parse HEAD)" = 1dd81403b2fbb60596f7aea3fcecafad7bf73143
+          test "$(git -C harvey-labs rev-parse 'HEAD^{tree}')" = bc7e16d2b5b794b86624288506a5d0be17c1052b
+          test -z "$(git -C harvey-labs status --porcelain=v1 --untracked-files=all)"
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+      - name: Install locked project environment
+        run: uv sync --locked
+      - name: Configure shared provider spend authority access
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ env.LFB_AWS_REGION }}
+          role-session-name: lfb-harvey-lab-${{ github.run_id }}-${{ github.run_attempt }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      - name: Configure rootless Docker for clean-native runtime and gateway
+        shell: bash
+        run: .github/scripts/setup-rootless-docker.sh
+      - name: Build pinned solver and gateway images
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull=false -f infra/claude-code-runtime/Containerfile -t lfb-claude-code:harvey-lab .
+          docker build --pull=false -f infra/model-gateway-runtime/Containerfile -t lfb-model-gateway:harvey-lab .
+          solver_image_id="$(docker image inspect --format '{{.Id}}' lfb-claude-code:harvey-lab)"
+          gateway_image_id="$(docker image inspect --format '{{.Id}}' lfb-model-gateway:harvey-lab)"
+          [[ "${solver_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${gateway_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          {
+            echo "LFB_HARVEY_LAB_SOLVER_IMAGE=${solver_image_id}"
+            echo "LFB_HARVEY_LAB_GATEWAY_IMAGE=${gateway_image_id}"
+          } >> "${GITHUB_ENV}"
+      - name: Produce authenticated solver and evaluator inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/lfb-harvey-lab
+          mkdir -p "${root}/input/bin"
+          uv run legalforecast harvey-lab prepare-clean-native \
+            --source-root "${GITHUB_WORKSPACE}/harvey-labs" \
+            --output-dir "${root}/input/projected" \
+            --evaluator-private-dir "${root}/input/evaluator-private"
+          uv run legalforecast multiharness tier0 install-evaluator-wrapper \
+            --bin-dir "${root}/input/bin" \
+            --scratch-root "${root}/input/wrapper-scratch" \
+            --output "${root}/input/wrapper-install.json"
+      - name: Issue native Harvey LAB paid descriptor
+        shell: bash
+        env:
+          MODEL_KEY: ${{ inputs.model_key }}
+          CEILING_MICROUSD: ${{ inputs.ceiling_microusd }}
+          ACCOUNT: ${{ inputs.account }}
+        run: |
+          set -euo pipefail
+          root=/tmp/lfb-harvey-lab
+          uv run python -m legalforecast.multiharness.harvey_lab_paid_gateway_descriptor \
+            --source-root "${GITHUB_WORKSPACE}/harvey-labs" \
+            --projection-dir "${root}/input/projected" \
+            --evaluator-private-dir "${root}/input/evaluator-private" \
+            --model-registry "${LFB_HARVEY_LAB_MODEL_REGISTRY}" \
+            --model-key "${MODEL_KEY}" \
+            --ceiling-microusd "${CEILING_MICROUSD}" \
+            --account "${ACCOUNT}" \
+            --output "${root}/input/paid-gateway.json"
+      - name: Execute protected clean-native Harvey LAB solver and judge
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL_KEY: ${{ inputs.model_key }}
+        run: |
+          set -euo pipefail
+          root=/tmp/lfb-harvey-lab
+          uv run legalforecast harvey-lab run-clean-native \
+            --source-root "${GITHUB_WORKSPACE}/harvey-labs" \
+            --projection-dir "${root}/input/projected" \
+            --evaluator-private-dir "${root}/input/evaluator-private" \
+            --run-dir "${root}/run" \
+            --evaluator-bin-dir "${root}/input/bin" \
+            --paid-config "${root}/input/paid-gateway.json" \
+            --model-registry "${LFB_HARVEY_LAB_MODEL_REGISTRY}" \
+            --solver-image "${LFB_HARVEY_LAB_SOLVER_IMAGE}" \
+            --gateway-image "${LFB_HARVEY_LAB_GATEWAY_IMAGE}" \
+            --model-key "${MODEL_KEY}" \
+            --timeout-seconds 900 \
+            | tee "${root}/run-summary.json"
+      - name: Upload non-rubric run evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
+        with:
+          name: harvey-lab-clean-native-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/lfb-harvey-lab/run-summary.json
+            /tmp/lfb-harvey-lab/input/wrapper-install.json
+            /tmp/lfb-harvey-lab/run/container-results/*/package
+            /tmp/lfb-harvey-lab/run/sealed
+          if-no-files-found: ignore
+          retention-days: ${{ inputs.artifact_retention_days }}

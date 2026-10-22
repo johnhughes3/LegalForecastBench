@@ -17,6 +17,7 @@ from typing import Final
 
 from legalforecast.contracts import ARTIFACT_RAW_SHA256_V1, PUBLIC_RUN_IDENTITY_V1
 from legalforecast.evals.model_registry import (
+    ModelRegistryEntry,
     load_model_registry_bytes,
     model_registry_entry_sha256,
     model_registry_sha256,
@@ -24,6 +25,7 @@ from legalforecast.evals.model_registry import (
 )
 from legalforecast.immutable_io import read_single_link_file, write_file_create_only
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
     CODEX_HARNESS_ID,
     PAID_GATEWAY_CONFIG_SCHEMA,
     PAID_GATEWAY_WORKFLOW_MARKER,
@@ -50,6 +52,7 @@ TERMINAL_REPEAT_INDEX: Final[int] = 1
 PAID_GATEWAY_MAX_REQUESTS_PER_CASE: Final[int] = 8
 _HARNESS_PROVIDERS: Final[dict[str, str]] = {
     TERMINAL_HARNESS_ID: "anthropic",
+    CLAUDE_CODE_HARVEY_LAB_HARNESS_ID: "anthropic",
     CODEX_HARNESS_ID: "openai",
     GATEWAY_HARNESS_ID: "anthropic",
     "hermes-agent": "anthropic",
@@ -75,6 +78,11 @@ class ProtectedPaidGatewayDescriptor:
     harness_id: str = TERMINAL_HARNESS_ID
     forecast_release_digest: str | None = None
     pricing_service_tier: str | None = None
+    harvey_lab_projection_manifest_sha256: str | None = None
+    harvey_lab_private_material_sha256: str | None = None
+    harvey_lab_task_id: str | None = None
+    harvey_lab_source_commit: str | None = None
+    harvey_lab_source_tree: str | None = None
 
     def to_record(self) -> dict[str, object]:
         """Return the exact loader-facing descriptor fields."""
@@ -107,27 +115,51 @@ class ProtectedPaidGatewayDescriptor:
             )
         if self.pricing_service_tier is not None:
             record["pricing_service_tier"] = self.pricing_service_tier
+        lab_identity = {
+            "harvey_lab_projection_manifest_sha256": (
+                self.harvey_lab_projection_manifest_sha256
+            ),
+            "harvey_lab_private_material_sha256": (
+                self.harvey_lab_private_material_sha256
+            ),
+            "harvey_lab_task_id": self.harvey_lab_task_id,
+            "harvey_lab_source_commit": self.harvey_lab_source_commit,
+            "harvey_lab_source_tree": self.harvey_lab_source_tree,
+        }
+        if any(value is not None for value in lab_identity.values()):
+            if any(value is None for value in lab_identity.values()):
+                raise ProtectedTerminalPaidError(
+                    "Harvey LAB descriptor identity must be complete"
+                )
+            record.update(lab_identity)
         return record
 
 
-def issue_paid_gateway_descriptor(
+@dataclass(frozen=True, slots=True)
+class ProtectedPaidGatewayIssuanceContext:
+    """Protected authority and frozen pricing inputs shared by issuers."""
+
+    account: str
+    model_key: str
+    ceiling_microusd: int
+    authority_table: str
+    authority_region: str
+    authority_resource_identity_sha256: str
+    registry_entry: ModelRegistryEntry
+    model_registry_sha256: str
+    model_registry_entry_sha256: str
+
+
+def load_paid_gateway_issuance_context(
     *,
-    manifest_path: Path,
-    forecast_path: Path,
-    artifact_root: Path,
     model_registry_path: Path,
     model_key: str,
     ceiling_microusd: int,
     account: str,
+    harness_id: str,
     environment: Mapping[str, str] | None = None,
-    harness_id: str = TERMINAL_HARNESS_ID,
-) -> ProtectedPaidGatewayDescriptor:
-    """Derive one descriptor from locked inputs and protected workflow state.
-
-    This function performs no AWS or provider operation.  The protected
-    environment check is still required because a descriptor outside the
-    official workflow must never become a paid gateway launch input.
-    """
+) -> ProtectedPaidGatewayIssuanceContext:
+    """Validate shared protected authority, model, pricing, and ceiling inputs."""
 
     expected_provider = _HARNESS_PROVIDERS.get(harness_id)
     if expected_provider is None:
@@ -148,11 +180,6 @@ def issue_paid_gateway_descriptor(
         protected_authority_environment(environment)
     )
     try:
-        run_inputs = load_forecast_run_inputs(
-            manifest_path,
-            forecast_path,
-            artifact_root=artifact_root,
-        )
         registry_bytes = read_single_link_file(
             model_registry_path,
             label="model registry",
@@ -179,6 +206,67 @@ def issue_paid_gateway_descriptor(
             raise ProtectedTerminalPaidError(
                 "locked registry entry must disable network and search"
             )
+    except ProtectedTerminalPaidError:
+        raise
+    except (OSError, ValueError) as exc:
+        raise ProtectedTerminalPaidError(
+            f"locked paid gateway inputs are invalid: {exc}"
+        ) from exc
+    if worst_case_request_microusd(entry) > ceiling_microusd:
+        raise ProtectedTerminalPaidError(
+            "paid gateway worst-case request cost exceeds the approved ceiling"
+        )
+    return ProtectedPaidGatewayIssuanceContext(
+        account=account,
+        model_key=entry.registry_key,
+        ceiling_microusd=ceiling_microusd,
+        authority_table=authority_table,
+        authority_region=authority_region,
+        authority_resource_identity_sha256=authority_resource,
+        registry_entry=entry,
+        model_registry_sha256=registry_sha256,
+        model_registry_entry_sha256=model_registry_entry_sha256(entry),
+    )
+
+
+def issue_paid_gateway_descriptor(
+    *,
+    manifest_path: Path,
+    forecast_path: Path,
+    artifact_root: Path,
+    model_registry_path: Path,
+    model_key: str,
+    ceiling_microusd: int,
+    account: str,
+    environment: Mapping[str, str] | None = None,
+    harness_id: str = TERMINAL_HARNESS_ID,
+) -> ProtectedPaidGatewayDescriptor:
+    """Derive one descriptor from locked inputs and protected workflow state.
+
+    This function performs no AWS or provider operation.  The protected
+    environment check is still required because a descriptor outside the
+    official workflow must never become a paid gateway launch input.
+    """
+
+    if harness_id == CLAUDE_CODE_HARVEY_LAB_HARNESS_ID:
+        raise ProtectedTerminalPaidError(
+            "Harvey LAB descriptors require the authenticated LAB issuer"
+        )
+
+    context = load_paid_gateway_issuance_context(
+        model_registry_path=model_registry_path,
+        model_key=model_key,
+        ceiling_microusd=ceiling_microusd,
+        account=account,
+        harness_id=harness_id,
+        environment=environment,
+    )
+    try:
+        run_inputs = load_forecast_run_inputs(
+            manifest_path,
+            forecast_path,
+            artifact_root=artifact_root,
+        )
         try:
             validate_executable_packets(run_inputs.execution)
         except (RunValidationError, ValueError) as exc:
@@ -198,15 +286,11 @@ def issue_paid_gateway_descriptor(
         raise ProtectedTerminalPaidError(
             "locked manifest and forecast release must contain the same cases"
         )
-    worst_case_microusd = worst_case_request_microusd(entry)
-    if worst_case_microusd > ceiling_microusd:
-        raise ProtectedTerminalPaidError(
-            "paid gateway worst-case request cost exceeds the approved ceiling"
-        )
+    entry = context.registry_entry
     run_identity_sha256 = derive_run_identity_sha256(
         execution=run_inputs.execution,
         entry=entry,
-        registry_sha256=registry_sha256,
+        registry_sha256=context.model_registry_sha256,
         ceiling_microusd=ceiling_microusd,
         harness=harness_id,
         ablation=TERMINAL_ABLATION,
@@ -218,7 +302,7 @@ def issue_paid_gateway_descriptor(
     authority_identity_sha256 = str(
         ARTIFACT_RAW_SHA256_V1.commit(
             {
-                "account": account,
+                "account": context.account,
                 "provider": entry.provider,
                 "run_identity_sha256": run_identity_sha256,
             },
@@ -239,19 +323,21 @@ def issue_paid_gateway_descriptor(
         )
     return ProtectedPaidGatewayDescriptor(
         cycle_id=release.release_id,
-        account=account,
-        model_key=entry.registry_key,
-        ceiling_microusd=ceiling_microusd,
+        account=context.account,
+        model_key=context.model_key,
+        ceiling_microusd=context.ceiling_microusd,
         max_requests=64
         if harness_id == GATEWAY_HARNESS_ID
         else PAID_GATEWAY_MAX_REQUESTS_PER_CASE,
         authority_identity_sha256=authority_identity_sha256,
         reservation_ledger_sha256=run_identity_sha256,
-        provider_authority_table=authority_table,
-        provider_authority_region=authority_region,
-        provider_authority_resource_identity_sha256=authority_resource,
-        model_registry_sha256=registry_sha256,
-        model_registry_entry_sha256=model_registry_entry_sha256(entry),
+        provider_authority_table=context.authority_table,
+        provider_authority_region=context.authority_region,
+        provider_authority_resource_identity_sha256=(
+            context.authority_resource_identity_sha256
+        ),
+        model_registry_sha256=context.model_registry_sha256,
+        model_registry_entry_sha256=context.model_registry_entry_sha256,
         harness_id=harness_id,
         forecast_release_digest=release.release_digest,
         pricing_service_tier=pricing_service_tier,
@@ -325,6 +411,8 @@ __all__ = [
     "CODEX_HARNESS_ID",
     "PAID_GATEWAY_MAX_REQUESTS_PER_CASE",
     "ProtectedPaidGatewayDescriptor",
+    "ProtectedPaidGatewayIssuanceContext",
     "issue_paid_gateway_descriptor",
+    "load_paid_gateway_issuance_context",
     "write_paid_gateway_descriptor",
 ]
