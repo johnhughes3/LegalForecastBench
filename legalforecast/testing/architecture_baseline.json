@@ -673,8 +673,8 @@
         "largest_symbol": "ClaudeCodeCliAdapter",
         "largest_symbol_lines": 163,
         "layer": "application",
-        "line_count": 1523,
-        "nonblank_line_count": 1389,
+        "line_count": 1534,
+        "nonblank_line_count": 1400,
         "top_level_definition_count": 46
       },
       "legalforecast/multiharness/claude_code_container.py": {
@@ -2257,6 +2257,23 @@
         "line_count": 800,
         "nonblank_line_count": 729,
         "top_level_definition_count": 30
+      },
+      "tests/test_harvey_lab_subscription_operator.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_missing_native_suppression_capability_fails_before_model_execution",
+        "largest_symbol_lines": 57,
+        "layer": "test",
+        "line_count": 515,
+        "nonblank_line_count": 469,
+        "top_level_definition_count": 13
       },
       "tests/test_hermes_paid.py": {
         "cycle_id": "",

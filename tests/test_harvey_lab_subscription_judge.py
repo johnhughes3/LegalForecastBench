@@ -35,12 +35,14 @@ class _JudgeServiceDouble:
     def __init__(self, envelope: object) -> None:
         self.envelope = envelope
         self.scopes: list[Path] = []
+        self.specs: list[RunSpec] = []
 
     def scoped_to_working_directory(self, path: Path) -> _JudgeServiceDouble:
         self.scopes.append(path)
         return self
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
+        self.specs.append(spec)
         return ExecutionReceipt.from_transcript(
             spec,
             stdout=json.dumps(self.envelope),
@@ -115,6 +117,7 @@ def test_real_subscription_judge_accepts_only_terminal_success(tmp_path: Path) -
 
     assert response.verdict == "pass"
     assert response.judge_resolved_identity == "anthropic/claude-sonnet-4-6"
+    assert "--safe-mode" in service.specs[0].argv
 
 
 def _production_judge_call(tmp_path: Path) -> ProductionJudgeCall:

@@ -195,6 +195,16 @@ def test_community_plans_accept_contributor_subscription() -> None:
         auth_profile=CONTRIBUTOR_SUBSCRIPTION,
     )
     assert claude.auth_profile == CONTRIBUTOR_SUBSCRIPTION
+    assert "--safe-mode" in claude.argv
+    official_api = build_claude_invocation_plan(
+        prompt="prompt",
+        model="claude-sonnet-4-6",
+        required_unit_ids=("count_i",),
+        workspace=Path("workspace"),
+        output_schema_path=Path("workspace") / "output-schema.json",
+        auth_profile=PUBLISHED_API_KEY,
+    )
+    assert "--safe-mode" not in official_api.argv
     codex = build_codex_invocation_plan(
         _codex_request(),
         Path("workspace"),

@@ -11,7 +11,10 @@ import pytest
 from legalforecast.multiharness import (
     harvey_lab_subscription_operator as subscription_operator,
 )
-from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
+from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
+    FIXTURE_NONE,
+)
 from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
@@ -43,7 +46,7 @@ from legalforecast.multiharness.harvey_lab_subscription_operator import (
     run_community_subscription_harvey_lab,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
-from legalforecast.multiharness.local_cli_probe import LocalCliProbeError
+from legalforecast.multiharness.local_cli_identity import sha256_file
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.spend import UsageObservation
 from tests.test_tier0_operator_half import _docx_bytes
@@ -92,32 +95,49 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
         runtime.judge_service.subscription_presence
     )
     assert solver_service.run_in_working_directory is True
+    assert solver_service.executable_pin is not None
+    assert "--safe-mode" in solver_service.executable_pin.required_flags
 
 
 def test_missing_native_suppression_capability_fails_before_model_execution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    evaluator_bin = tmp_path / "bin"
+    evaluator_bin.mkdir()
+    claude = evaluator_bin / "claude"
+    calls = tmp_path / "claude-calls.jsonl"
+    version = "2.1.233 (Claude Code)"
+    claude.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, pathlib, sys\n"
+        f"calls = pathlib.Path({str(calls)!r})\n"
+        "with calls.open('a', encoding='utf-8') as stream:\n"
+        "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        "if sys.argv[1:] == ['--version']:\n"
+        f"    print({version!r})\n"
+        "elif sys.argv[1:] == ['--help']:\n"
+        "    print('--print --output-format --json-schema --tools "
+        "--strict-mcp-config --no-session-persistence --setting-sources "
+        "--model --add-dir')\n"
+        "else:\n"
+        "    raise SystemExit('AUTH OR MODEL COMMAND MUST NEVER RUN')\n",
+        encoding="utf-8",
+    )
+    claude.chmod(0o700)
     solver_config, judge_config = _role_configs(tmp_path)
     request = CommunitySubscriptionOperatorRequest(
         source_root=tmp_path / "source",
         projection_root=tmp_path / "projection",
         evaluator_private_root=tmp_path / "private",
         run_root=tmp_path / "run",
-        evaluator_bin_dir=tmp_path / "bin",
+        evaluator_bin_dir=evaluator_bin,
         solver_config_dir=solver_config,
         judge_config_dir=judge_config,
-        claude_version="fixture-version",
-        claude_sha256="a" * 64,
+        claude_version=version,
+        claude_sha256=sha256_file(claude),
         solver_model="sonnet",
         judge_model="sonnet",
         pin=FIXTURE_PIN,
-    )
-    monkeypatch.setattr(
-        subscription_operator,
-        "preflight_native_cli",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            LocalCliProbeError("missing --setting-sources")
-        ),
     )
     monkeypatch.setattr(
         subscription_operator,
@@ -131,6 +151,10 @@ def test_missing_native_suppression_capability_fails_before_model_execution(
     ):
         run_community_subscription_harvey_lab(request)
 
+    assert [json.loads(line) for line in calls.read_text().splitlines()] == [
+        ["--version"],
+        ["--help"],
+    ]
     assert not request.run_root.exists()
 
 
@@ -161,11 +185,14 @@ def test_subscription_solver_allows_truthfully_unreported_alias_identity(
 
 class _SolverDouble:
     def __init__(self) -> None:
+        self.auth_profile = CONTRIBUTOR_SUBSCRIPTION
         self.parent_env: dict[str, str] = {}
         self.calls = 0
+        self.specs: list[RunSpec] = []
 
     def execute(self, spec: RunSpec) -> ExecutionReceipt:
         self.calls += 1
+        self.specs.append(spec)
         output = spec.working_directory / "output"
         output.mkdir(exist_ok=True)
         (output / "issue-identification-memo.docx").write_bytes(
@@ -258,6 +285,7 @@ def test_run_community_subscription_cli_seals_then_judges_with_null_cost(
     assert report["judge_model_observed"] == "anthropic/claude-sonnet-4-6"
     assert len(boundary.before) == len(boundary.after) == 23
     assert solver.calls == 1
+    assert "--safe-mode" in solver.specs[0].argv
     assert (run_root / "sealed" / "issue-identification-memo.docx").is_file()
 
 
@@ -385,6 +413,7 @@ def _subscription_runtime(
     return CommunitySubscriptionRuntime(
         adapter=ClaudeCodeCliAdapter(
             execution_service=solver,  # type: ignore[arg-type]
+            auth_profile=CONTRIBUTOR_SUBSCRIPTION,
             output_format="stream-json",
             verbose=True,
         ),

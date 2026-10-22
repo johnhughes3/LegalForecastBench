@@ -96,6 +96,7 @@ def build_community_subscription_runtime(
             "--add-dir",
             "--json-schema",
             "--no-session-persistence",
+            "--safe-mode",
             "--setting-sources",
             "--strict-mcp-config",
             "--tools",
