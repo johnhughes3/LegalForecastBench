@@ -1,6 +1,6 @@
-# Recovered Harvey Opus audit prompts
+# Harvey Opus audit prompts
 
-Recovered on October 19, 2026 from the saved Claude Opus 5.5 workflow source and its coordinator's workflow dispatches. The same prompt functions were used for the initial two tasks and the remaining 50 tasks. This preserves the reviewer task instructions and structured-output schemas, not the provider's system instructions, complete conversation, tool results, task inputs, or later messages. It is an archival transcription, not a new recommended prompt.
+The reviewer instructions and structured-output schemas below are transcribed from the saved Claude Opus 5.5 workflow source and its coordinator's workflow dispatches so readers can review the audit instructions. The same prompt functions were used for the initial two tasks and the remaining 50 tasks. This preserves the reviewer task instructions and structured-output schemas, not the provider's system instructions, complete conversation, tool results, task inputs, or later messages.
 
 The original JavaScript interpolations are replaced with named `{{PLACEHOLDERS}}`; machine-specific input and output roots are omitted. These substitutions change source locations and template notation, not the substantive audit instructions. Insert the common context and defect guide into each pass at their marked positions. The task input directory held `task.json` and extracted documents; the upstream checkout supplied the solver and judge prompts. Those benchmark prompts are distinct from the auditor instructions below.
 

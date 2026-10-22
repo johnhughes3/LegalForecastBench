@@ -1,6 +1,6 @@
-# Recovered LegalReasonBench audit prompts
+# LegalReasonBench audit prompts
 
-Recovered on October 19, 2026 from the four blind workers' saved initial messages and the coordinator's recorded reconciliation dispatch. These are the task instructions, not a complete transcript or the provider's system instructions. Wording, compact spacing, schema notation, and historical coverage warnings are retained. Subsequent tool results, follow-up messages, source packets, visual transcriptions, and citation-check worker prompts are outside this archive. Source packets and later coverage limits remain documented in the task reports and main method.
+The task instructions below are transcribed from the four blind workers' saved initial messages and the coordinator's recorded reconciliation dispatch so readers can review the audit instructions. These are the task instructions, not a complete transcript or the provider's system instructions. Wording, compact spacing, schema notation, and historical coverage warnings are retained. Subsequent tool results, follow-up messages, source packets, visual transcriptions, and citation-check worker prompts are outside this archive. Source packets and later coverage limits remain documented in the task reports and main method.
 
 Two machine-specific paths in the blind prompt have been replaced consistently: `{{CHECKOUT_ROOT}}` is the checkout root and `{{SOURCE_ROWS_JSON}}` is the staged 15-row source JSON. All four workers received exactly the same common block before these substitutions. Append the corresponding scope suffix below to that block to obtain each worker's initial task instruction.
 
