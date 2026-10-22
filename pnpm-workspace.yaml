@@ -7,5 +7,7 @@ minimumReleaseAgeExclude:
   - satori@0.52.0
 overrides:
   'fflate@<0.7.5': 0.7.5
+  # Vite 8.3.1 has multiple dev-server and launch-editor advisories.
+  'vite@<8.3.3': 8.3.3
   # @tailwindcss/typography pins a vulnerable 6.x; 7.1.6 builds identical CSS.
   'postcss-selector-parser@<7.1.6': ^7.1.6
