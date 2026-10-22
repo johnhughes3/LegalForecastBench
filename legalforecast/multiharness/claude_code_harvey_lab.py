@@ -33,6 +33,7 @@ from legalforecast.multiharness.claude_code_harvey_lab_guards import (
 from legalforecast.multiharness.claude_code_harvey_lab_guards import (
     require_solver_success as _require_solver_success,
 )
+from legalforecast.multiharness.claude_code_stream import normalize_served_model_receipt
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
     harvey_lab_issuer_policy_sha256,
@@ -81,10 +82,7 @@ from legalforecast.multiharness.scoring import (
 
 HARVEY_LAB_COMPLETION_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
-    "properties": {
-        "deliverable": {"type": "string"},
-        "status": {"type": "string"},
-    },
+    "properties": {"deliverable": {"type": "string"}, "status": {"type": "string"}},
     "required": ["deliverable", "status"],
     "type": "object",
 }
@@ -300,6 +298,7 @@ def run_claude_code_clean_native_harvey_lab(
     execution = service.execute(spec)
     if after_solver is not None:
         execution = after_solver(spec, execution)
+    execution = normalize_served_model_receipt(execution)
     _require_solver_success(
         spec,
         execution,

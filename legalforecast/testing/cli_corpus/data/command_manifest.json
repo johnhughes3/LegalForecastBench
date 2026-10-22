@@ -5653,6 +5653,32 @@
           "action": "store",
           "choices": null,
           "default": null,
+          "dest": "solver_config_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--solver-config-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "judge_config_dir",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--judge-config-dir"
+          ],
+          "required": true,
+          "type": "pathlib.Path"
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
           "dest": "claude_version",
           "metavar": null,
           "nargs": null,

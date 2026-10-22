@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
-import zipfile
 from functools import partial
 from pathlib import Path
 
@@ -17,6 +15,9 @@ from legalforecast.multiharness.auth_profiles import FIXTURE_NONE
 from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapter,
     ClaudeCodeCliAdapterError,
+)
+from legalforecast.multiharness.claude_code_harvey_lab_guards import (
+    require_solver_success,
 )
 from legalforecast.multiharness.harvey_lab.core_cli import register
 from legalforecast.multiharness.harvey_lab_evaluator import (
@@ -33,7 +34,6 @@ from legalforecast.multiharness.harvey_lab_projection import (
     project_harvey_lab_suite,
 )
 from legalforecast.multiharness.harvey_lab_subscription_judge import (
-    SubscriptionJudgeBoundary,
     SubscriptionProvenanceProvider,
 )
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
@@ -43,8 +43,10 @@ from legalforecast.multiharness.harvey_lab_subscription_operator import (
     run_community_subscription_harvey_lab,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
+from legalforecast.multiharness.local_cli_probe import LocalCliProbeError
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.spend import UsageObservation
+from tests.test_tier0_operator_half import _docx_bytes
 
 from test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
 from test_multiharness_claude_clean_native_lab_e2e import (
@@ -53,28 +55,18 @@ from test_multiharness_claude_clean_native_lab_e2e import (
 )
 
 
-def test_subscription_judge_boundary_accepts_only_unallocable_usage() -> None:
-    boundary = SubscriptionJudgeBoundary()
-    request = HarveyLabJudgeRequest(ordinal=1, criterion_id="c01")
-    reservation = boundary.before_judge_call(request)
-    observation = UsageObservation(
-        basis="subscription_unallocable",
-        input_tokens=10,
-        output_tokens=1,
-        unknown_reason="flat_subscription_has_no_per_call_allocation",
-    )
-    boundary.after_judge_call(request, reservation, observation)
-
-
 def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
     tmp_path: Path,
 ) -> None:
+    solver_config, judge_config = _role_configs(tmp_path)
     request = CommunitySubscriptionOperatorRequest(
         source_root=tmp_path / "source",
         projection_root=tmp_path / "projection",
         evaluator_private_root=tmp_path / "private",
         run_root=tmp_path / "run",
         evaluator_bin_dir=tmp_path / "bin",
+        solver_config_dir=solver_config,
+        judge_config_dir=judge_config,
         claude_version="fixture-version",
         claude_sha256="a" * 64,
         solver_model="sonnet",
@@ -96,6 +88,75 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
         request.run_root / "solver-workspace",
     )
     assert runtime.judge_service.filesystem_read_paths == ()
+    assert solver_service.subscription_presence is not (
+        runtime.judge_service.subscription_presence
+    )
+    assert solver_service.run_in_working_directory is True
+
+
+def test_missing_native_suppression_capability_fails_before_model_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    solver_config, judge_config = _role_configs(tmp_path)
+    request = CommunitySubscriptionOperatorRequest(
+        source_root=tmp_path / "source",
+        projection_root=tmp_path / "projection",
+        evaluator_private_root=tmp_path / "private",
+        run_root=tmp_path / "run",
+        evaluator_bin_dir=tmp_path / "bin",
+        solver_config_dir=solver_config,
+        judge_config_dir=judge_config,
+        claude_version="fixture-version",
+        claude_sha256="a" * 64,
+        solver_model="sonnet",
+        judge_model="sonnet",
+        pin=FIXTURE_PIN,
+    )
+    monkeypatch.setattr(
+        subscription_operator,
+        "preflight_native_cli",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            LocalCliProbeError("missing --setting-sources")
+        ),
+    )
+    monkeypatch.setattr(
+        subscription_operator,
+        "run_claude_code_clean_native_harvey_lab",
+        lambda **_kwargs: pytest.fail("model execution must not start"),
+    )
+
+    with pytest.raises(
+        subscription_operator.CommunitySubscriptionOperatorError,
+        match="capability preflight failed",
+    ):
+        run_community_subscription_harvey_lab(request)
+
+    assert not request.run_root.exists()
+
+
+def test_subscription_solver_allows_truthfully_unreported_alias_identity(
+    tmp_path: Path,
+) -> None:
+    spec = RunSpec(
+        spec_id="unreported-model",
+        argv=("claude",),
+        working_directory=tmp_path,
+        environment={},
+        timeout_seconds=30,
+    )
+    receipt = ExecutionReceipt.from_transcript(
+        spec,
+        stdout=json.dumps({"type": "result", "subtype": "success", "is_error": False}),
+    )
+
+    require_solver_success(
+        spec,
+        receipt,
+        requested_model="sonnet",
+        allow_model_alias=True,
+    )
+    with pytest.raises(ClaudeCodeCliAdapterError, match="different model"):
+        require_solver_success(spec, receipt, requested_model="sonnet")
 
 
 class _SolverDouble:
@@ -107,13 +168,15 @@ class _SolverDouble:
         self.calls += 1
         output = spec.working_directory / "output"
         output.mkdir(exist_ok=True)
-        (output / "issue-identification-memo.docx").write_bytes(_docx_bytes())
+        (output / "issue-identification-memo.docx").write_bytes(
+            _docx_bytes("Fixture legal memorandum")
+        )
         stdout = json.dumps(
             {
                 "type": "result",
                 "subtype": "success",
                 "is_error": False,
-                "model": "claude-sonnet-4-6",
+                "modelUsage": {"claude-sonnet-4-6": {"inputTokens": 1}},
                 "result": {"deliverable": "memo", "status": "complete"},
             },
             sort_keys=True,
@@ -122,7 +185,6 @@ class _SolverDouble:
         return ExecutionReceipt.from_transcript(
             spec,
             stdout=stdout,
-            served_model="claude-sonnet-4-6",
         )
 
 
@@ -344,6 +406,7 @@ def _run_subscription_args(
     private: Path,
     run_root: Path,
 ) -> argparse.Namespace:
+    solver_config, judge_config = _role_configs(tmp_path)
     parser = argparse.ArgumentParser()
     register(parser.add_subparsers())
     return parser.parse_args(
@@ -360,6 +423,10 @@ def _run_subscription_args(
             str(run_root),
             "--evaluator-bin-dir",
             str(tmp_path / "bin"),
+            "--solver-config-dir",
+            str(solver_config),
+            "--judge-config-dir",
+            str(judge_config),
             "--claude-version",
             "fixture-version",
             "--claude-sha256",
@@ -406,17 +473,14 @@ def _judge_call(call: ProductionJudgeCall) -> ProductionJudgeResponse:
     )
 
 
-def _docx_bytes() -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("[Content_Types].xml", "<Types></Types>")
-        archive.writestr(
-            "word/document.xml",
-            (
-                '<w:document xmlns:w="http://schemas.openxmlformats.org/'
-                'wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>'
-                "Fixture legal memorandum"
-                "</w:t></w:r></w:p></w:body></w:document>"
-            ),
-        )
-    return buffer.getvalue()
+def _role_configs(tmp_path: Path) -> tuple[Path, Path]:
+    roots: list[Path] = []
+    for name in ("solver-auth", "judge-auth"):
+        root = tmp_path / name
+        root.mkdir(mode=0o700, exist_ok=True)
+        auth = root / ".credentials.json"
+        if not auth.exists():
+            auth.write_text("synthetic", encoding="utf-8")
+            auth.chmod(0o600)
+        roots.append(root)
+    return roots[0], roots[1]

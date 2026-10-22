@@ -274,6 +274,7 @@ def contained_execution_service(
     subscription_presence: SubscriptionPresence | None = None,
     filesystem_read_paths: tuple[Path, ...] = (),
     filesystem_write_paths: tuple[Path, ...] = (),
+    run_in_working_directory: bool = False,
 ) -> LocalCliExecutionService:
     """Return a contained service whose auth_profile matches this binding."""
 
@@ -314,4 +315,5 @@ def contained_execution_service(
         subscription_presence=subscription_presence,
         filesystem_read_paths=filesystem_read_paths,
         filesystem_write_paths=filesystem_write_paths,
+        run_in_working_directory=run_in_working_directory,
     )

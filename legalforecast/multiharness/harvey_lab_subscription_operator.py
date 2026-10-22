@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -34,10 +35,16 @@ from legalforecast.multiharness.harvey_lab_subscription_judge import (
     build_subscription_judge,
     observed_model_from_receipt,
 )
-from legalforecast.multiharness.local_cli_identity import ExecutableIdentityPin
+from legalforecast.multiharness.local_cli_identity import (
+    ExecutableIdentityPin,
+    LocalCliIdentityError,
+)
+from legalforecast.multiharness.local_cli_probe import LocalCliProbeError
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.native_cli_preflight import preflight_native_cli
 from legalforecast.multiharness.native_cli_subscription import (
     NativeCliSubscriptionPresence,
+    validate_role_config_separation,
 )
 
 
@@ -54,6 +61,8 @@ class CommunitySubscriptionOperatorRequest:
     evaluator_private_root: Path
     run_root: Path
     evaluator_bin_dir: Path
+    solver_config_dir: Path
+    judge_config_dir: Path
     claude_version: str
     claude_sha256: str
     solver_model: str
@@ -64,7 +73,7 @@ class CommunitySubscriptionOperatorRequest:
 
 @dataclass(frozen=True, slots=True)
 class CommunitySubscriptionRuntime:
-    """Distinct solver and judge services using one verified local login."""
+    """Distinct solver and judge services using separate local logins."""
 
     adapter: ClaudeCodeCliAdapter
     judge_service: LocalCliExecutionService
@@ -83,12 +92,33 @@ def build_community_subscription_runtime(
         version=request.claude_version,
         sha256=request.claude_sha256,
         distribution_kind="standalone-cli",
+        required_flags=(
+            "--add-dir",
+            "--json-schema",
+            "--no-session-persistence",
+            "--setting-sources",
+            "--strict-mcp-config",
+            "--tools",
+        ),
     )
     manifest = claude_code_local_manifest()
     bound = bind_adapter_auth_profile(manifest, CONTRIBUTOR_SUBSCRIPTION)
-    presence = NativeCliSubscriptionPresence(
-        "claude",
-        expected_version=request.claude_version,
+    solver_config, judge_config = validate_role_config_separation(
+        request.solver_config_dir,
+        request.judge_config_dir,
+        forbidden_paths=(
+            request.source_root,
+            request.projection_root,
+            request.evaluator_private_root,
+            request.run_root,
+            request.evaluator_bin_dir,
+        ),
+    )
+    solver_presence = NativeCliSubscriptionPresence(
+        "claude", config_root=solver_config, role="solver"
+    )
+    judge_presence = NativeCliSubscriptionPresence(
+        "claude", config_root=judge_config, role="judge"
     )
     parent_env = dict(os.environ)
     parent_env["PATH"] = (
@@ -100,9 +130,10 @@ def build_community_subscription_runtime(
         adapter_id="claude-code-community-subscription-solver",
         display_name="Claude Code community subscription solver",
         executable_pin=executable_pin,
-        subscription_presence=presence,
+        subscription_presence=solver_presence,
         filesystem_read_paths=(request.projection_root,),
         filesystem_write_paths=(request.run_root / "solver-workspace",),
+        run_in_working_directory=True,
     )
     judge_service = contained_execution_service(
         bound,
@@ -110,7 +141,7 @@ def build_community_subscription_runtime(
         adapter_id="claude-code-community-subscription-judge",
         display_name="Claude Code community subscription judge",
         executable_pin=executable_pin,
-        subscription_presence=presence,
+        subscription_presence=judge_presence,
     )
     runner, boundary, provenance = build_subscription_judge(
         service=judge_service,
@@ -144,6 +175,25 @@ def run_community_subscription_harvey_lab(
             "--run-dir must be a fresh, absent path"
         )
     selected = runtime or build_community_subscription_runtime(request)
+    if runtime is None:
+        pin = selected.adapter.execution_service.executable_pin
+        if pin is None:
+            raise CommunitySubscriptionOperatorError(
+                "community subscription runtime has no executable pin"
+            )
+        try:
+            with tempfile.TemporaryDirectory(
+                prefix="lfb-community-claude-preflight-"
+            ) as scratch:
+                preflight_native_cli(
+                    pin,
+                    scratch_root=Path(scratch),
+                    parent_env=selected.adapter.execution_service.parent_env,
+                )
+        except (LocalCliIdentityError, LocalCliProbeError) as exc:
+            raise CommunitySubscriptionOperatorError(
+                "native Claude capability preflight failed before execution"
+            ) from exc
     request.run_root.mkdir(parents=True)
     result = run_claude_code_clean_native_harvey_lab(
         adapter=selected.adapter,

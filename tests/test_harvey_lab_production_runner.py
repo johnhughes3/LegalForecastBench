@@ -19,6 +19,7 @@ from legalforecast.multiharness.harvey_lab_production_runner import (
     ProductionHarveyLabEvaluatorRunner,
     ProductionJudgeCall,
     ProductionJudgeResponse,
+    _aggregate_usage,  # pyright: ignore[reportPrivateUsage]
 )
 from legalforecast.multiharness.local_cli_contracts import RunSpec
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
@@ -260,6 +261,29 @@ def test_paid_runner_rejects_subscription_accounting_by_default(
         match="subscription-unallocable usage is disabled",
     ):
         runner(LocalCliExecutionService(), spec, _Boundary())
+
+
+def test_non_subscription_runner_rejects_missing_token_usage(tmp_path: Path) -> None:
+    del tmp_path
+    response = _response(_pricing())
+    object.__setattr__(response.usage, "input_tokens", None)
+    object.__setattr__(response.usage, "output_tokens", None)
+
+    with pytest.raises(ValueError, match="did not report input_tokens"):
+        _aggregate_usage((response,))
+
+
+def test_subscription_aggregate_allows_truthfully_missing_token_usage() -> None:
+    response = ProductionJudgeResponse(
+        verdict="pass",
+        judge_resolved_identity="claude-cli/unreported@requested-sonnet",
+        usage=UsageObservation.unknown(
+            "flat_subscription_has_no_per_call_allocation", subscription=True
+        ),
+        raw_response=b"native-subscription-response",
+    )
+
+    assert _aggregate_usage((response,)) == {}
 
 
 def test_production_runner_authenticates_multi_output_and_task_cardinality(

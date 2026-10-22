@@ -618,6 +618,8 @@ def _write_new_json(path: Path, record: Mapping[str, object]) -> None:
 def _aggregate_usage(
     responses: Sequence[ProductionJudgeResponse],
 ) -> dict[str, int]:
+    bases = {response.usage.basis for response in responses}
+    allow_missing = bases == {"subscription_unallocable"}
     input_tokens = [response.usage.input_tokens for response in responses]
     output_tokens = [response.usage.output_tokens for response in responses]
     result: dict[str, int] = {}
@@ -626,7 +628,11 @@ def _aggregate_usage(
         ("output_tokens", output_tokens),
     ):
         if all(value is None for value in values):
-            continue
+            if allow_missing:
+                continue
+            raise ProductionEvaluatorRunnerError(
+                f"paid production judge responses did not report {name}"
+            )
         if any(value is None for value in values):
             raise ProductionEvaluatorRunnerError(
                 f"production judge responses inconsistently report {name}"

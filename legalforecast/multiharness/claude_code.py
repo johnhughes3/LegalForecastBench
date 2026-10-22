@@ -596,7 +596,7 @@ def classify_claude_completion_execution(
     has_receipt_model = isinstance(receipt.served_model, str) and bool(
         receipt.served_model.strip()
     )
-    if not has_envelope_model and not has_receipt_model:
+    if not has_envelope_model and not has_receipt_model and not allow_model_alias:
         return LocalCliFailureClass.IDENTITY_DRIFT
     if not allow_model_alias and _served_model_drifted(
         envelope, receipt, requested_model

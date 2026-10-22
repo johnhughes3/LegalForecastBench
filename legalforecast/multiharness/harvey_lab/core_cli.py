@@ -54,6 +54,18 @@ def register(
     community.add_argument("--run-dir", type=Path, required=True)
     community.add_argument("--evaluator-bin-dir", type=Path, required=True)
     community.add_argument(
+        "--solver-config-dir",
+        type=Path,
+        required=True,
+        help="Owner-only Claude config prepared solely for the solver login.",
+    )
+    community.add_argument(
+        "--judge-config-dir",
+        type=Path,
+        required=True,
+        help="Distinct owner-only Claude config prepared solely for the judge login.",
+    )
+    community.add_argument(
         "--claude-version",
         required=True,
         help="Exact output of the installed `claude --version` command.",
@@ -221,6 +233,8 @@ def _run_community_subscription(args: argparse.Namespace) -> int:
             evaluator_private_root=args.evaluator_private_dir,
             run_root=args.run_dir,
             evaluator_bin_dir=args.evaluator_bin_dir,
+            solver_config_dir=args.solver_config_dir,
+            judge_config_dir=args.judge_config_dir,
             claude_version=args.claude_version,
             claude_sha256=args.claude_sha256,
             solver_model=args.solver_model,

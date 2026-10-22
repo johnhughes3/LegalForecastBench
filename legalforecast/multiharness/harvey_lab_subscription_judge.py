@@ -14,7 +14,11 @@ from legalforecast.multiharness.claude_code import (
     build_claude_invocation_plan,
     claude_code_local_manifest,
 )
-from legalforecast.multiharness.claude_code_stream import served_model, usage
+from legalforecast.multiharness.claude_code_stream import (
+    served_model,
+    terminal_success,
+    usage,
+)
 from legalforecast.multiharness.evaluation import (
     CostMeasurement,
     EvaluationTokenUsage,
@@ -173,7 +177,7 @@ def build_subscription_judge(
 ]:
     """Return the one-shot native judge, boundary, and provenance provider."""
 
-    judge = _ClaudeSubscriptionJudge(
+    judge = ClaudeSubscriptionJudge(
         service=service,
         model=model,
         run_root=run_root,
@@ -200,7 +204,9 @@ def observed_model_from_receipt(receipt: ExecutionReceipt) -> str | None:
     return served_model(_json_object(receipt.stdout))
 
 
-class _ClaudeSubscriptionJudge:
+class ClaudeSubscriptionJudge:
+    """One-shot native subscription judge with per-call filesystem scope."""
+
     def __init__(
         self,
         *,
@@ -248,12 +254,17 @@ class _ClaudeSubscriptionJudge:
             json_schema=plan.json_schema,
             output_format=plan.output_format,
         )
-        receipt = self._service.execute(spec)
+        service = self._service.scoped_to_working_directory(working)
+        receipt = service.execute(spec)
         if receipt.status != "succeeded" or receipt.returncode not in {0, None}:
             raise SubscriptionJudgeError(
                 "native Claude subscription judge invocation failed"
             )
         envelope = _json_object(receipt.stdout)
+        if not terminal_success(envelope):
+            raise SubscriptionJudgeError(
+                "native Claude subscription judge did not return terminal success"
+            )
         verdict = _judge_verdict(envelope)
         if verdict is None:
             raise SubscriptionJudgeError(
@@ -386,6 +397,7 @@ def _canonical(record: Mapping[str, object]) -> bytes:
 
 
 __all__ = [
+    "ClaudeSubscriptionJudge",
     "SubscriptionJudgeBoundary",
     "SubscriptionJudgeError",
     "SubscriptionProvenanceProvider",
