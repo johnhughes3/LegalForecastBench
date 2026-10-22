@@ -35,6 +35,9 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from legalforecast.multiharness.auth_profiles import AuthProfileError
+from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    HARVEY_LAB_MAX_BILLABLE_ATTEMPTS,
+)
 from legalforecast.multiharness.harvey_lab_production_runner import (
     JudgeDeliverable,
     ProductionEvaluatorRunnerError,
@@ -127,7 +130,7 @@ EGRESS_POLICY: Mapping[str, object] = {
 }
 RESOURCE_POLICY: Mapping[str, object] = {
     "judge_calls_per_arm": 23,
-    "max_attempts_per_criterion": 3,
+    "max_attempts_per_criterion": HARVEY_LAB_MAX_BILLABLE_ATTEMPTS,
     "parallelism": 1,
 }
 TOKEN_ACCOUNTING_POLICY: Mapping[str, object] = {

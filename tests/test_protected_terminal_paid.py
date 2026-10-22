@@ -261,11 +261,15 @@ def test_protected_gateway_factory_uses_workflow_authority(
     authority = _FakeAuthority()
     config = _config()
     captured: list[ProtectedTerminalSpendConfig] = []
+    captured_attempts: list[int] = []
 
     def fake_builder(
         received: ProtectedTerminalSpendConfig,
+        *,
+        max_billable_attempts: int,
     ) -> _FakeAuthority:
         captured.append(received)
+        captured_attempts.append(max_billable_attempts)
         return authority
 
     monkeypatch.setattr(
@@ -282,6 +286,7 @@ def test_protected_gateway_factory_uses_workflow_authority(
 
     assert controller.authority is authority
     assert captured == [config]
+    assert captured_attempts == [1]
 
 
 def test_anthropic_registry_charge_extractor_prices_cache_buckets() -> None:

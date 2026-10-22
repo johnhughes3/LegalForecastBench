@@ -23,7 +23,23 @@ The prepare command verifies the clean commit and tree, selects only `employment
 
 ## Protected operator command
 
-The standalone caller consumes those prepared directories rather than projecting the upstream checkout again:
+The dedicated issuer authenticates the upstream pin, solver projection, and a freshly reproduced copy of the evaluator-private bytes before it emits the existing paid-gateway descriptor shape:
+
+```bash
+uv run python -m legalforecast.multiharness.harvey_lab_paid_gateway_descriptor \
+  --source-root harvey-labs \
+  --projection-dir run-input/projected \
+  --evaluator-private-dir run-input/evaluator-private \
+  --model-registry path/to/locked-model-registry.json \
+  --model-key 'anthropic:<model-id>' \
+  --ceiling-microusd '<approved-ceiling>' \
+  --account '<account>' \
+  --output run-input/harvey-lab-paid-gateway.json
+```
+
+The command is valid only inside the configured protected environment. It performs no AWS or provider call, and it does not accept a forecast-release descriptor, approval reference, signing key, or synthetic production identity.
+
+The standalone caller then consumes those prepared directories rather than projecting the upstream checkout again:
 
 ```bash
 uv run legalforecast harvey-lab run-clean-native \
@@ -39,18 +55,14 @@ uv run legalforecast harvey-lab run-clean-native \
   --model-key 'anthropic:<model-id>'
 ```
 
-The command requires the production configuration before it resolves credentials or launches the solver. It uses the descriptor's single approved ceiling and DynamoDB journal for both the solver gateway and every criterion-level judge request, requires pinned solver and gateway images, uses a distinct evaluator execution service, and refuses fixture provenance as a reportable baseline. A fixture run can still return a diagnostic score through the source join, but its result is explicitly `execution_mode=fixture` and has no `baseline_score_value`.
+The command re-authenticates all descriptor-bound LAB inputs before it constructs the DynamoDB authority or resolves credentials. It uses the descriptor's single approved ceiling and DynamoDB journal for both the solver gateway and every criterion-level judge request, requires pinned solver and gateway images, uses a distinct evaluator execution service, and refuses fixture provenance as a reportable baseline. A fixture run can still return a diagnostic score through the source join, but its result is explicitly `execution_mode=fixture` and has no `baseline_score_value`.
+
+The protected producer/consumer is [`.github/workflows/run-harvey-lab-clean-native.yaml`](../../.github/workflows/run-harvey-lab-clean-native.yaml). It checks out an exact main-reachable LegalForecastBench commit and Harvey LAB v1.1.0 commit/tree, builds the repository-pinned solver and gateway images, prepares the projection and evaluator wrapper, issues the native LAB descriptor, and calls the real `run-clean-native` operator. Its uploaded artifact deliberately excludes the authority-bearing descriptor, evaluator-private bytes, evaluator overlays, raw judge attempts, evaluator work directories, and raw solver logs; it retains only the aggregate score summary, public-safe wrapper record, sanitized container package (including cache-usage counts), and sealed solver deliverables.
 
 ## Execution status
 
-The callable source join is `run_claude_code_clean_native_harvey_lab`; the installed operator entry point above calls it directly. The operator-run result retains the projection, sealed output, evaluator spec, canonical raw verdicts, usage, and cost evidence without fabricating the unprovisioned historical receipt key.
+The callable source join is `run_claude_code_clean_native_harvey_lab`; the installed operator entry point above calls it directly. The source path and protected producer are complete, but no paid workflow has been dispatched from this implementation change. A real baseline therefore still requires an owner-approved ceiling, a compatible locked Anthropic registry entry, configured protected-environment variables and secret, an exact main release SHA, and inspection of the first run's solver transcript cache usage plus shared spend-journal settlement. Do not claim a live baseline from configuration or fixture tests.
 
-The command is source-complete, but a paid run remains blocked on the protected descriptor/workflow integration. After the provider-preserving genericization in PR #1384 lands, the minimal follow-up is:
-
-1. Admit the existing `claude-code-harvey-lab` harness identity in the protected descriptor CLI.
-2. Derive the descriptor's existing run/authority identity fields from the authenticated Harvey LAB projection and v1.1.0 source pin, instead of calling the forecast-release input loader or populating `forecast_release_digest`.
-3. Have the protected workflow create that descriptor from the prepared LAB inputs and invoke `harvey-lab run-clean-native` with the already pinned solver image, gateway image, locked model registry, approved ceiling, and existing authority environment.
-
-This needs no new authority schema or approval format. Until that adapter exists, `prepare-clean-native` and evaluator-wrapper installation above are the exact credential-free commands runnable today; there is no legitimate paid descriptor to pass to `run-clean-native`. Do not reuse a forecast descriptor, an old dollar approval, the native-thin sandbox, or a host container socket, and do not dispatch a model merely to test this source path.
+This integration adds no new authority schema or approval format. It does not implement the separate Codex clean-native producer requested in #204, and it does not change the native-thin nested-Podman path whose rootless `unshare` failure remains a separate blocker. Do not reuse a forecast descriptor, an old dollar approval, the native-thin sandbox, or a host container socket for either gap.
 
 Any eventual one-task result must remain labeled `Preliminary — one task pair, operator-run, not independently reproducible.` until a real protected solver and separate evaluator execution has completed and its artifacts have been inspected.

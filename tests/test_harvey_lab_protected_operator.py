@@ -35,6 +35,7 @@ from legalforecast.multiharness.harvey_lab_protected_operator import (
     ProtectedHarveyLabOperatorRequest,
     ProtectedHarveyLabRuntime,
     _evaluator_configuration,
+    _protected_evaluator_policy_inputs,
     run_protected_harvey_lab_operator,
 )
 from legalforecast.multiharness.harvey_lab_protected_spend import (
@@ -43,6 +44,11 @@ from legalforecast.multiharness.harvey_lab_protected_spend import (
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.spend import UsageObservation
+from legalforecast.multiharness.tier0_production_factory import (
+    JUDGE_SETTINGS,
+    RUNTIME_POLICY,
+    policy_digest,
+)
 
 from test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
 from test_model_gateway_paid import _ENVIRONMENT, _files
@@ -52,6 +58,31 @@ from test_multiharness_claude_clean_native_lab_e2e import (
 )
 
 PRICING_SHA256 = "sha256:" + "9" * 64
+
+
+def test_protected_evaluator_policy_inputs_follow_selected_runtime() -> None:
+    judge_settings, runtime_policy = _protected_evaluator_policy_inputs(
+        "claude-sonnet-4-5"
+    )
+
+    assert judge_settings == {
+        **JUDGE_SETTINGS,
+        "model": "claude-sonnet-4-5",
+    }
+    assert runtime_policy == {
+        **RUNTIME_POLICY,
+        "credential_backend": "github-environment",
+        "credential_environment": "legalforecastbench-official-eval",
+        "credential_path": "secrets",
+        "credential_name": "ANTHROPIC_API_KEY",
+    }
+    configuration = _evaluator_configuration(
+        FIXTURE_PIN,
+        model_id="claude-sonnet-4-5",
+        pricing_sha256=PRICING_SHA256,
+    )
+    assert configuration.judge_settings_sha256 == policy_digest(judge_settings)
+    assert configuration.runtime_policy_sha256 == policy_digest(runtime_policy)
 
 
 class _AuthorityDouble:

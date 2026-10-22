@@ -6,7 +6,6 @@ import os
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
 
 from legalforecast.multiharness.auth_profiles import FIXTURE_NONE, PUBLISHED_API_KEY
 from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapter
@@ -24,6 +23,8 @@ from legalforecast.multiharness.claude_code_harvey_lab import (
     run_claude_code_clean_native_harvey_lab,
 )
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    HARVEY_LAB_MAX_BILLABLE_ATTEMPTS,
+    ProtectedPaidGatewayConfig,
     load_paid_gateway_config,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
@@ -32,6 +33,9 @@ from legalforecast.multiharness.container_harness.model_gateway_plan import (
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
     HarveyLabJudgeRequestBoundary,
+)
+from legalforecast.multiharness.harvey_lab_paid_gateway_descriptor import (
+    authenticate_harvey_lab_paid_inputs,
 )
 from legalforecast.multiharness.harvey_lab_production_runner import (
     ProductionHarveyLabEvaluatorRunner,
@@ -46,8 +50,10 @@ from legalforecast.multiharness.harvey_lab_protected_spend import (
 )
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.protected_terminal_paid import (
+    PROTECTED_ANTHROPIC_ENV,
     UPSTREAM_API_KEY_ENV,
     GitHubEnvironmentGatewayCredentialSource,
+    ProtectedTerminalPaidError,
     build_dynamodb_spend_authority,
 )
 from legalforecast.multiharness.tier0_evaluator_wrapper import wrapper_source_sha256
@@ -126,6 +132,7 @@ def build_protected_harvey_lab_runtime(
         raise ProtectedHarveyLabOperatorError(
             "operator model key does not match the paid descriptor"
         )
+    _require_descriptor_inputs(config, request)
     ceiling_usd = Decimal(config.spend.ceiling_microusd) / Decimal(1_000_000)
     container = build_claude_code_container_adapter(
         image_digest=request.solver_image_digest,
@@ -146,7 +153,7 @@ def build_protected_harvey_lab_runtime(
     )
     authority = build_dynamodb_spend_authority(
         config.spend,
-        max_billable_attempts=cast(int, RESOURCE_POLICY["max_attempts_per_criterion"]),
+        max_billable_attempts=HARVEY_LAB_MAX_BILLABLE_ATTEMPTS,
     )
     boundary = ProtectedHarveyLabJudgeBoundary(authority=authority, config=config)
     pricing_sha256 = "sha256:" + config.model_registry_sha256
@@ -170,7 +177,7 @@ def build_protected_harvey_lab_runtime(
     runner = ProductionHarveyLabEvaluatorRunner(
         provider_call=judge_adapter,
         attempt_writer=JudgeAttemptWriter(request.run_root / "judge-attempts"),
-        max_attempts=cast(int, RESOURCE_POLICY["max_attempts_per_criterion"]),
+        max_attempts=HARVEY_LAB_MAX_BILLABLE_ATTEMPTS,
         expected_judge_identity=config.registry_entry.model_id,
         evaluator_executable_version="harvey-lab-eval@" + wrapper_source_sha256(),
     )
@@ -250,6 +257,43 @@ def _protected_judge_secret(_environment: str, _path: str, _name: str) -> str:
     return values[UPSTREAM_API_KEY_ENV]
 
 
+def _require_descriptor_inputs(
+    config: ProtectedPaidGatewayConfig,
+    request: ProtectedHarveyLabOperatorRequest,
+) -> None:
+    """Authenticate the prepared LAB roots before authority or credential use."""
+
+    try:
+        identity = authenticate_harvey_lab_paid_inputs(
+            source_root=request.source_root,
+            projection_root=request.projection_root,
+            evaluator_private_root=request.evaluator_private_root,
+            pin=request.pin,
+        )
+    except (OSError, ProtectedTerminalPaidError, ValueError) as exc:
+        raise ProtectedHarveyLabOperatorError(
+            f"prepared Harvey LAB inputs are invalid: {exc}"
+        ) from exc
+    observed = (
+        identity.projection_manifest_sha256,
+        identity.private_material_sha256,
+        identity.task_id,
+        identity.source_commit,
+        identity.source_tree,
+    )
+    expected = (
+        config.harvey_lab_projection_manifest_sha256,
+        config.harvey_lab_private_material_sha256,
+        config.harvey_lab_task_id,
+        config.harvey_lab_source_commit,
+        config.harvey_lab_source_tree,
+    )
+    if observed != expected:
+        raise ProtectedHarveyLabOperatorError(
+            "prepared Harvey LAB inputs do not match the paid descriptor"
+        )
+
+
 def _evaluator_configuration(
     pin: HarveyLabPin,
     *,
@@ -257,6 +301,7 @@ def _evaluator_configuration(
     pricing_sha256: str,
 ) -> Tier0EvaluatorConfiguration:
     wrapper_sha256 = wrapper_source_sha256()
+    judge_settings, runtime_policy = _protected_evaluator_policy_inputs(model_id)
     return Tier0EvaluatorConfiguration(
         evaluator_repository=pin.repository,
         evaluator_commit=pin.commit,
@@ -264,10 +309,10 @@ def _evaluator_configuration(
         evaluator_file_manifest_sha256=wrapper_sha256,
         evaluator_image_digest=wrapper_sha256,
         judge_requested_identity=f"anthropic/{model_id}",
-        judge_settings_sha256=policy_digest(JUDGE_SETTINGS),
+        judge_settings_sha256=policy_digest(judge_settings),
         judge_prompt_sha256=text_digest(JUDGE_SYSTEM_PROMPT),
         judge_output_schema_sha256=policy_digest(JUDGE_OUTPUT_SCHEMA),
-        runtime_policy_sha256=policy_digest(RUNTIME_POLICY),
+        runtime_policy_sha256=policy_digest(runtime_policy),
         egress_policy_sha256=policy_digest(EGRESS_POLICY),
         resource_policy_sha256=policy_digest(RESOURCE_POLICY),
         token_accounting_policy_sha256=policy_digest(TOKEN_ACCOUNTING_POLICY),
@@ -275,6 +320,22 @@ def _evaluator_configuration(
         pricing_snapshot_sha256=pricing_sha256,
         is_fixture=False,
     )
+
+
+def _protected_evaluator_policy_inputs(
+    model_id: str,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Return the actual protected judge request and credential policies."""
+
+    judge_settings = {**JUDGE_SETTINGS, "model": model_id}
+    runtime_policy = {
+        **RUNTIME_POLICY,
+        "credential_backend": "github-environment",
+        "credential_environment": "legalforecastbench-official-eval",
+        "credential_path": "secrets",
+        "credential_name": PROTECTED_ANTHROPIC_ENV,
+    }
+    return judge_settings, runtime_policy
 
 
 __all__ = [

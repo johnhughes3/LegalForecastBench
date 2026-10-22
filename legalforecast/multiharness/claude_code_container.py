@@ -64,6 +64,7 @@ from legalforecast.multiharness.container_harness.images import (
     resolve_rootless_backend,
 )
 from legalforecast.multiharness.container_harness.model_gateway_paid import (
+    CLAUDE_CODE_HARVEY_LAB_HARNESS_ID,
     load_paid_gateway_config,
 )
 from legalforecast.multiharness.container_harness.model_gateway_plan import (
@@ -104,7 +105,6 @@ CLAUDE_CODE_CONTAINER_DISPLAY_NAME: Final[str] = "Claude Code container"
 CLAUDE_CODE_CONTAINER_ADAPTER_VERSION: Final[str] = CLAUDE_CODE_ADAPTER_VERSION
 CLAUDE_CODE_IMAGE_VERSION: Final[str] = "2.1.282 (Claude Code)"
 CLAUDE_CODE_TERMINAL_HARNESS_ID: Final[str] = "claude-code-terminal"
-CLAUDE_CODE_HARVEY_LAB_HARNESS_ID: Final[str] = "claude-code-harvey-lab"
 _STAGED_PROMPT_INSTRUCTION: Final[str] = CLAUDE_CODE_STAGED_PROMPT_INSTRUCTION
 
 

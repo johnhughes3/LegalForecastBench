@@ -190,10 +190,12 @@ def test_build_paid_gateway_controller_uses_cache_aware_registry_pricing(
         *,
         reservation_microusd: int,
         charge_extractor: GatewayChargeExtractor,
+        max_billable_attempts: int,
     ) -> ProviderGatewaySpendController:
         captured["spend"] = spend
         captured["reservation"] = reservation_microusd
         captured["extractor"] = charge_extractor
+        captured["max_billable_attempts"] = max_billable_attempts
         return cast(ProviderGatewaySpendController, sentinel)
 
     monkeypatch.setattr(paid, "build_protected_gateway_spend_controller", fake_builder)
@@ -203,6 +205,7 @@ def test_build_paid_gateway_controller_uses_cache_aware_registry_pricing(
     assert controller is sentinel
     assert captured["spend"] is config.spend
     assert captured["reservation"] == 9_450_000
+    assert captured["max_billable_attempts"] == 1
     extractor = cast(
         Callable[[bytes, int, str | None], int | None], captured["extractor"]
     )
