@@ -2,8 +2,7 @@
 
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW_PATH = ROOT / ".github/workflows/run-harvey-lab-clean-native.yaml"
+WORKFLOW_PATH = Path(".github/workflows/run-harvey-lab-clean-native.yaml").resolve()
 WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 
 

@@ -125,7 +125,10 @@ def test_protected_runtime_consumes_descriptor_issued_from_authentic_lab_inputs(
         monkeypatch.setenv(name, value)
 
     adapter = ClaudeCodeCliAdapter(
-        execution_service=SimpleNamespace(parent_env={}),  # type: ignore[arg-type]
+        execution_service=protected_operator.LocalCliExecutionService(
+            auth_profile=protected_operator.FIXTURE_NONE,
+            parent_env={},
+        ),
         output_format="stream-json",
         verbose=True,
     )
