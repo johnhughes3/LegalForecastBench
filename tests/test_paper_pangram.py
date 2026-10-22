@@ -316,3 +316,39 @@ def test_saved_response_is_reported_and_gated_without_a_key(
     response.write_text(json.dumps(assisted), encoding="utf-8")
     assert pangram_check.main([*arguments, "--fail-above", "0.03"]) == 1
     assert "FAIL: Pangram classifies 0.04" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [
+        (["Human Written", "Human Written"], 0),
+        (["Human Written", "AI-Generated"], 1),
+        (["Human Written", "AI-Assisted"], 1),
+        (["Human Written", ""], 1),
+        ([], 1),
+    ],
+)
+def test_zero_gate_uses_segment_verdicts(
+    tmp_path: Path, labels: list[str], expected: int
+) -> None:
+    response = tmp_path / "response.json"
+    response.write_text(
+        json.dumps(
+            {
+                "fraction_ai": 1.9617878014351747e-13,
+                "fraction_ai_assisted": 4.8758807863653886e-15,
+                "windows": [{"text": "Prose.", "label": label} for label in labels],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        pangram_check.score(
+            [pangram_check.Unit("1", "Introduction", "Prose.")],
+            out=tmp_path / "out",
+            client=None,
+            response=response,
+            fail_above=0,
+        )
+        == expected
+    )
