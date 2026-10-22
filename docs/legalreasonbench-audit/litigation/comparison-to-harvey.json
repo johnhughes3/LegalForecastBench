@@ -1,0 +1,716 @@
+{
+  "comparability_limit": "LegalReasonBench agreement uses two blind reports. Harvey agreement uses Sol's original report and Opus's final reconciled report, which saw Sol. These agreement counts are not directly comparable. Category comparisons below use Harvey's final Opus findings versus LegalReasonBench's separate final reconciliation. Neither is human verification; the corpora and denominators also differ. Harvey Sol reports lack the common category taxonomy and are not assigned invented categories.",
+  "legalreasonbench": {
+    "criteria_total": 179,
+    "sample_criteria_total": 221,
+    "citations": {
+      "dataset_revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+      "counting_unit": "citation in a unique matter document",
+      "matters_expected": 4,
+      "matters_available": 4,
+      "complete": true,
+      "citation_instances": 2382,
+      "fictional_by_design": 70,
+      "checked": 2312,
+      "first_check_problems": 83,
+      "pending_checks": 0,
+      "by_final_status": {
+        "VERIFIED": 1957,
+        "VERIFIED_MINOR_DEFECT": 118,
+        "NOT_FOUND_LIKELY_FABRICATED": 0,
+        "CITATION_POINTS_TO_DIFFERENT_CASE": 0,
+        "MISCHARACTERIZED": 47,
+        "MISQUOTED": 5,
+        "WRONG_CITATION_REAL_CASE": 21,
+        "UNABLE_TO_VERIFY": 164
+      },
+      "observed_final_problems": 73,
+      "problems": 73,
+      "problem_rate": 0.03157439446366782,
+      "checks_complete": true,
+      "observed_problem_rate": 0.03157439446366782,
+      "per_matter": [
+        {
+          "matter": "lrb-certiorari-quasi-judicial-land-use",
+          "available": true,
+          "model": "Claude Opus 5.5",
+          "reasoning_effort": "high",
+          "coverage": {
+            "files_read": [
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-orderpdf.docx",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-petition.docx",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-resolution.docx",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/workdir/attachments/1774361815-lcu-project.pdf"
+            ],
+            "limits": [
+              "Both assignments carry the same four attachments (byte-identical conversions), so each attachment is counted once. Assignment 2's input repeats the assignment-1 prompt; only each assignment's own current prompt is counted.",
+              "The Order (orderpdf.docx) is six scanned page images with no text layer; the packet conversion contains only image tags. All six pages were read visually from the images embedded in the pinned original DOCX (no OCR). The service list on page 6 (email addresses) is not reproduced.",
+              "The LCU Project PDF has no text layer beyond browser headers; its five pages were rendered and read visually. It contains no legal citations.",
+              "The Resolution is OCR-derived text with garbles (e.g., '34-41 1' for 34-411, '10-41 8' for 10-418, '50-17.05' for 5J-17.05); several pin cites sit in inline images, which were read (image 7 '(h).', image 9 '34-377('). Recorded-instrument references (ORB/ORI numbers) in the legal description and plan are not treated as legal authority.",
+              "Record citations to non-law sources (Petition.docx pages, LCU Project.pdf pages, the Lee County DCD application web page, the Florida courts jurisdiction map, transcripts, staff reports, the 2017 Biological Opinion, the SFWMD water supply plan, the Kingston settlement instrument) are not counted. Rubric citations to the Order ('Order.docx at N') are counted as citations to the circuit court's order and checked against its page images.",
+              "Generic references with no identifiable provision (e.g., 'Florida's Sunshine Law', 'the Land Development Code', 'Federal regulations') are not counted separately; authorities embedded in quoted text (LDC s. 34-1102's list, s. 333.02's cross-reference, the Biological Opinion's 50 CFR 402.16 and CWA s. 404, the AC's ESA s. 7) are counted once per quoted block.",
+              "The supplemental source pass attempted all 32 assigned occurrences. Nine FAA circular references now have substantive source reads, rather than index-only identification. For AC 150/5300-13A the accessible text is the 2014 Change 1 consolidation, not the unamended 2012 issue.",
+              "Historical Lee County code requirements were checked where dated ordinance redlines or compilations supplied the relevant language. A complete January 2024 code/Lee Plan compilation was not recovered. Two historical code subsections and seven compound Lee Plan references remain unverified, along with the Babcock book and Mandelker/Tarlock article. Each row retains the retrieval attempts and any current-text comparison without calling that historical verification.",
+              "All original 27 problem claims and five later claims received independent second review. The Smith article and Jennings characterization claims were downgraded to minor; four duplicate proposals in the later source pass retain their already completed independent rulings. The original first-pass and coverage-only judgments remain in the row history.",
+              "All 28 original Petition media files and all 41 Resolution media files were inspected at native resolution, with enlarged crops and rotation for narrow text. The previously unread notes/legends in Petition images 14, 16, 25 and 26 contain map notes, data-source credits and drafting details, with no new legal-authority reference. Residual unreadable text consists of geographic labels, map credits, CAD plot stamps and title-block microtext. The final reviewer judges the image-level legal-authority census complete under the existing counting convention.",
+              "The rotated Resolution Exhibit A margin strip image11 cites Rule 5J-17.062, F.A.C.; this omitted occurrence was added and verified against official rule text. The image15 Part 150 study title repeats its already counted caption and is not counted twice. Duplicated Resolution image files are not additional occurrences.",
+              "Admin. Code AC-2-6 was read in its August 2022 version, not its 2019-20 version. The historical Lee Plan/code and secondary-work access limits remain. Census completeness concerns occurrence enumeration, not verification of every authority or complete transcription of every graphic.",
+              "Current recorded coverage: 231 real-authority occurrences, including 11 UNABLE_TO_VERIFY. The image reviewer reported that the effort setting was not visible; both that report and the orchestration request for high effort are retained."
+            ],
+            "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
+            "census_complete": true
+          },
+          "citations": 231,
+          "pending_checks": 0,
+          "complete": true
+        },
+        {
+          "matter": "lrb-dcca-challenge-police-discipline",
+          "available": true,
+          "model": "Claude Opus 5.5",
+          "reasoning_effort": "high",
+          "coverage": {
+            "files_read": [
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-5/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/final_notice_adverse_action_braddock.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/comparator_discipline_cases.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/workdir/attachments/braddock_arbitration_award.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/douglas_v_veterans_admin.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/workdir/attachments/dcmr_title6b_1606.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/paperworkers_v_misco.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/wr_grace_v_rubber_workers.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/dc_code_1-605.02.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/fop_doc_labor_comm_v_perb_2009.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/workdir/attachments/perb_decision_braddock.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-4/workdir/attachments/supplemental_comparator_disclosure.pdf"
+            ],
+            "limits": [
+              "Douglas v. Veterans Administration attachment (34 PDF pages) is an OCR text layer of the MSPB-reporter print (5 MSPB 313-346); all 34 pages have extracted text and were read, but OCR garbles some names, numbers and footnote markers (e.g. '0PM', 'Lwtta', 'Bmzzotie', '8%', footnote 1 'Title 6'). Citations are recorded as written in the OCR text, and statuses note when a defect may be an OCR artifact rather than an error in the original.",
+              "W.R. Grace and Misco attachments are Justia web prints (one PDF page of opinion text each, plus navigation pages); locations use the embedded 'Page 461 U.S. ...'/'Page 484 U.S. ...' markers. Justia artifacts were compared with the official texts on CourtListener: Misco p.42 'W. R. Grace ..., 461 U. S. 757, 334 U. S. 766', Misco n.10 '415 F.2d 186', Misco p.35 '(CA5 1986)', Grace p.765 page-marker garble ('4 and S. 765') and n.1 'W. P. Grace' (record cite, not counted).",
+              "FOP v. PERB attachment is a FindLaw web print (14 PDF pages, pages 8-14 are site boilerplate with no opinion text); compared against the official opinion text on CourtListener.",
+              "D.C. Code attachment is a 2026 web print of the official code site; navigation links (§§ 1-605.01, 1-605.03) and site publication metadata (Law 26-140, Act 26-357, Public Law 115-334) were not counted as citations.",
+              "Prompts were counted from each assignment's own prompt text (input.json 'prompt'); instruction.md for assignments 2-5 repeats earlier prompts and those repetitions were not counted again. Rubric fields were counted per criterion: authorities named in the criterion text and each authority in the source field. Justification fields quote the prompt and add no authority of their own; those quotations were not counted again.",
+              "The two scenario memoranda (comparator_discipline_cases.pdf; supplemental_comparator_disclosure.pdf) are record evidence; their citation in rubric source fields was not counted. Fictional-by-design records are the scenario adjudications (Final Notice, Award, PERB Opinion No. 1904) and scenario disciplinary case numbers.",
+              "All 436 supplemental source-reading assignments received retrieval attempts: 372 initially unread occurrences in three batches, plus 64 added by the second census. Row histories preserve the initial unattempted judgments and later actual reads. Remaining unverified sources include historical agency and Civil Service Commission decisions, personnel manuals, legislative materials, secondary works, unavailable reporter pinpoints, and an October 2019 D.C. Register notice; each affected row records the specific attempts and limits.",
+              "All initial and later problem proposals received independent second review. Proposed Dennison, Bowman and Cafferello defects based on auditor summary labels were rejected; the source-reading proposals and reasons for rejection remain visible. Bowman and Cafferello cited_for labels were corrected with their initial labels retained.",
+              "The Article 12 grievance reference conflicts with both real 2020–23 and 2023–26 agreements and current D.C. Code section 1-617.08(c), but arbitration under that article is shared across the fictional record. The citation discrepancy is not treated as a rubric defect or a reason to reject the scenario premise. No criterion was found to reward relying on that discrepancy.",
+              "The final full readable-text rescan covered all five current prompts, rubric criteria/source fields, native instructions, and eleven unique attachments. It added 15 occurrences (11 verified, one minor duplicate section number in an addendum, three unable to verify), on top of the earlier 159-reference supplement. Its census-complete judgment concerns readable extracted text; unreadable OCR glyphs, navigation/index cells, repeated packet copies and non-authority record references are excluded under the stated convention.",
+              "The duplicated section 1631 is a first-stage minor-defect judgment, outside the problem-status set requiring independent second review. No new problem-status claim arose from the final census.",
+              "Current recorded coverage: 809 real-authority occurrences, including 126 UNABLE_TO_VERIFY. Census completeness does not imply verification of all authority, original-glyph capture, or historical versions."
+            ],
+            "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
+            "census_complete": true
+          },
+          "citations": 872,
+          "pending_checks": 0,
+          "complete": true
+        },
+        {
+          "matter": "lrb-forum-non-conveniens-response",
+          "available": true,
+          "model": "Claude Opus 5.5",
+          "reasoning_effort": "high",
+          "coverage": {
+            "files_read": [
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf"
+            ],
+            "limits": [
+              "Attachment counting: the six attachments are identical in assignment-1 and assignment-2 packets apart from the source-URL line (verified by diff); each is counted once. Prompts and rubric fields are counted per assignment; assignment-2's copy of the prior assignment-1 prompt contains no citations.",
+              "All text read is the repository's extraction of the pinned upstream files (no OCR). No attachment page was marked as lacking extracted text. The 303-page 2023 Annual Report is mostly numeric tables; 16 near-empty pages are section dividers or charts with little text, and chart/table layouts in the extraction scramble some row/column labels (affects one motion citation marked UNABLE_TO_VERIFY).",
+              "The Davis Complaint is a DOCX conversion; original pagination is not retained, so complaint locations are by paragraph.",
+              "The Langenhorst attachment runs from the majority's 'Affirmed.' directly into Justice Garman's dissent (PDF pp.12-20) without a dissent heading; dissent locations are labelled in this file.",
+              "Pin-cite checks for Illinois Reports pages rely on page markers in CourtListener's Harvard CAP text (mapped with a constant per-opinion offset confirmed against several known pins); where no markers were available the proposition, not the page, was checked.",
+              "Statutes and Supreme Court Rules were read in their current official versions (ILGA, illinoiscourts.gov compiled rules current to Oct. 16, 2026). Historical editions cited in the opinions (e.g. West 1992/2000, 134 Ill. 2d Rules) were not read; where numbering changed (Rule 306) this is flagged.",
+              "The 2023 Annual Report attachment was checked only against itself (it is the cited document); it was not compared with the AOIC's published PDF.",
+              "The assignment-1 prompt contains an uncited legal assertion (venue in wrongful death proper where any part of the action occurred, including the place of death); with no authority named or quoted it is not counted. The assignment-2 prompt's sentence is counted because it quotes Langenhorst's language verbatim.",
+              "Embedded pin cites to Dawdy (76) and Guerine (44) inside Langenhorst were checked by reading those opinions with Illinois Reports page markers; each record carries a page-specific excerpt.",
+              "Embedded citations in the three supplied opinions were checked for identity via CourtListener citation lookup and, for propositions, by reading the cited passage on CourtListener; supplied opinion texts were themselves compared with CourtListener's official text at sampled passages (matching).",
+              "No upstream scripts were run, and no paid APIs were used. CourtListener was reached through its connector. ILGA pages were fetched directly; the site's TLS chain needed the published Sectigo intermediate certificate, and verification was not disabled.",
+              "The original exclusion of bare case-name references was corrected by a complete supplemental scan of readable text. It adds 97 named-authority short forms, all checked against judicial text; the first second-review worker's eleven additions are included exactly once. Primary-source access and extraction limits remain as stated.",
+              "Counting includes named-authority short forms after the supplemental census; the initial bare-name exclusion is superseded. Repeated attachment copies and non-authority record references are excluded.",
+              "All 63 initially unverified occurrences received retrieval attempts. Independent review retained the Ferris wrong-citation claim and treated five challenged supervisory-order parentheticals as minor defects; all nine supplemental proposals have saved second judgments and rubric-intent records.",
+              "Remaining unverified occurrences concern Restatement section 84 comment c, the Maag/Kitch/Sunderland articles, historical Rule 306, and the truncated Lawson and Eby supervisory orders. The per-reference attempts specify what was unavailable. Historical rule versions beyond those actually read remain a limit.",
+              "Current recorded coverage: 663 real-authority occurrences, including 10 UNABLE_TO_VERIFY. Status totals are derived from the saved per-reference judgments; historical aggregate statements above do not control current counts."
+            ],
+            "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
+            "census_complete": true
+          },
+          "citations": 670,
+          "pending_checks": 0,
+          "complete": true
+        },
+        {
+          "matter": "lrb-vicar-trial-jury-instructions",
+          "available": true,
+          "model": "Claude Opus 5.5",
+          "reasoning_effort": "high",
+          "coverage": {
+            "files_read": [
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/instruction.md",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Facts.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/White%20Horse.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/702.11.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/704.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/706.1.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/707.11.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/708.6.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Ellison.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Kehoe.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Poe.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/workdir/attachments/Patton%20State%20Plea.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Kuhse.pdf",
+              "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/workdir/attachments/Facts.pdf"
+            ],
+            "limits": [
+              "Unique documents: 12 attachments plus 2 prompts and 2 rubrics. The assignment 2 packet reprints the assignment 1 prompt and all assignment 1 attachments; those were counted once, under assignment 1. Assignment 2's Facts.pdf is byte-identical in extracted text to assignment 1's Facts.pdf except for its source line, so it was read and counted once.",
+              "Patton State Plea.pdf (6 pages) has no text layer; the supplied extraction contains only the e-filing stamp on each page. The PDF was downloaded from the pinned Hugging Face revision and its page images were read visually. Every page, including the signature pages (3 and 6), was read; citations were transcribed by eye, with no OCR.",
+              "The five opinion attachments (Poe, White Horse, Kehoe, Ellison, Kuhse) were compared word-for-word with the official court PDFs (Eighth Circuit opinion directory; Iowa Judicial Branch). Each was identical apart from the packet's source header. Citation errors inside those opinions are therefore the courts' own (environment-only), not packet corruption.",
+              "The five Iowa Code attachments are 'Iowa Code 2026' prints, although the prompt cites the 2020 Code. Each was compared with the official 2020 edition: chapter 704 and §§ 706.1, 707.11, and 708.6 are identical in text, while § 702.11(2)(c)-(f) differs (subsection 1, the part cited in the rubric, is identical). Cross-references inside the 2026 prints were checked against 2026 sections.",
+              "Authority types follow the sibling and Harvey vocabulary: U.S. and Iowa constitutional provisions are typed 'statute'; law-review articles and the Model Penal Code are typed 'restatement_or_treatise'; the Iowa model jury instruction is typed 'other'.",
+              "Enumeration was done by manual reading, cross-checked by a regex count of reporter citations and Id. forms per opinion (Id. counts matched exactly; reporter counts matched within the bracketed reconstructions). Counts of bare statutory and constitutional mentions may differ by a few in a repeat pass.",
+              "No upstream scripts were executed. Instructions inside the documents were treated as data, not auditor instructions. Rubric merits (whether Kuhse's state-law burden or Ellison's duty-to-retreat rule governs a federal trial; whether the Facts support who fired first) were not assessed.",
+              "The initial treatment of non-authority case-record references as fictional is superseded: 24 references to Facts.pdf and Patton State Plea.pdf are excluded_record_references, not fictional legal authorities. No fictional legal authority was found in this matter.",
+              "The second census adds 139 omitted occurrences, including quoted and editorial-note references, and corrects 33 unsupported verification labels. Those initial exclusions and labels remain only in the history. The census-complete judgment concerns readable printed text, not proof of exhaustive capture or full source verification.",
+              "The two supplemental source-reading passes attempted all 178 assigned unverified occurrences. Their first substantive results were 160 verified, one quotation proposal, and 17 still unverified. Independent review downgraded that quotation proposal to a minor possessive typo, with the primary reporter page read. The separate Felix spelling modernization was also minor; the Iowa conspiracy-criterion problem was retained.",
+              "The 17 remaining unverified occurrences involve exact reporter pages, the cited editions of the Model Penal Code and an Iowa jury instruction, journal pages, and a book. Each row records source attempts and the exact remaining limit. Later judicial quotation or bibliographic metadata is not treated as verification of unread original text or historical editions.",
+              "Current recorded coverage: 609 real-authority occurrences, including 17 UNABLE_TO_VERIFY. Earlier aggregate counts and access statements are historical; current per-reference judgments control. No paid databases, exhaustive citator review, or human verification was used."
+            ],
+            "counting_unit": "citation occurrence in each unique matter document, separate prompt and rubric occurrences",
+            "census_complete": true
+          },
+          "citations": 609,
+          "pending_checks": 0,
+          "complete": true
+        }
+      ]
+    },
+    "blind_agreement": {
+      "paired_tasks": 11,
+      "criteria_with_both_reports": 179,
+      "flagged_criteria": 63,
+      "unflagged_criteria": 116,
+      "buckets": {
+        "both_problematic": 9,
+        "both_arguable": 6,
+        "split": 16,
+        "sol_only": 20,
+        "opus_only": 12
+      }
+    },
+    "final_reconciliation": {
+      "reports_available": 11,
+      "reports_expected": 11,
+      "criteria_with_reports": 179,
+      "findings": 31,
+      "flagged_criteria": 36,
+      "status_counts": {
+        "problematic": 13,
+        "arguable": 23
+      },
+      "categories": {
+        "legal_error": {
+          "findings": 8,
+          "flagged_criteria": 10,
+          "problematic": 8,
+          "arguable": 2
+        },
+        "unsupported_fact": {
+          "findings": 5,
+          "flagged_criteria": 5,
+          "problematic": 1,
+          "arguable": 4
+        },
+        "source_conflict": {
+          "findings": 3,
+          "flagged_criteria": 3,
+          "problematic": 2,
+          "arguable": 1
+        },
+        "internal_inconsistency": {
+          "findings": 2,
+          "flagged_criteria": 2,
+          "problematic": 2,
+          "arguable": 0
+        },
+        "ambiguous_or_unjudgeable": {
+          "findings": 7,
+          "flagged_criteria": 9,
+          "problematic": 0,
+          "arguable": 9
+        },
+        "unrequested_requirement": {
+          "findings": 6,
+          "flagged_criteria": 7,
+          "problematic": 0,
+          "arguable": 7
+        },
+        "document_defect": {
+          "findings": 0,
+          "flagged_criteria": 0,
+          "problematic": 0,
+          "arguable": 0
+        }
+      }
+    }
+  },
+  "harvey": {
+    "criteria_total": 2858,
+    "citations": {
+      "harvey_commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+      "tasks": 52,
+      "citation_instances": 3821,
+      "fictional_by_design": 203,
+      "checked": 3618,
+      "by_final_status": {
+        "VERIFIED": 2754,
+        "VERIFIED_MINOR_DEFECT": 346,
+        "NOT_FOUND_LIKELY_FABRICATED": 76,
+        "CITATION_POINTS_TO_DIFFERENT_CASE": 16,
+        "MISCHARACTERIZED": 277,
+        "MISQUOTED": 40,
+        "WRONG_CITATION_REAL_CASE": 58,
+        "UNABLE_TO_VERIFY": 51
+      },
+      "problems": 467,
+      "tasks_with_problems": 41,
+      "by_authority_type": {
+        "case": {
+          "VERIFIED": 306,
+          "VERIFIED_MINOR_DEFECT": 54,
+          "NOT_FOUND_LIKELY_FABRICATED": 60,
+          "CITATION_POINTS_TO_DIFFERENT_CASE": 12,
+          "MISCHARACTERIZED": 111,
+          "MISQUOTED": 31,
+          "WRONG_CITATION_REAL_CASE": 10,
+          "UNABLE_TO_VERIFY": 6
+        },
+        "statute": {
+          "VERIFIED": 1089,
+          "VERIFIED_MINOR_DEFECT": 143,
+          "NOT_FOUND_LIKELY_FABRICATED": 3,
+          "CITATION_POINTS_TO_DIFFERENT_CASE": 1,
+          "MISCHARACTERIZED": 70,
+          "MISQUOTED": 4,
+          "WRONG_CITATION_REAL_CASE": 26,
+          "UNABLE_TO_VERIFY": 5
+        },
+        "regulation": {
+          "VERIFIED": 134,
+          "VERIFIED_MINOR_DEFECT": 32,
+          "MISCHARACTERIZED": 16,
+          "MISQUOTED": 1,
+          "WRONG_CITATION_REAL_CASE": 3,
+          "UNABLE_TO_VERIFY": 3
+        },
+        "court_rule": {
+          "VERIFIED": 982,
+          "VERIFIED_MINOR_DEFECT": 75,
+          "NOT_FOUND_LIKELY_FABRICATED": 5,
+          "MISCHARACTERIZED": 48,
+          "MISQUOTED": 1,
+          "WRONG_CITATION_REAL_CASE": 9
+        },
+        "restatement_or_treatise": {
+          "VERIFIED": 26,
+          "VERIFIED_MINOR_DEFECT": 5,
+          "NOT_FOUND_LIKELY_FABRICATED": 2,
+          "MISCHARACTERIZED": 1,
+          "WRONG_CITATION_REAL_CASE": 1,
+          "UNABLE_TO_VERIFY": 3
+        },
+        "other": {
+          "VERIFIED": 217,
+          "VERIFIED_MINOR_DEFECT": 37,
+          "NOT_FOUND_LIKELY_FABRICATED": 6,
+          "CITATION_POINTS_TO_DIFFERENT_CASE": 3,
+          "MISCHARACTERIZED": 31,
+          "MISQUOTED": 3,
+          "WRONG_CITATION_REAL_CASE": 9,
+          "UNABLE_TO_VERIFY": 34
+        }
+      },
+      "second_check": {
+        "NOT_FOUND_LIKELY_FABRICATED": {
+          "held": 76,
+          "overturned": 0
+        },
+        "CITATION_POINTS_TO_DIFFERENT_CASE": {
+          "held": 15,
+          "overturned": 0
+        },
+        "MISCHARACTERIZED": {
+          "held": 277,
+          "overturned": 10
+        },
+        "MISQUOTED": {
+          "held": 42,
+          "overturned": 1
+        },
+        "WRONG_CITATION_REAL_CASE": {
+          "held": 57,
+          "overturned": 3
+        }
+      },
+      "by_location": {
+        "task_json": {
+          "problem": 35,
+          "other": 367
+        },
+        "supplied_documents": {
+          "problem": 432,
+          "other": 2784
+        }
+      },
+      "per_task": [
+        {
+          "task": "analyze-counterparty-motion-to-dismiss",
+          "checked": 84,
+          "problems": 10
+        },
+        {
+          "task": "analyze-counterparty-requests-for-production-for-objectionable-and-overbroad-discovery-demands",
+          "checked": 72,
+          "problems": 4
+        },
+        {
+          "task": "analyze-counterpartys-motion-for-summary-judgment",
+          "checked": 40,
+          "problems": 10
+        },
+        {
+          "task": "assess-litigation-hold-scope-for-custodian-identification",
+          "checked": 40,
+          "problems": 2
+        },
+        {
+          "task": "assess-reasonableness-of-staffing-levels-on-litigation-invoice",
+          "checked": 29,
+          "problems": 0
+        },
+        {
+          "task": "assess-settlement-value-range",
+          "checked": 134,
+          "problems": 49
+        },
+        {
+          "task": "build-litigation-case-timeline",
+          "checked": 53,
+          "problems": 1
+        },
+        {
+          "task": "categorize-document-production-set-by-relevance-and-privilege",
+          "checked": 113,
+          "problems": 8
+        },
+        {
+          "task": "compare-document-production-against-discovery-requests",
+          "checked": 57,
+          "problems": 6
+        },
+        {
+          "task": "draft-answer-to-breach-of-contract-complaint",
+          "checked": 13,
+          "problems": 1
+        },
+        {
+          "task": "draft-case-assessment-memorandum",
+          "checked": 31,
+          "problems": 4
+        },
+        {
+          "task": "draft-complaint",
+          "checked": 28,
+          "problems": 1
+        },
+        {
+          "task": "draft-conflict-check-memorandum",
+          "checked": 23,
+          "problems": 2
+        },
+        {
+          "task": "draft-counterclaim-against-plaintiff-for-breach-of-joint-development-agreement",
+          "checked": 55,
+          "problems": 0
+        },
+        {
+          "task": "draft-defective-industrial-equipment-product-liability",
+          "checked": 75,
+          "problems": 13
+        },
+        {
+          "task": "draft-deposition-outline",
+          "checked": 45,
+          "problems": 1
+        },
+        {
+          "task": "draft-discovery-plan-memorandum",
+          "checked": 115,
+          "problems": 0
+        },
+        {
+          "task": "draft-federal-complaint-drafting",
+          "checked": 28,
+          "problems": 2
+        },
+        {
+          "task": "draft-interrogatories",
+          "checked": 80,
+          "problems": 3
+        },
+        {
+          "task": "draft-jury-instructions",
+          "checked": 97,
+          "problems": 23
+        },
+        {
+          "task": "draft-litigation-discovery-responses",
+          "checked": 92,
+          "problems": 2
+        },
+        {
+          "task": "draft-litigation-hold-notice-for-new-product-liability-matter",
+          "checked": 65,
+          "problems": 5
+        },
+        {
+          "task": "draft-motion-for-preliminary-injunction",
+          "checked": 61,
+          "problems": 2
+        },
+        {
+          "task": "draft-motion-for-summary-judgment",
+          "checked": 70,
+          "problems": 10
+        },
+        {
+          "task": "draft-motion-in-limine-to-exclude-expert-testimony-and-prejudicial-evidence",
+          "checked": 69,
+          "problems": 5
+        },
+        {
+          "task": "draft-motion-to-compel-discovery-responses",
+          "checked": 115,
+          "problems": 10
+        },
+        {
+          "task": "draft-motion-to-dismiss-brief",
+          "checked": 300,
+          "problems": 98
+        },
+        {
+          "task": "draft-opposition-to-motion-for-summary-judgment",
+          "checked": 99,
+          "problems": 29
+        },
+        {
+          "task": "draft-opposition-to-motion-to-dismiss",
+          "checked": 164,
+          "problems": 54
+        },
+        {
+          "task": "draft-pretrial-statement",
+          "checked": 81,
+          "problems": 18
+        },
+        {
+          "task": "draft-requests-for-production",
+          "checked": 108,
+          "problems": 4
+        },
+        {
+          "task": "draft-responses-to-interrogatories",
+          "checked": 139,
+          "problems": 8
+        },
+        {
+          "task": "draft-responses-to-requests-for-production",
+          "checked": 38,
+          "problems": 5
+        },
+        {
+          "task": "draft-witness-examination-outline",
+          "checked": 78,
+          "problems": 0
+        },
+        {
+          "task": "extract-key-admissions-from-deposition-transcript",
+          "checked": 19,
+          "problems": 2
+        },
+        {
+          "task": "extract-key-obligations-from-litigation-hold-and-document-preservation-notice",
+          "checked": 29,
+          "problems": 0
+        },
+        {
+          "task": "extract-key-terms-from-counterparty-complaint",
+          "checked": 25,
+          "problems": 2
+        },
+        {
+          "task": "extract-privileged-communications-from-production-set",
+          "checked": 76,
+          "problems": 4
+        },
+        {
+          "task": "extract-scope-terms-from-matter-plan",
+          "checked": 15,
+          "problems": 0
+        },
+        {
+          "task": "identify-excessive-or-duplicative-research-charges-in-litigation-invoice",
+          "checked": 38,
+          "problems": 2
+        },
+        {
+          "task": "identify-government-subpoena-issues",
+          "checked": 34,
+          "problems": 1
+        },
+        {
+          "task": "identify-issues-in-counterparty-complaint",
+          "checked": 33,
+          "problems": 2
+        },
+        {
+          "task": "identify-issues-in-counterparty-interrogatories",
+          "checked": 90,
+          "problems": 2
+        },
+        {
+          "task": "identify-issues-in-matter-budget-proposal",
+          "checked": 6,
+          "problems": 0
+        },
+        {
+          "task": "research-corporate-veil-piercing-standards-across-target-jurisdictions",
+          "checked": 79,
+          "problems": 15
+        },
+        {
+          "task": "research-ucc-warranty-disclaimer-requirements-for-new-product-launch",
+          "checked": 78,
+          "problems": 0
+        },
+        {
+          "task": "review-counterpartys-proposed-jury-instructions",
+          "checked": 129,
+          "problems": 38
+        },
+        {
+          "task": "review-document-production-set-for-attorney",
+          "checked": 68,
+          "problems": 4
+        },
+        {
+          "task": "review-litigation-invoice-against-outside-counsel-billing-guidelines",
+          "checked": 14,
+          "problems": 0
+        },
+        {
+          "task": "review-outside-counsel-engagement-letter-for-problematic-terms",
+          "checked": 16,
+          "problems": 0
+        },
+        {
+          "task": "review-privilege-log-clawback-review",
+          "checked": 164,
+          "problems": 5
+        },
+        {
+          "task": "verify-disbursement-charges-against-billing-guidelines",
+          "checked": 14,
+          "problems": 0
+        }
+      ]
+    },
+    "flagged_criteria": 835,
+    "agreement_buckets": {
+      "both_problematic": 83,
+      "both_arguable": 135,
+      "split": 127,
+      "sol_only": 271,
+      "opus_only": 219
+    },
+    "final_opus": {
+      "reports_available": 52,
+      "reports_expected": 52,
+      "criteria_with_reports": 2858,
+      "findings": 406,
+      "flagged_criteria": 564,
+      "status_counts": {
+        "problematic": 117,
+        "arguable": 447
+      },
+      "categories": {
+        "legal_error": {
+          "findings": 120,
+          "flagged_criteria": 159,
+          "problematic": 47,
+          "arguable": 112
+        },
+        "unsupported_fact": {
+          "findings": 31,
+          "flagged_criteria": 34,
+          "problematic": 14,
+          "arguable": 20
+        },
+        "source_conflict": {
+          "findings": 55,
+          "flagged_criteria": 72,
+          "problematic": 29,
+          "arguable": 43
+        },
+        "internal_inconsistency": {
+          "findings": 25,
+          "flagged_criteria": 38,
+          "problematic": 4,
+          "arguable": 34
+        },
+        "ambiguous_or_unjudgeable": {
+          "findings": 59,
+          "flagged_criteria": 92,
+          "problematic": 4,
+          "arguable": 88
+        },
+        "unrequested_requirement": {
+          "findings": 61,
+          "flagged_criteria": 106,
+          "problematic": 12,
+          "arguable": 94
+        },
+        "document_defect": {
+          "findings": 55,
+          "flagged_criteria": 78,
+          "problematic": 9,
+          "arguable": 69
+        }
+      }
+    }
+  }
+}

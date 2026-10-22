@@ -1,0 +1,148 @@
+{
+  "matter": "lrb-vicar-trial-jury-instructions",
+  "records": [
+    {
+      "ref": "A1-RUBRIC-019",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The miscitation is grader-facing in assignment-1 criterion_27, a -20 penalty. Criterion_25 uses the pertinent §704.3. The prompt and criteria do not ask the model to detect or rely on the §704.6(1) mistake, and no positive point rewards repeating that attribution.",
+      "first_intent": {
+        "ref": "A1-RUBRIC-019",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "The miscited subsection appears in the source field of assignment 1 criterion_27, a -20 penalty criterion ('Mentions that Patton lacked a reasonable belief that he was subject to an imminent unlawful threat'). Neither prompt nor any criterion asks the model to catch it. Because the criterion penalizes rather than rewards the statement, no criterion rewards relying on § 704.6(1) for an imminent-threat element. The defect is in grader-facing support: a grader checking the source would find no imminent-threat language in § 704.6(1); the relevant text is § 704.3, which criterion_25 cites. Read all 25 assignment 1 criteria and 10 assignment 2 criteria."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "KEHOE-072",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-072",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "KEHOE-087",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-087",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "KEHOE-117",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-117",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "KEHOE-118",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "KEHOE-118",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "ELLISON-039",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The error is in an attached court opinion, not a prompt or rubric source field. Neither assignment asks the model to audit internal opinion citations, and no positive criterion rewards this reporter or procedural-rule error.",
+      "first_intent": {
+        "ref": "ELLISON-039",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Environment-only: the garbled citation is inside a real court opinion supplied as an attachment (verified word-identical to the official slip), and the rest of the opinion cites the correct authority. Neither prompt asks the model to audit citations within the supplied opinions; both prompts confine the model to the uploaded documents and require citing them by name. No criterion in either rubric (25 + 10, all read) refers to this passage, and no criterion rewards repeating this citation. Assignment 1 criteria cite Kehoe only at slip op. 10 and Ellison only at slip op. 8, not the pages with these errors. This does not imply a rubric defect."
+      },
+      "second_check_model": "GPT-6 Sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "A1-RUBRIC-016",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-1 criterion_21"
+      ],
+      "rewards_reliance": [
+        "assignment-1 criterion_21"
+      ],
+      "explanation": "The assignment 1 prompt asks generally for a response 'focusing on Patton's claim, the evidence, and the relevant jurisdiction's law.' It does not direct the drafter to §704.6(1) or the conspiracy theory. Criterion_21 (+15, Conclusion) awards points for stating that Patton's commission of conspiracy to commit a forcible felony precludes a justification defense, and cites §704.6(1) together with plea p.5 and §706.1(1). It therefore rewards relying on the §704.6(1) proposition that the cited text does not support. Criteria 19 and 20 reward true facts from the plea (the conspiracy plea and the admitted May 10, 2020 shooting plan) and are not affected. Criterion_17 (participating in a forcible felony bars justification) states §704.6(1) accurately and is also not affected. Assignment 2's rubric does not cite §704.6 or the conspiracy theory.",
+      "prior_intent": {
+        "ref": "A1-RUBRIC-016",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [
+          "assignment-1 criterion_21"
+        ],
+        "rewards_reliance": [
+          "assignment-1 criterion_21"
+        ],
+        "explanation": "Criterion_21 awards 15 points for stating the categorical conspiracy-to-forcible-felony bar. Its source field cites §704.6(1), which concerns participation in a forcible felony, not conspiracy as such. The rubric therefore rewards a legal conclusion the cited text does not establish.",
+        "model": "GPT-6 Sol",
+        "reasoning_effort": "high"
+      }
+    },
+    {
+      "ref": "KEHOE-050",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The altered spelling appears only in the double-jeopardy section of the attached Kehoe opinion (slip op. at 9). Neither assignment's instructions ask for an audit of quotations inside the attachments. No criterion cites Kehoe at 9, Felix, or double jeopardy: assignment 1 criterion_3 cites Kehoe slip op. at 10 for the state-law VICAR predicate, and assignment 2's ten criteria do not cite Kehoe. A response that repeated the quote would not gain or lose points under either rubric.",
+      "prior_intent": {
+        "ref": "KEHOE-050",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "The altered spelling appears only in the attached Kehoe court opinion. No prompt asks for an audit of its internal quotes, and no rubric criterion rewards repeating this Felix quotation.",
+        "model": "GPT-6 Sol",
+        "reasoning_effort": "high"
+      }
+    },
+    {
+      "ref": "KEHOE-069",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The assignment 1 instruction lists Kehoe.pdf as an attachment and in its authorities list. It does not direct the drafter to this Carrillo quotation or to state procedural and evidentiary rules. In the pinned assignment 1 rubric, only criterion_3 (+5) cites Kehoe slip op. at 10. It rewards identifying that the predicate offense for a VICAR attempted-murder charge can come from state law. That proposition does not depend on this quotation's wording, and the possessive change does not affect it. No criterion cites Carrillo or rewards quoting this sentence. The pinned assignment 2 rubric and instruction do not mention Kehoe or Carrillo."
+    }
+  ]
+}

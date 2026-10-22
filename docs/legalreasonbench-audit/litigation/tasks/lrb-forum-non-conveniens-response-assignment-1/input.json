@@ -1,0 +1,323 @@
+{
+  "matter_id": "lrb-forum-non-conveniens-response",
+  "matter_title": "Plaintiff's Response - Forum Non Conveniens",
+  "practice_area": "Litigation and dispute resolution",
+  "research_universe": "closed-universe",
+  "assignment": 1,
+  "num_assignments": 2,
+  "assignment_title": "",
+  "prompt": "To: Quinn Vivero\nFrom: James Rogers\nRe: Davis v. Smith, Forum Non Conveniens\nDate: 7/20/2026\n\nMr. Vivero,\n\nAs you are aware, we represent the Davis family for the loss their family suffered when their 23 day old baby passed away last year. We filed our case in June, 2026 in Cook County. On July 14, 2026, the Defendants filed a motion to transfer pursuant to the doctrine of forum non conveniens. \n\nBy way of background, our client, Sara Davis, resides in Kane County, Illinois. She had received her prenatal medical care from Dr. John Smith, who practices in a group called “DuPage Health, S.C.” Both Dr. Smith and DuPage Health, S.C. are DuPage County entities. On August 24, 2024, Sara went into active later and presented to Safe Hospital, located in Naperville, Illinois – which is also DuPage County.\nWhen Sara arrived at the hospital, she was actively bleeding and had stopped feeling movement in her stomach. The doctors and nurses at Safe Hospital hooked her up to a fetal-heart monitor and made the determination that the baby was still doing fine, and would continue to monitor. Over the next two hours as Sara was in active labor, the fetal monitoring records demonstrated decelerations, bradycardia, and tachycardia.\n\nEventually, when the heart rate had dropped to a dangerously low level, the doctor began attempts to manually deliver through the use of forceps and vacuum. Ultimately he was successful in getting Baby Davis out, however, at birth, Baby Davis demonstrated low APGAR scores, need for resuscitation, and neurological intervention. \n\nThe family was shook by the delivery process and even though Baby Davis was not in good condition, they had him transferred to the Lurie’s Children’s Hospital in Cook County, Illinois. Baby Davis underwent extensive surgical and medical intervention for the next 23 days until he almost passed away on September 16, 2024.\n\nWe have retained an expert in this case who believes that Dr. Smith, his group, and the hospital, all deviated from the standard of care in the events leading up to the delayed delivery of Baby Davis. We have filed a wrongful death case for the untimely death and loss of Baby Davis. We have also filed a survival count, which accounts for the damages that Baby Davis sustained during his lifetime. We have spoken with 5 of the Cook County Hospital Doctors who provided care and treatment to Baby Davis. They are all willing to testify that they reviewed the records from Safe Hospital and believe that Dr. Smith deviated from the standard of care in the delivery process, they will also testify to the horrific injuries that Baby Davis sustained throughout his life and discuss how the death was a result initial delay in delivery and further complicated by the various conditions that developed over the next 23 days of his life. They have advised me that they are all Cook County residents and are willing to testify, however, it would be inconvenient for them to take time away from their practice/at the hospital to testify in DuPage rather than Cook County.\n\nWe filed the case in Cook County, because venue is appropriate where any part of the action occurred, in a wrongful death case, it also includes the location of death, which in this case is Cook County. DuPage County is not a friendly jurisdiction for a plaintiff against a hospital, both in terms of the overall liability portion but also in the monetary damages portion. Of course, as anticipated, the Defendants are trying to transfer the case to DuPage County.\n\nI have attached the Defendant’s motion for your review. For Assignment #1, review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\n\nBe sure to limit your review to the attached documents. Do not rely on, reference, or infer any legal authority, factual information, or data beyond what is contained in these uploaded files. If a document is not uploaded, it does not exist for purposes of this analysis. All citations must reference the document by its exact name as listed below, followed by the page and paragraph number. Do not cite to external websites, databases, or any source outside the uploaded materials.\n\nDefendants Motion to Transfer.pdf\nDavis Complaint.docx\nBradbury v. St. Mary’s Hospital.pdf\nFirst Am Bank v. Guerine.pdf\nLangenhorst v. Norfolk Southern.pdf\n2023 Annual Report Statistical Summary.pdf",
+  "attachments": [
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023 Annual Report Statistical Summary.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/2023%20Annual%20Report%20Statistical%20Summary.pdf",
+      "extracted_path": "attachments/assignment-1/2023 Annual Report Statistical Summary.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury v. St. Mary's Hospital.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Bradbury%20v.%20St.%20Mary%27s%20Hospital.pdf",
+      "extracted_path": "attachments/assignment-1/Bradbury v. St. Mary's Hospital.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis Complaint.docx",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Davis%20Complaint.docx",
+      "extracted_path": "attachments/assignment-1/Davis Complaint.docx.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants Motion to Transfer.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Defendants%20Motion%20to%20Transfer.pdf",
+      "extracted_path": "attachments/assignment-1/Defendants Motion to Transfer.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First Am Bank v. Guerine.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/First%20Am%20Bank%20v.%20Guerine.pdf",
+      "extracted_path": "attachments/assignment-1/First Am Bank v. Guerine.pdf.md"
+    },
+    {
+      "assignment": 1,
+      "upstream_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst v. Norfolk Southern.pdf",
+      "source_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/workdir/attachments/Langenhorst%20v.%20Norfolk%20Southern.pdf",
+      "extracted_path": "attachments/assignment-1/Langenhorst v. Norfolk Southern.pdf.md"
+    }
+  ],
+  "rubric_count": 29,
+  "penalty_count": 2,
+  "positive_points": 128.0,
+  "rubric": [
+    {
+      "criterion_id": "criterion_1",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1that the Defendants motion was supported by two affidavits which was absent in Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995).",
+      "source": "Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_2",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 an affidavit by John Smith, M.D. does not indicate that Cook County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "source": "Defendants Motion to Transfer.pdf (Defendants Motion to Transfer.pdf at p.8) stating \"Trial of this matter in the Circuit Court of DuPage County would be substantially more convenient for me, both as a party and as a fact witness, than trial in the Circuit Court of Cook County.\" and Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) (Langenhorst v. Norfolk Southern.pdf at p.10).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_3",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 an affidavit by Safe Hospital representative does not indicate that Cook County would be an inconvenient forum for them to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "source": "Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) (Langenhorst v. Norfolk Southern.pdf at p.10).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_4",
+      "points": 1.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that the burden is on the movant to show that the balance of private interest factors with all other factors, strongly favors the proposed forum, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "source": "Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.7).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_30",
+      "points": 1.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that the burden is on the movant to show that the balance of public interest factors with all other factors, strongly favors the proposed forum under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "source": "Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.7).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_5",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that the plaintiff’s interest in choosing the forum receives less deference when the plaintiff’s residence is located outside the chosen forum, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "source": "Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.7).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_6",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that in Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) the reviewing court affirmed the denial of transfer even though the plaintiff’s residence was outside the chosen forum.",
+      "source": "Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.12).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_7",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that in Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 the reviewing court affirmed the denial of transfer even though the plaintiff failed to establish residency in the chosen forum.",
+      "source": "Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.5).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_8",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that in First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) the reviewing court reversed a grant of transfer even though the plaintiff’s residence was outside the chosen forum.",
+      "source": "First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) (First Am Bank v. Guerine.pdf at p.10).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_9",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that Plaintiff, Sara Davis’ residence is unknown by the Defendant in its analysis for the motion to transfer.",
+      "source": "Defendants Motion to Transfer.pdf at ¶9.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_10",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that Plaintiff, Sara Davis should file an affidavit establishing her residence outside of DuPage County.",
+      "source": "\"Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.5) and First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) (First Am Bank v. Guerine.pdf at p.7).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_11",
+      "points": 15.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that Plaintiff, Sara Davis should file an affidavit that it would be inconvenient to proceed with this litigation in DuPage County.",
+      "source": "Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_12",
+      "points": 1.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that 5 of the Cook County Hospital Doctors who provided care to Baby Davis are located within Cook County.",
+      "source": "Factual scenario given in assignment.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_13",
+      "points": 1.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that Plaintiff should obtain affidavits from the 5 Cook County Hospital Doctors who provided care to Baby Davis that it would be inconvenient for them to testify in DuPage County.",
+      "source": "Factual scenario given in assignment.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_15",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that the medical records from Cook County Hospital are important for the analysis of the Plaintiff’s survival action.",
+      "source": "Davis Complaint.docx, Count I",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_16",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that the medical records from Cook County Hospital are relevant for the analysis of the Plaintiff’s wrongful death claim.",
+      "source": "Davis Complaint.docx, Count II",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_17",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that Defendants have provided no evidentiary basis regarding the burden of the compulsory process for attendance of witnesses.",
+      "source": "Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_18",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that we live in a smaller world, we are connected by interstate highways, bustling airways, today, convenience - the touchstone of the forum non conveniens doctrine has a different meaning, under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).",
+      "source": "Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_19",
+      "points": 1.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that the Defendants have distinguished First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) where potential witnesses resided in multiple counties.",
+      "source": "First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) (First Am Bank v. Guerine.pdf at p.7) and Defendants Motion to Transfer.pdf (Defendants Motion to Transfer.pdf at pp.7-8).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_20",
+      "points": 1.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that the Defendants have distinguished Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) where potential witnesses resided in multiple counties",
+      "source": "Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.13) and and Defendants Motion to Transfer.pdf (Defendants Motion to Transfer.pdf at pp.7-8).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_21",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that Cook County has an interest in this litigation because the decedent died in Cook County, under Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995).",
+      "source": "Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Marys Hospital.pdf, p.4).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_22",
+      "points": -30.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that Cook County lacks interest in adjudicating a controversy over care rendered by its DuPage based providers.",
+      "source": "Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Marys Hospital.pdf, p.4).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_23",
+      "points": 5.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) treated the location of death alone as sufficient to give Cook County a genuine interest in the litigation.",
+      "source": "Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Marys Hospital.pdf, p.4).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_24",
+      "points": 3.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that court congestion is a relatively insignificant factor, especially where the record does not show the other forum would resolve the case more quickly, under First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002).",
+      "source": "First Am. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) (First Am Bank v. Guerine.pdf at p.3).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_25",
+      "points": -30.0,
+      "polarity": "penalty",
+      "irac_section": "",
+      "criterion": "Mentions in Assignment #1 that Cook County’s overall clearance rate is 60.5%.",
+      "source": "2023 Annual Report Statistical Summary.pdf at p.21.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\" This information is stated in the 2023 Annual Report Statistical Summary.pdf, p. 21, however, this is a statistic that refers to overall clearance, and is not applicable to Civil Cases, specifically Civil Case in excess of $50,000.00 which is the comparison necessary to assist the Court in completing the analysis to grant Defendant's Motion to Transfer."
+    },
+    {
+      "criterion_id": "criterion_26",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "Identifies in Assignment #1 that in the overall Civil Category, Cook County had a clearance rate of 97.9%.",
+      "source": "2023 Annual Report Statistical Summary.pdf at p.22",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_27",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that in the overall Civil Category, the 18th Judicial Circuit had a clearance rate of 96.3%.",
+      "source": "2023 Annual Report Statistical Summary.pdf at p.22.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_28",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that the Defendants cannot supply information regarding the time lapse for civil cases in excess of $50,000.00 because Cook County did not report information in 2023.",
+      "source": "2023 Annual Report Statistical Summary.pdf at p. 163.",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    },
+    {
+      "criterion_id": "criterion_29",
+      "points": 10.0,
+      "polarity": "required",
+      "irac_section": "",
+      "criterion": "States in Assignment #1 that the Defendants have provided no evidence to show that DuPage County will resolve the case more quickly than Cook County.",
+      "source": "First Nat. Bank v. Guerine, 198 Ill.2d 511 (Ill. 2002) (First Am Bank v. Guerine.pdf at p.3).",
+      "justification": "This rubric item is requested directly in the following portion of the prompt \"Assignment #1\"; \"Review Defendant's motion; for each argument it makes, note what's strong about it, what's weak, and flag any points we should target in our response.\""
+    }
+  ],
+  "instruction_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md",
+  "rubric_path": "tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json",
+  "source_task_path": "tasks/lrb-forum-non-conveniens-response",
+  "task": "lrb-forum-non-conveniens-response-assignment-1",
+  "revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "instruction_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md",
+  "rubric_url": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json",
+  "redactions": "Email addresses are replaced with [email redacted] in quoted upstream text. No OCR was performed; PDF pages with no extracted text are explicitly marked. DOCX conversion shows tracked changes; original pagination is not retained.",
+  "prior_prompts": []
+}

@@ -1,0 +1,232 @@
+{
+  "model": "GPT-6 Sol (gpt-6-sol)",
+  "reasoning_effort": "high",
+  "dataset_revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+  "criteria_total": 25,
+  "coverage": "Reviewed all 25 criteria, the current instruction and the four supplied attachments. Read the six image pages of the order from the pinned DOCX, the petition passages on the remand and airport issues, the resolution provisions and the project-schedule graphics. The attached project PDF has little extractable text; its October 6 start date asserted by the rubric was not independently visible in the extraction. Checked the Florida 2024 statute text and county administrative-code text in primary sources, and the upstream common role prompt. Did not establish the status of any separate construction development permit.",
+  "findings": [
+    {
+      "id": "F1",
+      "status": "problematic",
+      "category": "document_defect",
+      "criteria": [
+        "states_in_the_first_assignment_that_the_order_granting_petition"
+      ],
+      "title": "Order and resolution identify different rezoning numbers",
+      "explanation": "The order quashes a rezoning but its caption identifies Z-23-022; the supplied resolution is Z-23-035. A careful memorandum would disclose that conflict rather than state without qualification that the order quashes Z-23-035. The criterion can fail that accurate treatment.",
+      "evidence": [
+        {
+          "source": "Orderpdf.docx, p. 1",
+          "quote": "Rezoning Resolution Z-23-022"
+        },
+        {
+          "source": "Resolution.docx, opening",
+          "quote": "RESOLUTION NUMBER Z-23-035"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Credit a memorandum that identifies the apparent number discrepancy and explains that the order concerns the same project while its caption requires confirmation."
+    },
+    {
+      "id": "F2",
+      "status": "problematic",
+      "category": "legal_error",
+      "criteria": [
+        "states_in_the_first_assignment_that_under_lee_county_fla_admin_c",
+        "states_in_the_first_assignment_that_dci2018_10023_remained_activ"
+      ],
+      "title": "Six-month withdrawal rule does not establish a February 2020 withdrawal",
+      "explanation": "The rubric treats an August 2019 Hearing Examiner remand to staff as a Board remand to the Hearing Examiner, although AC-2-6 § 4.1 governs only the latter and was amended in 2022. Its withdrawal consequence also depends on applicant-caused delay, which the supplied petition does not establish. Penalty misfire: a response accurately reporting the petition and hearing testimony that the 2019 case remained administratively open until September 2023 would be penalized for declining an unsupported retroactive legal conclusion.",
+      "evidence": [
+        {
+          "source": "Petition.docx, remand passage",
+          "quote": "we jointly request that DCI2018-10023 be remanded back to the staff for further evaluation and analysis"
+        },
+        {
+          "source": "Petition.docx, procedural passage",
+          "quote": "Procedurally, the 2019 zoning case was left open until September 13, 2023."
+        },
+        {
+          "source": "Lee County Administrative Code AC-2-6 § 4.1",
+          "quote": "The following procedures apply to applications or appeals remanded to the Hearing Examiner by the Board"
+        }
+      ],
+      "authorities": [
+        {
+          "citation": "Lee County Administrative Code AC-2-6 § 4.1 (amended Aug. 2, 2022)",
+          "verified": true,
+          "proposition": "The six-month deemed-withdrawn consequence applies to Board remands to the Hearing Examiner and only when applicant action or inaction caused the missed hearing.",
+          "url": "https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf"
+        }
+      ],
+      "suggested_fix": "Require the memo to distinguish the record’s September 2023 administrative closure from any legally effective withdrawal date; do not assume § 4.1 applies or applicant fault."
+    },
+    {
+      "id": "F3",
+      "status": "problematic",
+      "category": "internal_inconsistency",
+      "criteria": [
+        "states_in_the_first_assignment_that_the_effect_of_the_order_gran"
+      ],
+      "title": "Penalty rejects the order’s own description of its effect",
+      "explanation": "Penalty misfire: the order says the rezoning is quashed and concludes that the Board decision is reversed. “Overturned” is ordinary shorthand for that result. Penalizing it would reject a faithful account of the supplied order, even if a lawyer should also explain the technical quash-and-remand consequence.",
+      "evidence": [
+        {
+          "source": "Orderpdf.docx, p. 1",
+          "quote": "the rezoning is hereby QUASHED"
+        },
+        {
+          "source": "Orderpdf.docx, p. 6",
+          "quote": "the decision below is REVERSED"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Penalize only an assertion that the circuit court finally substituted its own zoning decision or barred further Board proceedings."
+    },
+    {
+      "id": "F4",
+      "status": "problematic",
+      "category": "legal_error",
+      "criteria": [
+        "states_in_the_first_assignment_that_the_exclusive_method_of_chal"
+      ],
+      "title": "Exclusive-certiorari criterion omits statutory condition",
+      "explanation": "Section 163.3215(4) makes certiorari the sole method for the specified comprehensive-plan challenge only when the local government has adopted a hearing ordinance meeting the statute’s minimum requirements. Subsection (3) supplies a de novo action for other development orders. The packet does not establish the local-process predicate, so the criterion can reward an unqualified exclusivity claim and fail a careful memorandum that states the condition.",
+      "evidence": [
+        {
+          "source": "Fla. Stat. § 163.3215(3)",
+          "quote": "Any aggrieved or adversely affected party may maintain a de novo action for declaratory, injunctive, or other relief"
+        },
+        {
+          "source": "Fla. Stat. § 163.3215(4)",
+          "quote": "If a local government elects to adopt or has adopted an ordinance establishing, at a minimum, the requirements listed in this subsection"
+        }
+      ],
+      "authorities": [
+        {
+          "citation": "Fla. Stat. § 163.3215(3)-(4) (2024)",
+          "verified": true,
+          "proposition": "Subsection (3) provides a timely de novo action for comprehensive-plan inconsistency; subsection (4) makes certiorari sole only when a qualifying local process exists and permits injunction relief joined to certiorari.",
+          "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3215.html"
+        }
+      ],
+      "suggested_fix": "Condition exclusivity on proof that the local process meets § 163.3215(4); otherwise explain the timely de novo route under subsection (3)."
+    },
+    {
+      "id": "F5",
+      "status": "problematic",
+      "category": "legal_error",
+      "criteria": [
+        "states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2"
+      ],
+      "title": "Development-order safe harbor does not resolve this quashed rezoning",
+      "explanation": "Section 163.3167(10) protects an unappealed development order from later invalidation caused by a ruling that relevant approval regulations are invalid for deficient standards. This case involves a timely certiorari ruling quashing the rezoning itself on procedural and airport-compatibility grounds. The rubric requires counsel to claim the section immunizes a project development order even though the record supplies no order, appeal date, or predicate regulatory invalidation.",
+      "evidence": [
+        {
+          "source": "Fla. Stat. § 163.3167(10)(a)",
+          "quote": "may not be invalidated by a subsequent judicial determination that such land development regulations ... are invalid because of a deficiency in the approval standards"
+        },
+        {
+          "source": "Orderpdf.docx, p. 1",
+          "quote": "the rezoning is hereby QUASHED"
+        }
+      ],
+      "authorities": [
+        {
+          "citation": "Fla. Stat. § 163.3167(10) (2024)",
+          "verified": true,
+          "proposition": "The safe harbor addresses later invalidation of relevant land-development regulations for deficient approval standards; it preserves timely other remedies.",
+          "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3167.html"
+        }
+      ],
+      "suggested_fix": "Do not require a safe-harbor conclusion absent a separate development order and proof of the statutory predicates."
+    },
+    {
+      "id": "F6",
+      "status": "problematic",
+      "category": "internal_inconsistency",
+      "criteria": [
+        "states_in_the_first_assignment_that_the_county_should_cease_cons"
+      ],
+      "title": "Penalty misfires against a permissible voluntary construction pause",
+      "explanation": "One criterion rewards identifying voluntary cessation as a County option, while the penalty rejects recommending that the County cease construction. The prompt asks for a recommendation, and the order has just quashed the rezoning. A careful lawyer could recommend a temporary pause while permit and appellate status are checked; that recommendation should not lose thirty points merely because no automatic injunction issued.",
+      "evidence": [
+        {
+          "source": "criterion 19",
+          "quote": "the County could voluntarily cease construction activities pending resolution of the challenge"
+        },
+        {
+          "source": "criterion 25",
+          "quote": "the County should cease construction activities at the subject property"
+        },
+        {
+          "source": "Orderpdf.docx, p. 1",
+          "quote": "the rezoning is hereby QUASHED"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Penalize only a categorical claim that the certiorari order itself commands an immediate stop when no such injunction appears."
+    },
+    {
+      "id": "F7",
+      "status": "arguable",
+      "category": "unrequested_requirement",
+      "criteria": [
+        "states_in_the_first_assignment_that_the_county_should_file_a_tim",
+        "states_in_the_first_assignment_that_the_county_should_remand_the"
+      ],
+      "title": "Rubric mandates one litigation strategy for an open recommendation",
+      "explanation": "The Board asked counsel to recommend a legal course, not to file an appeal and remand concurrently. Appeal and remand are plausible choices, but a careful memo could recommend new proceedings, negotiated conditions, or a stay-first approach after assessing risk. Requiring both specific recommendations can fail that reasoned alternative; the scope of the prompt makes this a professional-judgment issue rather than a definite legal error.",
+      "evidence": [
+        {
+          "source": "assignment 1 prompt",
+          "quote": "recommends a legal course of action to the Board"
+        },
+        {
+          "source": "criterion 23",
+          "quote": "the County should file a timely appeal with the 6th District Court of Appeals"
+        },
+        {
+          "source": "criterion 24",
+          "quote": "should remand the case to the Hearing Examiner ... while an appeal is pending"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Credit a reasoned recommendation among legally available paths, with the 30-day second-tier certiorari option identified."
+    },
+    {
+      "id": "F8",
+      "status": "arguable",
+      "category": "legal_error",
+      "criteria": [
+        "states_in_the_first_assignment_that_the_petitioners_may_file_a_s"
+      ],
+      "title": "Injunction penalty is broader than the statutory rule",
+      "explanation": "Penalty misfire: subsection (3) permits a separate, timely injunction action for a comprehensive-plan challenge when no qualifying subsection (4) process applies; subsection (4) permits injunction relief joined to certiorari. A new construction-related development order could also raise a distinct timely claim. The present packet does not show such an order or a timely independent claim, so counsel should not promise relief here; the absolute penalty can nonetheless fail a carefully conditional explanation of the available remedy.",
+      "evidence": [
+        {
+          "source": "Fla. Stat. § 163.3215(3)",
+          "quote": "Any aggrieved or adversely affected party may maintain a de novo action for declaratory, injunctive, or other relief"
+        },
+        {
+          "source": "Fla. Stat. § 163.3215(4)",
+          "quote": "An action for injunctive or other relief may be joined with the petition for certiorari."
+        },
+        {
+          "source": "criterion 15",
+          "quote": "Petitioners may file a separate cause of action for injunction to stop construction activities."
+        }
+      ],
+      "authorities": [
+        {
+          "citation": "Fla. Stat. § 163.3215(3)-(4) (2024)",
+          "verified": true,
+          "proposition": "A timely de novo injunction action is possible under subsection (3) if the local process does not put the challenged order under subsection (4); subsection (4) also allows joined injunction relief.",
+          "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&StatuteYear=2024&URL=0100-0199/0163/Sections/0163.3215.html"
+        }
+      ],
+      "suggested_fix": "Penalize an unconditional promise of an available, timely injunction on this packet; credit a conditional explanation of § 163.3215(3)-(4)."
+    }
+  ]
+}
