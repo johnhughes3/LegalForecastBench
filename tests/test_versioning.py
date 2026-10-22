@@ -12,14 +12,14 @@ def test_package_version_matches_alpha_release_convention() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
     assert pyproject["project"]["version"] == legalforecast.__version__
-    assert legalforecast.__version__ == "0.1.0a3"
+    assert legalforecast.__version__ == "0.1.0a4"
 
 
 def test_public_docs_record_alpha_version_and_tag() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "0.1.0a3" in readme
-    assert "v0.1.0-alpha.3" in readme
+    assert "0.1.0a4" in readme
+    assert "v0.1.0-alpha.4" in readme
 
 
 def test_citation_file_records_the_package_version() -> None:

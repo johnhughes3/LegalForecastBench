@@ -58,7 +58,7 @@ The official workflow keeps bounded per-cell state artifacts for the protected f
 
 ## Quickstart
 
-Version: `0.1.0a3` / `v0.1.0-alpha.3`.
+Package release candidate: `0.1.0a4` / `v0.1.0-alpha.4`.
 
 See the package help with:
 

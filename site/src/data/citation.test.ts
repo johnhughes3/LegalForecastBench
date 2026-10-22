@@ -19,7 +19,7 @@ const cff = readFileSync(
 test("the repository CITATION.cff parses into the rendered citation", () => {
 	const c = parseCitation(cff);
 	assert.ok(c.title.length > 0);
-	assert.match(c.year, /^\d{4}$/);
+	if (c.year !== null) assert.match(c.year, /^\d{4}$/);
 	assert.ok(c.authors.length > 0);
 	assert.ok(c.url?.startsWith("https://"));
 });
@@ -118,4 +118,19 @@ test("a publication date that disagrees with its year or month is rejected", () 
 		() => parsePaperCitation(paperCff().replace("month: 6", "month: 7")),
 		/year and month must match/,
 	);
+});
+
+// A candidate has a version, but must not claim a software release date.
+test("unreleased software omits dates from BibTeX and uses APA no-date notation", () => {
+	const c = parseCitation(`
+title: Candidate
+version: 0.1.0a4
+authors:
+  - family-names: Doe
+    given-names: Jane
+`);
+	assert.equal(c.date, null);
+	assert.equal(c.year, null);
+	assert.doesNotMatch(toBibtex(c), / {2}(year|date) =/);
+	assert.match(toApa(c), /\(n\.d\.\)\. Candidate \(Version 0\.1\.0a4\)/);
 });

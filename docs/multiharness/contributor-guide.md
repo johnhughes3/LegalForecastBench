@@ -14,7 +14,7 @@ cd LegalForecastBench
 uv sync --frozen
 ```
 
-The current package version is `0.1.0a3` (`v0.1.0-alpha.3`). Use `main`, or a later tag once one is cut. Example adapter manifests live under `examples/adapters/`; they are not inside the published wheel. A source checkout is the supported install.
+The package release candidate is `0.1.0a4` (`v0.1.0-alpha.4`); publication is pending. Use `main`, or the release tag once it is cut. Example adapter manifests live under `examples/adapters/`; they are not inside the published wheel. A source checkout is the supported install.
 
 `uv` may warn that it could not hardlink across filesystems. That warning is harmless.
 
