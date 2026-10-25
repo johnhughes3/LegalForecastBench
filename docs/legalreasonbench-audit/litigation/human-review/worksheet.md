@@ -951,13 +951,14 @@ Authorities the model cited:
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Unambiguous objective error
+- **Defect arises from environment (Defective only):** No
+- **Environment:** Correct
 - **Environment explanation:**
-- **Note and source locator:**
+- **Note and source locator:** The rubric wants an analysis of an employee disciplinary dispute to make the point that "no uploaded authority requires MPD to prove the comparability of its comparator cases." But _Douglas v. Veterans Administration_, 5 M.S.P.B. 313, 5 M.S.P.R. 280 (1981), one of the uploaded authorities, states that "it should be clear that the ultimate burden is upon the agency to persuade the Board [the Merit Systems Protection Board] of the appropriateness of the penalty imposed." _Id._ at 333. That language comes just after a list of 12 factors that prior rulings have identified as relevant for determining the appropriateness of a penalty, which includes (as factor six) "consistency of the penalty with those imposed upon other employees for the same or similar offenses." _Id._ at 332. The statement the rubric wants is perhaps narrowly correct as a general proposition of law, in that _Douglas_ notes that "Not all of these factors will be pertinent in every case," so there is no bright-line requirement that the agency prove factor six in every case. But _Douglas_ makes clear that the burden is on the agency to establish the appropriateness of the penalty and comparability is expressly identified as an important factor in assessing appropriateness. Critically, in this specific case, MPD's Final Notice of Adverse Action expressly relied on comparable cases as an aggravating factor and a key factor for terminating Officer Braddock. Thus, in the context of this case, the proposition the rubric wants the AI to assert is essentially irrelevant and misleading. While _Douglas_ does not expressly require an agency to prove comparable cases every time it terminates an employee, here, MPD itself relied on comparable cases as a motivating reason for Braddock's termination. If MPD cannot prove to the arbitrator that comparable cases were handled in the same way (as the Final Notice asserts), that could be a basis for at least vacating the termination decision and remanding it for further consideration. Sol and Opus labeled this as an arguable defect, but under the specific circumstances of this case, I would view this assertion as objectively inaccurate. Failure to prove up the comparable cases does not automatically invalidate MPD's action, but it leaves MPD highly vulnerable to being overturned -- so in this context, MPD effectively does need to prove the comparable cases that it relied on in making its decision to terminate Braddock.
+- Sources: douglas_v_veterans_admin.pdf, printed pp. 332–33 (the twelve factors, “Not all of these factors will be pertinent in every case,” and the agency’s “ultimate burden”); final_notice_adverse_action_braddock.pdf ¶ 19 (MPD’s factor-six finding, relying on the four comparator cases: “This factor is aggravating.”) and ¶ 26 (termination after weighing all twelve factors, “each of which aggravates the penalty”); braddock_arbitration_award.pdf ¶¶ 7, 10 (the arbitrator finds MPD “did not prove that the comparator officers were similarly situated” and reduces the termination to a 45-day suspension).
 <!-- review:end -->
 
 ## 11. Viability of a DCCA Challenge, assignment 3: Statutory Exceptions — criterion_16
