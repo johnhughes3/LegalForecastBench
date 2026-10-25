@@ -255,16 +255,20 @@ def test_committed_sample_is_the_protocol_draw(monkeypatch: pytest.MonkeyPatch) 
     )
 
 
-def test_committed_worksheet_is_blank_current_and_not_tallied(
+def test_committed_worksheet_is_current_and_not_tallied_while_incomplete(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.chdir(ROOT)
     record, sample = sampler.frozen_sample()
     blocks = sampler.checked_reviews(sample)
-    assert set(blocks) == {sampler.blank_review()}
+    reviews = {sampler.key(r): b for r, b in zip(sample, blocks, strict=True)}
     text = (sampler.REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8")
-    assert sampler.render_worksheet(record, sample) == text
+    assert sampler.render_worksheet(record, sample, reviews) == text
+    incomplete = [b for b in blocks if sampler.problems(sampler.parse_review(b))]
+    if not incomplete:
+        pytest.skip("every item is complete; the tally test no longer applies")
     with pytest.raises(SystemExit) as exit_info:
         sampler.cmd_tally()
     assert exit_info.value.code == 1
-    assert "No estimate: 25 of 25 items are incomplete" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert f"No estimate: {len(incomplete)} of 25 items are incomplete" in out
