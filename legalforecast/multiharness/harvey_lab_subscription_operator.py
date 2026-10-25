@@ -117,14 +117,13 @@ def build_community_subscription_runtime(
 ) -> CommunitySubscriptionRuntime:
     """Build the local subscription solver and separate native CLI judge."""
 
-    executable_pin = ExecutableIdentityPin(
+    judge_pin = ExecutableIdentityPin(
         basename="claude",
         version=request.claude_version,
         sha256=request.claude_sha256,
         distribution_kind="standalone-cli",
         required_flags=(
             "--add-dir",
-            "--allowedTools",
             "--json-schema",
             "--no-session-persistence",
             "--safe-mode",
@@ -140,7 +139,9 @@ def build_community_subscription_runtime(
     if request.harness not in {"claude-code", "codex"}:
         raise CommunitySubscriptionOperatorError("unsupported community solver harness")
     solver_executable = "codex" if request.harness == "codex" else "claude"
-    solver_pin = executable_pin
+    solver_pin = replace(
+        judge_pin, required_flags=(*judge_pin.required_flags, "--allowedTools")
+    )
     solver_manifest = manifest
     if request.harness == "codex":
         if not request.codex_version or not request.codex_sha256:
@@ -201,7 +202,7 @@ def build_community_subscription_runtime(
         parent_env=parent_env,
         adapter_id="claude-code-community-subscription-judge",
         display_name="Claude Code community subscription judge",
-        executable_pin=executable_pin,
+        executable_pin=judge_pin,
         subscription_presence=judge_presence,
     )
     runner, boundary, provenance = build_subscription_judge(

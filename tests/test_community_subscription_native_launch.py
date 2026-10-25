@@ -12,6 +12,7 @@ import pytest
 from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
 from legalforecast.multiharness.claude_code import build_claude_invocation_plan
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
+    CommunitySubscriptionOperatorError,
     CommunitySubscriptionOperatorRequest,
     build_community_subscription_runtime,
     preflight_community_subscription_runtime,
@@ -24,10 +25,14 @@ from test_harvey_lab_projection import FIXTURE_PIN
 from test_harvey_lab_subscription_judge import _production_judge_call
 
 
-@pytest.mark.parametrize("harness", ["claude-code", "codex"])
+@pytest.mark.parametrize(
+    ("harness", "claude_supports_allowed_tools"),
+    [("claude-code", True), ("codex", True), ("claude-code", False), ("codex", False)],
+)
 def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     tmp_path: Path,
     harness: Literal["claude-code", "codex"],
+    claude_supports_allowed_tools: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # These credential-free doubles exercise a local subscription runtime.
@@ -46,6 +51,11 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     )
     for executable in ("claude", "codex"):
         binary = binary_root / executable
+        help_flags = (
+            flags.replace("--allowedTools ", "")
+            if executable == "claude" and not claude_supports_allowed_tools
+            else flags
+        )
         # Use the system shell rather than PATH-selected Python: hosted runners
         # can select a second toolcache interpreter outside the contained paths.
         terminal = json.dumps(
@@ -61,7 +71,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
             "#!/bin/sh\n"
             'case "$*" in\n'
             "  --version) printf '%s\\n' '1.2.3' ;;\n"
-            f"  *--help*) printf '%s\\n' {shlex.quote(flags)} ;;\n"
+            f"  *--help*) printf '%s\\n' {shlex.quote(help_flags)} ;;\n"
             "  'auth status --json') printf '%s\\n' "
             '\'{"loggedIn":true,"authMethod":"claude.ai",'
             '"subscriptionType":"max"}\' ;;\n'
@@ -104,6 +114,13 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
         pin=FIXTURE_PIN,
     )
     original = build_community_subscription_runtime(request)
+    if harness == "claude-code" and not claude_supports_allowed_tools:
+        with pytest.raises(
+            CommunitySubscriptionOperatorError, match="capability preflight"
+        ):
+            preflight_community_subscription_runtime(request, original)
+        assert not request.run_root.exists()
+        return
     runtime = preflight_community_subscription_runtime(request, original)
     service = runtime.adapter.execution_service
     assert isinstance(service, LocalCliExecutionService)
