@@ -206,3 +206,44 @@ def test_claude_vendor_lock_must_be_empty_directory(tmp_path: Path) -> None:
     (lock / "history.jsonl").write_text("history")
     with pytest.raises(AuthProfileError, match="empty non-symlink directory"):
         validate_auth_only_config_root("claude", config, role="solver")
+
+
+def test_codex_accepts_only_native_login_log_and_empty_arg0_directory(
+    tmp_path: Path,
+) -> None:
+    config = _auth_root(tmp_path, "codex-role", "auth.json")
+    log = config / "log"
+    log.mkdir(mode=0o775)
+    (log / "codex-login.log").write_text("synthetic")
+    (log / "codex-login.log").chmod(0o600)
+    (config / "tmp" / "arg0-linux").mkdir(mode=0o700, parents=True)
+    assert validate_auth_only_config_root("codex", config, role="solver") == config
+    (config / "tmp" / "arg0-linux" / "history.jsonl").touch()
+    with pytest.raises(AuthProfileError, match="empty"):
+        validate_auth_only_config_root("codex", config, role="solver")
+
+
+@pytest.mark.parametrize("entry", ["config.toml", "history.jsonl", "plugins"])
+def test_codex_vendor_allowance_does_not_admit_user_configuration(
+    tmp_path: Path, entry: str
+) -> None:
+    config = _auth_root(tmp_path, "codex-role", "auth.json")
+    (config / entry).touch()
+    with pytest.raises(AuthProfileError, match="only its vendor auth file"):
+        validate_auth_only_config_root("codex", config, role="solver")
+
+
+@pytest.mark.parametrize(
+    "entry", ["log", "log/codex-login.log", "tmp", "tmp/arg0-linux"]
+)
+def test_codex_vendor_state_cannot_link_outside_role_root(
+    tmp_path: Path, entry: str
+) -> None:
+    config = _auth_root(tmp_path, "codex-role", "auth.json")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = config / entry
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(AuthProfileError, match="symlink"):
+        validate_auth_only_config_root("codex", config, role="solver")

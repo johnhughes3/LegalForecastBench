@@ -180,7 +180,7 @@ def validate_auth_only_config_root(
     state_names: set[str] = (
         {".claude.json", ".claude.json.lock", "backups"}
         if executable == "claude"
-        else set()
+        else {"log", "tmp"}
     )
     if not set(allowed).issubset(names) or names - set(allowed) - state_names:
         raise AuthProfileError(
@@ -193,6 +193,9 @@ def validate_auth_only_config_root(
             raise AuthProfileError(
                 f"{executable} {role} auth metadata could not be inspected"
             ) from exc
+        if executable == "codex" and entry.name in {"log", "tmp"}:
+            _validate_codex_login_state(entry)
+            continue
         if entry.name == ".claude.json.lock" and executable == "claude":
             if (
                 entry.is_symlink()
@@ -213,6 +216,29 @@ def validate_auth_only_config_root(
         if entry.name in allowed and stat.S_IMODE(metadata.st_mode) & 0o077:
             raise AuthProfileError(f"{executable} {role} auth file must be owner-only")
     return root
+
+
+def _validate_codex_login_state(directory: Path) -> None:
+    """Allow the exact log and empty arg0 directory made by native login.
+
+    The owner-only role root protects the vendor's group-readable directories.
+    No user configuration or arbitrary temporary contents are accepted.
+    """
+
+    if directory.is_symlink() or not directory.is_dir():
+        raise AuthProfileError("Codex vendor state must be a non-symlink directory")
+    allowed = "codex-login.log" if directory.name == "log" else "arg0-linux"
+    for entry in directory.iterdir():
+        if entry.name != allowed:
+            raise AuthProfileError("Codex login state must contain only vendor state")
+        metadata = entry.stat(follow_symlinks=False)
+        if entry.is_symlink():
+            raise AuthProfileError("Codex login state must not contain symlinks")
+        if directory.name == "log":
+            if not stat.S_ISREG(metadata.st_mode):
+                raise AuthProfileError("Codex login log must be a regular file")
+        elif not stat.S_ISDIR(metadata.st_mode) or any(entry.iterdir()):
+            raise AuthProfileError("Codex arg0 state must be an empty directory")
 
 
 def _validate_claude_backups(directory: Path) -> None:
