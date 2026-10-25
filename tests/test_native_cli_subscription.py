@@ -321,3 +321,36 @@ def test_claude_runtime_bookkeeping_cannot_link_outside_role_root(
     target.symlink_to(tmp_path / "outside")
     with pytest.raises(AuthProfileError):
         validate_auth_only_config_root("claude", config, role="solver")
+
+
+@pytest.mark.parametrize(
+    "entry", ["sessions", "telemetry", "cache", "cache/model-catalog"]
+)
+def test_claude_runtime_metadata_directory_cannot_be_a_file(
+    tmp_path: Path, entry: str
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    target = config / entry
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("synthetic")
+    with pytest.raises(AuthProfileError, match="non-symlink directory"):
+        validate_auth_only_config_root("claude", config, role="solver")
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        ".last-cleanup",
+        f"telemetry/1p_failed_events.{_UUID_A}.{_UUID_B}.json",
+        f"cache/model-catalog/{_UUID_A}-{_UUID_B}-cc.json",
+    ],
+)
+def test_claude_runtime_metadata_file_cannot_hide_a_directory(
+    tmp_path: Path, entry: str
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    target = config / entry
+    target.mkdir(parents=True)
+    (target / "history.jsonl").write_text("synthetic")
+    with pytest.raises(AuthProfileError, match="regular"):
+        validate_auth_only_config_root("claude", config, role="solver")
