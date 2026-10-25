@@ -87,7 +87,9 @@ def test_codex_pin_must_be_explicit(tmp_path: Path, missing: str) -> None:
         build_community_subscription_runtime(request)
 
 
-@pytest.mark.parametrize("mode", ["success", "tampered-private", "turn-failed"])
+@pytest.mark.parametrize(
+    "mode", ["success", "relative-run", "tampered-private", "turn-failed"]
+)
 def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -129,6 +131,9 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
         private=private,
         run_root=tmp_path / "run",
     )
+    if mode == "relative-run":
+        monkeypatch.chdir(tmp_path)
+        args.run_dir = Path("run")
     args.harness, args.solver_model = "codex", "gpt-fixture"
     args.codex_version, args.codex_sha256 = "codex-fixture", "b" * 64
     executed: list[RunSpec] = []
@@ -140,6 +145,8 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
         if spec.argv[0] != "codex":
             return original_execute(self, spec)
         executed.append(spec)
+        assert spec.working_directory.is_absolute()
+        assert spec.argv[spec.argv.index("--cd") + 1] == str(spec.working_directory)
         assert not (spec.working_directory / "task" / "gold-answers.json").exists()
         output = spec.working_directory / "output"
         output.mkdir(exist_ok=True)
@@ -171,7 +178,7 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
     monkeypatch.setattr(LocalCliExecutionService, "execute", execute_double)
     _install_runtime_double(monkeypatch, runtime)
     try:
-        if mode == "success":
+        if mode in {"success", "relative-run"}:
             assert args.handler(args) == 0
         else:
             with pytest.raises(

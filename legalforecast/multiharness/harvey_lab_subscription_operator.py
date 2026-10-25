@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 
@@ -220,6 +220,8 @@ def run_community_subscription_harvey_lab(
         raise CommunitySubscriptionOperatorError(
             "--run-dir must be a fresh, absent path"
         )
+    # Native --cd and process cwd must use the same absolute workspace.
+    request = replace(request, run_root=request.run_root.resolve())
     selected = runtime or build_community_subscription_runtime(request)
     if runtime is None:
         for service in (selected.adapter.execution_service, selected.judge_service):
