@@ -64,6 +64,9 @@ def test_vendor_status_projects_only_explicit_role_config(
 
     def run_double(argv: tuple[str, ...], **kwargs: object):
         calls.append(dict(kwargs["env"]))  # type: ignore[arg-type]
+        if executable == "claude":
+            (config / ".claude.json").write_text("{}")
+            (config / ".claude.json.lock").write_text("")
         return subprocess.CompletedProcess(argv, 0, stdout, stderr)
 
     monkeypatch.setattr(
@@ -158,3 +161,39 @@ def test_claude_status_rejects_non_subscription_auth(
         NativeCliSubscriptionPresence("claude", config_root=config, role="judge").prove(
             {"PATH": "/usr/bin"}
         )
+
+
+def test_claude_accepts_vendor_status_state_but_not_history(tmp_path: Path) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    (config / ".claude.json").write_text("{}")
+    (config / ".claude.json.lock").write_text("")
+    backups = config / "backups"
+    backups.mkdir()
+    (backups / ".claude.json.backup.1792894746105").write_text("{}")
+    assert validate_auth_only_config_root("claude", config, role="solver") == config
+    (backups / "history.jsonl").write_text("history")
+    with pytest.raises(AuthProfileError, match="vendor"):
+        validate_auth_only_config_root("claude", config, role="solver")
+
+
+@pytest.mark.parametrize("linked_entry", [".claude.json", "backups"])
+def test_vendor_state_cannot_link_outside_role_root(
+    tmp_path: Path, linked_entry: str
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (config / linked_entry).symlink_to(outside, target_is_directory=True)
+    with pytest.raises(AuthProfileError, match=r"regular|symlink"):
+        validate_auth_only_config_root("claude", config, role="solver")
+
+
+def test_claude_backup_symlinks_are_rejected(tmp_path: Path) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    backups = config / "backups"
+    backups.mkdir()
+    target = tmp_path / "outside"
+    target.write_text("not-readable")
+    (backups / ".claude.json.backup.1792894746105").symlink_to(target)
+    with pytest.raises(AuthProfileError, match=r"regular|symlink"):
+        validate_auth_only_config_root("claude", config, role="solver")
