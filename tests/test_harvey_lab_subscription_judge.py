@@ -118,6 +118,8 @@ def test_real_subscription_judge_accepts_only_terminal_success(tmp_path: Path) -
     assert response.verdict == "pass"
     assert response.judge_resolved_identity == "anthropic/claude-sonnet-4-6"
     assert "--safe-mode" in service.specs[0].argv
+    assert service.specs[0].argv[service.specs[0].argv.index("--tools") + 1] == ""
+    assert "--allowedTools" not in service.specs[0].argv
 
 
 def _production_judge_call(tmp_path: Path) -> ProductionJudgeCall:

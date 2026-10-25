@@ -26,7 +26,11 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.multiharness.auth_profiles import FIXTURE_NONE, PUBLISHED_API_KEY
+from legalforecast.multiharness.auth_profiles import (
+    CONTRIBUTOR_SUBSCRIPTION,
+    FIXTURE_NONE,
+    PUBLISHED_API_KEY,
+)
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_ADAPTER_ID,
     CLAUDE_CODE_ADAPTER_VERSION,
@@ -228,6 +232,32 @@ def test_invocation_plan_enables_tools_only_when_the_task_profile_lists_them() -
     assert "WebFetch" not in native
     assert encode_claude_code_tools_argv_token(()) == ""
     assert CLAUDE_CODE_TOOLS_ARGV_ENCODING == "comma-joined-single-token"
+
+
+def test_subscription_auto_approval_cannot_grant_an_undeclared_tool() -> None:
+    plan = build_claude_invocation_plan(
+        prompt="prompt",
+        model=PLAN_MODEL,
+        required_unit_ids=("count_i",),
+        workspace=PLAN_WORKSPACE,
+        output_schema_path=PLAN_SCHEMA,
+        allowed_tools=("Read",),
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+    )
+    allowed_index = plan.argv.index("--allowedTools")
+
+    with pytest.raises(
+        ClaudeCodeCliAdapterError,
+        match="--allowedTools must exactly match declared --tools",
+    ):
+        replace(
+            plan,
+            argv=(
+                *plan.argv[: allowed_index + 1],
+                "Read,Bash",
+                *plan.argv[allowed_index + 2 :],
+            ),
+        )
 
 
 def test_invocation_plan_appends_extra_add_dirs_without_forking_tools_slot() -> None:

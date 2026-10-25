@@ -97,6 +97,7 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
     assert solver_service.run_in_working_directory is True
     assert solver_service.executable_pin is not None
     assert "--safe-mode" in solver_service.executable_pin.required_flags
+    assert "--allowedTools" in solver_service.executable_pin.required_flags
 
 
 def test_missing_native_suppression_capability_fails_before_model_execution(
@@ -118,7 +119,7 @@ def test_missing_native_suppression_capability_fails_before_model_execution(
         "elif sys.argv[1:] == ['--help']:\n"
         "    print('--print --output-format --json-schema --tools "
         "--strict-mcp-config --no-session-persistence --setting-sources "
-        "--model --add-dir')\n"
+        "--model --add-dir --safe-mode')\n"
         "else:\n"
         "    raise SystemExit('AUTH OR MODEL COMMAND MUST NEVER RUN')\n",
         encoding="utf-8",
