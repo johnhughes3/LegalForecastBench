@@ -200,7 +200,15 @@ def validate_auth_only_config_root(
         raise AuthProfileError("subscription presence supports claude or codex")
     names = {entry.name for entry in entries}
     state_names: set[str] = (
-        {".claude.json", ".claude.json.lock", "backups"}
+        {
+            ".claude.json",
+            ".claude.json.lock",
+            "backups",
+            ".last-cleanup",
+            "sessions",
+            "telemetry",
+            "cache",
+        }
         if executable == "claude"
         else {"log", "tmp"}
     )
@@ -217,6 +225,9 @@ def validate_auth_only_config_root(
             ) from exc
         if executable == "codex" and entry.name in {"log", "tmp"}:
             _validate_codex_login_state(entry, codex_pin, codex_search_path)
+            continue
+        if executable == "claude" and entry.name in {"sessions", "telemetry", "cache"}:
+            _validate_claude_runtime_state(entry)
             continue
         if entry.name == ".claude.json.lock" and executable == "claude":
             if (
@@ -238,6 +249,42 @@ def validate_auth_only_config_root(
         if entry.name in allowed and stat.S_IMODE(metadata.st_mode) & 0o077:
             raise AuthProfileError(f"{executable} {role} auth file must be owner-only")
     return root
+
+
+_UUID_NAME = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
+
+
+def _validate_claude_runtime_state(directory: Path) -> None:
+    """Retain known native bookkeeping without admitting settings or sessions.
+
+    Safe mode and no-session-persistence remain invocation requirements. The
+    owner-only role root protects vendor-created group-readable state below it.
+    Only metadata is inspected; credentials and bookkeeping are never opened.
+    """
+
+    if directory.is_symlink() or not directory.is_dir():
+        raise AuthProfileError("Claude runtime state must be a non-symlink directory")
+    for entry in directory.iterdir():
+        if directory.name == "cache" and entry.name == "model-catalog":
+            _validate_claude_runtime_state(entry)
+            continue
+        pattern = (
+            rf"1p_failed_events\.{_UUID_NAME}\.{_UUID_NAME}\.json"
+            if directory.name == "telemetry"
+            else rf"{_UUID_NAME}-{_UUID_NAME}-cc\.json"
+            if directory.name == "model-catalog"
+            else None
+        )
+        if pattern is None or re.fullmatch(pattern, entry.name) is None:
+            raise AuthProfileError(
+                "Claude runtime state must contain only vendor bookkeeping"
+            )
+        if entry.is_symlink() or not stat.S_ISREG(
+            entry.stat(follow_symlinks=False).st_mode
+        ):
+            raise AuthProfileError(
+                "Claude runtime bookkeeping must be a regular non-symlink file"
+            )
 
 
 def _validate_codex_login_state(
