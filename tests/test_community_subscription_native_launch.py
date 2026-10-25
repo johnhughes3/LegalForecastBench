@@ -24,8 +24,14 @@ from test_harvey_lab_subscription_judge import _production_judge_call
 
 @pytest.mark.parametrize("harness", ["claude-code", "codex"])
 def test_native_preflight_then_actual_solver_and_bound_judge_launch(
-    tmp_path: Path, harness: Literal["claude-code", "codex"]
+    tmp_path: Path,
+    harness: Literal["claude-code", "codex"],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # These credential-free doubles exercise a local subscription runtime.
+    # The production CI refusal has separate negative coverage.
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     binary_root = tmp_path / "bin"
     binary_root.mkdir()
     flags = (
