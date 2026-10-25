@@ -2684,13 +2684,14 @@ Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
-- **Environment explanation:**
-- **Note and source locator:**
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Unambiguous objective error
+- **Defect arises from environment (Defective only):** Yes
+- **Environment:** Defective
+- **Environment explanation:** The supplied statement of facts differs from the real record on the point this criterion tests: it says Nelson "opened fire as the Trailblazer approached," while the real Eighth Circuit opinion says "it is unclear who shot first."
+- **Note and source locator:** This is another instance where the task environment differs from the real-world case on which it is based in a way that is material to this specific rubric -- and a rubric that would be correct for the real-world case is incorrectly applied to this task environment. In the real case, _United States v. Mallory_, 104 F.4th 15 (8th Cir. 2024), there was a dispute concerning who fired first. This task environment was "closed book," however, and the model was given a statement of facts that says that Raysean Nelson "opened fire as the Trailblazer approached" and that "A rolling gun battle ensued." So there is no basis in the supplied environment for the model to assert that there was a lack of evidence concerning who fired first; the supplied documents state that Nelson did so.
+- Sources: Facts.pdf, PDF p. 7 ("Nelson had his car parked near 30th and Clark Streets, and had hidden in the bushes. ... He opened fire as the Trailblazer approached. ... A rolling gun battle ensued."); assignment 2 prompt ("Be sure to limit your review for the Assignment to the attached documents"); [_United States v. Mallory_, slip op. at 2 (8th Cir. June 12, 2024)](https://ecf.ca8.uscourts.gov/opndir/24/06/222777P.pdf) ("though it is unclear who shot first"). The assignment 1 penalty justifications carry the same premise (criterion 25: "at a minimum, it is unclear which side fired first"). Related: item 10 is the other sampled criterion that carries a real-case rule onto changed task facts.
 <!-- review:end -->
 
 ## 24. OTB Gang VICAR Trial Jury Instructions, assignment 2: Supplementing brief with new case — criterion_7
