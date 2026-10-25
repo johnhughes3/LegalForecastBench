@@ -2801,13 +2801,15 @@ Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
-- **Environment explanation:**
-- **Note and source locator:**
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** Yes
+- **Environment:** Defective
+- **Environment explanation:** The assignment 2 prompt asks only to "supplement your brief with relevant legal analysis of State v. Kuhse" and does not say whether response2.md must be a full revised brief, yet the verifier reads only response2.md and re-grades five assignment 1 criteria on it.
+- **Note and source locator:** This benchmark does two assignments, sequentially, in separate model sessions that are in the same sandbox. In this task, assignment 2 was to build on the assignment 1 output by adding discussion of an additional case. The intent is for models to output response1.md in response to assignment 1, and to output response2.md in the same sandbox for assignment 2. The model is told, "Build on [the assignment 1] analysis as the prompt directs," but not clearly told that it is expected to output a full revised version of the brief (as opposed to supplemental or revised sections that can be inserted into a revised brief). Since assignment 2 is framed as a mere supplementation task, the model might expect that it should write only the new material. However, five of the assignment 1 rubrics are repeated on the assignment 2 output -- so a model is penalized heavily if it interprets the instructions as requesting simply an update to the specific section to which the new authority is relevant. This appears to reward token inefficiency, and it is not what the prompt clearly requests.
+- Sources: Assignment 2 prompt: "Please supplement your brief with relevant legal analysis of State v. Kuhse." Shared preamble: "Write the final complete legal deliverable for this assignment to `response2.md`. The verifier reads only that file" and "your prior deliverable `response1.md` is also on disk. Build on that analysis as the prompt directs." Each assignment starts a fresh agent conversation in the same sandbox ([run record](../model-runs/experiment.md)). Repeated word for word from assignment 1: assignment 2 criteria 5–9 (windows rolled down; Patton hanging out the window; Nelson's car already stopped; the group could have driven away; Patton intended to fire regardless), 65 of assignment 2's 135 positive points (70 points in assignment 1). Native responses: [Opus 5.5 (low)](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) rewrote the full argument section (about 6,400 words); [GPT-6 Luna (xhigh)](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) wrote a shorter "Supplemental response" (about 1,500 words). On this criterion both runs scored 0/3, and both had also missed it in assignment 1 (criterion 12, +15); the Facts say Nelson's car was "parked" while he "had hidden in the bushes," and the word "stopped" tracks the real Eighth Circuit opinion.
+- Related items: items 24 and 25 share this defect.
 <!-- review:end -->
 
 ## 25. OTB Gang VICAR Trial Jury Instructions, assignment 2: Supplementing brief with new case — criterion_8
@@ -2917,11 +2919,13 @@ Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
-- **Environment explanation:**
-- **Note and source locator:**
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** Yes
+- **Environment:** Defective
+- **Environment explanation:** The assignment 2 prompt asks only to "supplement your brief with relevant legal analysis of State v. Kuhse" and does not say whether response2.md must be a full revised brief, yet the verifier reads only response2.md and re-grades five assignment 1 criteria on it.
+- **Note and source locator:** This benchmark does two assignments, sequentially, in separate model sessions that are in the same sandbox. In this task, assignment 2 was to build on the assignment 1 output by adding discussion of an additional case. The intent is for models to output response1.md in response to assignment 1, and to output response2.md in the same sandbox for assignment 2. The model is told, "Build on [the assignment 1] analysis as the prompt directs," but not clearly told that it is expected to output a full revised version of the brief (as opposed to supplemental or revised sections that can be inserted into a revised brief). Since assignment 2 is framed as a mere supplementation task, the model might expect that it should write only the new material. However, five of the assignment 1 rubrics are repeated on the assignment 2 output -- so a model is penalized heavily if it interprets the instructions as requesting simply an update to the specific section to which the new authority is relevant. This appears to reward token inefficiency, and it is not what the prompt clearly requests.
+- Sources: Assignment 2 prompt: "Please supplement your brief with relevant legal analysis of State v. Kuhse." Shared preamble: "Write the final complete legal deliverable for this assignment to `response2.md`. The verifier reads only that file" and "your prior deliverable `response1.md` is also on disk. Build on that analysis as the prompt directs." Each assignment starts a fresh agent conversation in the same sandbox ([run record](../model-runs/experiment.md)). Repeated word for word from assignment 1: assignment 2 criteria 5–9 (windows rolled down; Patton hanging out the window; Nelson's car already stopped; the group could have driven away; Patton intended to fire regardless), 65 of assignment 2's 135 positive points (70 points in assignment 1). Native responses: [Opus 5.5 (low)](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) rewrote the full argument section (about 6,400 words); [GPT-6 Luna (xhigh)](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) wrote a shorter "Supplemental response" (about 1,500 words). On this criterion Opus met 2/3 (+15) and Luna 0/3; neither met it in assignment 1 (criterion 13).
+- Related items: items 24 and 25 share this defect.
 <!-- review:end -->
