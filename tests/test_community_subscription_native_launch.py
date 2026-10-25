@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
+from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
+from legalforecast.multiharness.claude_code import build_claude_invocation_plan
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
     CommunitySubscriptionOperatorRequest,
     build_community_subscription_runtime,
@@ -35,7 +37,8 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     binary_root = tmp_path / "bin"
     binary_root.mkdir()
     flags = (
-        "--print --output-format --json-schema --tools --strict-mcp-config "
+        "--print --output-format --json-schema --tools --allowedTools "
+        "--strict-mcp-config "
         "--no-session-persistence --setting-sources --model --add-dir --safe-mode "
         "--json --color --ephemeral --skip-git-repo-check --strict-config "
         "--ignore-user-config --ignore-rules --sandbox --cd --config "
@@ -63,7 +66,8 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
             '\'{"loggedIn":true,"authMethod":"claude.ai",'
             '"subscriptionType":"max"}\' ;;\n'
             "  'login status') printf '%s\\n' 'Logged in using ChatGPT' >&2 ;;\n"
-            "  *) cat >/dev/null\n"
+            "  *) printf '%s\\n' \"$@\" > native-argv.txt\n"
+            "     cat >/dev/null\n"
             f"     printf '%s\\n' {shlex.quote(terminal)} ;;\n"
             "esac\n",
             encoding="utf-8",
@@ -112,10 +116,22 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     assert service.executable_pin.sha256 == original_service.executable_pin.sha256
     workspace = request.run_root / "solver-workspace"
     workspace.mkdir(parents=True)
+    argv = ("codex" if harness == "codex" else "claude", "fixture-run")
+    if harness == "claude-code":
+        plan = build_claude_invocation_plan(
+            prompt="Create the requested fixture deliverable.",
+            model=request.solver_model,
+            required_unit_ids=(),
+            workspace=workspace,
+            output_schema_path=workspace / "output-schema.json",
+            allowed_tools=("Read", "Bash", "Write"),
+            auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        )
+        argv = plan.argv
     receipt = service.execute(
         RunSpec(
             spec_id="native-launch-regression",
-            argv=("codex" if harness == "codex" else "claude", "fixture-run"),
+            argv=argv,
             working_directory=workspace,
             environment={},
             timeout_seconds=30,
@@ -124,6 +140,14 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     )
     assert receipt.status == "succeeded", receipt.stderr
     assert json.loads(receipt.stdout)["subtype"] == "success"
+    if harness == "claude-code":
+        native_argv = (
+            (workspace / "native-argv.txt").read_text(encoding="utf-8").splitlines()
+        )
+        assert native_argv[native_argv.index("--tools") + 1] == "Read,Bash,Write"
+        assert native_argv[native_argv.index("--allowedTools") + 1] == (
+            "Read,Bash,Write"
+        )
     # Invoke the runner's actual bound judge callable, not a separately built judge.
     response = runtime.evaluator_runner._provider_call(_production_judge_call(tmp_path))
     assert response.verdict == "pass"

@@ -136,6 +136,7 @@ _ALLOWED_VALUE_FLAGS = frozenset(
         "--output-format",
         "--json-schema",
         "--tools",
+        "--allowedTools",
         "--setting-sources",
         "--model",
         "--add-dir",
@@ -206,14 +207,40 @@ class ClaudeInvocationPlan:
             )
         if "--tools" not in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must declare --tools")
+        if self.argv.count("--tools") != 1:
+            raise ClaudeCodeCliAdapterError(
+                "invocation must declare --tools exactly once"
+            )
+        tools_token = encode_claude_code_tools_argv_token(self.allowed_tools)
+        _require_flag_value(self.argv, "--tools", tools_token)
         if "--strict-mcp-config" not in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must set --strict-mcp-config")
-        if (
-            self.auth_profile == CONTRIBUTOR_SUBSCRIPTION
-            and "--safe-mode" not in self.argv
-        ):
+        permission_flags = self.argv.count("--allowedTools")
+        if self.auth_profile == CONTRIBUTOR_SUBSCRIPTION:
+            if "--safe-mode" not in self.argv:
+                raise ClaudeCodeCliAdapterError(
+                    "subscription invocation must enable --safe-mode"
+                )
+            if self.allowed_tools:
+                if permission_flags != 1:
+                    raise ClaudeCodeCliAdapterError(
+                        "subscription --allowedTools must appear exactly once"
+                    )
+                permission_index = self.argv.index("--allowedTools")
+                if (
+                    permission_index + 1 >= len(self.argv)
+                    or self.argv[permission_index + 1] != tools_token
+                ):
+                    raise ClaudeCodeCliAdapterError(
+                        "invocation --allowedTools must exactly match declared --tools"
+                    )
+            elif permission_flags:
+                raise ClaudeCodeCliAdapterError(
+                    "tool-free subscription invocation must omit --allowedTools"
+                )
+        elif permission_flags:
             raise ClaudeCodeCliAdapterError(
-                "subscription invocation must enable --safe-mode"
+                "--allowedTools is reserved for contributor-subscription invocations"
             )
         if "sh" in self.argv or "bash" in self.argv or "-c" in self.argv:
             raise ClaudeCodeCliAdapterError("invocation must not invoke a shell")
@@ -386,6 +413,12 @@ def build_claude_invocation_plan(
         tools,
     )
     if bound.profile_id == CONTRIBUTOR_SUBSCRIPTION:
+        if tools:
+            argv = (
+                *argv,
+                "--allowedTools",
+                encode_claude_code_tools_argv_token(tools),
+            )
         argv = (*argv, "--safe-mode")
     if output_format != "json":
         try:

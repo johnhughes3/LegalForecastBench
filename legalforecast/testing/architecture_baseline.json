@@ -673,8 +673,8 @@
         "largest_symbol": "ClaudeCodeCliAdapter",
         "largest_symbol_lines": 163,
         "layer": "application",
-        "line_count": 1534,
-        "nonblank_line_count": 1400,
+        "line_count": 1567,
+        "nonblank_line_count": 1433,
         "top_level_definition_count": 46
       },
       "legalforecast/multiharness/claude_code_container.py": {

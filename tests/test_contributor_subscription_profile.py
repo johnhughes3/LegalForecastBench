@@ -186,6 +186,7 @@ def test_community_bind_does_not_export_manifest_oauth_names(
 
 
 def test_community_plans_accept_contributor_subscription() -> None:
+    selected_tools = ("Read", "Bash")
     claude = build_claude_invocation_plan(
         prompt="prompt",
         model="claude-sonnet-4-6",
@@ -193,9 +194,11 @@ def test_community_plans_accept_contributor_subscription() -> None:
         workspace=Path("workspace"),
         output_schema_path=Path("workspace") / "output-schema.json",
         auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        allowed_tools=selected_tools,
     )
     assert claude.auth_profile == CONTRIBUTOR_SUBSCRIPTION
     assert "--safe-mode" in claude.argv
+    assert claude.argv[claude.argv.index("--allowedTools") + 1] == "Read,Bash"
     official_api = build_claude_invocation_plan(
         prompt="prompt",
         model="claude-sonnet-4-6",
@@ -203,8 +206,10 @@ def test_community_plans_accept_contributor_subscription() -> None:
         workspace=Path("workspace"),
         output_schema_path=Path("workspace") / "output-schema.json",
         auth_profile=PUBLISHED_API_KEY,
+        allowed_tools=selected_tools,
     )
     assert "--safe-mode" not in official_api.argv
+    assert "--allowedTools" not in official_api.argv
     codex = build_codex_invocation_plan(
         _codex_request(),
         Path("workspace"),

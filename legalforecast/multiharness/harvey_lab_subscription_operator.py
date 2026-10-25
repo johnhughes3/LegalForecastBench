@@ -124,6 +124,7 @@ def build_community_subscription_runtime(
         distribution_kind="standalone-cli",
         required_flags=(
             "--add-dir",
+            "--allowedTools",
             "--json-schema",
             "--no-session-persistence",
             "--safe-mode",
