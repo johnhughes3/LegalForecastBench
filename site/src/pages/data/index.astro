@@ -1,5 +1,10 @@
 ---
 import CiteBox from "../../components/CiteBox.astro";
+import {
+	benchmarkSnapshots,
+	formatBytes,
+	snapshotFileUrl,
+} from "../../data/benchmark-snapshots";
 import { comparison } from "../../data/comparison";
 import { refreshedDataDirectory } from "../../data/dataset-input";
 import { PAPER_PROSE } from "../../data/paper-prose";
@@ -83,6 +88,26 @@ const datasetLd = datasetNode({
 			</table>
 		</div>
 
+		<h2 id="benchmark-audits" class="mt-12 font-serif text-2xl font-semibold tracking-tight">Benchmark audits</h2>
+		<p class="mt-3 max-w-3xl text-sm text-ink-2">Our audits of two other legal AI benchmarks cite each one at a fixed commit. These archived copies preserve those commits exactly, so the citations can still be checked if an upstream repository changes or rewrites its history. Each snapshot is a git repository containing only the cited commit. If <code>git fsck</code> passes and <code>HEAD</code> is the commit shown, the files are byte-for-byte the upstream files at that commit.</p>
+		<div class="mt-4 overflow-x-auto rounded-xl border border-rule">
+			<table class="w-full text-left text-sm">
+				<thead class="border-b border-rule bg-surface-2/50 text-xs text-ink-3">
+					<tr><th scope="col" class={cell}>Benchmark</th><th scope="col" class={cell}>Cited commit</th><th scope="col" class={cell}>Snapshot</th></tr>
+				</thead>
+				<tbody class="divide-y divide-rule text-ink-2">
+					{benchmarkSnapshots.snapshots.map((s) => (
+						<tr>
+							<td class={cell}><a class={link} href={s.upstream}>{s.benchmark}</a><div class="mt-1 text-xs text-ink-3">{s.license} · <a class={link} href={s.audit}>our audit</a></div></td>
+							<td class={cell}><code class="break-all text-xs">{s.commit}</code><div class="mt-1 text-xs text-ink-3">committed {s.committed}</div></td>
+							<td class={cell}><a class={link} href={snapshotFileUrl(s.archive)} download>{s.archive}</a> ({formatBytes(s.bytes)})<div class="mt-1 text-xs text-ink-3">SHA-256 <code class="break-all">{s.sha256}</code></div></td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+		<p class="mt-3 text-sm text-ink-2">Archived on Zenodo: <a class={link} href={`https://doi.org/${benchmarkSnapshots.doi}`}>doi:{benchmarkSnapshots.doi}</a> · <a class={link} href={snapshotFileUrl("SHA256SUMS")} download>SHA256SUMS</a> · <a class={link} href={snapshotFileUrl(benchmarkSnapshots.verifier.file)} download>{benchmarkSnapshots.verifier.file}</a>. To verify (Python 3.10+ and git): <code class="text-xs">python3 {benchmarkSnapshots.verifier.file} --sums SHA256SUMS *.tar</code></p>
+
 		<div class="mt-12 grid gap-10 md:grid-cols-2">
 			<div>
 				<h2 class="font-serif text-2xl font-semibold tracking-tight">Reproduce</h2>
@@ -94,7 +119,7 @@ const datasetLd = datasetNode({
 			</div>
 			<div>
 				<h2 class="font-serif text-2xl font-semibold tracking-tight">License</h2>
-				<p class="mt-3 text-sm text-ink-2">The files above: <a class={link} href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Code: Apache 2.0. Court filings are public records and are not licensed here.</p>
+				<p class="mt-3 text-sm text-ink-2">The result files above: <a class={link} href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. The benchmark snapshots keep their upstream licenses, shown in the table. Code: Apache 2.0. Court filings are public records and are not licensed here.</p>
 			</div>
 		</div>
 

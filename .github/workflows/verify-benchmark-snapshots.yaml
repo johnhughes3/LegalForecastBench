@@ -1,0 +1,50 @@
+name: Verify benchmark snapshots
+
+# Downloads the archived Harvey LAB and LegalReasonBench snapshots from Zenodo and
+# checks that each is exactly the commit the audits cite (git fsck, HEAD, LFS hashes).
+# Also reports whether each upstream repository still serves that commit.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-benchmark-snapshots
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download snapshots from Zenodo
+        run: |
+          set -euo pipefail
+          record=$(jq -r .record_url site/src/data/benchmark-snapshots.json)
+          mkdir -p "$RUNNER_TEMP/snapshots"
+          for name in SHA256SUMS $(jq -r '.snapshots[].archive' site/src/data/benchmark-snapshots.json); do
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/snapshots/$name" "$record/files/$name?download=1"
+          done
+
+      - name: Verify snapshots
+        run: |
+          cd "$RUNNER_TEMP/snapshots"
+          python3 -I "$GITHUB_WORKSPACE/scripts/verify_benchmark_snapshot.py" --sums SHA256SUMS *.tar
+
+      - name: Check upstream still serves the cited commits
+        run: |
+          set -euo pipefail
+          manifest=site/src/data/benchmark-snapshots.json
+          lab=$(jq -r '.snapshots[] | select(.upstream | contains("github.com")) | .commit' "$manifest")
+          lrb=$(jq -r '.snapshots[] | select(.upstream | contains("huggingface.co")) | .commit' "$manifest")
+          curl -fsS -o /dev/null "https://api.github.com/repos/harveyai/harvey-labs/commits/$lab" \
+            && echo "harvey-labs still serves $lab"
+          curl -fsS -o /dev/null "https://huggingface.co/api/datasets/micro1-inc/LegalReasonBench/revision/$lrb" \
+            && echo "LegalReasonBench still serves $lrb"
