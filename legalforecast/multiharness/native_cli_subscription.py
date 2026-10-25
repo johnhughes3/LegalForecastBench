@@ -20,6 +20,11 @@ from legalforecast.multiharness.contributor_boundary import (
     ContributorBoundaryError,
     wrap_argv_for_contributor_boundary,
 )
+from legalforecast.multiharness.local_cli_identity import (
+    ExecutableIdentityPin,
+    LocalCliIdentityError,
+    verify_executable_digest,
+)
 
 _STATUS_TIMEOUT_SECONDS: Final = 10.0
 _STATUS_OUTPUT_LIMIT: Final = 65_536
@@ -39,6 +44,7 @@ class NativeCliSubscriptionPresence:
         config_root: Path,
         role: str,
         timeout_seconds: float = _STATUS_TIMEOUT_SECONDS,
+        executable_pin: ExecutableIdentityPin | None = None,
     ) -> None:
         if executable not in _AUTH_FILES:
             raise AuthProfileError("subscription presence supports claude or codex")
@@ -50,12 +56,17 @@ class NativeCliSubscriptionPresence:
         self._config_root = config_root.expanduser()
         self._role = role
         self._timeout_seconds = timeout_seconds
+        self._executable_pin = executable_pin if executable == "codex" else None
 
     def prove(self, parent_env: Mapping[str, str]) -> SubscriptionRuntimeAccess:
         """Return role-local runtime access after contained vendor status."""
 
         config_root = validate_auth_only_config_root(
-            self._executable, self._config_root, role=self._role
+            self._executable,
+            self._config_root,
+            role=self._role,
+            codex_pin=self._executable_pin,
+            codex_search_path=parent_env.get("PATH", "/usr/bin"),
         )
         executable = shutil.which(
             self._executable, path=parent_env.get("PATH", "/usr/bin")
@@ -116,7 +127,13 @@ class NativeCliSubscriptionPresence:
             self._verify_claude_status(completed.stdout)
         else:
             self._verify_codex_status(completed.stdout, completed.stderr)
-        validate_auth_only_config_root(self._executable, config_root, role=self._role)
+        validate_auth_only_config_root(
+            self._executable,
+            config_root,
+            role=self._role,
+            codex_pin=self._executable_pin,
+            codex_search_path=parent_env.get("PATH", "/usr/bin"),
+        )
         return SubscriptionRuntimeAccess(
             environment=((config_name, str(config_root)),),
             read_paths=(config_root,),
@@ -152,7 +169,12 @@ class NativeCliSubscriptionPresence:
 
 
 def validate_auth_only_config_root(
-    executable: str, config_root: Path, *, role: str
+    executable: str,
+    config_root: Path,
+    *,
+    role: str,
+    codex_pin: ExecutableIdentityPin | None = None,
+    codex_search_path: str = "/usr/bin",
 ) -> Path:
     """Validate an auth-only role root without opening its credential file."""
 
@@ -194,7 +216,7 @@ def validate_auth_only_config_root(
                 f"{executable} {role} auth metadata could not be inspected"
             ) from exc
         if executable == "codex" and entry.name in {"log", "tmp"}:
-            _validate_codex_login_state(entry)
+            _validate_codex_login_state(entry, codex_pin, codex_search_path)
             continue
         if entry.name == ".claude.json.lock" and executable == "claude":
             if (
@@ -218,8 +240,10 @@ def validate_auth_only_config_root(
     return root
 
 
-def _validate_codex_login_state(directory: Path) -> None:
-    """Allow the exact log and empty arg0 directory made by native login.
+def _validate_codex_login_state(
+    directory: Path, pin: ExecutableIdentityPin | None, search_path: str
+) -> None:
+    """Allow native login logs and pinned arg0 aliases made by native status.
 
     The owner-only role root protects the vendor's group-readable directories.
     No user configuration or arbitrary temporary contents are accepted.
@@ -237,8 +261,54 @@ def _validate_codex_login_state(directory: Path) -> None:
         if directory.name == "log":
             if not stat.S_ISREG(metadata.st_mode):
                 raise AuthProfileError("Codex login log must be a regular file")
-        elif not stat.S_ISDIR(metadata.st_mode) or any(entry.iterdir()):
-            raise AuthProfileError("Codex arg0 state must be an empty directory")
+        else:
+            _validate_codex_arg0(entry, pin, search_path)
+
+
+_CODEX_HELPERS = frozenset({"applypatch", "apply_patch", "codex-linux-sandbox"})
+
+
+def _validate_codex_arg0(
+    directory: Path, pin: ExecutableIdentityPin | None, search_path: str
+) -> None:
+    """Permit native aliases only to the selected, digest-verified Codex bytes."""
+
+    if directory.is_symlink() or not directory.is_dir():
+        raise AuthProfileError("Codex arg0 state must be a non-symlink directory")
+    children = tuple(directory.iterdir())
+    if not children:
+        return
+    if pin is None or pin.basename != "codex":
+        raise AuthProfileError("nonempty Codex arg0 state requires a pinned executable")
+    try:
+        identity = verify_executable_digest(pin, ("codex",), search_path=search_path)
+        executable = Path(identity.resolved_argv[0]).resolve(strict=True)
+    except (LocalCliIdentityError, OSError) as exc:
+        raise AuthProfileError(
+            "Codex helper executable identity could not be verified"
+        ) from exc
+    for child in children:
+        if (
+            child.is_symlink()
+            or not child.is_dir()
+            or re.fullmatch(r"codex-arg0[A-Za-z0-9]{6}", child.name) is None
+        ):
+            raise AuthProfileError(
+                "Codex arg0 must contain only native helper directories"
+            )
+        entries = tuple(child.iterdir())
+        if {entry.name for entry in entries} != {".lock", *_CODEX_HELPERS}:
+            raise AuthProfileError("Codex helper directory contains unexpected entries")
+        for entry in entries:
+            if entry.name == ".lock":
+                if entry.is_symlink() or not stat.S_ISREG(
+                    entry.stat(follow_symlinks=False).st_mode
+                ):
+                    raise AuthProfileError("Codex helper lock must be a regular file")
+            elif not entry.is_symlink() or entry.readlink() != executable:
+                raise AuthProfileError(
+                    "Codex helper must link directly to the pinned executable"
+                )
 
 
 def _validate_claude_backups(directory: Path) -> None:
@@ -268,11 +338,17 @@ def validate_role_config_separation(
     *,
     forbidden_paths: Sequence[Path],
     solver_executable: str = "claude",
+    codex_pin: ExecutableIdentityPin | None = None,
+    codex_search_path: str = "/usr/bin",
 ) -> tuple[Path, Path]:
     """Reject shared/nested role roots and overlap with benchmark paths."""
 
     solver = validate_auth_only_config_root(
-        solver_executable, solver_root, role="solver"
+        solver_executable,
+        solver_root,
+        role="solver",
+        codex_pin=codex_pin,
+        codex_search_path=codex_search_path,
     )
     judge = validate_auth_only_config_root("claude", judge_root, role="judge")
     if _paths_overlap(solver, judge):

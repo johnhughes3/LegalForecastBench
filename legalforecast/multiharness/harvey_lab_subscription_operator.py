@@ -162,10 +162,16 @@ def build_community_subscription_runtime(
             ),
         )
     solver_bound = bind_adapter_auth_profile(solver_manifest, CONTRIBUTOR_SUBSCRIPTION)
+    parent_env = dict(os.environ)
+    parent_env["PATH"] = (
+        f"{request.evaluator_bin_dir}{os.pathsep}{parent_env.get('PATH', '/usr/bin')}"
+    )
     solver_config, judge_config = validate_role_config_separation(
         request.solver_config_dir,
         request.judge_config_dir,
         solver_executable=solver_executable,
+        codex_pin=solver_pin if solver_executable == "codex" else None,
+        codex_search_path=parent_env["PATH"],
         forbidden_paths=(
             request.source_root,
             request.projection_root,
@@ -175,14 +181,13 @@ def build_community_subscription_runtime(
         ),
     )
     solver_presence = NativeCliSubscriptionPresence(
-        solver_executable, config_root=solver_config, role="solver"
+        solver_executable,
+        config_root=solver_config,
+        role="solver",
+        executable_pin=solver_pin,
     )
     judge_presence = NativeCliSubscriptionPresence(
         "claude", config_root=judge_config, role="judge"
-    )
-    parent_env = dict(os.environ)
-    parent_env["PATH"] = (
-        f"{request.evaluator_bin_dir}{os.pathsep}{parent_env.get('PATH', '/usr/bin')}"
     )
     solver_service = contained_execution_service(
         solver_bound,
