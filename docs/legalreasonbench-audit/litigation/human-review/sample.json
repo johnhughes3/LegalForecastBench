@@ -1,0 +1,625 @@
+{
+  "dataset": "micro1-inc/LegalReasonBench",
+  "dataset_revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "dataset_revision_check": {
+    "date": "2026-10-24",
+    "huggingface_current_sha": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+    "matches_pinned_revision": true
+  },
+  "audit_source_commit": "869ccae7ff31a52f0c0b75d02710fe525211b032",
+  "population": "comparison.json criteria labeled problematic or arguable by either blind report (gpt_6_sol, claude_opus_5_5), one per assignment-criterion pair; reconciliation does not affect eligibility",
+  "ordering": "sorted by (assignment ID, criterion ID) with Python string comparison",
+  "population_size": 63,
+  "population_ids": [
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "mentions_in_the_first_assignment_that_the_subject_property_was_p"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_dci2018_10023_remained_activ"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_could_take_the_po"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_should_cease_cons"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_should_file_a_tim"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_should_remand_the"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_effect_of_the_order_gran"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_exclusive_method_of_chal"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_order_granting_petition"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_petitioners_may_file_a_s"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_under_lee_county_fla_admin_c"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_expert_testimony_on_the_rec"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_circuit_court_erred_b_2"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_circuit_court_erred_b_3"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_circuit_court_erred_b_4"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_circuit_court_erred_by"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_circuit_court_erred_in"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_circuit_court_s_erred_b"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_staff_report_recommendi"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion_7"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion_8"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion_4"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion_5"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion_9"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion_16"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion_5"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion_8"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-4",
+      "criterion_9"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion_1"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion_2"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-5",
+      "criterion_8"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion_2"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion_22"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion_25"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_1"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_10"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_11"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_12"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_18"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_2"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_3"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_4"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_5"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_6"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_7"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_8"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_9"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_2"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_21"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_23"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_25"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_26"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_27"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_28"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_29"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_3"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_4"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_5"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_6"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_7"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_8"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_9"
+    ]
+  ],
+  "seed": 20261024,
+  "sample_size": 25,
+  "method": "random.Random(seed).sample(population, sample_size)",
+  "python": "3.14.8",
+  "selected_in_draw_order": [
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_11"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_under_lee_county_fla_admin_c"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_8"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_should_file_a_tim"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_the_staff_report_recommendi"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_3"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_dci2018_10023_remained_activ"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "states_in_the_second_assignment_that_expert_testimony_on_the_rec"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion_22"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_21"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_should_cease_cons"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_9"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_4"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_1"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_the_county_should_remand_the"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion_8"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion_2"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion_23"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_7"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_18"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion_4"
+    ],
+    [
+      "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion_16"
+    ],
+    [
+      "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion_6"
+    ],
+    [
+      "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2"
+    ],
+    [
+      "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion_8"
+    ]
+  ],
+  "sample": [
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_dci2018_10023_remained_activ",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "reconciliation": "problematic",
+      "polarity": "penalty",
+      "rubric_line": 116
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_should_cease_cons",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "reconciliation": "problematic",
+      "polarity": "penalty",
+      "rubric_line": 388
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_should_file_a_tim",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "reconciliation": "arguable",
+      "polarity": "required",
+      "rubric_line": 356
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_the_county_should_remand_the",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "reconciliation": "arguable",
+      "polarity": "required",
+      "rubric_line": 372
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_under_fla_stat_163_3167_10_2",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "reconciliation": "problematic",
+      "polarity": "required",
+      "rubric_line": 212
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-1",
+      "criterion": "states_in_the_first_assignment_that_under_lee_county_fla_admin_c",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "reconciliation": "problematic",
+      "polarity": "required",
+      "rubric_line": 100
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 52
+    },
+    {
+      "task": "lrb-certiorari-quasi-judicial-land-use-assignment-2",
+      "criterion": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 36
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+      "criterion": "criterion_8",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "reconciliation": "problematic",
+      "polarity": "required",
+      "rubric_line": 88
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-2",
+      "criterion": "criterion_4",
+      "bucket": "both_arguable",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": "arguable",
+      "reconciliation": "arguable",
+      "polarity": "required",
+      "rubric_line": 40
+    },
+    {
+      "task": "lrb-dcca-challenge-police-discipline-assignment-3",
+      "criterion": "criterion_16",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 180
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_2",
+      "bucket": "sol_only",
+      "gpt_6_sol": "arguable",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 14
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-1",
+      "criterion": "criterion_22",
+      "bucket": "opus_only",
+      "gpt_6_sol": null,
+      "claude_opus_5_5": "arguable",
+      "reconciliation": "arguable",
+      "polarity": "penalty",
+      "rubric_line": 214
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_1",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 4
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_11",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 104
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_18",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "reconciliation": "problematic",
+      "polarity": "penalty",
+      "rubric_line": 174
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_3",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 24
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_6",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 54
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_8",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 74
+    },
+    {
+      "task": "lrb-forum-non-conveniens-response-assignment-2",
+      "criterion": "criterion_9",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 84
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_21",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "reconciliation": "problematic",
+      "polarity": "required",
+      "rubric_line": 244
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-1",
+      "criterion": "criterion_23",
+      "bucket": "sol_only",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": null,
+      "reconciliation": "arguable",
+      "polarity": "penalty",
+      "rubric_line": 256
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_4",
+      "bucket": "both_problematic",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "problematic",
+      "reconciliation": "problematic",
+      "polarity": "required",
+      "rubric_line": 40
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_7",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 76
+    },
+    {
+      "task": "lrb-vicar-trial-jury-instructions-assignment-2",
+      "criterion": "criterion_8",
+      "bucket": "split",
+      "gpt_6_sol": "problematic",
+      "claude_opus_5_5": "arguable",
+      "reconciliation": null,
+      "polarity": "required",
+      "rubric_line": 88
+    }
+  ]
+}
