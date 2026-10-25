@@ -212,10 +212,10 @@ Authorities the model cited:
 
 <!-- review:start -->
 - **Rubric verdict:** Defective
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** No
+- **Environment:** Correct
 - **Environment explanation:**
 - **Note and source locator:** Confirmed. The rubric deducts 30 points if the memo being prepared for a municipality in a zoning dispute recommends stopping construction. The basis of this rubric is Parkway Towers Condominium Ass'n v. Metropolitan Dade County, 295 So. 2d 295 (Fla. 1974) (per curiam), which merely exercises discretion not to hear an appeal on certiorari. While it is true that the outcome in that particular case was that the municipality was allowed to proceed with construction, the court's reasoning, if anything, undercuts the rubric's reading: “Although we now consider our issuance of the writ of certiorari to have been improvident in this case, which results in our discharge thereof, it is nevertheless our view prospectively that zoning variations to accommodate county or municipal facility purposes should either have been anticipated in zoning ordinances before construction or operation of such facilities is commenced or, if this has not been done, construction should not be undertaken thereof until after due modification or change therefor is made in existing zoning ordinances.” Id. at 295–96. In other words, the very case the rubric relies on essentially says the opposite of what it claims and expresses the Florida Supreme Court's view that zoning issues should be fixed before construction occurs. The fact that some construction has begun is a relevant factor, but nothing in the environment establishes that it would be costly, impossible, or imprudent for the municipality to stop construction until the zoning issues are fixed properly to comply with the Court's opinion. Many prudent lawyers, relying on the Florida Supreme Court's guidance, might recommend addressing the zoning issue before continuing with construction, so this rubric fails a response many careful lawyers would prefer.
 - Source: [Parkway Towers, 295 So. 2d 295 (CourtListener)](https://www.courtlistener.com/opinion/1934327/parkway-towers-con-assn-v-metropolitan-dade-cty/).
