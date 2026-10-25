@@ -2,9 +2,9 @@
 
 Pinned source: `micro1-inc/LegalReasonBench` revision `1bfa904c8f255925baf2610c0f86aa7c05d94ed9`.
 
-Only explicitly mapped native Harbor outputs are included. Responses and raw verifier files are copied unchanged. Missing or incomplete panels are not model failures.
+Only explicitly mapped native Harbor outputs are included. Responses and raw verifier files are copied unchanged. Missing or incomplete panels are not model failures. Complete refers to the grade panel; native agent exit diagnostics are disclosed on the individual run pages.
 
-Answers: **2**; complete panels: **2**; partial/incomplete: **0**; missing: **20**.
+Answers: **4**; complete panels: **4**; partial/incomplete: **0**; missing: **18**.
 
 | Assignment | Criteria | GPT-6 Luna (xhigh) | Claude Opus 5.5 (low) |
 |---|---:|---|---|
@@ -17,5 +17,5 @@ Answers: **2**; complete panels: **2**; partial/incomplete: **0**; missing: **20
 | lrb-dcca-challenge-police-discipline-assignment-5 | 8 | missing assignment | missing assignment |
 | lrb-vicar-trial-jury-instructions-assignment-1 | 25 | missing assignment | missing assignment |
 | lrb-vicar-trial-jury-instructions-assignment-2 | 10 | missing assignment | missing assignment |
-| lrb-forum-non-conveniens-response-assignment-1 | 29 | [complete](lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) | missing assignment |
-| lrb-forum-non-conveniens-response-assignment-2 | 24 | [complete](lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) | missing assignment |
+| lrb-forum-non-conveniens-response-assignment-1 | 29 | [complete](lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) | [complete](lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md) |
+| lrb-forum-non-conveniens-response-assignment-2 | 24 | [complete](lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) | [complete](lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) |

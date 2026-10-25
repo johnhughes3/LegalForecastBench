@@ -814,7 +814,8 @@ def import_runs(
         "",
         "Only explicitly mapped native Harbor outputs are included. Responses and raw "
         "verifier files are copied unchanged. Missing or incomplete panels are not "
-        "model failures.",
+        "model failures. Complete refers to the grade panel; native agent exit "
+        "diagnostics are disclosed on the individual run pages.",
         "",
         f"Answers: **{counts['answers']}**; complete panels: **{counts['complete']}**; "
         f"partial/incomplete: **{counts['partial']}**; "

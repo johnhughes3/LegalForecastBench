@@ -1136,6 +1136,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response notes that Dr. Smith's affidavit does not explain a specific travel or scheduling burden (citing Guerine), but it fails to identify that Dr. Smith's affidavit does not state/indicate that Cook County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (2006).
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `5`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly identifies that Dr. Smith’s affidavit states only that DuPage County would be “substantially more convenient,” rather than stating that Cook County is inconvenient. It explains that this comparative assertion is insufficient under Langenhorst, which requires defendants to show the plaintiff’s chosen forum is inconvenient to them, and specifically notes Langenhorst’s rejection of a motion where no affidavit stated that the chosen forum was inconvenient.
+- `anthropic/claude-sonnet-5`: value `1.0` — The memo explicitly, in Section IV.B (Weakness #1 under 'Convenience of the Parties'), states that Dr. Smith's affidavit says only that DuPage would be 'substantially more convenient'—a comparative statement—and that it 'identifies no concrete burden from a Cook County trial' and 'is comparative,' explicitly citing Langenhorst's requirement that 'no affidavits have been filed stating that St. Clair County would be an inconvenient forum.' This directly identifies that Dr. John Smith's affidavit fails to show Cook County would be inconvenient for him, as required by Langenhorst v. Norfolk S. Ry. Co.
+- `gemini/gemini-3.8-flash`: value `1.0` — In Section IV.B (and reiterated in Sections IV.I and V), the response expressly identifies that Dr. Smith's affidavit fails to state or show that Cook County is an inconvenient forum for him to litigate the case (noting his affidavit only asserts DuPage would be comparatively 'substantially more convenient' without asserting any actual inconvenience), and grounds this requirement directly in Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -1242,6 +1250,14 @@ Authorities the model cited:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that Cook County lacks an interest in adjudicating the controversy. Instead, it repeatedly emphasizes and argues that Cook County has a legitimate local interest because the infant was treated, deteriorated, and died in Cook County, relying on Bradbury to refute the defendants' argument that Cook County lacks interest.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not state that Cook County lacks an interest in adjudicating the controversy. It recounts Defendants' argument that DuPage has a strong local interest, but expressly rejects the premise that Cook County lacks a connection, arguing that Cook County has an interest because the decedent died there, received substantial treatment there, and Cook County providers and institutions are involved.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion asks whether the response, in discussing Assignment #1 (Local Interest, Section F), mentions that Cook County lacks interest in adjudicating a controversy over care rendered by DuPage-based providers. In Section F, the response actually argues the opposite: it argues that Cook County DOES have interest (death occurred there, Cook County physicians provided treatment there, etc.) and that Defendants' distinction attempting to claim Cook lacks interest 'fails.' The response rebuts the failure rather than committing it itself - it is critiquing Defendants' motion for making that argument, not adopting it as the author's own analysis. The author's own position is that Cook County does have an interest. Thus the response does not commit the failure described; it addresses and refutes it rather than asserting it as a conclusion of the memo's own analysis.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state or argue that Cook County lacks an interest in adjudicating the controversy. Instead, it explicitly argues that Cook County has a legitimate and shared interest under Bradbury because the decedent died there, spent the majority of his life receiving treatment there, and the county has an interest in its treating institutions.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -1337,6 +1353,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it does not state that the response is supported by an affidavit of Liam Vance (in fact, it notes that the record does not set out each physician's role, expected testimony, or participation).
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response identifies Exhibit 2 as the “Affidavit of Liam Vance, M.D.” and states that Dr. Liam Vance is one of five Cook County treating physicians who treated Baby Davis at Cook County Hospital from August 28 to September 16, 2024. The common affidavit form further states that each affiant treated Baby Davis at Cook County Hospital.
+- `anthropic/claude-sonnet-5`: value `1.0` — The document lists Dr. Liam Vance among the five Cook County treating physicians who provided care to Baby Davis at Cook County Hospital (Section II.C.9), and includes Exhibit 2 as the 'Affidavit of Liam Vance, M.D.' which is cited throughout the response (e.g., Exs. 2–6) to support factual assertions about treatment, causation, and inconvenience arguments. This satisfies the criterion that the response states it is supported by the affidavit of Liam Vance, a physician who treated Baby Davis at Cook County Hospital.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response clearly states that it is supported by the affidavit of Dr. Liam Vance (attached as Exhibit 2), identifying him as one of the physicians who provided medical care and treatment to Baby Davis at Cook County Hospital.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1448,6 +1472,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that it is supported by an affidavit of the plaintiff, Sara Davis; in fact, it repeatedly notes that there is no affidavit or evidence in the record establishing Sara Davis's residence or convenience.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (2/3). **Contribution:** `5`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly identifies Exhibit 1 as the “Affidavit of Sara Davis” and repeatedly states that Plaintiff’s relevant assertions are supported by “Ex. 1,” including her residence, forum choice, convenience, the transfer, and Baby Davis’s treatment and death. It also includes the full affidavit of Sara Davis as Exhibit 1.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document contains no reference to an 'Assignment #2' or any assignment numbering scheme. While it does reference the affidavit of Sara Davis (Exhibit 1) as support for various factual statements, there is no statement explicitly tied to an 'Assignment #2' indicating that response is supported by her affidavit. The criterion requires such a specific statement, which is absent.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly states that it is supported by the affidavits attached as exhibits (with Exhibit 1 being the Affidavit of Sara Davis), cites her sworn affidavit throughout the facts and argument sections, and includes the full text of her supporting affidavit.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1572,6 +1604,14 @@ Evidence the model quoted (check against the source):
 - `gemini/gemini-3.8-flash`: value `1.0` — Under the 'Court congestion' heading in Section IV, the response explicitly states that according to the 2023 report (referencing the 2023 Annual Report Statistical Summary), 'the all-case clearance rate was 60.5% for Cook County', thereby committing the specified failure.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** **PENALTY TRIGGERED** (3/3). **Contribution:** `-30`.
+- `openai/gpt-5.6-terra`: value `1.0` — In Assignment #2, the response expressly states that defendants compare "clearance rates for all case types: 60.5% for Cook" and cites the 2023 Annual Report Statistical Summary. Thus, it states that the report reflects a 60.5% Cook County clearance rate.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response explicitly states: 'Defendants compare clearance rates for all case types: 60.5% for Cook and 99.0% for the 18th Circuit. (Defendants Motion to Transfer.pdf, p.5, §V.C; 2023 Annual Report Statistical Summary.pdf, p.21.)' This directly asserts that the 2023 Annual Report Statistical Summary reports a 60.5% clearance rate in Cook County, matching the described failure criterion.
+- `gemini/gemini-3.8-flash`: value `1.0` — In Section IV.C.3.c of Assignment #2, the response cites the 2023 Annual Report Statistical Summary (p. 21) for the proposition that the clearance rate for all case types in Cook County was 60.5% ('Defendants compare clearance rates for all case types: 60.5% for Cook and 99.0% for the 18th Circuit. (Defendants Motion to Transfer.pdf, p.5, §V.C; 2023 Annual Report Statistical Summary.pdf, p.21.)'). Therefore, the response commits the specified failure.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1667,6 +1707,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response mentions Caleb Montgomery as one of five Cook County physicians with whom counsel has spoken, but it does not state that the response is supported by an affidavit of Caleb Montgomery.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly identifies Exhibit 4 as the “Affidavit of Caleb Montgomery, M.D.” and states that Dr. Caleb Montgomery is one of five physicians who treated Baby Davis at Cook County Hospital. It relies on Exhibits 2–6, including Montgomery’s affidavit, to support the response’s factual assertions regarding Baby Davis’s Cook County treatment, injuries, deterioration, suffering, and death.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response lists Dr. Caleb Montgomery as one of the five Cook County Hospital treating physicians (Section II.C.9) and includes Exhibit 4, the 'Affidavit of Caleb Montgomery, M.D.,' as supporting evidence cited throughout the brief (e.g., 'Exs. 2–6' citations for treating physician testimony, records, and willingness to testify). The affidavit template identifies him as practicing at Cook County Hospital and treating Baby Davis there. This satisfies the criterion that the response is supported by an affidavit of Caleb Montgomery, a physician who cared for Baby Davis at Cook County Hospital.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly states in Section II.C (paragraph 9), Section IV.B.3.c, the Exhibit List, and the supporting affidavits that it is supported by the affidavit of Dr. Caleb Montgomery, a physician who provided care to Baby Davis at Cook County Hospital.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1762,6 +1810,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response does not include Assignment #2 (or an affidavit/discussion thereof) identifying that an affidavit by Liam Vance indicates DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response identifies Liam Vance as a Cook County treating physician and states that his affidavit says a trial in DuPage County would take him away from patient-care obligations longer and would be more burdensome than trial in Cook County. It also expressly ties this evidence to Langenhorst’s treatment of affidavits establishing forum inconvenience.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response includes Exhibit 2, the Affidavit of Liam Vance, M.D., which in paragraph 8 explicitly states that 'A trial in DuPage County would be more inconvenient and burdensome for me than a trial in Cook County.' The brief's argument section (Part IV.B.1 and IV.B.3.c) also references this point, noting that each of the five Cook County treating physicians' affidavits (Exs. 2-6, which include Vance) state that a trial in DuPage would be more burdensome than in Cook County, and ties this to the Langenhorst requirement that affidavits must speak to inconvenience of the forum. Thus the criterion is satisfied.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response identifies and provides the affidavit of Dr. Liam Vance (Exhibit 2), which expressly states that a trial in DuPage County would be more inconvenient and burdensome for him, and cites this evidence in the brief alongside Langenhorst v. Norfolk S. Ry. Co. regarding the convenience of treating physician witnesses.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1857,6 +1913,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response does not include Assignment #2, nor does it identify or discuss an affidavit by Caleb Montgomery stating that DuPage County would be an inconvenient forum for him to litigate the case under Langenhorst v. Norfolk S. Ry. Co.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — Assignment #2 is Exhibit 4, the affidavit of Caleb Montgomery, M.D. The response states that each physician affidavit, including Exhibit 4, uses the supplied form, whose paragraph 8 says that a trial in DuPage County would be “more inconvenient and burdensome” than a Cook County trial. This identifies Caleb Montgomery’s affidavit as showing that DuPage County would be inconvenient for him, consistent with the Langenhorst requirement.
+- `anthropic/claude-sonnet-5`: value `1.0` — Exhibit 4 (Affidavit of Caleb Montgomery, M.D.) follows the template provided for Exhibits 2-6, which in paragraph 8 explicitly states that 'A trial in DuPage County would be more inconvenient and burdensome for me than a trial in Cook County,' and that testifying in Cook County would take him away from patient-care obligations for less time than DuPage County. This directly supports the argument under Langenhorst that DuPage County would be an inconvenient forum for this witness, which the response uses to argue against transfer.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response includes an affidavit for Dr. Caleb Montgomery (Exhibit 4) stating that traveling to testify in DuPage County would take him away from patient-care obligations longer and would be more inconvenient and burdensome than Cook County, and links this witness convenience analysis to Langenhorst in the argument section.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1952,6 +2016,14 @@ Rulings on the blind findings above:
 - `gemini/gemini-3.8-flash`: value `0.0` — The response mentions Maya Linwood as one of five Cook County physicians, but it does not identify or state that an affidavit by Maya Linwood indicates that DuPage County would be an inconvenient forum for her to litigate this case under Langenhorst. In fact, it expressly asserts that the record does not set out her willingness to appear or scheduling burden.
 
 Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — Assignment #2 identifies Dr. Maya Linwood as Exhibit 5 and states that each treating-physician affidavit uses the supplied form. Paragraph 8 of that form expressly says that trial in DuPage County would be “more inconvenient and burdensome” than trial in Cook County due to the physician's Cook County patient-care, call, and clinical obligations. The response also invokes Langenhorst in discussing forum inconvenience.
+- `anthropic/claude-sonnet-5`: value `1.0` — Exhibit 5, the affidavit of Maya Linwood, M.D., follows the template used for all treating-physician affidavits and explicitly states in paragraph 8 that 'A trial in DuPage County would be more inconvenient and burdensome for me than a trial in Cook County,' directly supporting the Langenhorst-based argument that DuPage would be an inconvenient forum for her to litigate the case.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response includes an affidavit for Dr. Maya Linwood (Exhibit 5, through the common treating physician affidavit form at Exhibits 2–6) specifically stating that a trial in DuPage County would be more inconvenient and burdensome than Cook County, and links these treating physician affidavits directly to the legal requirements and principles established in Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
